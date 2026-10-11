@@ -1,0 +1,169 @@
+package com.customcosmetics.distribution;
+
+import net.fabricmc.api.EnvType;
+import net.fabricmc.loader.impl.launch.knot.Knot;
+
+/** Separate-process Fabric/Mixin linkage check. Does not launch a world or initialize graphics. */
+public final class ClientLoadProbe {
+    public static void main(String[] args) throws Exception {
+        var loader = new Knot(EnvType.CLIENT).init(new String[] {"--version", System.getProperty("fabric.gameVersion"),
+            "--gameDir", System.getProperty("customcosmetics.probeDir"), "--accessToken", "0"});
+        String firstPersonRenderer = System.getProperty("fabric.gameVersion").startsWith("26.3")
+            ? "net.minecraft.client.renderer.FirstPersonHandsAndItemsRenderer" : "net.minecraft.client.renderer.ItemInHandRenderer";
+        for (String type : new String[] {
+            "net.minecraft.client.Minecraft", firstPersonRenderer,
+            "net.minecraft.client.model.player.PlayerModel", "net.minecraft.client.gui.components.AbstractWidget",
+            "net.minecraft.world.entity.LivingEntity",
+            "com.customcosmetics.update.UpdateChecker", "com.customcosmetics.update.GitHubUpdateCheck",
+            "com.customcosmetics.gui.RepositoryButton", "com.customcosmetics.gui.CosmeticsScreen",
+            "com.customcosmetics.gui.BlockingItemsScreen", "com.customcosmetics.gui.BlockingModeDropdown", "com.customcosmetics.gui.BlockingStyleDropdown",
+            "com.customcosmetics.features.blocking.SwordItems", "com.customcosmetics.features.blocking.SwordBlocking",
+            "com.customcosmetics.features.blocking.VisualBlockhit",
+            "com.customcosmetics.sync.BlockingSync", "com.customcosmetics.sync.WebSocketPresenceClient",
+            "com.customcosmetics.config.RemoteServerConfig", "com.customcosmetics.config.NicknameLimit",
+            "net.minecraft.client.renderer.entity.layers.ItemInHandLayer",
+            "com.customcosmetics.features.animations.PresenceWorld", "com.customcosmetics.features.animations.ViewModelAnimations"
+        }) {
+            var loaded = Class.forName(type, false, loader);
+            loaded.getDeclaredMethods();
+            if (type.equals("net.minecraft.world.entity.LivingEntity")) for (String hook : new String[]{"observeSwing", "advanceSwing"})
+                if (java.util.Arrays.stream(loaded.getDeclaredMethods()).noneMatch(method -> method.getName().contains("customcosmetics$" + hook)))
+                    throw new AssertionError("Visual swing observer was not applied: " + hook);
+            if (type.equals(firstPersonRenderer) ||
+                    type.equals("net.minecraft.client.model.player.PlayerModel")) {
+                if (java.util.Arrays.stream(loaded.getDeclaredMethods())
+                        .noneMatch(method -> method.getName().contains("customcosmetics$blockPose")))
+                    throw new AssertionError("Blocking Mixin not applied to " + type);
+            }
+        }
+        checkTransformedBlockingCalls(loader, firstPersonRenderer);
+        checkHandheldDisplayBasis(loader);
+        for (String type : new String[] {"features/blocking/SwordBlocking", "features/blocking/SwordItems", "features/blocking/BlockingPose",
+            "features/blocking/VisualBlockhit", "features/blocking/BlockingItems",
+            "gui/BlockingItemsScreen", "gui/BlockingItemsScreen$WeaponChoice", "gui/BlockingModeDropdown", "gui/BlockingStyleDropdown",
+            "sync/BlockingSync", "gui/RepositoryButton", "mixin/SwordBlockingMixin", "mixin/SwordBlockingMixin$FirstPerson",
+            "mixin/SwordBlockingMixin$FirstPersonModern", "compatibility/BlockingRenderAccess",
+            "mixin/SwordBlockingMixin$ThirdPerson", "mixin/SwordBlockingMixin$ThirdPersonItem",
+            "features/animations/PresenceWorld", "features/animations/ViewModelAnimations",
+            "update/UpdateChecker", "update/GitHubUpdateCheck"}) checkGameReferences(loader, "com/customcosmetics/" + type);
+        Class.forName("com.customcosmetics.compatibility.RepositoryLinks", true, loader);
+        Class.forName("com.customcosmetics.compatibility.SwingAccess", true, loader)
+            .getMethod("validate", Class.class).invoke(null, Class.forName("net.minecraft.client.player.LocalPlayer", false, loader));
+        Class.forName("com.customcosmetics.compatibility.SwingAccess", true, loader)
+            .getMethod("validateItem", Class.class).invoke(null, Class.forName("net.minecraft.world.item.ItemStack", false, loader));
+        if (System.getProperty("fabric.gameVersion").startsWith("26.3")) {
+            Class.forName("net.minecraft.client.player.FirstPersonHandsAndItems", false, loader).getDeclaredMethods();
+            checkGameReferences(loader, "com/customcosmetics/mixin/SwordBlockingMixin$ModernEquipment");
+            var playerState = Class.forName("net.minecraft.client.renderer.state.level.PlayerRenderState", false, loader);
+            if (!playerState.getField("avatarRenderState").getType().getName().endsWith("AvatarRenderState"))
+                throw new AssertionError("Invalid avatar snapshot field");
+            var hands = Class.forName("net.minecraft.client.renderer.state.level.FirstPersonHandsAndItemsRenderState", false, loader);
+            for (String field : new String[] {"mainHandRenderState", "offHandRenderState"})
+                if (!hands.getField(field).getType().getName().endsWith("ItemStackRenderState"))
+                    throw new AssertionError("Invalid item snapshot field " + field);
+        }
+        System.out.println("CLIENT_LOAD_PROBE_OK " + System.getProperty("fabric.gameVersion"));
+    }
+
+    private static void checkHandheldDisplayBasis(ClassLoader loader) throws Exception {
+        try (var input = loader.getResourceAsStream("assets/minecraft/models/item/handheld.json")) {
+            if (input == null) throw new AssertionError("Missing native handheld model");
+            var model = com.google.gson.JsonParser.parseReader(new java.io.InputStreamReader(input, java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+            var display = model.getAsJsonObject("display");
+            for (int side : new int[] {1, -1}) {
+                var hand = display.getAsJsonObject(side > 0 ? "firstperson_righthand" : "firstperson_lefthand");
+                float[][] expected = {{0, -90f * side, 25f * side}, {1.13f, 3.2f, 1.13f}, {.68f, .68f, .68f}};
+                String[] keys = {"rotation", "translation", "scale"};
+                for (int group = 0; group < keys.length; group++) {
+                    var values = hand.getAsJsonArray(keys[group]);
+                    for (int axis = 0; axis < 3; axis++)
+                        if (Math.abs(values.get(axis).getAsFloat() - expected[group][axis]) > .00001f)
+                            throw new AssertionError("Native handheld display changed: " + keys[group]);
+                }
+            }
+        }
+        System.out.println("HANDHELD_BASIS_OK " + System.getProperty("fabric.gameVersion"));
+    }
+
+    /** Resolve the calls that actually remain after Mixin injection, then run the pose helper. */
+    private static void checkTransformedBlockingCalls(ClassLoader loader, String renderer) throws Exception {
+        var output = java.nio.file.Path.of(".mixin.out", "class", renderer.replace('.', '/') + ".class");
+        if (!java.nio.file.Files.isRegularFile(output)) throw new AssertionError("Missing transformed renderer " + output);
+        var model = java.lang.classfile.ClassFile.of().parse(java.nio.file.Files.readAllBytes(output));
+        int poses = 0;
+        for (var method : model.methods()) {
+            if (!method.methodName().stringValue().contains("customcosmetics$blockPose")) continue;
+            for (var instruction : method.code().orElseThrow().elementStream().toList()) {
+                if (instruction instanceof java.lang.classfile.instruction.InvokeInstruction call &&
+                        call.owner().name().stringValue().startsWith("com/customcosmetics/")) {
+                    // A helper left in the configured Mixin package fails here under the real Fabric loader.
+                    var owner = Class.forName(call.owner().name().stringValue().replace('/', '.'), false, loader);
+                    var signature = java.lang.invoke.MethodType.fromMethodDescriptorString(call.type().stringValue(), loader);
+                    if (!hasMethod(owner, call.name().stringValue(), signature))
+                        throw new AssertionError("Invalid injected helper " + call);
+                    if (call.owner().name().stringValue().equals("com/customcosmetics/features/blocking/BlockingPose")
+                            && call.name().stringValue().equals("apply")) {
+                        var transform = owner.getDeclaredMethod(call.name().stringValue(), signature.parameterArray());
+                        var setting = Class.forName("com.customcosmetics.config.ConfigManager", true, loader).getField("swordBlockingStyle");
+                        var original = setting.get(null);
+                        try {
+                            for (String style : new String[]{"default", "jigsaw"}) {
+                                setting.set(null, style);
+                                for (int side : new int[]{-1, 1}) for (float phase : new float[]{0, .25f, .8f, 1}) {
+                                    var stack = signature.parameterType(0).getDeclaredConstructor().newInstance();
+                                    transform.invoke(null, stack, side, phase, 0f);
+                                }
+                            }
+                        } finally { setting.set(null, original); }
+                        poses++;
+                    }
+                }
+            }
+        }
+        if (poses == 0) throw new AssertionError("No blocking pose helper was executed");
+        System.out.println("TRANSFORMED_BLOCKING_POSE_OK " + System.getProperty("fabric.gameVersion"));
+    }
+
+    private static void checkGameReferences(ClassLoader loader, String type) throws Exception {
+        try (var stream = loader.getResourceAsStream(type + ".class")) {
+            if (stream == null) throw new AssertionError("Missing probe input " + type);
+            var model = java.lang.classfile.ClassFile.of().parse(stream.readAllBytes());
+            for (var method : model.methods()) {
+                for (var instruction : method.code().map(code -> code.elementStream().toList()).orElse(java.util.List.of())) {
+                    if (instruction instanceof java.lang.classfile.instruction.InvokeInstruction call &&
+                        (call.owner().name().stringValue().startsWith("net/minecraft/") ||
+                         call.owner().name().stringValue().startsWith("com/mojang/blaze3d/"))) {
+                        String name = call.name().stringValue();
+                        Class<?> owner = Class.forName(call.owner().name().stringValue().replace('/', '.'), false, loader);
+                        var signature = java.lang.invoke.MethodType.fromMethodDescriptorString(call.type().stringValue(), loader);
+                        if (name.equals("<init>")) owner.getDeclaredConstructor(signature.parameterArray());
+                        else if (!hasMethod(owner, name, signature)) throw new AssertionError("Missing game method " + call);
+                    }
+                    if (instruction instanceof java.lang.classfile.instruction.FieldInstruction field &&
+                        field.owner().name().stringValue().startsWith("net/minecraft/")) {
+                        Class<?> owner = Class.forName(field.owner().name().stringValue().replace('/', '.'), false, loader);
+                        if (!hasField(owner, field.name().stringValue(), field.type().stringValue()))
+                            throw new AssertionError("Missing game field " + field);
+                    }
+                }
+            }
+        }
+    }
+
+    private static boolean hasMethod(Class<?> type, String name, java.lang.invoke.MethodType signature) {
+        if (type == null) return false;
+        for (var method : type.getDeclaredMethods())
+            if (method.getName().equals(name) && method.getReturnType().equals(signature.returnType()) &&
+                java.util.Arrays.equals(method.getParameterTypes(), signature.parameterArray())) return true;
+        if (hasMethod(type.getSuperclass(), name, signature)) return true;
+        return java.util.Arrays.stream(type.getInterfaces()).anyMatch(iface -> hasMethod(iface, name, signature));
+    }
+
+    private static boolean hasField(Class<?> type, String name, String descriptor) {
+        if (type == null) return false;
+        for (var field : type.getDeclaredFields())
+            if (field.getName().equals(name) && field.getType().descriptorString().equals(descriptor)) return true;
+        return hasField(type.getSuperclass(), name, descriptor) || java.util.Arrays.stream(type.getInterfaces())
+            .anyMatch(iface -> hasField(iface, name, descriptor));
+    }
+}

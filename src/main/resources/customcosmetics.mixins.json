@@ -1,0 +1,26 @@
+{
+  "required": true,
+  "package": "com.customcosmetics.mixin",
+  "plugin": "com.customcosmetics.mixin.CosmeticsMixinPlugin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "SwingAnimationMixin$Legacy",
+    "SwingAnimationMixin$Modern",
+    "SwordBlockingMixin$FirstPerson",
+    "SwordBlockingMixin$FirstPersonModern",
+    "SwordBlockingMixin$ModernEquipment",
+    "SwordBlockingMixin$ThirdPersonItem",
+    "SwordBlockingMixin$ThirdPerson",
+    "SmolPeopleMixin$SmolNameTagMixin",
+    "SmolPeopleMixin$SmolPlayerEntityRendererMixin",
+    "SmolPeopleMixin$SmolPlayerRendererMixin",
+    "SmolPeopleMixin$SmolCameraMixin",
+    "NickTweaksMixin$FontMixin",
+    "NickTweaksMixin$ScreenGuiTextScopeMixin",
+    "ModMenuNickTweaksMixin$ModMenuScreenMixin",
+    "NametagMixin$IdentityMixin",
+    "NametagMixin$EntityMixin",
+    "NametagMixin$TextMixin"
+  ],
+  "injectors": { "defaultRequire": 1 }
+}

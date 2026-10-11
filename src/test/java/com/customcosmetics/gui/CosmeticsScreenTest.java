@@ -1,0 +1,130 @@
+package com.customcosmetics.gui;
+
+import java.io.IOException;
+import java.lang.classfile.ClassFile;
+import java.lang.classfile.ClassModel;
+import java.lang.classfile.CodeElement;
+import java.lang.classfile.MethodModel;
+import java.lang.classfile.instruction.ConstantInstruction;
+import java.lang.classfile.instruction.FieldInstruction;
+import java.lang.classfile.instruction.InvokeInstruction;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
+
+/** Inspect the compiled screen without starting Minecraft or creating a graphics context. */
+class CosmeticsScreenTest {
+    private static final String SCREEN = "com/customcosmetics/gui/CosmeticsScreen";
+    @Test void sidebarHeaderUsesTwoPinkLinesAndSmolPreviewUsesTheSamePink() throws Exception {
+        var screen = read(SCREEN);
+        var render = code(screen, "extractRenderState").stream().filter(ConstantInstruction.class::isInstance)
+            .map(ConstantInstruction.class::cast).map(ConstantInstruction::constantValue).toList();
+        assertTrue(render.containsAll(List.of("Custom", "Cosmetics"))); assertFalse(render.contains("CustomCosmetics"));
+        assertTrue(render.stream().filter(Integer.valueOf(PinkUi.PINK)::equals).count() >= 2);
+        assertTrue(code(screen,"smol").stream().filter(ConstantInstruction.class::isInstance)
+            .map(ConstantInstruction.class::cast).anyMatch(value -> Integer.valueOf(PinkUi.PINK).equals(value.constantValue())));
+    }
+
+    @Test
+    void syncPageKeepsSyncControlsAndHasNoConnectionEditor() throws Exception {
+        var screen = read(SCREEN);
+        var strings = code(screen, "sync").stream()
+            .filter(ConstantInstruction.class::isInstance).map(ConstantInstruction.class::cast)
+            .map(ConstantInstruction::constantValue).filter(String.class::isInstance)
+            .map(String.class::cast).collect(Collectors.toSet());
+        assertTrue(strings.containsAll(Set.of("Automatic Sync", "Refresh Interval (seconds)", "Notifications", "Sync Now")));
+        assertTrue(strings.containsAll(Set.of("DEV","If you don't know what these settings do, leave them blank.","Proxy Host","Proxy Port","Proxy Auth","Fallback Direct")));
+        assertTrue(strings.stream().noneMatch(Set.of("Server Address", "Server Port", "Use HTTPS", "Save Address")::contains));
+        // All GUI actions must leave the saved connection fields alone, including Sync Now.
+        assertTrue(screen.methods().stream().flatMap(method -> instructions(method).stream())
+            .filter(FieldInstruction.class::isInstance).map(FieldInstruction.class::cast)
+            .noneMatch(field -> field.owner().name().stringValue().equals("com/customcosmetics/config/ConfigManager")
+                && Set.of("syncServerIp", "syncServerPort", "syncServerHttps").contains(field.name().stringValue())));
+    }
+    @Test void nicknameOptionsUseCapitalizedLabelsAndBothFeaturesHaveCredit() throws Exception {
+        var screen = read(SCREEN);
+        for (String method : List.of("nickname","colors","chroma")) {
+            var labels = code(screen,method).stream().filter(ConstantInstruction.class::isInstance).map(ConstantInstruction.class::cast)
+                .map(ConstantInstruction::constantValue).filter(String.class::isInstance).map(String.class::cast).toList();
+            for (String lowercase : List.of("nick changer","bold self nick","custom nick color","gradient editor","lightness","size","speed"))
+                assertFalse(labels.contains(lowercase),lowercase);
+        }
+        assertTrue(screen.methods().stream().flatMap(method -> instructions(method).stream()).filter(ConstantInstruction.class::isInstance).map(ConstantInstruction.class::cast)
+            .anyMatch(value -> "Thanks to Baity / raueyhs.".equals(value.constantValue())));
+    }
+
+    @Test
+    void friendsHasNoPageControlConfigurationOrDistributedClasses() throws Exception {
+        var screen = read(SCREEN);
+        assertFalse(pageReferences(code(screen, "init")).contains("FRIENDS"));
+        assertTrue(pageReferences(code(screen, "init")).containsAll(Set.of("SMOL", "NICK", "SYNC")));
+        assertTrue(code(screen, "smol").stream().filter(ConstantInstruction.class::isInstance)
+            .map(ConstantInstruction.class::cast).noneMatch(value -> Set.of("Friends", "Manage Friends").contains(value.constantValue())));
+        assertTrue(screen.methods().stream().noneMatch(method -> method.methodName().stringValue().equals("friends")));
+        assertTrue(java.util.Arrays.stream(com.customcosmetics.config.ConfigManager.class.getFields())
+            .noneMatch(field -> field.getName().toLowerCase().contains("friend")));
+        try (var jar = new java.util.jar.JarFile(System.getProperty("customcosmetics.binaryJar"))) {
+            assertTrue(jar.stream().noneMatch(entry -> entry.getName().contains("SmolFriend")));
+            assertNotNull(jar.getEntry("com/customcosmetics/features/smolpeople/SmolPlayers.class"));
+        }
+    }
+
+    @Test
+    void syncResultsCannotDisplayATitle() throws Exception {
+        for (String type : List.of("sync/PresenceSync", "utils/MessageUtils", "compatibility/ClientUiAccess")) {
+            var compiled = read("com/customcosmetics/" + type);
+            assertTrue(compiled.methods().stream().flatMap(method -> instructions(method).stream())
+                .filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast)
+                .noneMatch(call -> Set.of("showTitle", "setTitle", "setSubtitle", "setTimes").contains(call.name().stringValue())));
+        }
+    }
+
+    @Test
+    void animationsAndRepositoryLinkRemainInTheSidebar() throws Exception {
+        var screen = read(SCREEN);
+        assertTrue(pageReferences(code(screen, "init")).contains("ANIMATIONS"));
+        assertTrue(code(screen, "init").stream().filter(InvokeInstruction.class::isInstance)
+            .map(InvokeInstruction.class::cast).anyMatch(call -> call.owner().name().stringValue()
+                .equals("com/customcosmetics/gui/RepositoryButton") && call.name().stringValue().equals("<init>")));
+        var strings = code(screen, "animations").stream().filter(ConstantInstruction.class::isInstance)
+            .map(ConstantInstruction.class::cast).map(ConstantInstruction::constantValue).toList();
+        assertFalse(strings.contains("Sync Range"));
+        assertTrue(code(screen, "animations").stream().filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast)
+            .anyMatch(call -> call.owner().name().stringValue().equals("com/customcosmetics/gui/BlockingStyleDropdown")));
+        assertTrue(strings.containsAll(List.of("Sword Blocking", "Apply Lists to Other Players", "Share Blocking", "Item Scale",
+            "Position X", "Position Y", "Position Z", "Rotation X", "Rotation Y", "Rotation Z",
+            "Swing X", "Swing Y", "Swing Z", "Disable Hand Movement", "Disable Equip Animation",
+            "Disable Swing Animation", "Terminator Only", "Swing Speed", "Ignore Haste")));
+        var button = read("com/customcosmetics/gui/RepositoryButton");
+        assertTrue(code(button, "<clinit>").stream().filter(ConstantInstruction.class::isInstance)
+            .map(ConstantInstruction.class::cast).anyMatch(value ->
+                "https://github.com/WorksByAI/CustomCosmetics".equals(value.constantValue())));
+        assertTrue(button.methods().stream().flatMap(method -> instructions(method).stream())
+            .filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast)
+            .anyMatch(call -> call.name().stringValue().equals("openUri")));
+    }
+
+    private static Set<String> pageReferences(List<CodeElement> instructions) {
+        return instructions.stream().filter(FieldInstruction.class::isInstance).map(FieldInstruction.class::cast)
+            .filter(field -> field.owner().name().stringValue().equals(SCREEN + "$Page"))
+            .map(field -> field.name().stringValue()).collect(Collectors.toSet());
+    }
+
+    private static List<CodeElement> code(ClassModel model, String method) {
+        return instructions(model.methods().stream().filter(value -> value.methodName().stringValue().equals(method))
+            .findFirst().orElseThrow());
+    }
+
+    private static List<CodeElement> instructions(MethodModel method) {
+        return method.code().map(code -> code.elementStream().toList()).orElse(List.of());
+    }
+
+    private static ClassModel read(String name) throws IOException {
+        try (var input = CosmeticsScreenTest.class.getClassLoader().getResourceAsStream(name + ".class")) {
+            assertNotNull(input);
+            return ClassFile.of().parse(input.readAllBytes());
+        }
+    }
+}

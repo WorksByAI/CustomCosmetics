@@ -1,0 +1,166 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+package com.customcosmetics.gametest;
+
+import com.customcosmetics.compatibility.*;
+import com.customcosmetics.config.*;
+import com.customcosmetics.gui.*;
+import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
+import net.minecraft.client.gui.components.AbstractWidget;
+import com.google.gson.JsonParser;
+import java.nio.file.*;
+import java.util.concurrent.atomic.AtomicReference;
+
+/** Click the compact controls and inspect saved files in the isolated test instance. */
+final class SettingsGuiGameTest {
+    static void check(ClientGameTestContext context) throws Exception {
+        context.runOnClient(client -> {
+            ConfigManager.syncEnabled = false;
+            var overrides = CosmeticsConfigDir.getCosmeticsConfigDir().resolve("customremoteserver.json");
+            Files.deleteIfExists(overrides);
+            RemoteServerConfig.init(overrides);
+            client.options.guiScale().set(2);
+        });
+        context.getInput().resizeWindow(1600,1000); context.waitTicks(3);
+        var oldNickname = new AtomicReference<String>(); var oldNickEnabled = new AtomicReference<Boolean>();
+        context.runOnClient(client -> {
+            oldNickname.set(ConfigManager.nickTweaksNickChanger); oldNickEnabled.set(ConfigManager.nickTweaksEnabled);
+            ConfigManager.nickTweaksEnabled = true; ConfigManager.nickTweaksNickChanger = "LongNicknamePreviewABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            ConfigManager.smolpeopleMode = true;
+        });
+        context.runOnClient(client -> ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SMOL)));
+        context.waitTicks(3);
+        context.runOnClient(client -> {
+            if ((Integer)read(ClientUiAccess.screen(client),"panelWidth") != 740) throw new AssertionError("Preview panel was not widened");
+            for (var child : ClientUiAccess.screen(client).children())
+                if (child instanceof AbstractWidget widget && widget.getMessage().getString().contains("Friends"))
+                    throw new AssertionError("Removed Friends control is still visible");
+        });
+        context.getInput().setCursorPos(970,150); context.waitTicks(3);
+        context.takeScreenshot("smol-preview-wide-pink-full-name-front");
+        context.getInput().setCursorPos(1580,990); context.waitTicks(3);
+        context.takeScreenshot("smol-preview-wide-pink-full-name-turned");
+        context.getInput().resizeWindow(854,480); context.waitTicks(3);
+        context.takeScreenshot("smol-preview-narrow-full-name");
+        context.getInput().resizeWindow(1600,1000); context.waitTicks(3);
+        bottom(context); context.takeScreenshot("smol-credit");
+        context.runOnClient(client -> {
+            ConfigManager.nickTweaksNickChanger = oldNickname.get(); ConfigManager.nickTweaksEnabled = oldNickEnabled.get();
+            ConfigManager.smolpeopleMode = false;
+        });
+        click(context,"NickTweaks",PinkUi.Action.class);
+        String longNickname = "&d" + "Cherry".repeat(10);
+        type(context,"Nick Changer",longNickname);
+        context.runOnClient(client -> {
+            if (!ConfigManager.nickTweaksNickChanger.equals(longNickname.substring(0,40)))
+                throw new AssertionError("Nickname input is not capped at 40 raw characters including format codes");
+        });
+        System.out.println("NICKNAME_GUI_FORTY_RAW_CHARACTERS_OK");
+        bottom(context); context.takeScreenshot("nick-credit-capitalized");
+        click(context,"Chroma",PinkUi.Action.class);
+        context.runOnClient(client -> {
+            for (var child : ClientUiAccess.screen(client).children()) if (child instanceof PinkUi.Slider slider)
+                if (!Character.isUpperCase(slider.getMessage().getString().charAt(0))) throw new AssertionError("Lowercase NickTweaks option");
+        });
+        bottom(context); context.takeScreenshot("chroma-credit-capitalized");
+        click(context,"Animations",PinkUi.Action.class);
+        context.runOnClient(client -> ConfigManager.swordBlockingListsApplyToOthers = false);
+        click(context,"Apply Lists to Other Players",PinkUi.Toggle.class);
+        context.runOnClient(client -> { if (!ConfigManager.swordBlockingListsApplyToOthers) throw new AssertionError("Remote list toggle cannot be enabled"); });
+        context.takeScreenshot("blocking-lists-apply-to-others");
+        click(context,"Apply Lists to Other Players",PinkUi.Toggle.class);
+        context.runOnClient(client -> { if (ConfigManager.swordBlockingListsApplyToOthers) throw new AssertionError("Remote list toggle cannot be disabled"); });
+        context.runOnClient(client -> {
+            var scale = widget(client,"Item Scale value",PinkUi.Field.class);
+            var x = widget(client,"Position X value",PinkUi.Field.class);
+            if (scale.getY() != x.getY() || scale.getX() == x.getX()) throw new AssertionError("Animations are not laid out in two columns");
+            if (scale.getWidth() + 12 != 48) throw new AssertionError("Numeric field has not been compacted");
+        });
+        type(context,"Item Scale value","1.25");
+        context.runOnClient(client -> { if (Math.abs(ConfigManager.animationItemScale - 1.25) > .001) throw new AssertionError("Compact numeric field cannot be clicked and edited"); });
+        click(context,"Reset",PinkUi.Action.class);
+        context.runOnClient(client -> { if (ConfigManager.animationItemScale != 1) throw new AssertionError("Compact reset button does not reset its cell"); });
+        context.takeScreenshot("animations-two-columns");
+        bottom(context);
+        var remembered = new AtomicReference<Double>();
+        context.runOnClient(client -> remembered.set((Double) read(ClientUiAccess.screen(client),"scroll")));
+        context.getInput().pressKey(ClientInput.ESCAPE);
+        context.runOnClient(client -> {
+            ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.MAIN));
+            var screen = ClientUiAccess.screen(client);
+            if (read(screen,"page") != CosmeticsScreen.Page.ANIMATIONS || !read(screen,"scroll").equals(remembered.get()))
+                throw new AssertionError("Closing and reopening does not restore the page and scroll");
+        });
+        context.runOnClient(client -> {
+            var sessionField = CosmeticsScreen.class.getDeclaredField("SESSION"); sessionField.setAccessible(true);
+            var session = sessionField.get(null); var time = ScreenSession.class.getDeclaredField("lastInteraction"); time.setAccessible(true);
+            time.setLong(session,System.currentTimeMillis() - ScreenSession.IDLE_MILLIS - 1);
+        });
+        context.getInput().pressKey(ClientInput.ESCAPE);
+        context.runOnClient(client -> {
+            ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.MAIN));
+            var screen = ClientUiAccess.screen(client);
+            if (read(screen,"page") != CosmeticsScreen.Page.SMOL || (Double) read(screen,"scroll") != 0)
+                throw new AssertionError("One minute of inactivity does not reset the GUI");
+        });
+        click(context,"Sync",PinkUi.Action.class);
+        type(context,"Proxy Host","127.0.0.1"); type(context,"Proxy Port","7890"); type(context,"Proxy Auth","fixture:secret");
+        click(context,"Proxy Source:",PinkUi.Action.class);
+        context.runOnClient(client -> {
+            if (!ConfigManager.syncProxyHost.equals("127.0.0.1") || ConfigManager.syncProxyPort != 7890
+                || !ConfigManager.syncProxyAuth.equals("fixture:secret") || !ConfigManager.syncProxySource.equals("manual"))
+                throw new AssertionError("Developer proxy controls do not update settings");
+        });
+        click(context,"Fallback Direct",PinkUi.Toggle.class);
+        context.runOnClient(client -> { if (ConfigManager.syncProxyFallbackDirect) throw new AssertionError("Proxy fallback toggle has no effect"); });
+        context.takeScreenshot("sync-dev-proxy-settings");
+        context.runOnClient(client -> {
+            ConfigManager.syncProxyHost = ""; ConfigManager.syncProxyPort = 0; ConfigManager.syncProxyAuth = "";
+            ConfigManager.syncProxyFallbackDirect = true; ConfigManager.syncProxySource = "none";
+            ConfigManager.saveConfig();
+            var file = CosmeticsConfigDir.getCosmeticsConfigDir();
+            var settings = JsonParser.parseString(Files.readString(file.resolve("config.json"))).getAsJsonObject().getAsJsonObject("settings");
+            for (String key : new String[]{"smolFriendList","smolFriendsEnabled","syncServerIp","syncServerPort","syncServerHttps","syncServerSni","syncUdpHost","syncUdpPort"})
+                if (settings.has(key)) throw new AssertionError("Main configuration still writes " + key);
+            var overrides = JsonParser.parseString(Files.readString(file.resolve("customremoteserver.json"))).getAsJsonObject();
+            if (overrides.size() != 7 || overrides.entrySet().stream().anyMatch(entry -> !entry.getValue().getAsString().isEmpty()))
+                throw new AssertionError("Custom server template is not blank");
+            ClientUiAccess.setScreen(client,null);
+        });
+        context.getInput().resizeWindow(854,480); context.waitTicks(3);
+        System.out.println("SETTINGS_GUI_MEMORY_DEV_LAYOUT_AND_FILES_OK");
+    }
+    private static Object read(Object object,String name) throws Exception {
+        var field = object.getClass().getDeclaredField(name); field.setAccessible(true); return field.get(object);
+    }
+    private static AbstractWidget widget(net.minecraft.client.Minecraft client,String prefix,Class<?> type) {
+        return ClientUiAccess.screen(client).children().stream().filter(type::isInstance).map(child -> (AbstractWidget) child)
+            .filter(child -> child.getMessage().getString().startsWith(prefix)).findFirst().orElseThrow(() -> new AssertionError("Missing control " + prefix));
+    }
+    private static void click(ClientGameTestContext context,String prefix,Class<?> type) throws Exception {
+        var position = new AtomicReference<double[]>();
+        context.runOnClient(client -> {
+            var screen = ClientUiAccess.screen(client); var widget = widget(client,prefix,type);
+            if (widget.getY() < (Integer)read(screen,"viewTop") || widget.getBottom() > (Integer)read(screen,"viewBottom")) {
+                var scroll = CosmeticsScreen.class.getDeclaredField("scroll"); scroll.setAccessible(true);
+                var maximum = CosmeticsScreen.class.getDeclaredMethod("maxScroll"); maximum.setAccessible(true);
+                scroll.setDouble(screen,Math.clamp((Double)scroll.get(screen) + widget.getY() - (Integer)read(screen,"viewTop") - 20,0,(Double)maximum.invoke(screen)));
+                var apply = CosmeticsScreen.class.getDeclaredMethod("positionControls"); apply.setAccessible(true); apply.invoke(screen);
+            }
+            double scale = client.getWindow().getGuiScale();
+            position.set(new double[]{(widget.getX() + widget.getWidth()/2.0)*scale,(widget.getY() + widget.getHeight()/2.0)*scale});
+        });
+        context.getInput().setCursorPos(position.get()[0],position.get()[1]); context.getInput().pressMouse(ClientInput.MOUSE_LEFT); context.waitTicks(2);
+    }
+    private static void type(ClientGameTestContext context,String name,String value) throws Exception {
+        click(context,name,PinkUi.Field.class);
+        context.runOnClient(client -> {
+            var field = (PinkUi.Field)widget(client,name,PinkUi.Field.class);
+            if (!field.isFocused()) throw new AssertionError("Click did not focus " + name);
+            field.setValue("");
+        });
+        context.getInput().typeChars(value); context.waitTicks(2);
+    }
+    private static void bottom(ClientGameTestContext context) {
+        context.getInput().setCursorPos(950,500); context.getInput().scroll(-100); context.waitTicks(2);
+    }
+}

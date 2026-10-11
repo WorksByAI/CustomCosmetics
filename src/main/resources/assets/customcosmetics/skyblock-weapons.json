@@ -1,0 +1,1311 @@
+{
+  "source": "https://api.hypixel.net/v2/resources/skyblock/items",
+  "lastUpdated": 1791302445914,
+  "items": [
+    {
+      "id": "AIMING_BOW",
+      "name": "Aiming Bow",
+      "category": "BOW"
+    },
+    {
+      "id": "ALCHEMISTS_STAFF",
+      "name": "The Alchemist's Staff",
+      "category": "WAND"
+    },
+    {
+      "id": "ANTI_SENTIENT_PICKAXE",
+      "name": "Anti-Sentient Pickaxe",
+      "category": "SWORD"
+    },
+    {
+      "id": "APEX_PRAEDATOR",
+      "name": "Savage Huntaxe - Praedator",
+      "category": "AXE"
+    },
+    {
+      "id": "ARACK",
+      "name": "Arack",
+      "category": "SWORD"
+    },
+    {
+      "id": "ARCHER_DUNGEON_ABILITY_2",
+      "name": "Stun Bow",
+      "category": "BOW"
+    },
+    {
+      "id": "ARCHER_DUNGEON_ABILITY_3",
+      "name": "Healing Bow",
+      "category": "BOW"
+    },
+    {
+      "id": "ARTISANAL_SHORTBOW",
+      "name": "Artisanal Shortbow",
+      "category": "BOW"
+    },
+    {
+      "id": "ASPECT_OF_THE_DRAGON",
+      "name": "Aspect of the Dragons",
+      "category": "SWORD"
+    },
+    {
+      "id": "ASPECT_OF_THE_END",
+      "name": "Aspect of the End",
+      "category": "SWORD"
+    },
+    {
+      "id": "ASPECT_OF_THE_JERRY",
+      "name": "Aspect of the Jerry",
+      "category": "SWORD"
+    },
+    {
+      "id": "ASPECT_OF_THE_JERRY_SIGNATURE",
+      "name": "Aspect of the Jerry, Signature Edition",
+      "category": "SWORD"
+    },
+    {
+      "id": "ASPECT_OF_THE_LEECH_1",
+      "name": "Aspect of the Leech",
+      "category": "WAND"
+    },
+    {
+      "id": "ASPECT_OF_THE_LEECH_2",
+      "name": "Aspect of the Leech",
+      "category": "WAND"
+    },
+    {
+      "id": "ASPECT_OF_THE_LEECH_3",
+      "name": "Aspect of the Leech",
+      "category": "WAND"
+    },
+    {
+      "id": "ASPECT_OF_THE_VOID",
+      "name": "Aspect of the Void",
+      "category": "SWORD"
+    },
+    {
+      "id": "ASTRAEA",
+      "name": "Astraea",
+      "category": "SWORD"
+    },
+    {
+      "id": "ATOMSPLIT_KATANA",
+      "name": "Atomsplit Katana",
+      "category": "SWORD"
+    },
+    {
+      "id": "AXE_OF_THE_SHREDDED",
+      "name": "Halberd of the Shredded",
+      "category": "SWORD"
+    },
+    {
+      "id": "BASIC_CHICKEN_AXE",
+      "name": "Basic Chicken Axe",
+      "category": "SWORD"
+    },
+    {
+      "id": "BASIC_COW_AXE",
+      "name": "Basic Cow Axe",
+      "category": "SWORD"
+    },
+    {
+      "id": "BASIC_MUSHROOM_COW_AXE",
+      "name": "Basic Mooshroom Axe",
+      "category": "SWORD"
+    },
+    {
+      "id": "BASIC_PIG_AXE",
+      "name": "Basic Pig Axe",
+      "category": "SWORD"
+    },
+    {
+      "id": "BASIC_RABBIT_AXE",
+      "name": "Basic Rabbit Axe",
+      "category": "SWORD"
+    },
+    {
+      "id": "BASIC_SHEEP_AXE",
+      "name": "Basic Sheep Axe",
+      "category": "SWORD"
+    },
+    {
+      "id": "BAT_WAND",
+      "name": "Spirit Sceptre",
+      "category": "SWORD"
+    },
+    {
+      "id": "BINGO_BLASTER",
+      "name": "Bingo Blaster",
+      "category": "WAND"
+    },
+    {
+      "id": "BLADE_OF_THE_VOLCANO",
+      "name": "Blade of the Volcano",
+      "category": "SWORD"
+    },
+    {
+      "id": "BONE_BOOMERANG",
+      "name": "Bonemerang",
+      "category": "BOW"
+    },
+    {
+      "id": "BONE_REAVER",
+      "name": "Bone Reaver",
+      "category": "LONGSWORD"
+    },
+    {
+      "id": "BONZO_STAFF",
+      "name": "Bonzo's Staff",
+      "category": "SWORD"
+    },
+    {
+      "id": "BOSS_SPIRIT_BOW",
+      "name": "Spirit Bow",
+      "category": "BOW"
+    },
+    {
+      "id": "BOUQUET_OF_LIES",
+      "name": "Bouquet of Lies",
+      "category": "SWORD"
+    },
+    {
+      "id": "BOW",
+      "name": "Bow",
+      "category": "BOW"
+    },
+    {
+      "id": "BURSTFIRE_DAGGER",
+      "name": "Kindlebane Dagger",
+      "category": "SWORD"
+    },
+    {
+      "id": "BURSTMAW_DAGGER",
+      "name": "Mawdredge Dagger",
+      "category": "SWORD"
+    },
+    {
+      "id": "CELESTE_WAND",
+      "name": "Celeste Wand",
+      "category": "WAND"
+    },
+    {
+      "id": "CHICKEN_AXE",
+      "name": "Advanced Chicken Axe",
+      "category": "SWORD"
+    },
+    {
+      "id": "CHRONO_PICKAXE",
+      "name": "Chrono Pickaxe",
+      "category": "SWORD"
+    },
+    {
+      "id": "CLEAVER",
+      "name": "Cleaver",
+      "category": "SWORD"
+    },
+    {
+      "id": "CONJURING_SWORD",
+      "name": "Conjuring",
+      "category": "SWORD"
+    },
+    {
+      "id": "COW_AXE",
+      "name": "Advanced Cow Axe",
+      "category": "SWORD"
+    },
+    {
+      "id": "CRYPT_BOW",
+      "name": "Soulstealer Bow",
+      "category": "BOW"
+    },
+    {
+      "id": "CRYPT_DREADLORD_SWORD",
+      "name": "Dreadlord Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "CRYPT_WITHERLORD_SWORD",
+      "name": "Crypt Witherlord Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "CURSUS_FERAE",
+      "name": "Reinforced Huntaxe - Cursus",
+      "category": "AXE"
+    },
+    {
+      "id": "CUTLASS",
+      "name": "Cutlass",
+      "category": "SWORD"
+    },
+    {
+      "id": "DAEDALUS_AXE",
+      "name": "Daedalus Blade",
+      "category": "SWORD"
+    },
+    {
+      "id": "DARK_CLAYMORE",
+      "name": "Dark Claymore",
+      "category": "LONGSWORD"
+    },
+    {
+      "id": "DEATH_BOW",
+      "name": "Death Bow",
+      "category": "BOW"
+    },
+    {
+      "id": "DECENT_AXE",
+      "name": "Decent Axe",
+      "category": "AXE"
+    },
+    {
+      "id": "DECENT_BOW",
+      "name": "Decent Bow",
+      "category": "BOW"
+    },
+    {
+      "id": "DIAMOND_AXE",
+      "name": "Diamond Axe",
+      "category": "AXE"
+    },
+    {
+      "id": "DIAMOND_SWORD",
+      "name": "Diamond Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "DRAGON_SHORTBOW",
+      "name": "Dragon Shortbow",
+      "category": "BOW"
+    },
+    {
+      "id": "DUNGEON_HAMMER",
+      "name": "Hammer",
+      "category": "AXE"
+    },
+    {
+      "id": "EARTH_SHARD",
+      "name": "Earthen Blade",
+      "category": "SWORD"
+    },
+    {
+      "id": "EDIBLE_MACE",
+      "name": "Edible Mace",
+      "category": "SWORD"
+    },
+    {
+      "id": "EFFICIENT_AXE",
+      "name": "Efficient Axe",
+      "category": "AXE"
+    },
+    {
+      "id": "ELECTRIC_WAND_ITEM",
+      "name": "Electric Wand",
+      "category": "SWORD"
+    },
+    {
+      "id": "EMBER_ROD",
+      "name": "Ember Rod",
+      "category": "SWORD"
+    },
+    {
+      "id": "EMERALD_BLADE",
+      "name": "Emerald Blade",
+      "category": "SWORD"
+    },
+    {
+      "id": "ENDER_BOW",
+      "name": "Ender Bow",
+      "category": "BOW"
+    },
+    {
+      "id": "END_STONE_BOW",
+      "name": "End Stone Bow",
+      "category": "BOW"
+    },
+    {
+      "id": "END_STONE_SWORD",
+      "name": "End Stone Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "END_SWORD",
+      "name": "End Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "ENRAGER",
+      "name": "Enrager",
+      "category": "SWORD"
+    },
+    {
+      "id": "EON_PICKAXE",
+      "name": "Eon Pickaxe",
+      "category": "SWORD"
+    },
+    {
+      "id": "EXPLOSIVE_BOW",
+      "name": "Explosive Bow",
+      "category": "BOW"
+    },
+    {
+      "id": "FANCY_SWORD",
+      "name": "Fancy Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "FARMING_WAND",
+      "name": "Wand of Farming",
+      "category": "WAND"
+    },
+    {
+      "id": "FELTHORN_REAPER",
+      "name": "Felthorn Reaper",
+      "category": "LONGSWORD"
+    },
+    {
+      "id": "FEL_SWORD",
+      "name": "Fel Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "FEROCITY_SWORD_150",
+      "name": "Ferocity Sword 150",
+      "category": "SWORD"
+    },
+    {
+      "id": "FEROCITY_SWORD_50",
+      "name": "Ferocity Sword 50",
+      "category": "SWORD"
+    },
+    {
+      "id": "FIGSTONE_AXE",
+      "name": "Figstone Splitter",
+      "category": "AXE"
+    },
+    {
+      "id": "FIG_AXE",
+      "name": "Fig Hew",
+      "category": "AXE"
+    },
+    {
+      "id": "FIREDUST_DAGGER",
+      "name": "Firedust Dagger",
+      "category": "SWORD"
+    },
+    {
+      "id": "FIRE_FREEZE_STAFF",
+      "name": "Fire Freeze Staff",
+      "category": "SWORD"
+    },
+    {
+      "id": "FIRE_FURY_STAFF",
+      "name": "Fire Fury Staff",
+      "category": "SWORD"
+    },
+    {
+      "id": "FIRE_VEIL_WAND",
+      "name": "Fire Veil Wand",
+      "category": "WAND"
+    },
+    {
+      "id": "FLAMING_FLAY",
+      "name": "Flaming Flay",
+      "category": "SWORD"
+    },
+    {
+      "id": "FLAMING_SWORD",
+      "name": "Flaming Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "FLORID_ZOMBIE_SWORD",
+      "name": "Florid Zombie Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "FLOWER_OF_TRUTH",
+      "name": "Flower of Truth",
+      "category": "SWORD"
+    },
+    {
+      "id": "FROZEN_SCYTHE",
+      "name": "Frozen Scythe",
+      "category": "SWORD"
+    },
+    {
+      "id": "FULL_TREE_AXE",
+      "name": "Full-Tree Axe",
+      "category": "AXE"
+    },
+    {
+      "id": "GATEWAY_WAND",
+      "name": "Gateway Wand",
+      "category": "WAND"
+    },
+    {
+      "id": "GEMSTONE_GAUNTLET",
+      "name": "Gemstone Gauntlet",
+      "category": "GAUNTLET"
+    },
+    {
+      "id": "GENERALS_HOPE_OF_THE_RESISTANCE",
+      "name": "Staff of the Rising Sun",
+      "category": "WAND"
+    },
+    {
+      "id": "GHOST_THROWING_AXE",
+      "name": "Ghost Axe",
+      "category": "AXE"
+    },
+    {
+      "id": "GHOUL_BUSTER",
+      "name": "Ghoul Buster",
+      "category": "SWORD"
+    },
+    {
+      "id": "GIANTS_EYE_SWORD",
+      "name": "Giant's Eye Sword",
+      "category": "LONGSWORD"
+    },
+    {
+      "id": "GIANTS_SWORD",
+      "name": "Giant's Sword",
+      "category": "LONGSWORD"
+    },
+    {
+      "id": "GIANT_CLEAVER",
+      "name": "Giant Cleaver",
+      "category": "SWORD"
+    },
+    {
+      "id": "GLACIAL_SCYTHE",
+      "name": "Glacial Scythe",
+      "category": "SWORD"
+    },
+    {
+      "id": "GOLD_AXE",
+      "name": "Golden Axe",
+      "category": "AXE"
+    },
+    {
+      "id": "GOLD_SWORD",
+      "name": "Golden Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "GOLEM_SWORD",
+      "name": "Golem Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "GREAT_SPOOK_SWORD",
+      "name": "Great Spook Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "GYROKINETIC_WAND",
+      "name": "Gyrokinetic Wand",
+      "category": "WAND"
+    },
+    {
+      "id": "HARVESTING_SWORD",
+      "name": "Harvesting Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "HEALING_CIRCLE_ITEM",
+      "name": "Healing Circle",
+      "category": "SWORD"
+    },
+    {
+      "id": "HEARTFIRE_DAGGER",
+      "name": "Pyrochaos Dagger",
+      "category": "SWORD"
+    },
+    {
+      "id": "HEARTMAW_DAGGER",
+      "name": "Deathripper Dagger",
+      "category": "SWORD"
+    },
+    {
+      "id": "HELIX_CHOPPER",
+      "name": "Helix Chopper",
+      "category": "AXE"
+    },
+    {
+      "id": "HELLSTORM_STAFF",
+      "name": "Hellstorm Wand",
+      "category": "WAND"
+    },
+    {
+      "id": "HOLLOW_WAND",
+      "name": "Hollow Wand",
+      "category": "WAND"
+    },
+    {
+      "id": "HOPE_OF_THE_RESISTANCE",
+      "name": "Staff of the Rising Sun",
+      "category": "WAND"
+    },
+    {
+      "id": "HORSEMAN_SCYTHE",
+      "name": "Horseman's Scythe",
+      "category": "SWORD"
+    },
+    {
+      "id": "HUNTER_KNIFE",
+      "name": "Hunter Knife",
+      "category": "SWORD"
+    },
+    {
+      "id": "HURRICANE_BOW",
+      "name": "Hurricane Bow",
+      "category": "BOW"
+    },
+    {
+      "id": "HYPERION",
+      "name": "Hyperion",
+      "category": "SWORD"
+    },
+    {
+      "id": "HYPER_CLEAVER",
+      "name": "Hyper Cleaver",
+      "category": "SWORD"
+    },
+    {
+      "id": "ICE_SPRAY_WAND",
+      "name": "Ice Spray Wand",
+      "category": "SWORD"
+    },
+    {
+      "id": "INK_WAND",
+      "name": "Ink Wand",
+      "category": "SWORD"
+    },
+    {
+      "id": "IRON_AXE",
+      "name": "Iron Axe",
+      "category": "AXE"
+    },
+    {
+      "id": "IRON_SWORD",
+      "name": "Iron Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "ITEM_SPIRIT_BOW",
+      "name": "Spirit Shortbow",
+      "category": "BOW"
+    },
+    {
+      "id": "JERRY_STAFF",
+      "name": "Jerry-chine Gun",
+      "category": "SWORD"
+    },
+    {
+      "id": "JUJU_SHORTBOW",
+      "name": "Juju Shortbow",
+      "category": "BOW"
+    },
+    {
+      "id": "JUNGLE_AXE",
+      "name": "Spruce Axe",
+      "category": "AXE"
+    },
+    {
+      "id": "LAST_BREATH",
+      "name": "Last Breath",
+      "category": "BOW"
+    },
+    {
+      "id": "LEAPING_SWORD",
+      "name": "Leaping Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "LEECH_SWORD",
+      "name": "Leech Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "LIVID_DAGGER",
+      "name": "Livid Dagger",
+      "category": "SWORD"
+    },
+    {
+      "id": "MACHINE_GUN_BOW",
+      "name": "Machine Gun Shortbow",
+      "category": "BOW"
+    },
+    {
+      "id": "MAGMA_BOW",
+      "name": "Magma Bow",
+      "category": "BOW"
+    },
+    {
+      "id": "MAWDUST_DAGGER",
+      "name": "Twilight Dagger",
+      "category": "SWORD"
+    },
+    {
+      "id": "MERCENARY_AXE",
+      "name": "Mercenary Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "MIDAS_STAFF",
+      "name": "Midas Staff",
+      "category": "SWORD"
+    },
+    {
+      "id": "MIDAS_SWORD",
+      "name": "Midas' Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "MIRRORED_BOW",
+      "name": "woB",
+      "category": "BOW"
+    },
+    {
+      "id": "MOSQUITO_BOW",
+      "name": "Mosquito Shortbow",
+      "category": "BOW"
+    },
+    {
+      "id": "MUSHROOM_COW_AXE",
+      "name": "Advanced Mooshroom Axe",
+      "category": "SWORD"
+    },
+    {
+      "id": "NECROMANCER_SWORD",
+      "name": "Necromancer Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "NECRON_BLADE",
+      "name": "Necron's Blade (Unrefined)",
+      "category": "SWORD"
+    },
+    {
+      "id": "NEX_TITANUM",
+      "name": "Prime Huntaxe - Nex Titanum",
+      "category": "AXE"
+    },
+    {
+      "id": "NOVA_SWORD",
+      "name": "Sword of the Universe",
+      "category": "SWORD"
+    },
+    {
+      "id": "ORNATE_ZOMBIE_SWORD",
+      "name": "Ornate Zombie Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "PIGMAN_SWORD",
+      "name": "Pigman Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "PIG_AXE",
+      "name": "Advanced Pig Axe",
+      "category": "SWORD"
+    },
+    {
+      "id": "POLYMORPH_WAND",
+      "name": "Polymorph Wand",
+      "category": "SWORD"
+    },
+    {
+      "id": "POOCH_SWORD",
+      "name": "Pooch Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "PRISMARINE_BLADE",
+      "name": "Prismarine Blade",
+      "category": "SWORD"
+    },
+    {
+      "id": "PRISMARINE_BOW",
+      "name": "Prismarine Bow",
+      "category": "BOW"
+    },
+    {
+      "id": "PROMISING_AXE",
+      "name": "Promising Axe",
+      "category": "AXE"
+    },
+    {
+      "id": "RABBIT_AXE",
+      "name": "Advanced Rabbit Axe",
+      "category": "SWORD"
+    },
+    {
+      "id": "RAGNAROCK_AXE",
+      "name": "Ragnarock",
+      "category": "SWORD"
+    },
+    {
+      "id": "RAIDER_AXE",
+      "name": "Raider Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "RAYGUN",
+      "name": "Raygun",
+      "category": "BOW"
+    },
+    {
+      "id": "REAPER_SCYTHE",
+      "name": "Reaper Scythe",
+      "category": "SWORD"
+    },
+    {
+      "id": "REAPER_SWORD",
+      "name": "Reaper Falchion",
+      "category": "SWORD"
+    },
+    {
+      "id": "RECLUSE_FANG",
+      "name": "Recluse Fang",
+      "category": "SWORD"
+    },
+    {
+      "id": "REVENANT_SWORD",
+      "name": "Revenant Falchion",
+      "category": "SWORD"
+    },
+    {
+      "id": "ROGUE_SWORD",
+      "name": "Rogue Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "ROOKIE_AXE",
+      "name": "Rookie Foraging Axe",
+      "category": "AXE"
+    },
+    {
+      "id": "RUNAANS_BOW",
+      "name": "Runaan's Bow",
+      "category": "BOW"
+    },
+    {
+      "id": "RUNIC_STAFF",
+      "name": "Aurora Staff",
+      "category": "SWORD"
+    },
+    {
+      "id": "SAVANA_BOW",
+      "name": "Savanna Bow",
+      "category": "BOW"
+    },
+    {
+      "id": "SCORPION_BOW",
+      "name": "Spider Shortbow",
+      "category": "BOW"
+    },
+    {
+      "id": "SCORPION_FOIL",
+      "name": "Scorpion Foil",
+      "category": "SWORD"
+    },
+    {
+      "id": "SCULPTORS_AXE",
+      "name": "Sculptor's Axe",
+      "category": "AXE"
+    },
+    {
+      "id": "SCYLLA",
+      "name": "Scylla",
+      "category": "SWORD"
+    },
+    {
+      "id": "SEISMIC_WAVE_STICK",
+      "name": "Seismic Wave",
+      "category": "SWORD"
+    },
+    {
+      "id": "SELF_RECURSIVE_PICKAXE",
+      "name": "Self-Recursive Pickaxe",
+      "category": "SWORD"
+    },
+    {
+      "id": "SERIOUSLY_DAMAGED_AXE",
+      "name": "Seriously Damaged Axe",
+      "category": "AXE"
+    },
+    {
+      "id": "SHADOW_FURY",
+      "name": "Shadow Fury",
+      "category": "SWORD"
+    },
+    {
+      "id": "SHAMAN_SWORD",
+      "name": "Shaman Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "SHARP_STEAK_STAKE",
+      "name": "Super Sharp 'n Stabby Steak Stake",
+      "category": "SWORD"
+    },
+    {
+      "id": "SHEEP_AXE",
+      "name": "Advanced Sheep Axe",
+      "category": "SWORD"
+    },
+    {
+      "id": "SILENT_DEATH",
+      "name": "Silent Death",
+      "category": "SWORD"
+    },
+    {
+      "id": "SILK_EDGE_SWORD",
+      "name": "Silk-Edge Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "SILVA_DOMINUS",
+      "name": "Sharpened Huntaxe - Dominus",
+      "category": "AXE"
+    },
+    {
+      "id": "SILVERTWIST_KARAMBIT",
+      "name": "Silver-Twist Karambit",
+      "category": "SWORD"
+    },
+    {
+      "id": "SILVER_LACED_KARAMBIT",
+      "name": "Silver-Laced Karambit",
+      "category": "SWORD"
+    },
+    {
+      "id": "SINSEEKER_SCYTHE",
+      "name": "Sinseeker Scythe",
+      "category": "SWORD"
+    },
+    {
+      "id": "SKELETON_LORD_BOW",
+      "name": "Skeleton Lord Bow",
+      "category": "BOW"
+    },
+    {
+      "id": "SLIME_BOW",
+      "name": "Slime Bow",
+      "category": "BOW"
+    },
+    {
+      "id": "SNIPER_BOW",
+      "name": "Sniper Bow",
+      "category": "BOW"
+    },
+    {
+      "id": "SOULS_REBOUND",
+      "name": "Souls Rebound",
+      "category": "BOW"
+    },
+    {
+      "id": "SOUL_WHIP",
+      "name": "Soul Whip",
+      "category": "SWORD"
+    },
+    {
+      "id": "SPIDER_QUEENS_STINGER",
+      "name": "Spider Queen's Stinger",
+      "category": "BOW"
+    },
+    {
+      "id": "SPIDER_SWORD",
+      "name": "Spider Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "SPIRIT_SWORD",
+      "name": "Spirit Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "SQUIRE_SWORD",
+      "name": "Squire Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "STAFF_OF_THE_RISING_MOON",
+      "name": "Staff of the Rising Moon",
+      "category": "WAND"
+    },
+    {
+      "id": "STAFF_OF_THE_VOLCANO",
+      "name": "Staff of the Volcano",
+      "category": "WAND"
+    },
+    {
+      "id": "STARLIGHT_WAND",
+      "name": "Starlight Wand",
+      "category": "WAND"
+    },
+    {
+      "id": "STARRED_BAT_WAND",
+      "name": "Spirit Sceptre",
+      "category": "SWORD"
+    },
+    {
+      "id": "STARRED_BONE_BOOMERANG",
+      "name": "Bonemerang",
+      "category": "BOW"
+    },
+    {
+      "id": "STARRED_BONZO_STAFF",
+      "name": "Bonzo's Staff",
+      "category": "SWORD"
+    },
+    {
+      "id": "STARRED_DAEDALUS_AXE",
+      "name": "Daedalus Blade",
+      "category": "SWORD"
+    },
+    {
+      "id": "STARRED_FELTHORN_REAPER",
+      "name": "Felthorn Reaper",
+      "category": "LONGSWORD"
+    },
+    {
+      "id": "STARRED_GLACIAL_SCYTHE",
+      "name": "Glacial Scythe",
+      "category": "SWORD"
+    },
+    {
+      "id": "STARRED_ICE_SPRAY_WAND",
+      "name": "Ice Spray Wand",
+      "category": "SWORD"
+    },
+    {
+      "id": "STARRED_ITEM_SPIRIT_BOW",
+      "name": "Spirit Shortbow",
+      "category": "BOW"
+    },
+    {
+      "id": "STARRED_LAST_BREATH",
+      "name": "Last Breath",
+      "category": "BOW"
+    },
+    {
+      "id": "STARRED_MIDAS_STAFF",
+      "name": "Midas Staff",
+      "category": "SWORD"
+    },
+    {
+      "id": "STARRED_MIDAS_SWORD",
+      "name": "Midas' Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "STARRED_SHADOW_FURY",
+      "name": "Shadow Fury",
+      "category": "SWORD"
+    },
+    {
+      "id": "STARRED_SPIDER_QUEENS_STINGER",
+      "name": "Spider Queen's Stinger",
+      "category": "BOW"
+    },
+    {
+      "id": "STARRED_STONE_BLADE",
+      "name": "Adaptive Blade",
+      "category": "SWORD"
+    },
+    {
+      "id": "STARRED_VENOMS_TOUCH",
+      "name": "Venom's Touch",
+      "category": "BOW"
+    },
+    {
+      "id": "STARRED_YETI_SWORD",
+      "name": "Yeti Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "STAR_SWORD",
+      "name": "Sword of the Stars",
+      "category": "SWORD"
+    },
+    {
+      "id": "STAR_SWORD_3000",
+      "name": "Sword of the Stars 3000",
+      "category": "SWORD"
+    },
+    {
+      "id": "STAR_SWORD_9000",
+      "name": "Sword of the Stars 9000",
+      "category": "SWORD"
+    },
+    {
+      "id": "STEAK_STAKE",
+      "name": "Steak Stake",
+      "category": "SWORD"
+    },
+    {
+      "id": "STING",
+      "name": "Sting",
+      "category": "SWORD"
+    },
+    {
+      "id": "STINGER_BOW",
+      "name": "Stinger Bow",
+      "category": "BOW"
+    },
+    {
+      "id": "STONE_AXE",
+      "name": "Stone Axe",
+      "category": "AXE"
+    },
+    {
+      "id": "STONE_BLADE",
+      "name": "Adaptive Blade",
+      "category": "SWORD"
+    },
+    {
+      "id": "STONE_SWORD",
+      "name": "Stone Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "STRANDED_TREECAPITATOR",
+      "name": "Stranded Treecapitator",
+      "category": "AXE"
+    },
+    {
+      "id": "SULPHUR_BOW",
+      "name": "Sulphur Bow",
+      "category": "BOW"
+    },
+    {
+      "id": "SUPER_CLEAVER",
+      "name": "Super Cleaver",
+      "category": "SWORD"
+    },
+    {
+      "id": "SUPER_UNDEAD_BOW",
+      "name": "Super Undead Bow",
+      "category": "BOW"
+    },
+    {
+      "id": "SWEEP_AXE",
+      "name": "Sweep Axe",
+      "category": "AXE"
+    },
+    {
+      "id": "SWEET_AXE",
+      "name": "Sweet Axe",
+      "category": "AXE"
+    },
+    {
+      "id": "SWORD_OF_BAD_HEALTH",
+      "name": "Sword of Bad Health",
+      "category": "SWORD"
+    },
+    {
+      "id": "SWORD_OF_REVELATIONS",
+      "name": "Sword of Revelations",
+      "category": "SWORD"
+    },
+    {
+      "id": "SWORD_OF_THE_MULTIVERSE",
+      "name": "Sword of the Multiverse",
+      "category": "SWORD"
+    },
+    {
+      "id": "TACTICIAN_MURDER_WEAPON",
+      "name": "Tactician's Murder Weapon",
+      "category": "SWORD"
+    },
+    {
+      "id": "TACTICIAN_SWORD",
+      "name": "Tactician's Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "TARANTULA_FANG",
+      "name": "Tarantula Fang",
+      "category": "SWORD"
+    },
+    {
+      "id": "TERMINATOR",
+      "name": "Terminator",
+      "category": "BOW"
+    },
+    {
+      "id": "TEST_WAND_WEAPON",
+      "name": "Test Rift Wand",
+      "category": "WAND"
+    },
+    {
+      "id": "THROWING_AXE",
+      "name": "Throwing Axe",
+      "category": "AXE"
+    },
+    {
+      "id": "TIME_KNIFE",
+      "name": "Time Shuriken",
+      "category": "SWORD"
+    },
+    {
+      "id": "TORMENTOR",
+      "name": "Tormentor",
+      "category": "SWORD"
+    },
+    {
+      "id": "TREECAPITATOR_AXE",
+      "name": "Treecapitator",
+      "category": "AXE"
+    },
+    {
+      "id": "TRIBAL_SPEAR",
+      "name": "Tribal Spear",
+      "category": "SWORD"
+    },
+    {
+      "id": "UNDEAD_BOW",
+      "name": "Undead Bow",
+      "category": "BOW"
+    },
+    {
+      "id": "UNDEAD_SWORD",
+      "name": "Undead Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "VALKYRIE",
+      "name": "Valkyrie",
+      "category": "SWORD"
+    },
+    {
+      "id": "VENATOR_GENESIS",
+      "name": "Worn Huntaxe - Genesis",
+      "category": "AXE"
+    },
+    {
+      "id": "VENOMOUS_SWORD",
+      "name": "Venomous Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "VENOMS_TOUCH",
+      "name": "Venom's Touch",
+      "category": "BOW"
+    },
+    {
+      "id": "VOIDEDGE_KATANA",
+      "name": "Voidedge Katana",
+      "category": "SWORD"
+    },
+    {
+      "id": "VOIDWALKER_KATANA",
+      "name": "Voidwalker Katana",
+      "category": "SWORD"
+    },
+    {
+      "id": "VOID_SWORD",
+      "name": "Void Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "VORPAL_KATANA",
+      "name": "Vorpal Katana",
+      "category": "SWORD"
+    },
+    {
+      "id": "WAND_OF_ATONEMENT",
+      "name": "Wand of Atonement",
+      "category": "WAND"
+    },
+    {
+      "id": "WAND_OF_HEALING",
+      "name": "Wand of Healing",
+      "category": "WAND"
+    },
+    {
+      "id": "WAND_OF_MENDING",
+      "name": "Wand of Mending",
+      "category": "WAND"
+    },
+    {
+      "id": "WAND_OF_RECALL",
+      "name": "Wand of Recall",
+      "category": "WAND"
+    },
+    {
+      "id": "WAND_OF_RESTORATION",
+      "name": "Wand of Restoration",
+      "category": "WAND"
+    },
+    {
+      "id": "WAND_OF_STRENGTH",
+      "name": "Wand of Strength",
+      "category": "WAND"
+    },
+    {
+      "id": "WEATHER_STICK",
+      "name": "Weather Wand",
+      "category": "WAND"
+    },
+    {
+      "id": "WITHER_BOW",
+      "name": "Wither Bow",
+      "category": "BOW"
+    },
+    {
+      "id": "WITHER_CLOAK",
+      "name": "Wither Cloak Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "WIZARD_WAND",
+      "name": "Wizard Wand",
+      "category": "WAND"
+    },
+    {
+      "id": "WOOD_AXE",
+      "name": "Wooden Axe",
+      "category": "AXE"
+    },
+    {
+      "id": "WOOD_SWORD",
+      "name": "Wooden Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "WYLD_SWORD",
+      "name": "Wyld Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "YETI_SWORD",
+      "name": "Yeti Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "ZOMBIE_COMMANDER_WHIP",
+      "name": "Zombie Commander Whip",
+      "category": "SWORD"
+    },
+    {
+      "id": "ZOMBIE_KNIGHT_SWORD",
+      "name": "Zombie Knight Sword",
+      "category": "SWORD"
+    },
+    {
+      "id": "ZOMBIE_SOLDIER_CUTLASS",
+      "name": "Zombie Soldier Cutlass",
+      "category": "SWORD"
+    },
+    {
+      "id": "ZOMBIE_SWORD",
+      "name": "Zombie Sword",
+      "category": "SWORD"
+    }
+  ]
+}

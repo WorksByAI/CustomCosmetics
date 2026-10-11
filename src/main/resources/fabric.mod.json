@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "customcosmetics",
+  "version": "${version}",
+  "name": "CustomCosmetics",
+  "description": "SmolPeople, NickTweaks, viewmodel animations and visual sword blocking with shared cosmetics.",
+  "license": "AGPL-3.0-or-later",
+  "authors": ["CustomCosmetics contributors"],
+  "contact": {
+    "sources": "https://github.com/WorksByAI/CustomCosmetics",
+    "issues": "https://github.com/WorksByAI/CustomCosmetics/issues",
+    "email": "toryyyds@gmail.com"
+  },
+  "mixins": ["customcosmetics.mixins.json"],
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.customcosmetics.client.CustomCosmeticsClient"],
+    "modmenu": ["com.customcosmetics.compatibility.ModMenuEntry"]
+  },
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "minecraft": ">=26.1 <26.4",
+    "java": ">=25",
+    "fabric-api": ">=0.145.1"
+  },
+  "suggests": {
+    "hypixel-mod-api": ">=1.0"
+  }
+}

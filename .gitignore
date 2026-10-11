@@ -1,0 +1,15 @@
+.gradle/
+build/
+run/
+logs/
+out/
+bin/
+.idea/
+.vscode/
+*.iml
+*.log
+hs_err_*.log
+replay_*.log
+*.hprof
+.DS_Store
+__pycache__/

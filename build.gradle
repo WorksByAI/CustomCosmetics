@@ -1,0 +1,143 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = "${project.archives_base_name}-26.1-26.3"
+}
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://maven.fabricmc.net/' }
+    maven { url = 'https://maven.terraformersmc.com/releases' }
+    maven { url = 'https://repo.hypixel.net/repository/Hypixel/' }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+    compileOnly('com.terraformersmc:modmenu:20.0.1') {
+        exclude group: 'net.fabricmc.fabric-api'
+    }
+    testImplementation platform('org.junit:junit-bom:5.13.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'net.hypixel:mod-api:1.0.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test', Test) {
+    useJUnitPlatform()
+    dependsOn tasks.named('jar'), tasks.named('sourcesJar'), 'fullSourceZip'
+    inputs.files(tasks.named('jar'), tasks.named('sourcesJar'), tasks.named('fullSourceZip'))
+    inputs.files('LICENSE', 'NOTICE', 'README.md', 'LICENSES', 'gradle/wrapper')
+    systemProperty 'customcosmetics.projectDir', projectDir.absolutePath
+    systemProperty 'customcosmetics.binaryJar', tasks.named('jar', Jar).get().archiveFile.get().asFile.absolutePath
+    systemProperty 'customcosmetics.sourcesJar', tasks.named('sourcesJar', Jar).get().archiveFile.get().asFile.absolutePath
+    systemProperty 'customcosmetics.fullSourceZip', layout.buildDirectory.file("distributions/CustomCosmetics-${version}-full-source.zip").get().asFile.absolutePath
+}
+
+processResources {
+    def properties = [
+        version: project.version,
+        minecraft_version: project.minecraft_version,
+        loader_version: project.loader_version,
+        fabric_api_version: project.fabric_api_version
+    ]
+    inputs.properties properties
+    filteringCharset = 'UTF-8'
+    filesMatching('fabric.mod.json') {
+        expand properties
+    }
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+    withSourcesJar()
+}
+
+fabricApi {
+    configureTests {
+        createSourceSet = true
+        modId = 'customcosmetics-test'
+        enableGameTests = false
+        enableClientGameTests = true
+        clearRunDirectory = false
+        username = 'BlockingTest'
+    }
+}
+
+loom.runs.named('clientGameTest') {
+    runDir("build/run/clientGameTest-${project.minecraft_version}")
+    vmArg "-Dcustomcosmetics.testProjectDir=${projectDir.absolutePath}"
+}
+
+tasks.named('runClientGameTest') { dependsOn 'test' }
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 25
+}
+
+jar {
+    from('LICENSE') { rename { 'LICENSE_customcosmetics' } }
+    from('NOTICE')
+    from('LICENSES') { into 'LICENSES' }
+}
+
+tasks.named('sourcesJar', Jar) {
+    from('LICENSE')
+    from('NOTICE')
+    from('LICENSES') { into 'LICENSES' }
+}
+
+// Only distributable source and build inputs belong in these archives.
+// Never recursively package a working checkout, installed runtime or user data.
+tasks.register('fullSourceZip', Zip) {
+    archiveFileName = "CustomCosmetics-${version}-full-source.zip"
+    destinationDirectory = layout.buildDirectory.dir('distributions')
+    into("CustomCosmetics-${version}") {
+        from(projectDir) {
+            include 'LICENSE', 'NOTICE', 'LICENSES/**', 'README.md', 'CHANGELOG.md'
+            include '.gitignore', '.gitattributes', 'build.gradle', 'settings.gradle', 'gradle.properties'
+            include 'gradlew', 'gradlew.bat', 'gradle/wrapper/gradle-wrapper.jar', 'gradle/wrapper/gradle-wrapper.properties'
+            include 'src/main/**', 'src/test/**', 'src/gametest/**'
+            include 'tools/*.py'
+        }
+    }
+    eachFile {
+        if (name == 'gradlew' || name.endsWith('.sh')) permissions { unix('rwxr-xr-x') }
+    }
+}
+
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
+tasks.named('assemble') { dependsOn 'fullSourceZip' }
+
+// Separate process: Fabric's game class loader must not be initialized inside the JUnit JVM.
+tasks.register('clientLoadProbe', JavaExec) {
+    dependsOn 'testClasses', 'jar'
+    classpath = sourceSets.test.output.classesDirs + configurations.runtimeClasspath
+    mainClass = 'com.customcosmetics.distribution.ClientLoadProbe'
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(25) }
+    workingDir = layout.buildDirectory.dir('client-load-probe').get().asFile
+    doFirst { workingDir.mkdirs() }
+    systemProperty 'fabric.development', 'true'
+    systemProperty 'fabric.gameVersion', project.minecraft_version
+    systemProperty 'fabric.addMods', providers.gradleProperty('probe_jar').getOrElse(
+        tasks.named('jar', Jar).get().archiveFile.get().asFile.absolutePath)
+    systemProperty 'customcosmetics.probeDir', workingDir.absolutePath
+    systemProperty 'mixin.debug.export', 'true'
+    systemProperty 'mixin.debug.export.decompile', 'false'
+    systemProperty 'mixin.debug.export.filter', project.minecraft_version.startsWith('26.3')
+        ? 'net.minecraft.client.renderer.FirstPersonHandsAndItemsRenderer'
+        : 'net.minecraft.client.renderer.ItemInHandRenderer'
+}

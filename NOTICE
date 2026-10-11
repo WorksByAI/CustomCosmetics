@@ -1,0 +1,153 @@
+CustomCosmetics - Licensing and Third-Party Notices
+=================================================
+
+CustomCosmetics, including its modifications and derivative code, is
+distributed as a whole under the GNU Affero General Public License,
+version 3 or (at your option) any later version.
+SPDX-License-Identifier: AGPL-3.0-or-later
+The complete license text is provided in LICENSE. Independent third-party
+build tools, mathematical implementation, logos and game content retain their
+own licenses and rights, as described below. No additional rights to
+Minecraft or other third-party software are granted by this project.
+
+Baity
+-----
+
+This project incorporates portions of Baity, a Minecraft utility and
+visual mod, by 11YearCookieBuff (also known as shyeuar / raueyhs).
+
+Original project: Baity
+Source: https://github.com/raueyhs/Baity
+Copyright (C) 2025  raueyhs
+License: GNU Affero General Public License v3.0 or later
+
+SmolPeople, NickTweaks and the original presence
+synchronization client were adapted from the Baity 1.7.0 / Minecraft
+26.2 sources. The unused original Worker and deployment bindings
+were removed on 2026-10-11. The upstream project remains the reference
+for the original implementation.
+
+Modifications
+-------------
+
+Adapted and modified by the CustomCosmetics contributors in 2026;
+this notice records changes through 2026-10-11.
+
+Changes include independent namespaces and configuration, a replacement
+pink settings GUI, Minecraft version compatibility, modified chat
+notifications, and replacement of the original remote synchronization
+with a self-hosted Node.js/SQLite service and Mojang session authentication.
+The public repository contains the corresponding source for released versions.
+
+CustomCosmetics is a modified derivative project, not an official Baity
+release. The original author attribution and copyright notice are
+preserved here; they do not grant rights to third-party credentials,
+private APIs or unrelated assets.
+
+Other Third-Party Notices
+-------------------------
+
+Sword rendering hooks and blocking-pose transforms were adapted from
+TeamMidnightDust/SwordBlocking, reworked on 2026-10-11 to render only and
+synchronize through our own cosmetic service. No shield substitution or game
+network implementation from that project is included.
+Copyright (c) 2020 MidnightDust
+License: MIT; original text in LICENSES/SwordBlocking-MIT.txt.
+Source: https://github.com/TeamMidnightDust/SwordBlocking/tree/e8d42e50338a04b2861c541f5b55026a3e2f4647
+Our changes remain AGPL-3.0-or-later. OldAnimations was reviewed as a
+feature reference; no source code from it is included.
+
+Third-person blocking offsets were adapted from
+BringBlockingBack (third-person offsets in features/blocking/BlockingPose.java):
+Copyright (c) 2026 Felps
+License: MIT; full text in LICENSES/BringBlockingBack-MIT.txt.
+Source: https://github.com/FelpisLipe/BringBlockingBack/tree/f15a780e0f077dfd5468aadbc7efa9c7afbc90dd
+Adapted 2026-10-11 for mirrored hands, authenticated remote players and
+compatible modern renderers. Our modifications are AGPL-3.0-or-later.
+
+View-model animation controls and render hook approach were adapted from
+Noamm9/NoammAddons, commit e8f1a596268030a830002c667a0d890c77a6a960.
+Original author/project: Noamm9 / NoammAddons.
+License: CC0-1.0; complete text in LICENSES/NoammAddons-CC0.txt.
+Source: https://github.com/Noamm9/NoammAddons/tree/e8f1a596268030a830002c667a0d890c77a6a960
+Reimplemented 2026-10-11 for our GUI, compatible renderers and a separate
+cosmetic swing clock; game input, attack timing and entity use state are not modified.
+Our modifications are AGPL-3.0-or-later.
+Swing duration and Ignore Haste were ported from NoammAddons MixinLivingEntity
+at 44e447abbe2f3a1c0678c6388abd3a3b0b2287d8 on 2026-10-11. The calculation
+is applied to independent visual state, with native swing restart and snapshot
+interpolation order; it does not override Minecraft's entity timing or network behavior.
+Source: https://github.com/Noamm9/NoammAddons/blob/44e447abbe2f3a1c0678c6388abd3a3b0b2287d8/src/main/java/com/github/noamm9/mixin/MixinLivingEntity.java
+
+GitHub Invertocat White (assets/customcosmetics/textures/gui/github.png):
+Unmodified official PNG from https://brand.github.com/GitHub_Logos.zip,
+used as a secondary button linking to this project's GitHub repository.
+GitHub retains its copyright and trademark rights. This logo is not
+relicensed under AGPL or the MIT software licenses. Usage guidance:
+https://brand.github.com/foundations/logo
+Its original white color, proportions and shape are preserved.
+This project is not endorsed by or affiliated with GitHub.
+
+assets/customcosmetics/skyblock-swords.txt records only item identifiers
+classified SWORD or LONGSWORD in Hypixel's public item resource, retrieved
+2026-10-11: https://api.hypixel.net/v2/resources/skyblock/items
+No Hypixel artwork, item descriptions, models or resource packs are included.
+Minecraft and Hypixel names/identifiers retain their respective rights;
+this project does not claim ownership of them or imply endorsement.
+
+Oklab conversion code in utils/ColorGradientUtils.java uses Björn Ottosson's
+published linear-sRGB/Oklab implementation via the Baity adaptation.
+Copyright (c) 2020 Björn Ottosson
+Source: https://bottosson.github.io/posts/oklab/
+License: MIT (also offered by the author in the public domain).
+The complete original copyright and MIT permission notice is preserved
+in LICENSES/Oklab-MIT.txt and included in binary and source distributions.
+The Baity adaptation and this derivative project remain AGPL-3.0-or-later.
+
+Gradle Wrapper (gradlew, gradlew.bat, gradle/wrapper/gradle-wrapper.jar):
+Copyright and author notices in the scripts and JAR are retained.
+License: Apache License, Version 2.0; see LICENSES/Apache-2.0.txt.
+Source: https://github.com/gradle/gradle/tree/v9.5.1
+The Wrapper JAR is the unmodified official Gradle 9.5.1 wrapper, verified
+against Gradle's published SHA-256. It is an independent build tool,
+not part of the derivative mod. Minecraft, Fabric, Mod Menu, Java, Node.js
+and test libraries are obtained separately, not redistributed in the mod
+or complete source archive. Dependency coordinates are in build.gradle
+and gradle.properties.
+
+Minecraft fonts, textures, skins and other game content
+remain owned by Mojang/Microsoft; they are not relicensed under AGPL.
+No extracted game assets or game binaries are shipped in this project.
+Usage guidelines: https://www.minecraft.net/en-us/usage-guidelines
+Not an official Minecraft product. Not approved by or associated with
+Mojang or Microsoft. Publisher: WorksByAI / CustomCosmetics contributors.
+Contact: toryyyds@gmail.com
+
+Corresponding Source
+--------------------
+
+Repository: https://github.com/WorksByAI/CustomCosmetics
+Recipients of a binary distribution must also be offered the complete
+Corresponding Source for that exact release, including the source files
+and necessary build and installation scripts. The complete buildable
+project is available from the public release tag and its source archive.
+A Gradle -sources.jar alone is not the complete buildable project.
+
+Original Baity notice (preserved verbatim)
+-----------------------------------------
+
+    Baity - A advanced utility and visual mod for Minecraft.
+    Copyright (C) 2025  raueyhs
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as published
+    by the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.

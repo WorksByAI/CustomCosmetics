@@ -1,0 +1,7 @@
+{
+  "required": true,
+  "package": "com.customcosmetics.gametest.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": ["PoseProbeMixin", "AnimationProbeMixin", "RemoteModelProbeMixin", "HandSleeveProbeMixin", "UpdateCheckOfflineMixin", "NoammSwingOracleMixin"],
+  "injectors": {"defaultRequire": 1}
+}
