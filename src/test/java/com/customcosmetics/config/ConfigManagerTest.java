@@ -9,6 +9,14 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ConfigManagerTest {
+    @Test void nicknameGradientOptionsRoundTripAndInvalidStylesFallBackSafely() throws Exception {
+        var path=directory.resolve("shimmer.json");
+        ConfigManager.nickTweaksGradientStyle="shimmer";ConfigManager.nickTweaksShimmerSpeed=1.6;
+        ConfigManager.save(path);ConfigManager.nickTweaksGradientStyle="character";ConfigManager.nickTweaksShimmerSpeed=0;
+        ConfigManager.load(path);assertEquals("shimmer",ConfigManager.nickTweaksGradientStyle);assertEquals(1.6,ConfigManager.nickTweaksShimmerSpeed);
+        Files.writeString(path,"{\"settings\":{\"nickTweaksGradientStyle\":\"unexpected\",\"nickTweaksShimmerSpeed\":90}}");
+        ConfigManager.load(path);assertEquals("character",ConfigManager.nickTweaksGradientStyle);assertEquals(4,ConfigManager.nickTweaksShimmerSpeed);
+    }
     @Test void swingSpeedDefaultAndResetMatchNoammsNeutralZeroRatherThanTheAxesUnitMultiplier() {
         ConfigManager.resetAnimations(); assertEquals(0,ConfigManager.animationSwingSpeed);
         assertEquals(1,ConfigManager.animationSwingX); assertEquals(1,ConfigManager.animationSwingY); assertEquals(1,ConfigManager.animationSwingZ);

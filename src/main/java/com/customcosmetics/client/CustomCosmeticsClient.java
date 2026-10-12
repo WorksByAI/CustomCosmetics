@@ -22,12 +22,14 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
     public void onInitializeClient() {
         CosmeticsConfigDir.init();
         ConfigManager.loadConfig();
+        com.customcosmetics.features.items.ItemCosmetics.init();
         PresenceSync.init();
         com.customcosmetics.update.UpdateChecker.init();
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) -> SyncCommands.register(dispatcher));
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             com.customcosmetics.features.animations.PresenceWorld.init();
             ConfigManager.flushPendingSave();
+            com.customcosmetics.features.items.ItemCosmetics.tick();
             PresenceSync.tick();
             com.customcosmetics.update.UpdateChecker.tick(client);
             SwordBlocking.tick(client);
@@ -38,7 +40,10 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
                 openGuiNextTick = false;
             }
         });
-        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> ConfigManager.saveConfig());
+        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
+            ConfigManager.saveConfig();
+            com.customcosmetics.features.items.ItemCosmetics.save();
+        });
         LOGGER.info("CustomCosmetics initialized");
     }
 }

@@ -33,6 +33,10 @@ Modifications
 Adapted and modified by the CustomCosmetics contributors in 2026;
 this notice records changes through 2026-10-11.
 
+On 2026-10-13, independently implemented continuous nickname gradients and a
+gold-white shimmer sweep. The visual reference is not redistributed; the
+renderer uses the game's existing glyphs and adds no game-server messages.
+
 Changes include independent namespaces and configuration, a replacement
 pink settings GUI, Minecraft version compatibility, modified chat
 notifications, and replacement of the original remote synchronization

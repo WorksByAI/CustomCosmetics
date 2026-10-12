@@ -35,6 +35,7 @@ tasks.named('test', Test) {
     inputs.files(tasks.named('jar'), tasks.named('sourcesJar'), tasks.named('fullSourceZip'))
     inputs.files('LICENSE', 'NOTICE', 'README.md', 'LICENSES', 'gradle/wrapper')
     systemProperty 'customcosmetics.projectDir', projectDir.absolutePath
+    systemProperty 'customcosmetics.version', project.version.toString()
     systemProperty 'customcosmetics.binaryJar', tasks.named('jar', Jar).get().archiveFile.get().asFile.absolutePath
     systemProperty 'customcosmetics.sourcesJar', tasks.named('sourcesJar', Jar).get().archiveFile.get().asFile.absolutePath
     systemProperty 'customcosmetics.fullSourceZip', layout.buildDirectory.file("distributions/CustomCosmetics-${version}-full-source.zip").get().asFile.absolutePath
@@ -73,11 +74,29 @@ fabricApi {
 }
 
 loom.runs.named('clientGameTest') {
-    runDir("build/run/clientGameTest-${project.minecraft_version}")
+    runDir(providers.gradleProperty('nickname_run_dir').getOrElse("build/run/clientGameTest-${project.minecraft_version}"))
     vmArg "-Dcustomcosmetics.testProjectDir=${projectDir.absolutePath}"
+    vmArg "-Dcustomcosmetics.itemAppearanceOnly=${providers.gradleProperty('appearance_game_only').getOrElse('false')}"
+    vmArg "-Dcustomcosmetics.nicknameOnly=${providers.gradleProperty('nickname_game_only').getOrElse('false')}"
+    vmArg "-Dcustomcosmetics.nicknameAnimation=${providers.gradleProperty('nickname_capture_animation').getOrElse('false')}"
 }
 
 tasks.named('runClientGameTest') { dependsOn 'test' }
+
+// Isolate this renderer's game test from older input/animation test APIs.
+if (providers.gradleProperty('nickname_game_only').getOrElse('false').toBoolean()) {
+    sourceSets.gametest.java.include '**/NicknameGradientGameTest.java', '**/RenderAssertions.java',
+        '**/mixin/NicknameGradientProbeMixin.java', '**/mixin/UpdateCheckOfflineMixin.java'
+    tasks.named('processGametestResources') {
+        inputs.property 'nickname_game_only', true
+        filesMatching('fabric.mod.json') {
+            filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.NicknameGradientGameTest') }
+        }
+        filesMatching('customcosmetics-test.mixins.json') {
+            filter { line -> line.contains('"client":') ? '  "client": ["UpdateCheckOfflineMixin", "NicknameGradientProbeMixin"],' : line }
+        }
+    }
+}
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'

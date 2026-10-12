@@ -58,7 +58,7 @@ class LicensePackagingTest {
             try (var input = jar.getInputStream(entry)) {
                 var metadata = JsonParser.parseString(new String(input.readAllBytes(), StandardCharsets.UTF_8)).getAsJsonObject();
                 assertEquals(SPDX, metadata.get("license").getAsString());
-                assertEquals("1.0.0", metadata.get("version").getAsString());
+                assertEquals(System.getProperty("customcosmetics.version"), metadata.get("version").getAsString());
                 assertEquals("https://github.com/WorksByAI/CustomCosmetics",
                     metadata.getAsJsonObject("contact").get("sources").getAsString());
             }
@@ -68,6 +68,7 @@ class LicensePackagingTest {
             assertTrue(jar.stream().noneMatch(item -> item.getName().startsWith("com/customcosmetics/gametest/")),
                 "Game input automation belongs only in the isolated test mod");
             assertNull(jar.getEntry("customcosmetics-test.mixins.json"));
+            assertNull(jar.getEntry("assets/customcosmetics/items/appearance_test.json"), "Test-only item models must not enter the client JAR");
         }
     }
 
@@ -83,7 +84,7 @@ class LicensePackagingTest {
     @Test
     void fullSourceContainsBuildAndInstallationInputsWithoutRuntimeData() throws Exception {
         try (var zip = new ZipFile(System.getProperty("customcosmetics.fullSourceZip"))) {
-            String prefix = "CustomCosmetics-1.0.0/";
+            String prefix = "CustomCosmetics-" + System.getProperty("customcosmetics.version") + "/";
             for (String file : new String[] { "LICENSE", "NOTICE", "LICENSES/Oklab-MIT.txt",
                 "LICENSES/Apache-2.0.txt", "LICENSES/SwordBlocking-MIT.txt", "build.gradle", "settings.gradle", "gradle.properties",
                 "gradlew", "gradlew.bat", "gradle/wrapper/gradle-wrapper.jar",
@@ -109,7 +110,8 @@ class LicensePackagingTest {
         assertTrue(readme.length() < 3800, "The bilingual README should stay a short feature overview");
         assertTrue(readme.contains("## English") && readme.contains("基于 Fabric") && readme.contains("A Fabric mod"));
         assertFalse(readme.contains("/docs/") || readme.contains("SOURCE-DELIVERY.md"));
-        assertTrue(Files.readString(ROOT.resolve("CHANGELOG.md")).contains("1.0.0 正式版"));
+        String changes = Files.readString(ROOT.resolve("CHANGELOG.md"));
+        assertEquals("new feature: nicktweaks new theme", changes.split("## 1.0.1\\n\\n")[1].split("\\n\\n##")[0].trim());
         assertFalse(readme.contains("syncServerIp") || readme.contains("gradlew.bat"));
         String notice = Files.readString(ROOT.resolve("NOTICE"));
         assertTrue(notice.contains("Copyright (c) 2020 MidnightDust"));
@@ -126,14 +128,12 @@ class LicensePackagingTest {
         assertFalse(Files.exists(ROOT.resolve("SOURCE-DELIVERY.md")));
         assertFalse(Files.exists(ROOT.resolve("server")));
         try (var zip = new ZipFile(System.getProperty("customcosmetics.fullSourceZip"))) {
-            String prefix = "CustomCosmetics-1.0.0/";
-            assertNotNull(zip.getEntry(prefix + "src/main/java/com/customcosmetics/sync/UdpPresenceClient.java"));
-            assertNotNull(zip.getEntry(prefix + "src/main/java/com/customcosmetics/sync/WebSocketPresenceClient.java"));
-            assertTrue(zip.stream().noneMatch(entry -> entry.getName().startsWith(prefix + "server/")));
-            assertTrue(zip.stream().noneMatch(entry -> entry.getName().contains("/docs/")));
+            String prefix = "CustomCosmetics-" + System.getProperty("customcosmetics.version") + "/";
+            for (String type : new String[]{"UdpPresenceClient", "WebSocketPresenceClient"})
+                assertNotNull(zip.getEntry(prefix + "src/main/java/com/customcosmetics/sync/" + type + ".java"));
+            assertTrue(zip.stream().noneMatch(entry -> entry.getName().startsWith(prefix + "server/") || entry.getName().contains("/docs/")));
             assertTrue(zip.stream().filter(entry -> entry.getName().endsWith(".md"))
-                .allMatch(entry -> entry.getName().equals(prefix + "README.md")
-                    || entry.getName().equals(prefix + "CHANGELOG.md")));
+                .allMatch(entry -> entry.getName().equals(prefix + "README.md") || entry.getName().equals(prefix + "CHANGELOG.md")));
         }
         assertFalse(Files.readString(ROOT.resolve("NOTICE")).contains("docs/"));
     }

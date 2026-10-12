@@ -43,6 +43,8 @@ public final class ConfigManager {
     public static double nickTweaksChromaSpeed = 1.0;
     public static int nickTweaksGradientStartColor = 0xFFFFFF;
     public static int nickTweaksGradientEndColor = 0xFFFFFF;
+    public static String nickTweaksGradientStyle = "character";
+    public static double nickTweaksShimmerSpeed = 1.0;
     public static boolean swordBlockingEnabled = true;
     public static String swordBlockingStyle = "default";
     public static boolean swordBlockingSyncEnabled = true;
@@ -115,6 +117,8 @@ public final class ConfigManager {
             nickTweaksChromaSize = Math.clamp(nickTweaksChromaSize, 0.1, 12.0);
             nickTweaksChromaChroma = Math.clamp(nickTweaksChromaChroma, 0.0, 0.4);
             nickTweaksChromaLightness = Math.clamp(nickTweaksChromaLightness, 0.2, 1.0);
+            nickTweaksGradientStyle = com.customcosmetics.features.nickname.NicknameGradient.normalizeStyle(nickTweaksGradientStyle);
+            nickTweaksShimmerSpeed = Double.isFinite(nickTweaksShimmerSpeed) ? Math.clamp(nickTweaksShimmerSpeed, 0, 4) : 1;
             clampAnimations();
             swordBlockingStyle = com.customcosmetics.features.blocking.BlockingStyle.parse(swordBlockingStyle).value();
             swordBlockingListMode = com.customcosmetics.features.blocking.BlockingRules.Mode.parse(swordBlockingListMode).value();

@@ -16,6 +16,8 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.FormattedText;
 import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.util.StringDecomposer;
+import net.minecraft.network.chat.Style;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -35,7 +37,16 @@ public class NickTweaksMixin {
             argsOnly = true
         )
         private String customcosmetics$chromaPrepareString(String text) {
-            return NickRenderUtils.handleString(text);
+            return NickRenderUtils.hasSmoothGradient() ? text : NickRenderUtils.handleString(text);
+        }
+
+        @Inject(method="prepareText(Ljava/lang/String;FFIZI)Lnet/minecraft/client/gui/Font$PreparedText;",at=@At("HEAD"),cancellable=true)
+        private void customcosmetics$prepareSmoothString(String text,float x,float y,int color,boolean shadow,int background,CallbackInfoReturnable<Font.PreparedText> result) {
+            if (!NickRenderUtils.hasSmoothGradient()) return;
+            Font font=(Font)(Object)this;
+            String shaped=font.isBidirectional()?font.bidirectionalShaping(text):text;
+            FormattedCharSequence sequence=sink -> StringDecomposer.iterateFormatted(shaped,Style.EMPTY,sink);
+            result.setReturnValue(font.prepareText(sequence,x,y,color,shadow,false,background));
         }
 
         @ModifyVariable(
@@ -44,7 +55,7 @@ public class NickTweaksMixin {
             argsOnly = true
         )
         private FormattedCharSequence customcosmetics$chromaPrepareSequence(FormattedCharSequence text) {
-            return NickRenderUtils.handleCharSequence(text);
+            return NickRenderUtils.measureGradient(NickRenderUtils.handleCharSequence(text),(Font)(Object)this);
         }
 
         @ModifyVariable(method = "width(Ljava/lang/String;)I", at = @At("HEAD"), argsOnly = true)

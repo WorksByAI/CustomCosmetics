@@ -11,6 +11,9 @@ import com.customcosmetics.config.ConfigManager;
 import com.customcosmetics.gui.module.Module;
 import com.customcosmetics.gui.module.ModuleManager;
 import com.customcosmetics.sync.PresenceSync;
+import com.customcosmetics.features.nickname.NicknameGradient;
+import com.customcosmetics.features.nickname.NicknameGlyphEffect;
+import net.minecraft.client.gui.Font;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.Minecraft;
@@ -309,7 +312,7 @@ public final class NickRenderUtils {
         StringBuilder run = new StringBuilder();
         Style current = outGlyphs.get(0).style();
         for (Glyph g : outGlyphs) {
-            if (!g.style().equals(current)) {
+            if (!g.style().equals(current) || !java.util.Objects.equals(NicknameGlyphEffect.from(g.style()), NicknameGlyphEffect.from(current))) {
                 if (run.length() > 0) {
                     result = result.append(Component.literal(run.toString()).setStyle(current));
                     run.setLength(0);
@@ -351,10 +354,13 @@ public final class NickRenderUtils {
         if (targets.isEmpty()) return original;
 
         StringBuilder sbPlain = new StringBuilder();
+        boolean[] styled = {false};
         original.accept((index, style, codepoint) -> {
             sbPlain.appendCodePoint(codepoint);
+            if (NicknameGlyphEffect.from(style) != null) styled[0] = true;
             return true;
         });
+        if (styled[0]) return original;
         String plain = sbPlain.toString();
         if (plain.isEmpty()) return original;
 
@@ -410,6 +416,54 @@ public final class NickRenderUtils {
         return result;
     }
 
+    public static boolean hasSmoothGradient() {
+        if (shouldSkipNickTweakSubstitution()) return false;
+        return collectTargets().stream().anyMatch(target -> target.gradient() != null);
+    }
+
+    /** Measure actual advances so narrow Latin letters and wide CJK glyphs share one gradient. */
+    public static FormattedCharSequence measureGradient(FormattedCharSequence original, Font font) {
+        boolean local = ConfigManager.nickTweaksCustomNickColorEnabled
+            && !NicknameGradient.normalizeStyle(ConfigManager.nickTweaksGradientStyle).equals("character");
+        if (!local && PresenceSync.remoteNicknames().stream().noneMatch(n -> n.profile().customNickColorEnabled()
+                && !n.profile().chromaEnabled() && !n.profile().gradientStyle().equals("character"))) return original;
+        List<Glyph> glyphs = new ArrayList<>();
+        original.accept((index, style, codepoint) -> { glyphs.add(new Glyph(codepoint, style)); return true; });
+        boolean changed = false;
+        for (int i = 0; i < glyphs.size();) {
+            NicknameGlyphEffect first = NicknameGlyphEffect.from(glyphs.get(i).style());
+            if (first == null) { i++; continue; }
+            int end = i + 1;
+            NicknameGlyphEffect last = first;
+            while (end < glyphs.size()) {
+                var next = NicknameGlyphEffect.from(glyphs.get(end).style());
+                if (next == null || next.gradient() != first.gradient() || next.from() < last.to() - 1e-8) break;
+                last = next; end++;
+            }
+            double[] widths = new double[end - i];
+            double total = 0;
+            for (int n = i; n < end; n++) {
+                var glyph = glyphs.get(n);
+                widths[n - i] = Math.max(0, font.getSplitter().stringWidth(FormattedCharSequence.codepoint(glyph.codepoint(), glyph.style())));
+                total += widths[n - i];
+            }
+            if (total > 0) {
+                double position = 0, range = last.to() - first.from();
+                for (int n = i; n < end; n++) {
+                    var glyph = glyphs.get(n);
+                    var effect = new NicknameGlyphEffect(first.gradient(), first.from() + range * position / total,
+                        first.from() + range * (position + widths[n - i]) / total);
+                    glyphs.set(n, new Glyph(glyph.codepoint(), NicknameGlyphEffect.attach(glyph.style(), effect)));
+                    position += widths[n - i];
+                }
+                changed = true;
+            }
+            i = end;
+        }
+        if (!changed) return original;
+        return FormattedCharSequence.composite(glyphs.stream().map(glyph -> FormattedCharSequence.codepoint(glyph.codepoint(),glyph.style())).toList());
+    }
+
     private static String applySectionColorToStringWithReplacement(String text, List<Glyph> glyphs, TargetMatch[] matchByIndex) {
         List<Glyph> outGlyphs = applyReplacementAndStyle(glyphs, matchByIndex, System.currentTimeMillis());
         StringBuilder sb = new StringBuilder();
@@ -445,6 +499,7 @@ public final class NickRenderUtils {
                 continue;
             }
             Style base = glyphs.get(i).style();
+            NicknameGradient gradient = target.gradient();
             int len = replacement.size();
             for (int idx = 0; idx < len; idx++) {
                 ReplacementCodepoint cp = replacement.get(idx);
@@ -459,6 +514,9 @@ public final class NickRenderUtils {
                     if (rgb >= 0) {
                         style = style.withColor(rgb);
                     }
+                }
+                if (gradient != null && cp.explicitColor() == null) {
+                    style = NicknameGlyphEffect.attach(style, new NicknameGlyphEffect(gradient, idx / (double)len, (idx + 1) / (double)len));
                 }
                 out.add(new Glyph(cp.codepoint(), style));
             }
@@ -651,7 +709,9 @@ public final class NickRenderUtils {
             boolean remoteChromaEnabled,
             boolean customNickColorEnabled,
             int remoteGradientStart,
-            int remoteGradientEnd
+            int remoteGradientEnd,
+            String gradientStyle,
+            double shimmerSpeed
     ) {
         static Target local(String name) {
             int[] cps = name.codePoints().toArray();
@@ -671,7 +731,9 @@ public final class NickRenderUtils {
                     false,
                     ConfigManager.nickTweaksCustomNickColorEnabled,
                     0,
-                    0
+                    0,
+                    ConfigManager.nickTweaksGradientStyle,
+                    ConfigManager.nickTweaksShimmerSpeed
             );
         }
 
@@ -693,11 +755,15 @@ public final class NickRenderUtils {
                     profile.chromaEnabled(),
                     profile.customNickColorEnabled(),
                     profile.gradientStart(),
-                    profile.gradientEnd()
+                    profile.gradientEnd(),
+                    profile.gradientStyle(),
+                    profile.shimmerSpeed()
             );
         }
 
         int colorAt(double progress, long nowMs) {
+            NicknameGradient gradient = gradient();
+            if (gradient != null) return gradient.color(progress, 0.5, nowMs);
             if (!local) {
                 if (remoteChromaEnabled && palette.length > 0) {
                     double phase = (nowMs / 1000.0) * speed;
@@ -739,6 +805,16 @@ public final class NickRenderUtils {
             float saturation = (float) (chroma / 0.4);
             float hue = (float) positiveModulo((progress / size) - phase, 1.0);
             return Mth.hsvToRgb(hue, saturation, (float) lightness);
+        }
+
+        NicknameGradient gradient() {
+            boolean custom = local ? ConfigManager.nickTweaksCustomNickColorEnabled : customNickColorEnabled;
+            boolean chroma = local ? ConfigManager.nickTweaksChromaEnabled : remoteChromaEnabled;
+            String kind = NicknameGradient.normalizeStyle(local ? ConfigManager.nickTweaksGradientStyle : gradientStyle);
+            if (!custom || chroma || kind.equals("character")) return null;
+            return new NicknameGradient(kind, local ? ConfigManager.nickTweaksGradientStartColor : remoteGradientStart,
+                local ? ConfigManager.nickTweaksGradientEndColor : remoteGradientEnd,
+                local ? ConfigManager.nickTweaksShimmerSpeed : shimmerSpeed);
         }
 
         String replacementRaw() {

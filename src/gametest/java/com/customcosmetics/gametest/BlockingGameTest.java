@@ -30,6 +30,12 @@ public final class BlockingGameTest implements FabricClientGameTest {
             world.getServer().runCommand("time set noon");
             world.getServer().runCommand("weather clear");
             waitForWorldRender(world);
+            if(Boolean.getBoolean("customcosmetics.nicknameOnly")) {
+                NicknameGradientGameTest.check(context,world);context.waitTicks(5);return;
+            }
+            if(Boolean.getBoolean("customcosmetics.itemAppearanceOnly")) {
+                ItemAppearanceGameTest.check(context,world);context.waitTicks(5);return;
+            }
             checkItem(context, world, "minecraft:diamond_sword", false, BlockHand.MAIN, "diamond-main");
             checkItem(context, world, "minecraft:blaze_rod[minecraft:custom_data={id:\"ATOMSPLIT_KATANA\"}]", false,
                 BlockHand.MAIN, "atomsplit-main");
@@ -48,6 +54,8 @@ public final class BlockingGameTest implements FabricClientGameTest {
             context.runOnClient(client -> ConfigManager.swordBlockingStyle = "jigsaw");
             try { RemoteCosmeticsGameTest.check(context); }
             catch (ReflectiveOperationException error) { throw new AssertionError("Cannot inspect remote render state", error); }
+            ItemAppearanceGameTest.check(context,world);
+            NicknameGradientGameTest.check(context,world);
             context.runOnClient(client -> ConfigManager.swordBlockingStyle = "default");
             // Finish queued render work and flush the disposable world while it is still connected.
             context.waitTicks(5);

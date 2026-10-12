@@ -22,6 +22,10 @@ class GitHubUpdateCheckTest {
     void newerStableVersionsUseSemanticOrdering(String tag, String installed) {
         assertTrue(GitHubUpdateCheck.newerRelease(release(tag), installed).isPresent());
     }
+    @Test void installingTheCurrentStableReleaseDoesNotCreateAnUpdateNotice() {
+        assertEquals(Optional.of("1.0.1"), GitHubUpdateCheck.newerRelease(release("v1.0.1"), "1.0.0"));
+        assertTrue(GitHubUpdateCheck.newerRelease(release("v1.0.1"), "1.0.1").isEmpty());
+    }
     @ParameterizedTest
     @ValueSource(strings={"v1.0.0", "v0.9.9", "1.0.0+build.9", "1.1.0-beta.1", "latest", "https://evil.example", "1.0", "2.0.0\nclick me"})
     void equalOlderPrereleaseAndInvalidTagsStaySilent(String tag) {

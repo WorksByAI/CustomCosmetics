@@ -111,7 +111,7 @@ class MessageUtilsTest {
             var metadata = JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8)).getAsJsonObject();
             assertEquals("CustomCosmetics", metadata.get("name").getAsString());
             assertEquals("customcosmetics", metadata.get("id").getAsString());
-            assertEquals("1.0.0", metadata.get("version").getAsString());
+            assertEquals(System.getProperty("customcosmetics.version"), metadata.get("version").getAsString());
         }
     }
 

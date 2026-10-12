@@ -23,7 +23,7 @@ import static com.customcosmetics.gui.PinkUi.*;
 
 /** Independent pink cosmetics studio, with scrollable settings and keyboard focus. */
 public final class CosmeticsScreen extends Screen {
-    public enum Page { MAIN, SMOL, NICK, COLOR, CHROMA, ANIMATIONS, SYNC }
+    public enum Page { MAIN, SMOL, NICK, COLOR, CHROMA, ANIMATIONS, ITEMS, SYNC }
     private static final ScreenSession SESSION = new ScreenSession();
     private final Screen parent;
     private Page page;
@@ -74,8 +74,8 @@ public final class CosmeticsScreen extends Screen {
         viewBottom = panelY + panelHeight - 18;
         rowY = viewTop;
 
-        Page[] pages = {Page.SMOL, Page.NICK, Page.ANIMATIONS, Page.SYNC};
-        String[] names = {"SmolPeople", "NickTweaks", "Animations", "Sync"};
+        Page[] pages = {Page.SMOL, Page.NICK, Page.ANIMATIONS, Page.ITEMS, Page.SYNC};
+        String[] names = {"SmolPeople", "NickTweaks", "Animations", "Item Cosmetics", "Sync"};
         int navTop = panelHeight < 220 ? 51 : 64;
         int navGap = Math.clamp((panelHeight - navTop - 52) / pages.length, 14, 31);
         for (int i = 0; i < pages.length; i++) {
@@ -104,6 +104,7 @@ public final class CosmeticsScreen extends Screen {
             case COLOR -> colors();
             case CHROMA -> chroma();
             case ANIMATIONS -> animations();
+            case ITEMS -> itemCosmetics();
             case SYNC -> sync();
         }
         if (page == Page.SMOL || page == Page.NICK || page == Page.COLOR || page == Page.CHROMA) credit();
@@ -117,6 +118,7 @@ public final class CosmeticsScreen extends Screen {
             case MAIN, SMOL -> "SmolPeople";
             case NICK, COLOR, CHROMA -> "NickTweaks";
             case ANIMATIONS -> "Animations";
+            case ITEMS -> "Item Cosmetics";
             case SYNC -> "Sync";
         };
     }
@@ -151,6 +153,16 @@ public final class CosmeticsScreen extends Screen {
         toggleRow("Enabled", "", () -> ConfigManager.smolpeopleMode, v -> ConfigManager.smolpeopleMode = v);
         sliderRow("Limb Swing Speed", "", () -> ConfigManager.smolLimbSwingSpeed,
             0.5, 5, 0.1, 2.5, v -> ConfigManager.smolLimbSwingSpeed = v);
+    }
+
+    private void itemCosmetics() {
+        toggleRow("Enabled", "Custom item names and models. Only visible on your client.",
+            () -> com.customcosmetics.features.items.ItemCosmetics.store().enabled(),
+            value -> com.customcosmetics.features.items.ItemCosmetics.store().enabled(value));
+        fullButton("Customize Items", () -> com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,
+            new ItemAppearanceScreen(this)), false);
+        label("Select a specific SkyBlock item from your inventory.", contentX, rowY, MUTED, contentWidth);rowY += 22;
+        label("Models include vanilla and your enabled resource packs.", contentX, rowY, MUTED, contentWidth);rowY += 22;
     }
 
     private void animations() {
@@ -229,6 +241,27 @@ public final class CosmeticsScreen extends Screen {
     private void colors() {
         if (!pinnedNickname) { previewCard(); tabs(); }
         toggleRow("Custom Nick Color", "Chroma takes priority.", () -> ConfigManager.nickTweaksCustomNickColorEnabled, v -> ConfigManager.nickTweaksCustomNickColorEnabled = v);
+        String mode = switch (com.customcosmetics.features.nickname.NicknameGradient.normalizeStyle(ConfigManager.nickTweaksGradientStyle)) {
+            case "smooth" -> "Smooth"; case "shimmer" -> "Shimmer"; default -> "Per Character";
+        };
+        fullButton("Gradient Style: " + mode, () -> {
+            ConfigManager.nickTweaksGradientStyle = switch (ConfigManager.nickTweaksGradientStyle) {
+                case "character" -> "smooth"; case "smooth" -> "shimmer"; default -> "character";
+            };
+            changed(); rebuildWidgets();
+        }, false);
+        fullButton("Shimmer Preset", () -> {
+            ConfigManager.nickTweaksEnabled = true;
+            ConfigManager.nickTweaksCustomNickColorEnabled = true;
+            ConfigManager.nickTweaksChromaEnabled = false;
+            ConfigManager.nickTweaksGradientStyle = "shimmer";
+            ConfigManager.nickTweaksShimmerSpeed = 1;
+            ConfigManager.nickTweaksGradientStartColor = com.customcosmetics.features.nickname.NicknameGradient.PRESET_START;
+            ConfigManager.nickTweaksGradientEndColor = com.customcosmetics.features.nickname.NicknameGradient.PRESET_END;
+            changed(); rebuildWidgets();
+        }, false);
+        if (ConfigManager.nickTweaksGradientStyle.equals("shimmer"))
+            sliderRow("Shimmer Speed", "", () -> ConfigManager.nickTweaksShimmerSpeed, 0, 4, 0.1, 1, v -> ConfigManager.nickTweaksShimmerSpeed = v);
         int y = card(267);
         label("Gradient Editor", contentX + 12, y + 12, TEXT, contentWidth - 24);
         int half = (contentWidth - 30) / 2;

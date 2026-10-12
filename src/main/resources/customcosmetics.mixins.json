@@ -4,6 +4,11 @@
   "plugin": "com.customcosmetics.mixin.CosmeticsMixinPlugin",
   "compatibilityLevel": "JAVA_25",
   "client": [
+    "NicknameStyleMixin",
+    "NicknameGradientMixin",
+    "ItemAppearanceMixin$Names",
+    "ItemAppearanceMixin$Models",
+    "ItemModelsMixin",
     "SwingAnimationMixin$Legacy",
     "SwingAnimationMixin$Modern",
     "SwordBlockingMixin$FirstPerson",

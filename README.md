@@ -3,9 +3,10 @@
 基于 Fabric 的自定义外观模组。支持玩家间同步。
 
 - **SmolPeople**：移植自 Baity 的小人模型，非常可爱于是我就搬过来了。
-- **NickTweaks**：自定义昵称、颜色、渐变和动态彩色效果。
+- **NickTweaks**：自定义昵称、颜色、平滑渐变、流光和动态彩色效果。
 - **BlockHit**：仿照 1.7 格挡与 Blockhit 动画，可选 Default / Jigsaw 第一人称样式，支持原版及 Hypixel SkyBlock 武器黑/白名单，可选择是否过滤其他玩家的格挡。
 - **Animations**：调整手持物品大小、位置、旋转和挥动速度。
+- **Item Cosmetics**：在本地自定义物品名称与模型，支持已启用资源包中的模型。
 - **远程同步**：双方连接远程服务器即可互相看到装饰和格挡。
 - **更新提示**：每次启动检查 GitHub 最新正式版，有更新时在聊天栏提示。
 
@@ -25,9 +26,10 @@ WorksByAI / CustomCosmetics contributors · [toryyyds@gmail.com](mailto:toryyyds
 A Fabric mod for custom cosmetics, with synchronization between players.
 
 - **SmolPeople**: Small player models ported from Baity. I found them so cute that I brought them over.
-- **NickTweaks**: Custom nicknames, colors, gradients, and animated chroma effects.
+- **NickTweaks**: Custom nicknames, colors, smooth gradients, shimmer, and animated chroma effects.
 - **BlockHit**: 1.7-style sword blocking and Blockhit animations, with Default / Jigsaw first-person styles. Supports blacklists and whitelists for vanilla and Hypixel SkyBlock weapons, with optional filtering of other players' blocking.
 - **Animations**: Adjust held-item size, position, rotation, and swing speed.
+- **Item Cosmetics**: Local custom item names and models, including models from enabled resource packs.
 - **Remote Sync**: Players connected to the remote server can see each other's cosmetics and blocking animations.
 - **Update Notifications**: Checks the latest stable GitHub release at startup and shows a chat notice when an update is available.
 

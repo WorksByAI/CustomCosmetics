@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.1
+
+new feature: nicktweaks new theme
+
 ## 1.0.0
 
 Custom Cosmetics **1.0.0 正式版**发布。

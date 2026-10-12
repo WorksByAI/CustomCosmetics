@@ -5,10 +5,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /** Test-only evidence that the full game's renderer reached the blocking transform. */
 public final class RenderAssertions {
+    public static volatile long nicknameTime = -1;
+    public static final AtomicInteger nicknameGlyphs = new AtomicInteger();
     public static final AtomicInteger calls = new AtomicInteger();
     public static final AtomicInteger models = new AtomicInteger();
     public static final AtomicInteger remoteModels = new AtomicInteger();
     public static final java.util.Set<Integer> remoteSeen = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    public static final AtomicInteger itemModelOverrides = new AtomicInteger();
+    public static volatile String customizedItemModel = "", untouchedItemModel = "";
     public static volatile float swing, equip, blockingSwing, blockingEquip, blockingY;
     public static volatile float forcedBlockingSwing = Float.NaN;
     public static volatile String renderedBlockingStyle;

@@ -11,7 +11,9 @@ public final class ClientLoadProbe {
         String firstPersonRenderer = System.getProperty("fabric.gameVersion").startsWith("26.3")
             ? "net.minecraft.client.renderer.FirstPersonHandsAndItemsRenderer" : "net.minecraft.client.renderer.ItemInHandRenderer";
         for (String type : new String[] {
-            "net.minecraft.client.Minecraft", firstPersonRenderer,
+            "net.minecraft.client.Minecraft", firstPersonRenderer, "net.minecraft.client.gui.Font",
+            "net.minecraft.client.gui.Font$PreparedTextBuilder", "net.minecraft.network.chat.Style",
+            "com.customcosmetics.features.nickname.GradientGlyph", "com.customcosmetics.features.nickname.NicknameGlyphEffect",
             "net.minecraft.client.model.player.PlayerModel", "net.minecraft.client.gui.components.AbstractWidget",
             "net.minecraft.world.entity.LivingEntity",
             "com.customcosmetics.update.UpdateChecker", "com.customcosmetics.update.GitHubUpdateCheck",
@@ -21,14 +23,26 @@ public final class ClientLoadProbe {
             "com.customcosmetics.features.blocking.VisualBlockhit",
             "com.customcosmetics.sync.BlockingSync", "com.customcosmetics.sync.WebSocketPresenceClient",
             "com.customcosmetics.config.RemoteServerConfig", "com.customcosmetics.config.NicknameLimit",
+            "net.minecraft.world.item.ItemStack", "net.minecraft.client.renderer.item.ItemModelResolver", "net.minecraft.client.resources.model.ModelManager",
+            "com.customcosmetics.features.items.ItemCosmetics", "com.customcosmetics.features.items.ItemNameText",
             "net.minecraft.client.renderer.entity.layers.ItemInHandLayer",
             "com.customcosmetics.features.animations.PresenceWorld", "com.customcosmetics.features.animations.ViewModelAnimations"
         }) {
             var loaded = Class.forName(type, false, loader);
             loaded.getDeclaredMethods();
+            if (type.equals("net.minecraft.client.gui.Font$PreparedTextBuilder") && java.util.Arrays.stream(loaded.getDeclaredMethods())
+                    .noneMatch(method -> method.getName().contains("customcosmetics$gradientGlyph")))
+                throw new AssertionError("Smooth nickname glyph rendering was not applied");
+            if (type.equals("net.minecraft.network.chat.Style") && java.util.Arrays.stream(loaded.getDeclaredMethods())
+                    .noneMatch(method -> method.getName().equals("customcosmetics$gradient")))
+                throw new AssertionError("Render-only nickname styles were not applied");
             if (type.equals("net.minecraft.world.entity.LivingEntity")) for (String hook : new String[]{"observeSwing", "advanceSwing"})
                 if (java.util.Arrays.stream(loaded.getDeclaredMethods()).noneMatch(method -> method.getName().contains("customcosmetics$" + hook)))
                     throw new AssertionError("Visual swing observer was not applied: " + hook);
+            if (type.equals("net.minecraft.world.item.ItemStack") && java.util.Arrays.stream(loaded.getDeclaredMethods()).noneMatch(method -> method.getName().contains("customcosmetics$itemName")))
+                throw new AssertionError("Local item name rendering was not applied");
+            if (type.equals("net.minecraft.client.renderer.item.ItemModelResolver") && java.util.Arrays.stream(loaded.getDeclaredMethods()).noneMatch(method -> method.getName().contains("customcosmetics$itemModel")))
+                throw new AssertionError("Local item model rendering was not applied");
             if (type.equals(firstPersonRenderer) ||
                     type.equals("net.minecraft.client.model.player.PlayerModel")) {
                 if (java.util.Arrays.stream(loaded.getDeclaredMethods())
@@ -45,7 +59,11 @@ public final class ClientLoadProbe {
             "mixin/SwordBlockingMixin$FirstPersonModern", "compatibility/BlockingRenderAccess",
             "mixin/SwordBlockingMixin$ThirdPerson", "mixin/SwordBlockingMixin$ThirdPersonItem",
             "features/animations/PresenceWorld", "features/animations/ViewModelAnimations",
-            "update/UpdateChecker", "update/GitHubUpdateCheck"}) checkGameReferences(loader, "com/customcosmetics/" + type);
+            "update/UpdateChecker", "update/GitHubUpdateCheck", "features/items/ItemCosmetics", "features/items/ItemNameText",
+            "gui/ItemAppearanceScreen", "gui/ItemChoiceScreen", "gui/ItemChoiceScreen$Row",
+            "mixin/ItemAppearanceMixin$Names", "mixin/ItemAppearanceMixin$Models", "utils/NickRenderUtils",
+            "features/nickname/GradientGlyph", "features/nickname/GradientGlyph$GradientVertices",
+            "features/nickname/NicknameGlyphEffect", "mixin/NicknameGradientMixin", "mixin/NicknameStyleMixin"}) checkGameReferences(loader, "com/customcosmetics/" + type);
         Class.forName("com.customcosmetics.compatibility.RepositoryLinks", true, loader);
         Class.forName("com.customcosmetics.compatibility.SwingAccess", true, loader)
             .getMethod("validate", Class.class).invoke(null, Class.forName("net.minecraft.client.player.LocalPlayer", false, loader));
@@ -152,6 +170,11 @@ public final class ClientLoadProbe {
 
     private static boolean hasMethod(Class<?> type, String name, java.lang.invoke.MethodType signature) {
         if (type == null) return false;
+        // invokeinterface may resolve a public Object method even though reflection omits it.
+        if (type.isInterface() && java.util.Arrays.stream(Object.class.getMethods()).anyMatch(method ->
+                !java.lang.reflect.Modifier.isStatic(method.getModifiers()) && method.getName().equals(name)
+                && method.getReturnType().equals(signature.returnType())
+                && java.util.Arrays.equals(method.getParameterTypes(), signature.parameterArray()))) return true;
         for (var method : type.getDeclaredMethods())
             if (method.getName().equals(name) && method.getReturnType().equals(signature.returnType()) &&
                 java.util.Arrays.equals(method.getParameterTypes(), signature.parameterArray())) return true;
