@@ -61,6 +61,19 @@ public final class NicknameGradientGameTest implements FabricClientGameTest {
         PixelCounts right=capture(context,"shimmer-right");
         if(left.leftGold<=base.leftGold+30||right.rightGold<=base.rightGold+30)
             throw new AssertionError("The highlight did not sweep inside both real Chinese glyphs: base="+base+" left="+left+" right="+right);
+        context.runOnClient(client->{
+            ConfigManager.nickTweaksGradientStartColor=0;ConfigManager.nickTweaksGradientEndColor=0;
+            ConfigManager.nickTweaksShimmerColor=0x00FF00;ConfigManager.nickTweaksShimmerHighlightColor=0x00FF00;
+            ClientUiAccess.setScreen(client,new SampleScreen());
+        });RenderAssertions.nicknameTime=1600;context.waitTicks(3);
+        PixelCounts custom=capture(context,"custom-green-shimmer");
+        if(custom.green<30||custom.leftGold!=0||custom.rightGold!=0)
+            throw new AssertionError("Custom shimmer colors did not reach GPU glyphs: "+custom);
+        context.runOnClient(client->{
+            ConfigManager.nickTweaksGradientStartColor=NicknameGradient.PRESET_START;ConfigManager.nickTweaksGradientEndColor=NicknameGradient.PRESET_END;
+            ConfigManager.nickTweaksShimmerColor=NicknameGradient.DEFAULT_SHIMMER;ConfigManager.nickTweaksShimmerHighlightColor=NicknameGradient.DEFAULT_HIGHLIGHT;
+            ClientUiAccess.setScreen(client,new SampleScreen());
+        });context.waitTicks(3);
         if(Boolean.getBoolean("customcosmetics.nicknameAnimation")) {
             for(int frame=0;frame<23;frame++) {
                 RenderAssertions.nicknameTime=frame*150;context.waitTicks(2);
@@ -75,6 +88,7 @@ public final class NicknameGradientGameTest implements FabricClientGameTest {
             ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.COLOR));
         });context.waitTicks(3);context.takeScreenshot("nickname-shimmer-settings");
         checkRemoteNameTag(context);
+        NicknamePresetGameTest.check(context);
         RenderAssertions.nicknameTime=-1;
         System.out.println("NICKNAME_SHIMMER_GPU_OK base="+base+" left="+left+" right="+right+" smooth="+smooth);
     }
@@ -158,12 +172,13 @@ public final class NicknameGradientGameTest implements FabricClientGameTest {
                 var features=new com.google.gson.JsonObject();var nick=new com.google.gson.JsonObject();
                 nick.addProperty("enabled",true);nick.addProperty("customNickColorEnabled",true);nick.addProperty("nickChanger","暮冬");
                 var solid=new com.google.gson.JsonObject();solid.addProperty("customColorStart","#24CFDF");solid.addProperty("customColorEnd","#EA78C5");
-                solid.addProperty("style","shimmer");solid.addProperty("shimmerSpeed",1.7);nick.add("solid",solid);features.add("nickTweaks",nick);user.add("features",features);
+                solid.addProperty("style","shimmer");solid.addProperty("shimmerSpeed",1.7);solid.addProperty("shimmerColor","#0055FF");solid.addProperty("shimmerHighlightColor","#66DDFF");nick.add("solid",solid);features.add("nickTweaks",nick);user.add("features",features);
                 UUID id=UUID.fromString("12345678-1234-4234-8234-123456789abc");users.add(id.toString(),user);payload.add("users",users);
                 var apply=PresenceSync.class.getDeclaredMethod("applyPayload",String.class,boolean.class,boolean.class);apply.setAccessible(true);apply.invoke(null,payload.toString(),false,true);
                 var profile=PresenceSync.getChromaProfileByName("Alice");
-                if(profile==null||!profile.gradientStyle().equals("shimmer")||profile.shimmerSpeed()!=1.7)throw new AssertionError("The remote gradient settings were lost");
-                if(prepared(client.font.prepareText(net.minecraft.locale.Language.getInstance().getVisualOrder(NickRenderUtils.handleFormattedText(Component.literal("Alice"))),0,0,-1,false,false,0)).size()!=2)
+                if(profile==null||!profile.gradientStyle().equals("shimmer")||profile.shimmerSpeed()!=1.7||profile.shimmerColor()!=0x0055FF||profile.shimmerHighlightColor()!=0x66DDFF)throw new AssertionError("The remote gradient settings were lost");
+                var remoteGlyphs=prepared(client.font.prepareText(net.minecraft.locale.Language.getInstance().getVisualOrder(NickRenderUtils.handleFormattedText(Component.literal("Alice"))),0,0,-1,false,false,0));
+                if(remoteGlyphs.size()!=2||remoteGlyphs.getFirst().effect().gradient().shimmerColor()!=0x0055FF||remoteGlyphs.getFirst().effect().gradient().shimmerHighlightColor()!=0x66DDFF)
                     throw new AssertionError("Remote formatted nickname did not create gradient glyphs");
                 var player=new RemotePlayer(client.level,new com.mojang.authlib.GameProfile(id,"Alice"));
                 player.setId(-12101);player.setPos(client.player.getX(),client.player.getY(),client.player.getZ()+3);
@@ -185,23 +200,24 @@ public final class NicknameGradientGameTest implements FabricClientGameTest {
             int middle=left+(int)(first*6*scale),right=left+(int)(total*6*scale),bottom=top+(int)(9*6*scale);
             Screenshot.takeScreenshot(renderTarget(client),image->{
                 try(image){
-                    int cyan=0,blue=0,pink=0,leftGold=0,rightGold=0;
+                    int cyan=0,blue=0,pink=0,leftGold=0,rightGold=0,green=0;
                     for(int y=top;y<Math.min(bottom,image.getHeight());y++)for(int x=left;x<Math.min(right,image.getWidth());x++){
                         int c=image.getPixel(x,y),r=(c>>16)&255,g=(c>>8)&255,b=c&255;
                         if(r<110&&g>150&&b>150)cyan++;
                         if(r<150&&g<160&&b>180)blue++;
                         if(r>150&&g<160&&b>150)pink++;
+                        if(g>160&&r<60&&b<60)green++;
                         if(r>220&&g>180&&b<230){if(x<middle)leftGold++;else rightGold++;}
                     }
                     var version=FabricLoader.getInstance().getModContainer("minecraft").orElseThrow().getMetadata().getVersion().getFriendlyString();
                     var path=Path.of(System.getProperty("customcosmetics.testProjectDir"),"build/audit/nickname-game",version,name+".png");
                     Files.createDirectories(path.getParent());image.writeToFile(path);
-                    pixels.complete(new PixelCounts(cyan,blue,pink,leftGold,rightGold));
+                    pixels.complete(new PixelCounts(cyan,blue,pink,leftGold,rightGold,green));
                 }catch(Throwable error){pixels.completeExceptionally(error);}
             });
         });context.waitFor(client->pixels.isDone());return pixels.join();
     }
-    private record PixelCounts(int cyan,int blue,int pink,int leftGold,int rightGold){}
+    private record PixelCounts(int cyan,int blue,int pink,int leftGold,int rightGold,int green){}
 
     private static com.mojang.blaze3d.pipeline.RenderTarget renderTarget(Minecraft client) {
         try {

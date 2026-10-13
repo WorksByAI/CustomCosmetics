@@ -244,7 +244,7 @@ public final class PresenceSync {
                     nowIsoToEpochMs(nowIso),
                     false,
                     local.gradientStyle(),
-                    local.shimmerSpeed()
+                    local.shimmerSpeed(), local.shimmerColor(), local.shimmerHighlightColor()
             ));
 
             JsonObject root = new JsonObject();
@@ -303,6 +303,8 @@ public final class PresenceSync {
                 solid.addProperty("customColorEnd", String.format("#%06X", state.gradientEnd() & 0xFFFFFF));
                 solid.addProperty("style", state.gradientStyle());
                 solid.addProperty("shimmerSpeed", state.shimmerSpeed());
+                solid.addProperty("shimmerColor", String.format("#%06X", state.shimmerColor() & 0xFFFFFF));
+                solid.addProperty("shimmerHighlightColor", String.format("#%06X", state.shimmerHighlightColor() & 0xFFFFFF));
                 nickTweaks.add("solid", solid);
             }
         }
@@ -569,7 +571,8 @@ public final class PresenceSync {
             customNickColorEnabled,
             nickChanger,
             com.customcosmetics.features.nickname.NicknameGradient.normalizeStyle(ConfigManager.nickTweaksGradientStyle),
-            Double.isFinite(ConfigManager.nickTweaksShimmerSpeed) ? clamp(ConfigManager.nickTweaksShimmerSpeed, 0, 4) : 1
+            Double.isFinite(ConfigManager.nickTweaksShimmerSpeed) ? clamp(ConfigManager.nickTweaksShimmerSpeed, 0, 4) : 1,
+            ConfigManager.nickTweaksShimmerColor & 0xFFFFFF, ConfigManager.nickTweaksShimmerHighlightColor & 0xFFFFFF
         );
         return state;
     }
@@ -610,6 +613,8 @@ public final class PresenceSync {
                 solid.addProperty("customColorEnd", String.format("#%06X", state.gradientEnd() & 0xFFFFFF));
                 solid.addProperty("style", state.gradientStyle());
                 solid.addProperty("shimmerSpeed", state.shimmerSpeed());
+                solid.addProperty("shimmerColor", String.format("#%06X", state.shimmerColor() & 0xFFFFFF));
+                solid.addProperty("shimmerHighlightColor", String.format("#%06X", state.shimmerHighlightColor() & 0xFFFFFF));
                 nickTweaks.add("solid", solid);
             }
         }
@@ -782,6 +787,7 @@ public final class PresenceSync {
             int gradientEnd = 0xC299FF;
             String gradientStyle = "character";
             double shimmerSpeed = 1;
+            int shimmerColor = 0xFFCF64, shimmerHighlightColor = 0xFFF0BB;
             int[] palette = new int[0];
 
             if (nickTweaksEnabled) {
@@ -807,6 +813,8 @@ public final class PresenceSync {
                     gradientStyle = com.customcosmetics.features.nickname.NicknameGradient.normalizeStyle(getAsString(solidObj, "style", "character"));
                     double rawShimmerSpeed = getAsDouble(solidObj, "shimmerSpeed", 1);
                     shimmerSpeed = Double.isFinite(rawShimmerSpeed) ? clamp(rawShimmerSpeed, 0, 4) : 1;
+                    shimmerColor = parseHexColor(solidObj, "shimmerColor", 0xFFCF64);
+                    shimmerHighlightColor = parseHexColor(solidObj, "shimmerHighlightColor", 0xFFF0BB);
                     palette = new int[]{gradientStart, gradientEnd};
                 }
             }
@@ -841,14 +849,14 @@ public final class PresenceSync {
                 lastSeenEpochMs,
                 stale,
                 gradientStyle,
-                shimmerSpeed
+                shimmerSpeed, shimmerColor, shimmerHighlightColor
             );
             newUsers.put(uuid, state);
             if (nickTweaksEnabled) {
                 String nameLower = name.toLowerCase(Locale.ROOT);
                 newChromaByName.put(
                     nameLower,
-                    new ChromaProfile(chromaEnabled, palette, speed, chromaSize, chromaAmount, chromaLightness, gradientStart, gradientEnd, boldSelf, customNickColorEnabled, nickChanger, gradientStyle, shimmerSpeed)
+                    new ChromaProfile(chromaEnabled, palette, speed, chromaSize, chromaAmount, chromaLightness, gradientStart, gradientEnd, boldSelf, customNickColorEnabled, nickChanger, gradientStyle, shimmerSpeed, shimmerColor, shimmerHighlightColor)
                 );
                 newNicknames.add(new RemoteNickname(uuid, name, newChromaByName.get(nameLower)));
             }
@@ -891,7 +899,7 @@ public final class PresenceSync {
             + "|" + r.smolLimbSwingSpeed() + "|" + r.chromaSpeed() + "|" + r.chromaSize() + "|" + r.chromaAmount() + "|" + r.chromaLightness()
             + "|" + (r.gradientStart() & 0xFFFFFF) + "|" + (r.gradientEnd() & 0xFFFFFF)
             + "|" + r.boldEnabled() + "|" + r.customNickColorEnabled() + "|" + (r.nickChanger() == null ? "" : r.nickChanger())
-            + "|" + r.gradientStyle() + "|" + r.shimmerSpeed()
+            + "|" + r.gradientStyle() + "|" + r.shimmerSpeed() + "|" + r.shimmerColor() + "|" + r.shimmerHighlightColor()
             + "|" + java.util.Arrays.toString(r.chromaPalette() == null ? new int[0] : r.chromaPalette()));
     }
 
@@ -1013,9 +1021,15 @@ public final class PresenceSync {
             boolean customNickColorEnabled,
             String nickChanger,
             String gradientStyle,
-            double shimmerSpeed
+            double shimmerSpeed,
+            int shimmerColor,
+            int shimmerHighlightColor
     ) {
+        public ChromaProfile(boolean chromaEnabled, int[] palette, double speed, double chromaSize, double chromaAmount, double chromaLightness, int gradientStart, int gradientEnd, boolean boldSelf, boolean customNickColorEnabled, String nickChanger, String gradientStyle, double shimmerSpeed) {
+            this(chromaEnabled, palette, speed, chromaSize, chromaAmount, chromaLightness, gradientStart, gradientEnd, boldSelf, customNickColorEnabled, nickChanger, gradientStyle, shimmerSpeed, 0xFFCF64, 0xFFF0BB);
+        }
         public ChromaProfile {
+            shimmerColor &= 0xFFFFFF; shimmerHighlightColor &= 0xFFFFFF;
             if (palette == null) palette = new int[0];
             gradientStart &= 0xFFFFFF;
             gradientEnd &= 0xFFFFFF;
@@ -1049,7 +1063,9 @@ public final class PresenceSync {
             long lastSeenEpochMs,
             boolean stale,
             String gradientStyle,
-            double shimmerSpeed
+            double shimmerSpeed,
+            int shimmerColor,
+            int shimmerHighlightColor
     ) {
     }
 
@@ -1071,13 +1087,15 @@ public final class PresenceSync {
             boolean customNickColorEnabled,
             String nickChanger,
             String gradientStyle,
-            double shimmerSpeed
+            double shimmerSpeed,
+            int shimmerColor,
+            int shimmerHighlightColor
     ) {
         String signature() {
             return uuid + "|" + name + "|" + nickTweaksEnabled + "|" + chromaEnabled + "|" + smolEnabled + "|" + smolLimbSwingSpeed + "|" + chromaSpeed
                     + "|" + chromaSize + "|" + chromaAmount + "|" + chromaLightness
                     + "|" + gradientStart + "|" + gradientEnd + "|" + boldSelf + "|" + customNickColorEnabled + "|" + nickChanger
-                    + "|" + gradientStyle + "|" + shimmerSpeed
+                    + "|" + gradientStyle + "|" + shimmerSpeed + "|" + shimmerColor + "|" + shimmerHighlightColor
                     + "|" + java.util.Arrays.toString(chromaPalette);
         }
     }

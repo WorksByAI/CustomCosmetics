@@ -2,15 +2,21 @@
 package com.customcosmetics.features.nickname;
 
 /** Immutable, client-rendered gradient; elapsed time never requires a remote update. */
-public record NicknameGradient(String style, int start, int end, double speed) {
+public record NicknameGradient(String style, int start, int end, double speed, int shimmerColor, int shimmerHighlightColor) {
     public static final int PRESET_START = 0x24CFDF;
     public static final int PRESET_END = 0xEA78C5;
+    public static final int DEFAULT_SHIMMER = 0xFFCF64;
+    public static final int DEFAULT_HIGHLIGHT = 0xFFF0BB;
+    public NicknameGradient(String style, int start, int end, double speed) {
+        this(style, start, end, speed, DEFAULT_SHIMMER, DEFAULT_HIGHLIGHT);
+    }
     public static final long PERIOD_MS = 3400;
 
     public NicknameGradient {
         style = normalizeStyle(style);
         start &= 0xFFFFFF;
         end &= 0xFFFFFF;
+        shimmerColor &= 0xFFFFFF; shimmerHighlightColor &= 0xFFFFFF;
         speed = Double.isFinite(speed) ? Math.clamp(speed, 0, 4) : 1;
     }
 
@@ -24,14 +30,14 @@ public record NicknameGradient(String style, int start, int end, double speed) {
         double x = Math.clamp(Double.isFinite(position) ? position : 0, 0, 1);
         int base = hueBlend(start, end, x);
         if (!style.equals("shimmer") || speed == 0) return base;
-        // A short, diagonal gold-white sweep followed by a quiet gap, as in the reference.
+        // A short, diagonal colored sweep followed by a quiet gap, as in the reference.
         double period = PERIOD_MS / speed;
         double phase = ((timeMs % period) + period) % period / period;
         double sweep = phase * 3.5 - 0.9;
         double distance = Math.abs(x + (Math.clamp(Double.isFinite(height) ? height : 0.5, 0, 1) - 0.5) * 0.13 - sweep);
         double intensity = Math.max(0, 1 - distance / 0.16);
         intensity = intensity * intensity * (3 - 2 * intensity);
-        int shine = rgbBlend(0xFFCF64, 0xFFF0BB, intensity);
+        int shine = rgbBlend(shimmerColor, shimmerHighlightColor, intensity);
         return rgbBlend(base, shine, intensity * 0.96);
     }
 

@@ -44,6 +44,8 @@ public final class ConfigManager {
     public static int nickTweaksGradientStartColor = 0xFFFFFF;
     public static int nickTweaksGradientEndColor = 0xFFFFFF;
     public static String nickTweaksGradientStyle = "character";
+    public static int nickTweaksShimmerColor = 0xFFCF64;
+    public static int nickTweaksShimmerHighlightColor = 0xFFF0BB;
     public static double nickTweaksShimmerSpeed = 1.0;
     public static boolean swordBlockingEnabled = true;
     public static String swordBlockingStyle = "default";

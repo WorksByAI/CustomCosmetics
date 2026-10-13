@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.2
+
+NickTweaks: Add color presets and customizable shimmer colors.
+
 ## 1.0.1
 
 new feature: nicktweaks new theme

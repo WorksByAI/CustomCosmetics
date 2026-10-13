@@ -28,9 +28,10 @@ public final class WebSocketPresenceClient implements BlockingPresence, WebSocke
     private volatile UdpPresenceClient.Scope desired = new UdpPresenceClient.Scope("",Set.of());
     private volatile UdpPresenceClient.State state = new UdpPresenceClient.State(BlockHand.NONE,"");
     private volatile long acknowledged, expires;
+    private volatile Map<UUID, BlockingTransport.Pose> remoteSnapshot = Map.of();
     private UdpPresenceClient.Scope sentScope;
     private UdpPresenceClient.State sentState;
-    private long revision, nextPose;
+    private long revision, minimumWorldRevision, nextPose;
     private final long started = now();
     private CompletableFuture<WebSocket> sending;
     private final StringBuilder message = new StringBuilder();
@@ -85,16 +86,26 @@ public final class WebSocketPresenceClient implements BlockingPresence, WebSocke
         if(sending!=null&&sending.isCompletedExceptionally()){close();return;}
         var scope=desired;
         if(!scope.equals(sentScope)){
-            sentScope=scope;revision++;sentState=null;acknowledged=0;receiver.accept(Map.of());
+            boolean changedWorld=sentScope==null||!sentScope.world().equals(scope.world());
+            sentScope=scope;revision++;sentState=null;
+            if(changedWorld){minimumWorldRevision=revision;acknowledged=0;publishSnapshot(Map.of());}
+            else {
+                var retained=new HashMap<UUID,BlockingTransport.Pose>();
+                remoteSnapshot.forEach((id,pose)->{if(scope.players().contains(id)&&pose.expiresAt()>now())retained.put(id,pose);});
+                publishSnapshot(Map.copyOf(retained));
+            }
             var body=new JsonObject();body.addProperty("type","scope");body.addProperty("revision",revision);body.addProperty("world",scope.world());
             var players=new JsonArray();scope.players().stream().sorted().forEach(id->players.add(id.toString()));body.add("players",players);send(body);return;
         }
         var effective=!readOnly&&!scope.world().isEmpty()&&!scope.players().isEmpty()?state:new UdpPresenceClient.State(BlockHand.NONE,"");
-        if(acknowledged==revision&&!readOnly&&!scope.world().isEmpty()&&(!effective.equals(sentState)||effective.hand()!=BlockHand.NONE&&now()>=nextPose)){
+        // WebSocket messages arrive in order: the service processes the preceding scope before this pose.
+        // Waiting for the scope acknowledgement adds a round trip and can swallow a short block entirely.
+        if(!readOnly&&!scope.world().isEmpty()&&(!effective.equals(sentState)||effective.hand()!=BlockHand.NONE&&now()>=nextPose)){
             var body=new JsonObject();body.addProperty("type","pose");body.addProperty("revision",revision);body.addProperty("hand",effective.hand().wire);body.addProperty("itemId",effective.itemId());
             sentState=effective;nextPose=now()+250;send(body);
         }
     }
+    private void publishSnapshot(Map<UUID,BlockingTransport.Pose> poses){remoteSnapshot=poses;receiver.accept(poses);}
     private void send(JsonObject body){sending=socket.sendText(body.toString(),true);}
     @Override public void onOpen(WebSocket ws){
         socket=ws;if(closed){ws.abort();return;}
@@ -119,9 +130,12 @@ public final class WebSocketPresenceClient implements BlockingPresence, WebSocke
             readOnly=body.get("readOnly").getAsBoolean();expires=body.get("expiresAt").getAsLong();ready=true;return;
         }
         if(!ready)throw new IllegalArgumentException("Missing hello");
-        if(body.get("revision").getAsLong()!=revision)return;
-        if(type.equals("scope")){acknowledged=revision;return;}
-        if(type.equals("poses")){if(sentScope!=null&&acknowledged==revision)receiver.accept(parseSnapshot(body,revision,sentScope.players(),now()));return;}
+        long receivedRevision=body.get("revision").getAsLong();
+        if(receivedRevision<minimumWorldRevision||receivedRevision>revision)return;
+        if(type.equals("scope")){acknowledged=Math.max(acknowledged,receivedRevision);return;}
+        // Earlier subscriptions in this world are still useful while a new player list is in flight.
+        // Filter with the newest interests, and discard every revision belonging to a previous world.
+        if(type.equals("poses")){if(sentScope!=null&&acknowledged>=receivedRevision)publishSnapshot(parseSnapshot(body,receivedRevision,sentScope.players(),now()));return;}
         throw new IllegalArgumentException("Unknown message");
     }
     static Map<UUID,BlockingTransport.Pose> parseSnapshot(JsonObject json,long revision,Set<UUID> interests,long time){
@@ -143,5 +157,5 @@ public final class WebSocketPresenceClient implements BlockingPresence, WebSocke
     @Override public CompletionStage<?> onPong(WebSocket ws,java.nio.ByteBuffer data){ws.request(1);return null;}
     @Override public CompletionStage<?> onClose(WebSocket ws,int code,String reason){failure="close:"+code;close();return null;}
     @Override public void onError(WebSocket ws,Throwable error){failure="transport:"+error.getClass().getSimpleName();close();}
-    @Override public void close(){if(closed)return;closed=true;var pending=connecting;if(pending!=null)pending.cancel(true);var ws=socket;if(ws!=null)ws.abort();worker.shutdownNow();http.shutdownNow();receiver.accept(Map.of());}
+    @Override public void close(){if(closed)return;closed=true;var pending=connecting;if(pending!=null)pending.cancel(true);var ws=socket;if(ws!=null)ws.abort();worker.shutdownNow();http.shutdownNow();remoteSnapshot=Map.of();receiver.accept(Map.of());}
 }

@@ -23,7 +23,7 @@ import static com.customcosmetics.gui.PinkUi.*;
 
 /** Independent pink cosmetics studio, with scrollable settings and keyboard focus. */
 public final class CosmeticsScreen extends Screen {
-    public enum Page { MAIN, SMOL, NICK, COLOR, CHROMA, ANIMATIONS, ITEMS, SYNC }
+    public enum Page { MAIN, SMOL, NICK, COLOR, CHROMA, PRESETS, ANIMATIONS, ITEMS, SYNC }
     private static final ScreenSession SESSION = new ScreenSession();
     private final Screen parent;
     private Page page;
@@ -45,6 +45,8 @@ public final class CosmeticsScreen extends Screen {
     private BlockingStyleDropdown blockingStyle;
     private PinkUi.ColorPicker picker;
     private boolean changingColorText;
+    private boolean editingShimmerColors;
+    private String presetName = "";
     private boolean pinnedNickname, draggingScroll;
     private record Placement(AbstractWidget widget, int y) {}
 
@@ -83,12 +85,12 @@ public final class CosmeticsScreen extends Screen {
             PinkUi.Action action = new PinkUi.Action(panelX + 10, panelY + navTop + i * navGap,
                 sideWidth - 20, navGap - 4, names[i], false, () -> open(target));
             action.selected(() -> target == page
-                || target == Page.NICK && (page == Page.COLOR || page == Page.CHROMA));
+                || target == Page.NICK && (page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS));
             navigation.add(addWidget(action));
         }
         navigation.add(addWidget(new RepositoryButton(panelX + 12, panelY + panelHeight - 42)));
         navigation.add(addWidget(new PinkUi.Action(panelX + panelWidth - 32, panelY + 15, 20, 20, "×", false, this::onClose)));
-        pinnedNickname = panelHeight >= 360 && (page == Page.NICK || page == Page.COLOR || page == Page.CHROMA);
+        pinnedNickname = panelHeight >= 360 && (page == Page.NICK || page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS);
         if (pinnedNickname) {
             previewCard(); tabs();
             pinnedArt.addAll(art);
@@ -103,11 +105,12 @@ public final class CosmeticsScreen extends Screen {
             case NICK -> nickname();
             case COLOR -> colors();
             case CHROMA -> chroma();
+            case PRESETS -> presets();
             case ANIMATIONS -> animations();
             case ITEMS -> itemCosmetics();
             case SYNC -> sync();
         }
-        if (page == Page.SMOL || page == Page.NICK || page == Page.COLOR || page == Page.CHROMA) credit();
+        if (page == Page.SMOL || page == Page.NICK || page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS) credit();
         contentBottom = rowY + 5;
         scroll = Math.clamp(scroll, 0, maxScroll());
         positionControls();
@@ -116,7 +119,7 @@ public final class CosmeticsScreen extends Screen {
     private String pageTitle() {
         return switch (page) {
             case MAIN, SMOL -> "SmolPeople";
-            case NICK, COLOR, CHROMA -> "NickTweaks";
+            case NICK, COLOR, CHROMA, PRESETS -> "NickTweaks";
             case ANIMATIONS -> "Animations";
             case ITEMS -> "Item Cosmetics";
             case SYNC -> "Sync";
@@ -210,9 +213,9 @@ public final class CosmeticsScreen extends Screen {
     }
 
     private void tabs() {
-        String[] labels = {"General", "Gradient", "Chroma"};
-        Page[] pages = {Page.NICK, Page.COLOR, Page.CHROMA};
-        int w = (contentWidth - 8) / 3;
+        String[] labels = {"General", "Gradient", "Chroma", "Presets"};
+        Page[] pages = {Page.NICK, Page.COLOR, Page.CHROMA, Page.PRESETS};
+        int w = (contentWidth - 12) / 4;
         for (int i = 0; i < pages.length; i++) {
             Page target = pages[i];
             add(new PinkUi.Action(contentX + i * (w + 4), rowY, w, 25, labels[i], false, () -> open(target)).selected(() -> page == target));
@@ -258,19 +261,26 @@ public final class CosmeticsScreen extends Screen {
             ConfigManager.nickTweaksShimmerSpeed = 1;
             ConfigManager.nickTweaksGradientStartColor = com.customcosmetics.features.nickname.NicknameGradient.PRESET_START;
             ConfigManager.nickTweaksGradientEndColor = com.customcosmetics.features.nickname.NicknameGradient.PRESET_END;
+            ConfigManager.nickTweaksShimmerColor = 0xFFCF64; ConfigManager.nickTweaksShimmerHighlightColor = 0xFFF0BB;
+            editingShimmerColors = false;
             changed(); rebuildWidgets();
         }, false);
         if (ConfigManager.nickTweaksGradientStyle.equals("shimmer"))
             sliderRow("Shimmer Speed", "", () -> ConfigManager.nickTweaksShimmerSpeed, 0, 4, 0.1, 1, v -> ConfigManager.nickTweaksShimmerSpeed = v);
+        if (!ConfigManager.nickTweaksGradientStyle.equals("shimmer")) editingShimmerColors = false;
+        if (ConfigManager.nickTweaksGradientStyle.equals("shimmer"))
+            fullButton("Editing: " + (editingShimmerColors ? "Shimmer Colors" : "Gradient Colors"), () -> {
+                editingShimmerColors = !editingShimmerColors; selectedEndpoint = 0; rebuildWidgets();
+            }, false);
         int y = card(267);
-        label("Gradient Editor", contentX + 12, y + 12, TEXT, contentWidth - 24);
+        label(editingShimmerColors ? "Shimmer Editor" : "Gradient Editor", contentX + 12, y + 12, TEXT, contentWidth - 24);
         int half = (contentWidth - 30) / 2;
-        add(new PinkUi.Action(contentX + 12, y + 29, half, 25, "Start", false, () -> selectEndpoint(0)).selected(() -> selectedEndpoint == 0));
-        add(new PinkUi.Action(contentX + 18 + half, y + 29, half, 25, "End", false, () -> selectEndpoint(1)).selected(() -> selectedEndpoint == 1));
+        add(new PinkUi.Action(contentX + 12, y + 29, half, 25, editingShimmerColors ? "Sweep" : "Start", false, () -> selectEndpoint(0)).selected(() -> selectedEndpoint == 0));
+        add(new PinkUi.Action(contentX + 18 + half, y + 29, half, 25, editingShimmerColors ? "Highlight" : "End", false, () -> selectEndpoint(1)).selected(() -> selectedEndpoint == 1));
         art.add(g -> {
-            gradient(g, contentX + 12, y + 59, contentWidth - 24, 10, ConfigManager.nickTweaksGradientStartColor, ConfigManager.nickTweaksGradientEndColor);
-            text(g, font, hex(ConfigManager.nickTweaksGradientStartColor), contentX + 12, y + 75, MUTED, half);
-            text(g, font, hex(ConfigManager.nickTweaksGradientEndColor), contentX + contentWidth - 64, y + 75, MUTED, 62);
+            gradient(g, contentX + 12, y + 59, contentWidth - 24, 10, color(0), color(1));
+            text(g, font, hex(color(0)), contentX + 12, y + 75, MUTED, half);
+            text(g, font, hex(color(1)), contentX + contentWidth - 64, y + 75, MUTED, 62);
         });
         picker = add(new PinkUi.ColorPicker(contentX + 12, y + 96, contentWidth - 26, 88, selectedColor(), color -> {
             setSelectedColor(color);
@@ -295,23 +305,53 @@ public final class CosmeticsScreen extends Screen {
         });
         int bx = contentX + fieldWidth + 18;
         add(new PinkUi.Action(bx, y + 208, contentX + contentWidth - bx - 12, 30, "Copy", false, () -> {
-            setSelectedColor(selectedEndpoint == 0 ? ConfigManager.nickTweaksGradientEndColor : ConfigManager.nickTweaksGradientStartColor);
+            setSelectedColor(color(1 - selectedEndpoint));
             rebuildWidgets();
         }));
         label("#RRGGBB", contentX + 12, y + 246, MUTED, contentWidth - 24);
         int w = (contentWidth - 6) / 2;
         add(new PinkUi.Action(contentX, rowY, w, 28, "Swap", false, () -> {
-            int first = ConfigManager.nickTweaksGradientStartColor;
-            ConfigManager.nickTweaksGradientStartColor = ConfigManager.nickTweaksGradientEndColor;
-            ConfigManager.nickTweaksGradientEndColor = first;
+            int first = color(0); color(0, color(1)); color(1, first);
             changed(); rebuildWidgets();
         }));
         add(new PinkUi.Action(contentX + w + 6, rowY, w, 28, "Reset", false, () -> {
-            ConfigManager.nickTweaksGradientStartColor = 0xFFFFFF;
-            ConfigManager.nickTweaksGradientEndColor = 0xFFFFFF;
+            color(0, editingShimmerColors ? 0xFFCF64 : 0xFFFFFF);
+            color(1, editingShimmerColors ? 0xFFF0BB : 0xFFFFFF);
             changed(); rebuildWidgets();
         }));
         rowY += 38;
+    }
+
+    private void presets() {
+        if (!pinnedNickname) { previewCard(); tabs(); }
+        int y = card(80);
+        label("Save Current Colors", contentX + 12, y + 11, PINK, contentWidth - 24);
+        input(contentX + 12, y + 30, contentWidth - 24, "Preset Name", presetName, 40, value -> presetName = value);
+        fullButton("Save / Update", () -> {
+            try {
+                com.customcosmetics.features.nickname.NicknamePresets.store().put(presetName,
+                    com.customcosmetics.features.nickname.NicknameColors.capture());
+                toast("Preset saved."); rebuildWidgets();
+            } catch (java.io.IOException | IllegalArgumentException error) { toast(error.getMessage()); }
+        }, true);
+        var entries = com.customcosmetics.features.nickname.NicknamePresets.store().entries();
+        if (entries.isEmpty()) { label("No saved presets", contentX + 12, rowY, MUTED, contentWidth - 24); rowY += 25; }
+        for (var entry : entries.entrySet()) {
+            int top = card(92), w = (contentWidth - 30) / 2;
+            label(entry.getKey(), contentX + 12, top + 11, TEXT, contentWidth - 24);
+            var colors = entry.getValue();
+            label(colors.chromaEnabled() ? "Chroma" : switch (colors.style()) {
+                case "shimmer" -> "Shimmer"; case "smooth" -> "Smooth"; default -> "Per Character";
+            }, contentX + 12, top + 27, MUTED, contentWidth - 24);
+            art.add(g -> gradient(g, contentX + 12, top + 43, contentWidth - 24, 5, colors.start(), colors.end()));
+            add(new PinkUi.Action(contentX + 12, top + 57, w, 25, "Apply: " + entry.getKey(), false, () -> {
+                colors.apply(); presetName = entry.getKey(); changed(); toast("Preset applied."); rebuildWidgets();
+            }));
+            add(new PinkUi.Action(contentX + 18 + w, top + 57, w, 25, "Delete: " + entry.getKey(), false, () -> {
+                try { com.customcosmetics.features.nickname.NicknamePresets.store().remove(entry.getKey()); toast("Preset deleted."); rebuildWidgets(); }
+                catch (java.io.IOException error) { toast(error.getMessage()); }
+            }));
+        }
     }
 
     private void chroma() {
@@ -476,11 +516,19 @@ public final class CosmeticsScreen extends Screen {
     private <T extends AbstractWidget> T add(T widget) { controls.add(new Placement(widget, widget.getY())); return addWidget(widget); }
     private void open(Page page) { this.page = page == Page.MAIN ? Page.SMOL : page; scroll = 0; activity(); setFocused(null); rebuildWidgets(); }
     private void selectEndpoint(int index) { selectedEndpoint = index; rebuildWidgets(); }
-    private int selectedColor() { return selectedEndpoint == 0 ? ConfigManager.nickTweaksGradientStartColor : ConfigManager.nickTweaksGradientEndColor; }
-    private void setSelectedColor(int color) {
-        if (selectedEndpoint == 0) ConfigManager.nickTweaksGradientStartColor = color; else ConfigManager.nickTweaksGradientEndColor = color;
-        changed();
+    private int color(int endpoint) {
+        if (editingShimmerColors) return endpoint == 0 ? ConfigManager.nickTweaksShimmerColor : ConfigManager.nickTweaksShimmerHighlightColor;
+        return endpoint == 0 ? ConfigManager.nickTweaksGradientStartColor : ConfigManager.nickTweaksGradientEndColor;
     }
+    private void color(int endpoint, int color) {
+        if (editingShimmerColors) {
+            if (endpoint == 0) ConfigManager.nickTweaksShimmerColor = color; else ConfigManager.nickTweaksShimmerHighlightColor = color;
+        } else {
+            if (endpoint == 0) ConfigManager.nickTweaksGradientStartColor = color; else ConfigManager.nickTweaksGradientEndColor = color;
+        }
+    }
+    private int selectedColor() { return color(selectedEndpoint); }
+    private void setSelectedColor(int color) { color(selectedEndpoint, color); changed(); }
     private static String hex(int color) { return String.format(Locale.ROOT, "#%06X", color & 0xFFFFFF); }
     private void activity() { SESSION.interact(page.name(),scroll,System.currentTimeMillis()); }
     static void childInteraction() { SESSION.touch(System.currentTimeMillis()); }

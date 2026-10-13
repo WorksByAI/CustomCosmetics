@@ -711,7 +711,8 @@ public final class NickRenderUtils {
             int remoteGradientStart,
             int remoteGradientEnd,
             String gradientStyle,
-            double shimmerSpeed
+            double shimmerSpeed,
+            int shimmerColor, int shimmerHighlightColor
     ) {
         static Target local(String name) {
             int[] cps = name.codePoints().toArray();
@@ -733,7 +734,8 @@ public final class NickRenderUtils {
                     0,
                     0,
                     ConfigManager.nickTweaksGradientStyle,
-                    ConfigManager.nickTweaksShimmerSpeed
+                    ConfigManager.nickTweaksShimmerSpeed,
+                    ConfigManager.nickTweaksShimmerColor, ConfigManager.nickTweaksShimmerHighlightColor
             );
         }
 
@@ -757,7 +759,7 @@ public final class NickRenderUtils {
                     profile.gradientStart(),
                     profile.gradientEnd(),
                     profile.gradientStyle(),
-                    profile.shimmerSpeed()
+                    profile.shimmerSpeed(), profile.shimmerColor(), profile.shimmerHighlightColor()
             );
         }
 
@@ -814,7 +816,9 @@ public final class NickRenderUtils {
             if (!custom || chroma || kind.equals("character")) return null;
             return new NicknameGradient(kind, local ? ConfigManager.nickTweaksGradientStartColor : remoteGradientStart,
                 local ? ConfigManager.nickTweaksGradientEndColor : remoteGradientEnd,
-                local ? ConfigManager.nickTweaksShimmerSpeed : shimmerSpeed);
+                local ? ConfigManager.nickTweaksShimmerSpeed : shimmerSpeed,
+                local ? ConfigManager.nickTweaksShimmerColor : shimmerColor,
+                local ? ConfigManager.nickTweaksShimmerHighlightColor : shimmerHighlightColor);
         }
 
         String replacementRaw() {

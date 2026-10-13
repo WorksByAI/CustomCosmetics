@@ -111,7 +111,7 @@ class LicensePackagingTest {
         assertTrue(readme.contains("## English") && readme.contains("基于 Fabric") && readme.contains("A Fabric mod"));
         assertFalse(readme.contains("/docs/") || readme.contains("SOURCE-DELIVERY.md"));
         String changes = Files.readString(ROOT.resolve("CHANGELOG.md"));
-        assertEquals("new feature: nicktweaks new theme", changes.split("## 1.0.1\\n\\n")[1].split("\\n\\n##")[0].trim());
+        assertEquals("NickTweaks: Add color presets and customizable shimmer colors.", changes.split("## 1.0.2\\n\\n")[1].split("\\n\\n##")[0].trim());
         assertFalse(readme.contains("syncServerIp") || readme.contains("gradlew.bat"));
         String notice = Files.readString(ROOT.resolve("NOTICE"));
         assertTrue(notice.contains("Copyright (c) 2020 MidnightDust"));

@@ -85,7 +85,7 @@ tasks.named('runClientGameTest') { dependsOn 'test' }
 
 // Isolate this renderer's game test from older input/animation test APIs.
 if (providers.gradleProperty('nickname_game_only').getOrElse('false').toBoolean()) {
-    sourceSets.gametest.java.include '**/NicknameGradientGameTest.java', '**/RenderAssertions.java',
+    sourceSets.gametest.java.include '**/NicknameGradientGameTest.java', '**/NicknamePresetGameTest.java', '**/RenderAssertions.java',
         '**/mixin/NicknameGradientProbeMixin.java', '**/mixin/UpdateCheckOfflineMixin.java'
     tasks.named('processGametestResources') {
         inputs.property 'nickname_game_only', true

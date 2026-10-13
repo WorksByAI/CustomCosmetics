@@ -4,6 +4,20 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class NicknameGradientTest {
+    @Test void customSweepColorsChangeTheHighlightWhileLeavingTheBaseAndDefaultAppearanceUntouched() {
+        var original = new NicknameGradient("shimmer",0x24CFDF,0xEA78C5,1);
+        var explicit = new NicknameGradient("shimmer",0x24CFDF,0xEA78C5,1,0xFFCF64,0xFFF0BB);
+        var blue = new NicknameGradient("shimmer",0x24CFDF,0xEA78C5,1,0x0055FF,0x66DDFF);
+        for (long time=0; time<3400; time+=53) for (int x=0;x<=20;x++)
+            assertEquals(original.color(x/20.0,.5,time),explicit.color(x/20.0,.5,time));
+        long center = Math.round((.5+.9)/3.5*NicknameGradient.PERIOD_MS);
+        int highlight = blue.color(.5,.5,center);
+        assertNotEquals(original.color(.5,.5,center),highlight);
+        assertTrue((highlight&255)>240); assertTrue(((highlight>>16)&255)<130);
+        var otherEdge = new NicknameGradient("shimmer",0x24CFDF,0xEA78C5,1,0xFF0000,0x66DDFF);
+        assertNotEquals(blue.color(.6,.5,center),otherEdge.color(.6,.5,center));
+        assertEquals(original.color(.5,.5,0),blue.color(.5,.5,0));
+    }
     @Test void smoothBaseKeepsEndpointsAndTraversesBlueAndPurpleRatherThanGray() {
         var gradient=new NicknameGradient("smooth",NicknameGradient.PRESET_START,NicknameGradient.PRESET_END,1);
         assertEquals(NicknameGradient.PRESET_START,gradient.color(0,0,0));

@@ -12,8 +12,10 @@ class ConfigManagerTest {
     @Test void nicknameGradientOptionsRoundTripAndInvalidStylesFallBackSafely() throws Exception {
         var path=directory.resolve("shimmer.json");
         ConfigManager.nickTweaksGradientStyle="shimmer";ConfigManager.nickTweaksShimmerSpeed=1.6;
-        ConfigManager.save(path);ConfigManager.nickTweaksGradientStyle="character";ConfigManager.nickTweaksShimmerSpeed=0;
+        ConfigManager.nickTweaksShimmerColor=0x0055FF;ConfigManager.nickTweaksShimmerHighlightColor=0x66DDFF;
+        ConfigManager.save(path);ConfigManager.nickTweaksShimmerColor=0;ConfigManager.nickTweaksShimmerHighlightColor=0;ConfigManager.nickTweaksGradientStyle="character";ConfigManager.nickTweaksShimmerSpeed=0;
         ConfigManager.load(path);assertEquals("shimmer",ConfigManager.nickTweaksGradientStyle);assertEquals(1.6,ConfigManager.nickTweaksShimmerSpeed);
+        assertEquals(0x0055FF,ConfigManager.nickTweaksShimmerColor);assertEquals(0x66DDFF,ConfigManager.nickTweaksShimmerHighlightColor);
         Files.writeString(path,"{\"settings\":{\"nickTweaksGradientStyle\":\"unexpected\",\"nickTweaksShimmerSpeed\":90}}");
         ConfigManager.load(path);assertEquals("character",ConfigManager.nickTweaksGradientStyle);assertEquals(4,ConfigManager.nickTweaksShimmerSpeed);
     }
