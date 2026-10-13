@@ -20,7 +20,7 @@
 
 NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.
 
-WorksByAI / CustomCosmetics contributors · [tory@toryhi.com](mailto:tory@toryhi.com)
+WorksByAI / CustomCosmetics contributors · [tory@toryhi.com](mailto:tory@toryhi.com) · [QQ群](https://qm.qq.com/q/Km3ScGpvga)
 
 ## English
 
@@ -44,4 +44,4 @@ Licensed under **AGPL-3.0-or-later**. Portions of the code are ported from [Bait
 
 NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.
 
-WorksByAI / CustomCosmetics contributors · [tory@toryhi.com](mailto:tory@toryhi.com)
+WorksByAI / CustomCosmetics contributors · [tory@toryhi.com](mailto:tory@toryhi.com) · [QQ Group](https://qm.qq.com/q/Km3ScGpvga)

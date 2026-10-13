@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class LicensePackagingTest {
     @Test void publisherContactIsConsistentInReadmeNoticeAndDistributedMetadata() throws Exception {
+        assertTrue(Files.readString(ROOT.resolve("README.md")).contains("https://qm.qq.com/q/Km3ScGpvga"));
         for(String name:new String[]{"README.md","NOTICE","src/main/resources/fabric.mod.json"}){
             String text=Files.readString(ROOT.resolve(name));
             assertTrue(text.contains("tory@toryhi.com"),name);
