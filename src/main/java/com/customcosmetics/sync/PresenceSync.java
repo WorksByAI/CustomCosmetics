@@ -129,6 +129,19 @@ public final class PresenceSync {
             && session.validFor(serviceBaseUrl(), account.getProfileId(), account.getName()) ? session : null;
     }
 
+    /** Explicit cape submission may authenticate immediately; ordinary settings never call this. */
+    public static CompletableFuture<PresenceAuthClient.Session> authenticatedSession(){
+        var account=Minecraft.getInstance().getUser();String base=serviceBaseUrl();long generation=RemoteAccess.generation();
+        return CompletableFuture.supplyAsync(()->{
+            try{
+                RemoteAccess.requireOnline();var session=authSession;
+                if(session==null||!session.validFor(base,account.getProfileId(),account.getName()))session=AUTH.authenticate(base,account.getProfileId(),account.getName(),hash->PresenceAuthClient.joinMojang(account.getProfileId(),account.getAccessToken(),hash));
+                if(!RemoteAccess.current(generation)||!serviceBaseUrl().equals(base)||!Minecraft.getInstance().getUser().getProfileId().equals(account.getProfileId()))throw new java.io.IOException("Remote request cancelled.");
+                authSession=session;return session;
+            }catch(Exception error){throw new java.util.concurrent.CompletionException(error);}
+        });
+    }
+
     public static int manualSyncCooldownSeconds() {
         return CADENCE.manualCooldownSeconds(System.nanoTime());
     }
@@ -155,6 +168,7 @@ public final class PresenceSync {
     }
 
     public static void onModeChanged() {
+        CapeSync.modeChanged();
         ENDPOINT_VERSION.incrementAndGet();
         MANUAL_RESULT.cancel();
         PresenceProxyResolver.resetSession();
@@ -523,6 +537,7 @@ public final class PresenceSync {
                         Minecraft.getInstance().submit(() -> {
                             if (endpointVersion != ENDPOINT_VERSION.get() || !url.equals(resolveFetchUrl())) return;
                             applyPayload(json, false, forceRemoteSync);
+                            CapeSync.acceptSnapshot(JsonParser.parseString(json).getAsJsonObject(),serviceBaseUrl());
                             saveCacheToDisk(json);
                         }).join();
                         LOGGER.info("[PresenceSync] fetch ok, code={}, bytes={}, attempt={}", code, json.length(), attempt + 1);

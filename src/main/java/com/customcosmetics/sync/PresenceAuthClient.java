@@ -17,7 +17,7 @@ public final class PresenceAuthClient {
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final URI MOJANG_JOIN = URI.create("https://sessionserver.mojang.com/session/minecraft/join");
     private static final Set<String> REQUEST_PATHS = Set.of(
-        "/health", "/users.json", "/auth/challenge", "/register", "/report", "/auth/logout", "/actions", "/actions/udp-session");
+        "/health", "/users.json", "/auth/challenge", "/register", "/report", "/auth/logout", "/actions", "/actions/udp-session", "/capes/status", "/capes/submit");
 
     @FunctionalInterface public interface SessionJoin { void join(String serverId) throws Exception; }
     @FunctionalInterface public interface ConnectionFactory { HttpURLConnection open(String url) throws Exception; }
@@ -76,7 +76,7 @@ public final class PresenceAuthClient {
     /** API request paths are distinct from the configured, path-free service address. */
     public static void validateRequestUrl(String requestUrl) throws IOException {
         URI uri = validateOrigin(requestUrl);
-        if (uri.getRawPath() == null || !REQUEST_PATHS.contains(uri.getRawPath()))
+        if (uri.getRawPath() == null || !REQUEST_PATHS.contains(uri.getRawPath())&&!uri.getRawPath().matches("/cape/[a-f0-9]{64}\\.png"))
             throw invalidAddress();
     }
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.0
+
+Add Custom Capes with local cropping, preview and online review.
+
 ## 1.0.3
 
 NickTweaks: Add Shimmer Size and Interval.

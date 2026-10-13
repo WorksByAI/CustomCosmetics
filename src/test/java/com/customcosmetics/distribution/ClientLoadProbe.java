@@ -19,6 +19,8 @@ public final class ClientLoadProbe {
             "com.customcosmetics.update.UpdateChecker", "com.customcosmetics.update.GitHubUpdateCheck",
             "com.customcosmetics.gui.RepositoryButton", "com.customcosmetics.gui.CosmeticsScreen",
             "com.customcosmetics.gui.BlockingPreview", "com.customcosmetics.gui.BlockingAdjustmentScreen",
+            "com.customcosmetics.gui.CapeScreen", "com.customcosmetics.gui.CapeCropScreen", "com.customcosmetics.gui.CapePreview", "com.customcosmetics.gui.CapeFileScreen",
+            "com.customcosmetics.features.cape.CapeCosmetics", "com.customcosmetics.sync.CapeSync", "net.minecraft.client.player.AbstractClientPlayer",
             "com.customcosmetics.features.blocking.BlockingAdjustment",
             "net.minecraft.client.renderer.entity.EntityRenderDispatcher", "net.minecraft.client.gui.render.pip.PictureInPictureRenderer",
             "com.customcosmetics.gui.BlockingItemsScreen", "com.customcosmetics.gui.BlockingModeDropdown", "com.customcosmetics.gui.BlockingStyleDropdown",

@@ -123,7 +123,7 @@ class LicensePackagingTest {
         assertTrue(readme.contains("## English") && readme.contains("基于 Fabric") && readme.contains("A Fabric mod"));
         assertFalse(readme.contains("/docs/") || readme.contains("SOURCE-DELIVERY.md"));
         String changes = Files.readString(ROOT.resolve("CHANGELOG.md"));
-        assertTrue(changes.contains("## 1.0.3")); assertTrue(changes.contains("Add Offline Mode.")); // assertEquals("new feature: nicktweaks new theme", changes.split("## 1.0.1\\n\\n")[1].split("\\n\\n##")[0].trim());
+        assertTrue(changes.contains("## 1.1.0")); assertTrue(changes.contains("Add Custom Capes with local cropping, preview and online review.")); // assertEquals("new feature: nicktweaks new theme", changes.split("## 1.0.1\\n\\n")[1].split("\\n\\n##")[0].trim());
         assertFalse(readme.contains("syncServerIp") || readme.contains("gradlew.bat"));
         String notice = Files.readString(ROOT.resolve("NOTICE"));
         assertTrue(notice.contains("Copyright (c) 2020 MidnightDust"));

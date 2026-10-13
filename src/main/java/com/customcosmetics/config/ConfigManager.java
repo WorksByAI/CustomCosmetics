@@ -50,6 +50,7 @@ public final class ConfigManager {
     public static double nickTweaksShimmerSize = 0.16;
     public static double nickTweaksShimmerInterval = 2;
     public static volatile boolean offlineMode = false;
+    public static boolean capeEnabled = true;
     public static double blockingX=0, blockingY=0, blockingZ=0;
     public static double blockingRotationX=0, blockingRotationY=0, blockingRotationZ=0;
     public static boolean swordBlockingEnabled = true;

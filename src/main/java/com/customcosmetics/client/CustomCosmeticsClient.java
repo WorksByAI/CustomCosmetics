@@ -22,6 +22,7 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
     public void onInitializeClient() {
         CosmeticsConfigDir.init();
         ConfigManager.loadConfig();
+        com.customcosmetics.features.cape.CapeCosmetics.init();
         com.customcosmetics.features.nickname.NicknamePresets.init();
         com.customcosmetics.features.items.ItemCosmetics.init();
         PresenceSync.init();
@@ -30,6 +31,7 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (com.customcosmetics.sync.RemoteAccess.online()) com.customcosmetics.features.animations.PresenceWorld.init();
             ConfigManager.flushPendingSave();
+            com.customcosmetics.features.cape.CapeCosmetics.tick();
             com.customcosmetics.features.items.ItemCosmetics.tick();
             PresenceSync.tick();
             com.customcosmetics.update.UpdateChecker.tick(client);
@@ -42,6 +44,7 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
             }
         });
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
+            com.customcosmetics.features.cape.CapeCosmetics.close();
             com.customcosmetics.gui.BlockingPreview.close();
             com.customcosmetics.sync.BlockingSync.disconnect();
             ConfigManager.saveConfig();

@@ -79,7 +79,7 @@ public final class CosmeticsScreen extends Screen {
         Page[] pages = {Page.SMOL, Page.NICK, Page.ANIMATIONS, Page.ITEMS, Page.SYNC};
         String[] names = {"SmolPeople", "NickTweaks", "Animations", "Item Cosmetics", "Sync"};
         int navTop = panelHeight < 220 ? 51 : 64;
-        int navGap = Math.clamp((panelHeight - navTop - 52) / pages.length, 14, 31);
+        int navGap = Math.clamp((panelHeight - navTop - 52) / (pages.length+1), 14, 31);
         for (int i = 0; i < pages.length; i++) {
             Page target = pages[i];
             PinkUi.Action action = new PinkUi.Action(panelX + 10, panelY + navTop + i * navGap,
@@ -88,6 +88,8 @@ public final class CosmeticsScreen extends Screen {
                 || target == Page.NICK && (page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS));
             navigation.add(addWidget(action));
         }
+        navigation.add(addWidget(new PinkUi.Action(panelX+10,panelY+navTop+pages.length*navGap,sideWidth-20,navGap-4,"Cape",false,
+            ()->com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,new CapeScreen(this)))));
         navigation.add(addWidget(new RepositoryButton(panelX + 12, panelY + panelHeight - 42)));
         var mode = new PinkUi.Action(panelX + 47, panelY + panelHeight - 42, sideWidth - 55, 30,
             ConfigManager.offlineMode ? "Offline" : "Online", false, () -> {

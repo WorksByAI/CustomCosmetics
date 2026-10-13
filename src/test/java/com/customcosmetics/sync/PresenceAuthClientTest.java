@@ -43,7 +43,7 @@ class PresenceAuthClientTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"/health", "/users.json", "/auth/challenge", "/register", "/report", "/auth/logout"})
+    @ValueSource(strings = {"/health", "/users.json", "/auth/challenge", "/register", "/report", "/auth/logout", "/capes/submit", "/capes/status", "/cape/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png"})
     void acceptsApiPathsWithoutRelaxingTheConfiguredAddress(String path) {
         assertDoesNotThrow(() -> PresenceAuthClient.validateRequestUrl(LAN_BASE + path));
         assertDoesNotThrow(() -> PresenceAuthClient.validateRequestUrl("http://cosmetics.example:25577" + path));
