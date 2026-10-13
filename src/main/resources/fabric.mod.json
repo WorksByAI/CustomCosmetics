@@ -9,7 +9,7 @@
   "contact": {
     "sources": "https://github.com/WorksByAI/CustomCosmetics",
     "issues": "https://github.com/WorksByAI/CustomCosmetics/issues",
-    "email": "toryyyds@gmail.com"
+    "email": "tory@toryhi.com"
   },
   "mixins": ["customcosmetics.mixins.json"],
   "environment": "client",

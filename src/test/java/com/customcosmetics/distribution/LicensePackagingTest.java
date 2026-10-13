@@ -11,6 +11,17 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class LicensePackagingTest {
+    @Test void publisherContactIsConsistentInReadmeNoticeAndDistributedMetadata() throws Exception {
+        for(String name:new String[]{"README.md","NOTICE","src/main/resources/fabric.mod.json"}){
+            String text=Files.readString(ROOT.resolve(name));
+            assertTrue(text.contains("tory@toryhi.com"),name);
+            assertFalse(text.contains("toryyyds@gmail.com"),name);
+        }
+        try(var zip=new ZipFile(System.getProperty("customcosmetics.binaryJar"))){
+            var metadata=JsonParser.parseString(new String(zip.getInputStream(zip.getEntry("fabric.mod.json")).readAllBytes(),StandardCharsets.UTF_8)).getAsJsonObject();
+            assertEquals("tory@toryhi.com",metadata.getAsJsonObject("contact").get("email").getAsString());
+        }
+    }
     private static final Path ROOT = Path.of(System.getProperty("customcosmetics.projectDir"));
     private static final String SPDX = "AGPL-3.0-or-later";
 
