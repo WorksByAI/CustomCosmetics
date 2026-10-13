@@ -4,6 +4,8 @@
 
 new feature: nicktweaks new theme
 
+new feature: item customize
+
 ## 1.0.0
 
 Custom Cosmetics **1.0.0 正式版**发布。
