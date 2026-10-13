@@ -15,6 +15,7 @@ import java.io.*;
 
 /** Only Sync's read cycle downloads capes. Only explicit review submission uploads a cape. */
 public final class CapeSync {
+    private static final org.slf4j.Logger LOGGER=org.slf4j.LoggerFactory.getLogger("CustomCosmetics/CapeSync");
     private static final AtomicBoolean submitting=new AtomicBoolean(),downloading=new AtomicBoolean();
     private static volatile long nextSubmissionAt;
     private static volatile String status="Not submitted";
@@ -43,7 +44,7 @@ public final class CapeSync {
         CompletableFuture.runAsync(()->{
             try{
                 if(identity!=null&&CapeCosmetics.localPng()!=null&&RemoteAccess.current(generation)){
-                    try{JsonObject response=requestJson(base+"/capes/status","GET",null,identity.token());if(RemoteAccess.current(generation))updateStatus(response);}catch(Exception ignored){}
+                    try{JsonObject response=requestJson(base+"/capes/status","GET",null,identity.token());if(RemoteAccess.current(generation)&&!submitting.get())updateStatus(response);}catch(Exception ignored){}
                 }
                 for(String hash:wanted){
                     if(!RemoteAccess.current(generation)||!PresenceSync.serviceBaseUrl().equals(base))return;
@@ -63,26 +64,34 @@ public final class CapeSync {
     public static boolean submit(){
         if(!canSubmit()||!submitting.compareAndSet(false,true))return false;
         byte[] png=CapeCosmetics.localPng();String base=PresenceSync.serviceBaseUrl();long generation=RemoteAccess.generation();
-        status="Submitting for review...";
+        long started=System.nanoTime();status="Authenticating account...";
         PresenceSync.authenticatedSession().thenAcceptAsync(identity->{
             if(!RemoteAccess.current(generation)||!PresenceSync.serviceBaseUrl().equals(base))return;
             try{
+                status="Uploading cape...";
                 var body=new JsonObject();body.addProperty("png",Base64.getEncoder().encodeToString(png));
                 var response=requestJson(base+"/capes/submit","POST",body,identity.token());
-                if(RemoteAccess.current(generation)){updateStatus(response);CapeCosmetics.notice("Cape submitted for review. You can submit again in 24 hours.");}
-            }catch(Exception failure){if(RemoteAccess.current(generation)){status="Submission failed";CapeCosmetics.notice("Cape submission failed: "+safeFailure(failure));}}
-        }).exceptionally(failure->{if(RemoteAccess.current(generation)){status="Submission failed";CapeCosmetics.notice("Cape submission failed: "+safeFailure(failure));}return null;}).whenComplete((unused,failure)->submitting.set(false));
+                if(RemoteAccess.current(generation)){updateStatus(response);LOGGER.info("Cape submission accepted, bytes={}, elapsedMs={}",png.length,TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-started));CapeCosmetics.notice("Cape submitted for review. You can submit again in 24 hours.");}
+            }catch(Exception failure){if(RemoteAccess.current(generation))submissionFailed(failure,"upload",started);}
+        }).exceptionally(failure->{if(RemoteAccess.current(generation))submissionFailed(failure,"authentication",started);return null;}).whenComplete((unused,failure)->submitting.set(false));
         return true;
+    }
+    private static void submissionFailed(Throwable failure,String phase,long started){
+        boolean uncertain=phase.equals("upload")&&SyncFailure.fromException(failure,SyncFailure.Stage.UPLOAD).reason()==SyncFailure.Reason.TIMEOUT;
+        status=uncertain?"Submission timed out; check review status with Sync":"Submission failed";
+        String reason=safeFailure(failure);
+        LOGGER.warn("Cape submission failed, phase={}, elapsedMs={}, reason={}",phase,TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-started),reason);
+        CapeCosmetics.notice("Cape submission failed during "+phase+": "+reason+(uncertain?". Review status will refresh with Sync.":""));
     }
     private static String safeFailure(Throwable error){while(error.getCause()!=null)error=error.getCause();return error instanceof CapeRequestFailure?error.getMessage():SyncFailure.fromException(error,SyncFailure.Stage.UPLOAD).description();}
     private static void updateStatus(JsonObject response){
         nextSubmissionAt=response.get("nextSubmissionAt").getAsLong();status=switch(response.get("status").getAsString()){case "pending"->"Pending review";case "approved"->"Approved";case "rejected"->"Rejected";default->"Not submitted";};
     }
-    private static HttpURLConnection connection(String url)throws Exception{
-        var connection=PresenceSync.openActionConnection(url);connection.setConnectTimeout(8000);connection.setReadTimeout(15000);connection.setUseCaches(false);connection.setRequestProperty("Accept","application/json");return connection;
+    private static HttpURLConnection connection(String url,boolean submission)throws Exception{
+        var connection=PresenceSync.openActionConnection(url);CapeRequestPolicy.configure(connection,submission);return connection;
     }
     private static JsonObject requestJson(String url,String method,JsonObject body,String token)throws Exception{
-        HttpURLConnection connection=connection(url);
+        HttpURLConnection connection=connection(url,method.equals("POST")&&url.endsWith("/capes/submit"));
         try{
             connection.setRequestMethod(method);connection.setRequestProperty("Authorization","Bearer "+token);
             if(body!=null){byte[] bytes=body.toString().getBytes(StandardCharsets.UTF_8);connection.setDoOutput(true);connection.setRequestProperty("Content-Type","application/json");connection.setFixedLengthStreamingMode(bytes.length);try(var output=connection.getOutputStream()){output.write(bytes);}}
@@ -94,7 +103,7 @@ public final class CapeSync {
         }finally{connection.disconnect();}
     }
     private static byte[] download(String url)throws Exception{
-        var connection=connection(url);try{if(connection.getResponseCode()!=200)throw new IOException("Cape unavailable.");try(var input=connection.getInputStream()){return bounded(input,CapeImages.MAX_PNG);}}finally{connection.disconnect();}
+        var connection=connection(url,false);try{if(connection.getResponseCode()!=200)throw new IOException("Cape unavailable.");try(var input=connection.getInputStream()){return bounded(input,CapeImages.MAX_PNG);}}finally{connection.disconnect();}
     }
     private static byte[] bounded(InputStream input,int maximum)throws IOException{byte[] bytes=input.readNBytes(maximum+1);if(bytes.length>maximum)throw new IOException("Response too large.");return bytes;}
     private static final class CapeRequestFailure extends IOException {CapeRequestFailure(String message){super(message);}}

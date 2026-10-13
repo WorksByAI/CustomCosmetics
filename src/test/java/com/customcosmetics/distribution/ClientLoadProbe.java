@@ -61,6 +61,9 @@ public final class ClientLoadProbe {
             }
         }
         checkGameReferences(loader,"com/customcosmetics/features/playersize/PlayerSize");
+        checkGameReferences(loader,"com/customcosmetics/gui/CapePreview");
+        Class.forName("com.customcosmetics.compatibility.CapePreviewSwing",true,loader).getMethod("validate",Class.class)
+            .invoke(null,Class.forName("net.minecraft.client.renderer.entity.state.AvatarRenderState",false,loader));
         checkTransformedBlockingCalls(loader, firstPersonRenderer);
         checkHandheldDisplayBasis(loader);
         for (String type : new String[] {"features/blocking/SwordBlocking", "features/blocking/SwordItems", "features/blocking/BlockingPose",

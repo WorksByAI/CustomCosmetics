@@ -18,7 +18,7 @@ public final class CapeScreen extends Screen {
         addRenderableWidget(new PinkUi.Action(x+14,buttonY,cell,24,"Choose Image & Crop",false,()->choose(false)));
         addRenderableWidget(new PinkUi.Action(x+24+cell,buttonY,cell,24,"Choose Cape + Elytra",false,()->choose(true)));
         addRenderableWidget(new PinkUi.Action(x+14,buttonY+31,cell,24,"Remove Local Cape",false,()->{try{CapeCosmetics.clearLocal();notice="Local cape removed.";}catch(Exception error){notice=error.getMessage();}}));
-        submit=addRenderableWidget(new PinkUi.Action(x+24+cell,buttonY+31,cell,24,"Submit for Review",true,()->{if(CapeSync.submit())notice="Submitting for review...";}));
+        submit=addRenderableWidget(new PinkUi.Action(x+24+cell,buttonY+31,cell,24,"Submit for Review",true,()->{notice="";CapeSync.submit();}));
         boolean administrator=RemoteAccess.online()&&CapeAdministrators.includes(minecraft.getUser().getProfileId());int part=administrator?(w-48)/3:cell;
         var enabled=addRenderableWidget(new PinkUi.Action(x+14,y+h-29,part,22,"Show Custom Capes",false,()->{ConfigManager.capeEnabled=!ConfigManager.capeEnabled;ConfigManager.requestSave();}));enabled.selected(()->ConfigManager.capeEnabled);
         int next=x+24+part;

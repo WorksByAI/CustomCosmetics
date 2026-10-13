@@ -15,14 +15,30 @@ import java.util.concurrent.atomic.*;
 import java.nio.file.*;
 
 public final class CapeGameTest implements FabricClientGameTest {
+    private static final AtomicInteger neutralPreviews=new AtomicInteger();
+    public static void observePreview(net.minecraft.client.renderer.entity.state.AvatarRenderState state){
+        if(!state.rightHandItemState.isEmpty()||!state.leftHandItemState.isEmpty()||!state.rightHandItemStack.isEmpty()||!state.leftHandItemStack.isEmpty()
+                ||!state.headItem.isEmpty()||!state.heldOnHead.isEmpty()||!state.chestEquipment.isEmpty()||!state.headEquipment.isEmpty())
+            throw new AssertionError("Held items or armor entered the actual cape preview render state");
+        float swing;try{java.lang.reflect.Field field;try{field=state.getClass().getField("attackTime");}catch(NoSuchFieldException modern){field=state.getClass().getField("swingAnimation");}swing=field.getFloat(state);}catch(ReflectiveOperationException invalid){throw new AssertionError(invalid);}
+        if(state.isCrouching||state.isFallFlying||state.isUsingItem||swing!=0||state.pose!=net.minecraft.world.entity.Pose.STANDING)
+            throw new AssertionError("Cape preview did not use a neutral standing pose");
+        neutralPreviews.incrementAndGet();
+    }
     @Override public void runTest(ClientGameTestContext context){
         context.runOnClient(client->{ConfigManager.syncEnabled=false;ConfigManager.swordBlockingSyncEnabled=false;});
         try(var world=context.worldBuilder().create()){
+            world.getServer().runCommand("time set noon");world.getServer().runCommand("weather clear");
             context.waitTicks(10);context.getInput().resizeWindow(1600,1000);
             var source=new BufferedImage(100,200,BufferedImage.TYPE_INT_ARGB);for(int y=0;y<200;y++)for(int x=0;x<100;x++)source.setRGB(x,y,0xFF00FF6A);
             var file=Path.of(System.getProperty("customcosmetics.testProjectDir"),"build/audit/cape-input/input.png");Files.createDirectories(file.getParent());javax.imageio.ImageIO.write(source,"png",file.toFile());
             context.runOnClient(client->{
                 client.options.guiScale().set(2);ConfigManager.capeEnabled=true;CosmeticsMode.setOffline(true);
+                ConfigManager.smolpeopleMode=true;
+                client.player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND,new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.GOLDEN_AXE));
+                client.player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND,new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.SHIELD));
+                client.player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD,new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.CARVED_PUMPKIN));
+                client.player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST,new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_CHESTPLATE));
                 ClientUiAccess.setScreen(client,new CapeFileScreen(new CapeScreen(null),false,file.getParent()));
             });click(context,"input.png");context.waitTicks(3);context.takeScreenshot("cape-crop");
             click(context,"Save Local Cape");context.waitTicks(4);
@@ -35,6 +51,12 @@ public final class CapeGameTest implements FabricClientGameTest {
                 var other=CapeCosmetics.skin(java.util.UUID.randomUUID(),external);if(other!=external)throw new AssertionError("Offline mode replaced another provider's cape for a remote player");
                 ConfigManager.capeEnabled=false;if(CapeCosmetics.skin(client.player.getUUID(),external)!=external)throw new AssertionError("Disabling custom capes did not restore the original provider");ConfigManager.capeEnabled=true;
             });capturePreview(context);
+            context.runOnClient(client->{
+                if(neutralPreviews.get()==0)throw new AssertionError("Cape preview did not reach its real neutral render state");
+                if(!client.player.getMainHandItem().is(net.minecraft.world.item.Items.GOLDEN_AXE)||!client.player.getOffhandItem().is(net.minecraft.world.item.Items.SHIELD)
+                        ||!client.player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).is(net.minecraft.world.item.Items.DIAMOND_CHESTPLATE))
+                    throw new AssertionError("Preview cleared the actual player's equipment");
+            });context.takeScreenshot("cape-smol-no-held-items-or-armor");
             var highResolution=new BufferedImage(2048,1024,BufferedImage.TYPE_INT_ARGB);
             var graphics=highResolution.createGraphics();try{graphics.setColor(new java.awt.Color(0x00FF6A));graphics.fillRect(0,0,2048,1024);}finally{graphics.dispose();}
             var atlasFile=file.getParent().resolve("high-resolution-2048x1024.png");javax.imageio.ImageIO.write(highResolution,"png",atlasFile.toFile());
@@ -63,8 +85,9 @@ public final class CapeGameTest implements FabricClientGameTest {
     }
     private void testTraffic(ClientGameTestContext context)throws Exception{
         var reads=new AtomicInteger();var writes=new AtomicInteger();var server=com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1",0),0);
-        server.createContext("/",exchange->{exchange.getRequestBody().readAllBytes();String path=exchange.getRequestURI().getPath();boolean submit=path.equals("/capes/submit");if(submit)writes.incrementAndGet();else reads.incrementAndGet();
-            String response=submit?"{\"status\":\"pending\",\"nextSubmissionAt\":"+(System.currentTimeMillis()+86400000)+"}":"{\"users\":{},\"authVersion\":2}";byte[] bytes=response.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        var executor=Executors.newCachedThreadPool(task->{var thread=new Thread(task,"Cape delayed fixture");thread.setDaemon(true);return thread;});server.setExecutor(executor);
+        server.createContext("/",exchange->{exchange.getRequestBody().readAllBytes();String path=exchange.getRequestURI().getPath();boolean submit=path.equals("/capes/submit");if(submit){writes.incrementAndGet();try{Thread.sleep(16_000);}catch(InterruptedException interrupted){Thread.currentThread().interrupt();throw new java.io.IOException(interrupted);}}else reads.incrementAndGet();
+            String response=submit?"{\"status\":\"pending\",\"nextSubmissionAt\":"+(System.currentTimeMillis()+86400000)+"}":"{\"status\":\"none\",\"nextSubmissionAt\":0}";byte[] bytes=response.getBytes(java.nio.charset.StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type","application/json");exchange.sendResponseHeaders(submit?202:200,bytes.length);exchange.getResponseBody().write(bytes);exchange.close();});server.start();
         try{
             context.runOnClient(client->{
@@ -76,11 +99,18 @@ public final class CapeGameTest implements FabricClientGameTest {
                 ClientUiAccess.setScreen(client,new CapeScreen(null));
             });context.waitTicks(5);
             if(reads.get()!=0||writes.get()!=0)throw new AssertionError("Switching online or opening the cape page performed automatic I/O");
-            click(context,"Submit for Review");context.waitFor(client->writes.get()==1&&CapeSync.cooldownSeconds()>0);context.waitTicks(4);
+            click(context,"Submit for Review");
+            context.waitFor(client->writes.get()==1);
+            context.runOnClient(client->{var snapshot=new com.google.gson.JsonObject();snapshot.add("capes",new com.google.gson.JsonObject());CapeSync.acceptSnapshot(snapshot,"http://127.0.0.1:"+server.getAddress().getPort());});
+            context.waitFor(client->reads.get()==1);context.waitTicks(4);
+            if(!CapeSync.status().equals("Uploading cape..."))throw new AssertionError("A periodic status read replaced the in-progress upload with Not submitted");
+            long deadline=System.nanoTime()+35_000_000_000L;while(CapeSync.cooldownSeconds()==0&&System.nanoTime()<deadline)context.waitTicks(2);
+            if(writes.get()!=1||CapeSync.cooldownSeconds()==0||!CapeSync.status().equals("Pending review"))throw new AssertionError("A delayed upload acknowledgement was mistaken for submission failure");
+            context.waitTicks(4);System.out.println("CAPE_UPLOAD_ACK_AFTER_16_SECONDS_WITHOUT_REPOST_OK");
             click(context,"Submit for Review");context.waitTicks(4);if(writes.get()!=1)throw new AssertionError("Daily cape submission cooldown was bypassed");
             context.runOnClient(client->{CosmeticsMode.setOffline(true);ClientUiAccess.setScreen(client,null);});
-            if(reads.get()!=0)throw new AssertionError("Explicit submission fetched unrelated appearance data");
-        }finally{context.runOnClient(client->{ConfigManager.syncServerIp="cc.toryhi.com";ConfigManager.syncServerPort=443;ConfigManager.syncServerHttps=true;ConfigManager.syncEnabled=false;});server.stop(0);}
+            if(reads.get()!=1)throw new AssertionError("Submission or ordinary buttons fetched data outside the explicit test sync");
+        }finally{context.runOnClient(client->{ConfigManager.syncServerIp="cc.toryhi.com";ConfigManager.syncServerPort=443;ConfigManager.syncServerHttps=true;ConfigManager.syncEnabled=false;});server.stop(0);executor.shutdownNow();}
     }
     private static Object read(Object object,String name){try{var field=object.getClass().getDeclaredField(name);field.setAccessible(true);return field.get(object);}catch(Exception failure){throw new AssertionError(failure);}}
     private static void click(ClientGameTestContext context,String name)throws Exception{

@@ -114,6 +114,9 @@ class LicensePackagingTest {
                 "src/test/java/com/customcosmetics/features/nickname/NicknameSegmentsTest.java",
                 "src/main/java/com/customcosmetics/features/cape/CapeImages.java",
                 "src/test/java/com/customcosmetics/features/cape/CapeImagesTest.java",
+                "src/main/java/com/customcosmetics/sync/CapeRequestPolicy.java",
+                "src/test/java/com/customcosmetics/sync/CapeRequestPolicyTest.java",
+                "src/gametest/java/com/customcosmetics/gametest/mixin/CapePreviewProbeMixin.java",
                 "src/main/java/com/customcosmetics/features/playersize/PlayerSize.java",
                 "src/main/java/com/customcosmetics/features/playersize/PlayerSizeSettings.java",
                 "src/test/java/com/customcosmetics/features/playersize/PlayerSizeSettingsTest.java",
@@ -138,6 +141,7 @@ class LicensePackagingTest {
         assertTrue(changes.contains("## " + System.getProperty("customcosmetics.version")));
         assertTrue(changes.contains("NickTweaks: Add segmented gradients."));
         assertTrue(changes.contains("Cape: Support high-resolution atlases up to 2 MiB."));
+        assertTrue(changes.contains("Cape: Fix preview and slow uploads."));
         assertTrue(changes.contains("Player Size: Add synced X/Y/Z scaling."));
         assertFalse(readme.contains("syncServerIp") || readme.contains("gradlew.bat"));
         String notice = Files.readString(ROOT.resolve("NOTICE"));

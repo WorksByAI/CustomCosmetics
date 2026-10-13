@@ -2,6 +2,8 @@
 
 ## 1.1.1
 
+- Cape: Fix preview and slow uploads.
+
 - Player Size: Add synced X/Y/Z scaling.
 
 - NickTweaks: Add segmented gradients.

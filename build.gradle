@@ -106,14 +106,14 @@ if (providers.gradleProperty('appearance_game_only').getOrElse('false').toBoolea
 
 // Isolate this renderer's game test from older input/animation test APIs.
 if (providers.gradleProperty('cape_game_only').getOrElse('false').toBoolean()) {
-    sourceSets.gametest.java.include '**/CapeGameTest.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
+    sourceSets.gametest.java.include '**/CapeGameTest.java', '**/mixin/CapePreviewProbeMixin.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
     tasks.named('processGametestResources') {
         inputs.property 'cape_game_only', true
         filesMatching('fabric.mod.json') {
             filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.CapeGameTest') }
         }
         filesMatching('customcosmetics-test.mixins.json') {
-            filter { line -> line.contains('"client":') ? '  "client": ["UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line }
+            filter { line -> line.contains('"client":') ? '  "client": ["CapePreviewProbeMixin", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line }
         }
     }
 }
