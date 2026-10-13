@@ -77,11 +77,32 @@ loom.runs.named('clientGameTest') {
     runDir(providers.gradleProperty('nickname_run_dir').getOrElse("build/run/clientGameTest-${project.minecraft_version}"))
     vmArg "-Dcustomcosmetics.testProjectDir=${projectDir.absolutePath}"
     vmArg "-Dcustomcosmetics.itemAppearanceOnly=${providers.gradleProperty('appearance_game_only').getOrElse('false')}"
+    vmArg "-Dcustomcosmetics.itemModelCatharsisTest=${providers.gradleProperty('appearance_catharsis_test').getOrElse('false')}"
     vmArg "-Dcustomcosmetics.nicknameOnly=${providers.gradleProperty('nickname_game_only').getOrElse('false')}"
     vmArg "-Dcustomcosmetics.nicknameAnimation=${providers.gradleProperty('nickname_capture_animation').getOrElse('false')}"
 }
 
 tasks.named('runClientGameTest') { dependsOn 'test' }
+
+tasks.named('processGametestResources') {
+    def catharsisFixture = providers.gradleProperty('appearance_catharsis_test').getOrElse('false').toBoolean()
+    inputs.property 'appearance_catharsis_test', catharsisFixture
+    if (!catharsisFixture) exclude 'assets/customcosmetics/items/appearance_fallthrough.json'
+}
+
+if (providers.gradleProperty('appearance_game_only').getOrElse('false').toBoolean()) {
+    sourceSets.gametest.java.include '**/ItemModelGameTest.java', '**/ItemAppearanceGameTest.java', '**/RenderAssertions.java',
+        '**/mixin/ItemAppearanceProbeMixin.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
+    tasks.named('processGametestResources') {
+        inputs.property 'appearance_game_only', true
+        filesMatching('fabric.mod.json') {
+            filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.ItemModelGameTest') }
+        }
+        filesMatching('customcosmetics-test.mixins.json') {
+            filter { line -> line.contains('"client":') ? '  "client": ["ItemAppearanceProbeMixin", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line }
+        }
+    }
+}
 
 // Isolate this renderer's game test from older input/animation test APIs.
 if (providers.gradleProperty('cape_game_only').getOrElse('false').toBoolean()) {
@@ -118,6 +139,20 @@ if (providers.gradleProperty('nickname_game_only').getOrElse('false').toBoolean(
         }
         filesMatching('customcosmetics-test.mixins.json') {
             filter { line -> line.contains('"client":') ? '  "client": ["UpdateCheckOfflineMixin", "NicknameGradientProbeMixin"],' : line }
+        }
+    }
+}
+
+if (providers.gradleProperty('player_size_game_only').getOrElse('false').toBoolean()) {
+    sourceSets.gametest.java.include '**/PlayerSizeGameTest.java', '**/NicknamePresetGameTest.java',
+        '**/mixin/PlayerSizeProbeMixin.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
+    tasks.named('processGametestResources') {
+        inputs.property 'player_size_game_only', true
+        filesMatching('fabric.mod.json') {
+            filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.PlayerSizeGameTest') }
+        }
+        filesMatching('customcosmetics-test.mixins.json') {
+            filter { line -> line.contains('"client":') ? '  "client": ["PlayerSizeProbeMixin", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line }
         }
     }
 }

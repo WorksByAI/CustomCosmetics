@@ -13,9 +13,9 @@ import static com.customcosmetics.gui.PinkUi.*;
 public final class CapeFileScreen extends Screen {
     private final Screen parent;private final boolean atlas;private Path directory;
     private int x,y,w,h,top,bottom,scroll;private PinkUi.Field pathField;
-    private final List<PinkUi.Action> files=new ArrayList<>();private String notice="PNG, JPEG, BMP or GIF · Local files only";
+    private final List<PinkUi.Action> files=new ArrayList<>();private String notice;
     public CapeFileScreen(Screen parent,boolean atlas){this(parent,atlas,defaultDirectory());}
-    public CapeFileScreen(Screen parent,boolean atlas,Path directory){super(Component.literal("Choose Cape Image"));this.parent=parent;this.atlas=atlas;this.directory=directory.toAbsolutePath().normalize();}
+    public CapeFileScreen(Screen parent,boolean atlas,Path directory){super(Component.literal("Choose Cape Image"));this.parent=parent;this.atlas=atlas;this.directory=directory.toAbsolutePath().normalize();notice=atlas?"Multiples of 64 x 32 (2:1) · Max 2 MiB":"PNG, JPEG, BMP or GIF · Max 2 MiB · Local files only";}
     private static Path defaultDirectory(){var home=Path.of(System.getProperty("user.home"));var downloads=home.resolve("Downloads");return Files.isDirectory(downloads)?downloads:home;}
     @Override protected void init(){
         files.clear();w=Math.min(640,width-16);h=Math.min(410,height-16);x=(width-w)/2;y=(height-h)/2;top=y+83;bottom=y+h-62;

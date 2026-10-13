@@ -35,7 +35,7 @@ public record NicknameGradient(String style, int start, int end, double speed, i
     public long periodMillis() { return motionMillis()+Math.round(shimmerInterval*1000); }
     public static double normalizeSize(double size) { return Double.isFinite(size) ? Math.clamp(size, 0.02, 1) : DEFAULT_SIZE; }
     public static String normalizeStyle(String style) {
-        return "smooth".equals(style) || "shimmer".equals(style) ? style : "character";
+        return "smooth".equals(style) || "shimmer".equals(style) || "segmented".equals(style) ? style : "character";
     }
 
     public boolean smooth() { return !style.equals("character"); }

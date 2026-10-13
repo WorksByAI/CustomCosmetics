@@ -9,7 +9,10 @@ import com.customcosmetics.gui.*;
 import java.util.concurrent.atomic.AtomicReference;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.MouseButtonInfo;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
@@ -26,6 +29,35 @@ final class ItemAppearanceGameTest {
             ItemCosmetics.store().put(A,new ItemAppearanceStore.Appearance("",""));ItemCosmetics.store().put(B,new ItemAppearanceStore.Appearance("",""));
             original.set(client.player.getMainHandItem().copy());beforeName.set(original.get().getHoverName().getString());
             if(!ItemCosmetics.models().contains(Identifier.parse("customcosmetics:appearance_test")))throw new AssertionError("Active resource-pack models were not listed");
+            var held = client.player.getMainHandItem();
+            var choices = ItemCosmetics.modelChoices(held);
+            for (String broken : new String[]{"fsr_generated:collections/mining/diamond/2", "customcosmetics:appearance_bad_texture", "customcosmetics:appearance_partial_missing"}) {
+                var id = Identifier.parse(broken);
+                if (!ItemCosmetics.hasModel(id)) throw new AssertionError("Regression fixture was not loaded: " + id);
+                if (ItemCosmetics.renderable(held, id) || choices.stream().anyMatch(choice -> choice.id().equals(id)))
+                    throw new AssertionError("Missing-texture model reached the picker: " + id);
+            }
+            if (!choices.getFirst().id().getNamespace().equals("minecraft")) throw new AssertionError("Vanilla items were buried behind generated pack entries");
+            for (String good : new String[]{"minecraft:diamond_sword", "minecraft:shield", "customcosmetics:appearance_test", "fsr_generated:weapons/hyperion"}) {
+                var choice = choices.stream().filter(value -> value.id().toString().equals(good)).findFirst().orElseThrow();
+                var state = new net.minecraft.client.renderer.item.ItemStackRenderState();
+                client.getItemModelResolver().updateForTopItem(state, choice.icon(), net.minecraft.world.item.ItemDisplayContext.GUI, client.level, client.player, 0);
+                if (!ItemModelVisibility.usable(state)) throw new AssertionError("Picker icon resolved to missing textures: " + good);
+            }
+            var display = ItemCosmetics.preview(held, Identifier.parse("minecraft:diamond_sword"));
+            if (!ItemCosmetics.uuid(display).isEmpty() || !ItemStack.isSameItemSameComponents(held,original.get()))
+                throw new AssertionError("Preview changed the actual inventory item");
+            if (Boolean.getBoolean("customcosmetics.itemModelCatharsisTest")) {
+                if (!net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("catharsis")) throw new AssertionError("Catharsis compatibility test requires Catharsis");
+                var fallthrough = Identifier.parse("customcosmetics:appearance_fallthrough");
+                if (!ItemCosmetics.renderable(held, fallthrough)) throw new AssertionError("Catharsis conditional fixture missing");
+                ItemCosmetics.store().put(A,new ItemAppearanceStore.Appearance("",fallthrough.toString()));
+                var state = new net.minecraft.client.renderer.item.ItemStackRenderState();
+                client.getItemModelResolver().updateForTopItem(state,held,net.minecraft.world.item.ItemDisplayContext.FIRST_PERSON_RIGHT_HAND,client.level,client.player,0);
+                if (!ItemModelVisibility.usable(state) || !state.pickParticleMaterial(net.minecraft.util.RandomSource.create(0)).sprite().contents().name().toString().equals("minecraft:item/blaze_rod"))
+                    throw new AssertionError("Catharsis fallthrough did not reach the original item model");
+                ItemCosmetics.store().put(A,new ItemAppearanceStore.Appearance("",""));
+            }
             client.options.guiScale().set(2);ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.ITEMS));
         });
         context.getInput().resizeWindow(1600,1000);context.waitTicks(3);
@@ -45,6 +77,13 @@ final class ItemAppearanceGameTest {
             try{store.load();}catch(java.io.IOException error){throw new AssertionError(error);}
             if(!store.get(A).model().equals("minecraft:diamond_sword"))throw new AssertionError("Apply did not save the local override");
         });
+        context.runOnClient(client -> field(client,"Model ID").setValue("customcosmetics:appearance_bad_texture"));
+        click(context,"Apply");
+        context.runOnClient(client -> {
+            if(!ItemCosmetics.store().get(A).model().equals("minecraft:diamond_sword"))
+                throw new AssertionError("Typing a loaded but broken model bypassed validation");
+            field(client,"Model ID").setValue("minecraft:diamond_sword");
+        });
         click(context,"Done");context.getInput().pressKey(ClientInput.ESCAPE);context.waitTicks(10);
         context.takeScreenshot("item-cosmetics-held-vanilla-model");
         context.runOnClient(client->{
@@ -61,6 +100,8 @@ final class ItemAppearanceGameTest {
         });context.takeScreenshot("item-cosmetics-empty-name-draft-original-preview");
         context.runOnClient(client->field(client,"Custom Name").setValue("&dMy Hyperion"));
         click(context,"Select Model");context.waitTicks(2);
+        context.takeScreenshot("item-model-picker-filtered");
+        context.runOnClient(ItemAppearanceGameTest::dragModelPickerScrollbar);
         context.runOnClient(client->{
             var search=(PinkUi.Field)ClientUiAccess.screen(client).children().stream().filter(PinkUi.Field.class::isInstance).findFirst().orElseThrow();
             search.setValue("customcosmetics:appearance_test");
@@ -77,10 +118,10 @@ final class ItemAppearanceGameTest {
         context.waitTicks(8);
         context.runOnClient(client->{
             if(!RenderAssertions.customizedItemModel.equals("minecraft:blaze_rod"))throw new AssertionError("Disabling did not restore models");
-            ItemCosmetics.store().enabled(true);ItemCosmetics.store().put(A,new ItemAppearanceStore.Appearance("&dMy Hyperion","customcosmetics:missing_model"));
+            ItemCosmetics.store().enabled(true);ItemCosmetics.store().put(A,new ItemAppearanceStore.Appearance("&dMy Hyperion","customcosmetics:appearance_bad_texture"));
         });context.waitTicks(8);
         context.runOnClient(client->{
-            if(!RenderAssertions.customizedItemModel.equals("minecraft:blaze_rod"))throw new AssertionError("An unloaded model did not fall back safely");
+            if(!RenderAssertions.customizedItemModel.equals("minecraft:blaze_rod"))throw new AssertionError("A loaded missing-texture model did not fall back safely");
             ClientUiAccess.setScreen(client,new ItemAppearanceScreen(null));
         });context.waitTicks(2);
         context.getInput().resizeWindow(854,480);context.waitTicks(3);context.takeScreenshot("item-cosmetics-compact-editor");
@@ -94,6 +135,36 @@ final class ItemAppearanceGameTest {
     private static PinkUi.Field field(net.minecraft.client.Minecraft client,String title){
         return (PinkUi.Field)ClientUiAccess.screen(client).children().stream().filter(PinkUi.Field.class::isInstance)
             .map(PinkUi.Field.class::cast).filter(field->field.getMessage().getString().equals(title)).findFirst().orElseThrow();
+    }
+    private static void dragModelPickerScrollbar(net.minecraft.client.Minecraft client){
+        Screen screen=ClientUiAccess.screen(client);
+        if(!(screen instanceof ItemChoiceScreen))throw new AssertionError("Select Model did not open the model list");
+        try{
+            int x=intField(screen,"x"),w=intField(screen,"w"),top=intField(screen,"top"),bottom=intField(screen,"bottom");
+            var choices=(java.util.List<?>)objectField(screen,"filtered");
+            var rows=(java.util.List<?>)objectField(screen,"rows");
+            int range=choices.size()-rows.size(),track=bottom-top;
+            if(range<=0)throw new AssertionError("Model list has no scrollable overflow");
+            int thumb=Math.min(track,Math.max(Math.min(12,track),(int)Math.round(track*rows.size()/(double)choices.size())));
+            int travel=track-thumb,grab=thumb/2;
+            double mouseX=x+w-20;
+            var info=new MouseButtonInfo(ClientInput.MOUSE_LEFT,0);
+            var press=new MouseButtonEvent(mouseX,top+grab,info);
+            if(!screen.mouseClicked(press,false))throw new AssertionError("Scrollbar did not capture the mouse press");
+            var end=new MouseButtonEvent(mouseX,top+travel+grab,info);
+            if(!screen.mouseDragged(end,0,travel))throw new AssertionError("Scrollbar did not capture dragging");
+            if(intField(screen,"offset")!=range)throw new AssertionError("Dragging to the bottom did not reveal the last model rows");
+            var start=new MouseButtonEvent(mouseX,top+grab,info);
+            screen.mouseDragged(start,0,-travel);
+            if(intField(screen,"offset")!=0)throw new AssertionError("Dragging back to the top did not restore the first rows");
+            screen.mouseReleased(start);
+        }catch(ReflectiveOperationException error){throw new AssertionError(error);}
+    }
+    private static Object objectField(Object target,String name)throws ReflectiveOperationException{
+        var field=target.getClass().getDeclaredField(name);field.setAccessible(true);return field.get(target);
+    }
+    private static int intField(Object target,String name)throws ReflectiveOperationException{
+        return ((Number)objectField(target,name)).intValue();
     }
     private static void chooseInventoryItem(ClientGameTestContext context,String uuid){
         click(context,"Select Item");

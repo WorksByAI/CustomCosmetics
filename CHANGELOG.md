@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.1
+
+- Player Size: Add synced X/Y/Z scaling.
+
+- NickTweaks: Add segmented gradients.
+
+- Item Cosmetics: Fix missing model textures.
+
+- GUI: Add draggable scrollbars and move Cape above Sync.
+
+- Cape: Support high-resolution atlases up to 2 MiB.
+
 ## 1.1.0
 
 Add Custom Capes with local cropping, preview and online review.

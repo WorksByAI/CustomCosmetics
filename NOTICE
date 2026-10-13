@@ -51,6 +51,12 @@ private APIs or unrelated assets.
 Other Third-Party Notices
 -------------------------
 
+Player Size rendering was adapted from Odin by odtheking on 2026-10-13.
+Source: https://github.com/odtheking/Odin
+Copyright (c) 2025, odtheking. Licensed under BSD-3-Clause; the complete
+license is included in LICENSES/Odin-BSD-3-Clause.txt. Changes include local
+controls, authenticated appearance synchronization and SmolPeople composition.
+
 Sword rendering hooks and blocking-pose transforms were adapted from
 TeamMidnightDust/SwordBlocking, reworked on 2026-10-11 to render only and
 synchronize through our own cosmetic service. No shield substitution or game

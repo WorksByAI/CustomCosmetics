@@ -17,13 +17,31 @@ import static org.junit.jupiter.api.Assertions.*;
 /** Inspect the compiled screen without starting Minecraft or creating a graphics context. */
 class CosmeticsScreenTest {
     private static final String SCREEN = "com/customcosmetics/gui/CosmeticsScreen";
+    @Test void playerSizeEditsStayLocalAndNeverChangeGameplayDimensions() throws Exception {
+        var screen=read(SCREEN);
+        assertTrue(pageReferences(code(screen,"init")).contains("SIZE"));
+        for(var method:screen.methods()) {
+            if(!method.methodName().stringValue().contains("playerSize"))continue;
+            assertTrue(instructions(method).stream().filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast)
+                .noneMatch(call->call.owner().name().stringValue().startsWith("com/customcosmetics/sync/")));
+        }
+        var renderer=read("com/customcosmetics/features/playersize/PlayerSize");
+        assertTrue(renderer.methods().stream().flatMap(method->instructions(method).stream()).filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast)
+            .noneMatch(call->Set.of("setDimensions","refreshDimensions","setBoundingBox","send","sendPacket","sendImmediately","setPos").contains(call.name().stringValue())));
+    }
+    @Test void editingNicknameSegmentsNeverStartsAnUploadOrDownload() throws Exception {
+        var editor=read("com/customcosmetics/gui/NicknameSegmentsScreen");
+        var calls=editor.methods().stream().flatMap(method->instructions(method).stream()).filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast).toList();
+        assertTrue(calls.stream().noneMatch(call->{String owner=call.owner().name().stringValue();return owner.startsWith("java/net/")||owner.startsWith("com/customcosmetics/sync/");}));
+        assertTrue(calls.stream().anyMatch(call->call.owner().name().stringValue().equals("com/customcosmetics/config/ConfigManager")&&call.name().stringValue().equals("requestSave")));
+    }
     @Test void sidebarHeaderUsesTwoPinkLinesAndSmolPreviewUsesTheSamePink() throws Exception {
         var screen = read(SCREEN);
         var render = code(screen, "extractRenderState").stream().filter(ConstantInstruction.class::isInstance)
             .map(ConstantInstruction.class::cast).map(ConstantInstruction::constantValue).toList();
         assertTrue(render.containsAll(List.of("Custom", "Cosmetics"))); assertFalse(render.contains("CustomCosmetics"));
         assertTrue(render.stream().filter(Integer.valueOf(PinkUi.PINK)::equals).count() >= 2);
-        assertTrue(code(screen,"smol").stream().filter(ConstantInstruction.class::isInstance)
+        assertTrue(code(screen,"playerPreview").stream().filter(ConstantInstruction.class::isInstance)
             .map(ConstantInstruction.class::cast).anyMatch(value -> Integer.valueOf(PinkUi.PINK).equals(value.constantValue())));
     }
 

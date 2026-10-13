@@ -62,7 +62,7 @@ final class NicknamePresetGameTest {
         return ClientUiAccess.screen(client).children().stream().filter(type::isInstance).map(child->(AbstractWidget)child)
             .filter(child->child.getMessage().getString().startsWith(prefix)).findFirst().orElseThrow(()->new AssertionError("Missing control "+prefix));
     }
-    private static void click(ClientGameTestContext context,String prefix,Class<?> type)throws Exception{
+    static void click(ClientGameTestContext context,String prefix,Class<?> type)throws Exception{
         var position=new AtomicReference<double[]>();
         context.runOnClient(client->{
             var screen=ClientUiAccess.screen(client);var widget=widget(client,prefix,type);

@@ -63,6 +63,7 @@ class LicensePackagingTest {
             assertBundled(jar, "LICENSES/SwordBlocking-MIT.txt", "LICENSES/SwordBlocking-MIT.txt");
             assertBundled(jar, "LICENSES/NoammAddons-CC0.txt", "LICENSES/NoammAddons-CC0.txt");
             assertBundled(jar, "LICENSES/BringBlockingBack-MIT.txt", "LICENSES/BringBlockingBack-MIT.txt");
+            assertBundled(jar, "LICENSES/Odin-BSD-3-Clause.txt", "LICENSES/Odin-BSD-3-Clause.txt");
             assertBundled(jar, "assets/customcosmetics/textures/gui/github.png",
                 "src/main/resources/assets/customcosmetics/textures/gui/github.png");
             var entry = jar.getEntry("fabric.mod.json");
@@ -90,6 +91,7 @@ class LicensePackagingTest {
             assertBundled(jar, "LICENSE", "LICENSE");
             assertBundled(jar, "NOTICE", "NOTICE");
             assertBundled(jar, "LICENSES/Oklab-MIT.txt", "LICENSES/Oklab-MIT.txt");
+            assertBundled(jar, "LICENSES/Odin-BSD-3-Clause.txt", "LICENSES/Odin-BSD-3-Clause.txt");
         }
     }
 
@@ -107,6 +109,16 @@ class LicensePackagingTest {
                 "src/gametest/java/com/customcosmetics/gametest/SettingsGuiGameTest.java",
                 "src/main/java/com/customcosmetics/config/RemoteServerConfig.java",
                 "src/main/java/com/customcosmetics/gui/ScreenSession.java",
+                "src/main/java/com/customcosmetics/gui/NicknameSegmentsScreen.java",
+                "src/main/java/com/customcosmetics/features/nickname/NicknameSegments.java",
+                "src/test/java/com/customcosmetics/features/nickname/NicknameSegmentsTest.java",
+                "src/main/java/com/customcosmetics/features/cape/CapeImages.java",
+                "src/test/java/com/customcosmetics/features/cape/CapeImagesTest.java",
+                "src/main/java/com/customcosmetics/features/playersize/PlayerSize.java",
+                "src/main/java/com/customcosmetics/features/playersize/PlayerSizeSettings.java",
+                "src/test/java/com/customcosmetics/features/playersize/PlayerSizeSettingsTest.java",
+                "src/gametest/java/com/customcosmetics/gametest/PlayerSizeGameTest.java",
+                "LICENSES/Odin-BSD-3-Clause.txt",
                 "src/gametest/resources/fabric.mod.json", "src/gametest/resources/customcosmetics-test.mixins.json",
                 "tools/update_weapon_catalog.py", "tools/test_update_weapon_catalog.py",
                 "README.md", "CHANGELOG.md" }) {
@@ -123,7 +135,10 @@ class LicensePackagingTest {
         assertTrue(readme.contains("## English") && readme.contains("基于 Fabric") && readme.contains("A Fabric mod"));
         assertFalse(readme.contains("/docs/") || readme.contains("SOURCE-DELIVERY.md"));
         String changes = Files.readString(ROOT.resolve("CHANGELOG.md"));
-        assertTrue(changes.contains("## 1.1.0")); assertTrue(changes.contains("Add Custom Capes with local cropping, preview and online review.")); // assertEquals("new feature: nicktweaks new theme", changes.split("## 1.0.1\\n\\n")[1].split("\\n\\n##")[0].trim());
+        assertTrue(changes.contains("## " + System.getProperty("customcosmetics.version")));
+        assertTrue(changes.contains("NickTweaks: Add segmented gradients."));
+        assertTrue(changes.contains("Cape: Support high-resolution atlases up to 2 MiB."));
+        assertTrue(changes.contains("Player Size: Add synced X/Y/Z scaling."));
         assertFalse(readme.contains("syncServerIp") || readme.contains("gradlew.bat"));
         String notice = Files.readString(ROOT.resolve("NOTICE"));
         assertTrue(notice.contains("Copyright (c) 2020 MidnightDust"));

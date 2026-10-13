@@ -36,10 +36,9 @@ public final class SmolPeopleNametag {
     }
 
     public static float getVerticalOffset(int entityId) {
-        if (!usesSmolNametag(entityId)) {
-            return 0f;
-        }
-        return VERTICAL_OFFSET;
+        float offset=usesSmolNametag(entityId)?VERTICAL_OFFSET:0f;
+        var player=SmolPlayers.getPlayerByEntityId(entityId);
+        return player==null?offset:(float)com.customcosmetics.features.playersize.PlayerSize.settings(entityId).nameOffset(player.getBbHeight(),offset);
     }
 
     public static float adjustNametagHeight(float baseHeight, int entityId) {

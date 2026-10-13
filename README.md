@@ -3,7 +3,8 @@
 基于 Fabric 的自定义外观模组。支持玩家间同步。
 
 - **SmolPeople**：移植自 Baity 的小人模型，非常可爱于是我就搬过来了。
-- **NickTweaks**：自定义昵称、颜色、平滑渐变、流光和动态彩色效果，支持保存配色预设与自定义流光颜色、宽度与间隔。
+- **Player Size**：独立调整玩家模型的 X、Y、Z 比例，支持玩家间同步。
+- **NickTweaks**：自定义昵称、分段渐变、流光和动态彩色效果，支持保存配色预设与调整流光颜色、宽度和间隔。
 - **BlockHit**：仿照 1.7 格挡与 Blockhit 动画，可选 Default / Jigsaw 第一人称样式，支持原版及 Hypixel SkyBlock 武器黑/白名单，可选择是否过滤其他玩家的格挡。
 - **Animations**：调整手持物品大小、位置、旋转和挥动速度，支持格挡位置、旋转与实时预览。
 - **Item Cosmetics**：在本地自定义物品名称与模型，支持已启用资源包中的模型。
@@ -27,9 +28,10 @@ WorksByAI / CustomCosmetics contributors · [tory@toryhi.com](mailto:tory@toryhi
 
 A Fabric mod for custom cosmetics, with synchronization between players.
 
-- **SmolPeople**: Small player models ported from Baity. I found them so cute that I brought them over.
-- **NickTweaks**: Custom nicknames, gradients, shimmer and chroma. Save color presets and adjust shimmer colors, size and interval.
-- **BlockHit**: 1.7-style blocking with Default / Jigsaw styles and weapon blacklists or whitelists, including Hypixel SkyBlock weapons and optional filtering of other players.
+- **SmolPeople**: Small player models ported from Baity. Too cute to leave out.
+- **Player Size**: Synced X/Y/Z player model scaling.
+- **NickTweaks**: Custom nicknames, segmented gradients, shimmer and chroma, with saved color presets.
+- **BlockHit**: 1.7-style blocking, Default / Jigsaw styles, weapon lists and optional filtering of other players.
 - **Animations**: Adjust held-item size, position, rotation, and swing speed, with blocking position, rotation, and a live preview.
 - **Item Cosmetics**: Local custom item names and models, including models from enabled resource packs.
 - **Cape**: Custom capes with image cropping and preview. Online sharing requires review; local capes stay private.

@@ -346,6 +346,23 @@ public final class NickRenderUtils {
         return result;
     }
 
+    public static String visibleNickname(String raw) {
+        var result=new StringBuilder();for(var cp:parseCustomNick(raw==null?"":raw))result.appendCodePoint(cp.codepoint());return result.toString();
+    }
+
+    /** Draft-only preview; no active settings or remote state are changed. */
+    public static Component previewSegments(String raw,java.util.List<com.customcosmetics.features.nickname.NicknameSegments.Segment> segments,int start,int end) {
+        var codepoints=parseCustomNick(raw==null?"":raw);
+        var paints=com.customcosmetics.features.nickname.NicknameSegments.paints(codepoints.size(),start,end,segments);
+        var result=Component.empty();
+        for(int i=0;i<codepoints.size();i++){
+            var cp=codepoints.get(i);var paint=paints.get(i);Style style=Style.EMPTY.withBold(ConfigManager.nickTweaksBoldSelf);
+            if(cp.explicitColor()!=null)style=style.withColor(cp.explicitColor());
+            else style=NicknameGlyphEffect.attach(style.withColor(paint.color(0)),new NicknameGlyphEffect(paint.gradient(),paint.from(),paint.to()));
+            result.append(Component.literal(new String(Character.toChars(cp.codepoint()))).setStyle(style));
+        }return result;
+    }
+
 
     public static FormattedCharSequence handleCharSequence(FormattedCharSequence original) {
         if (original == null) return null;
@@ -425,7 +442,7 @@ public final class NickRenderUtils {
     public static FormattedCharSequence measureGradient(FormattedCharSequence original, Font font) {
         boolean local = ConfigManager.nickTweaksCustomNickColorEnabled
             && !NicknameGradient.normalizeStyle(ConfigManager.nickTweaksGradientStyle).equals("character");
-        if (!local && PresenceSync.remoteNicknames().stream().noneMatch(n -> n.profile().customNickColorEnabled()
+        if (!local && !Boolean.TRUE.equals(CLICK_GUI_RENDER_SCOPE.get()) && PresenceSync.remoteNicknames().stream().noneMatch(n -> n.profile().customNickColorEnabled()
                 && !n.profile().chromaEnabled() && !n.profile().gradientStyle().equals("character"))) return original;
         List<Glyph> glyphs = new ArrayList<>();
         original.accept((index, style, codepoint) -> { glyphs.add(new Glyph(codepoint, style)); return true; });
@@ -501,6 +518,8 @@ public final class NickRenderUtils {
             Style base = glyphs.get(i).style();
             NicknameGradient gradient = target.gradient();
             int len = replacement.size();
+            var segmentPaints = gradient != null && gradient.style().equals("segmented")
+                ? com.customcosmetics.features.nickname.NicknameSegments.paints(len,gradient.start(),gradient.end(),target.segments()) : null;
             for (int idx = 0; idx < len; idx++) {
                 ReplacementCodepoint cp = replacement.get(idx);
                 Style style = base;
@@ -510,13 +529,15 @@ public final class NickRenderUtils {
                 if (cp.explicitColor() != null) {
                     style = style.withColor(cp.explicitColor());
                 } else {
-                    int rgb = target.colorAt(len == 1 ? 0.0 : (double) idx / (len - 1), nowMs);
+                    int rgb = segmentPaints == null ? target.colorAt(len == 1 ? 0.0 : (double) idx / (len - 1), nowMs) : segmentPaints.get(idx).color(nowMs);
                     if (rgb >= 0) {
                         style = style.withColor(rgb);
                     }
                 }
                 if (gradient != null && cp.explicitColor() == null) {
-                    style = NicknameGlyphEffect.attach(style, new NicknameGlyphEffect(gradient, idx / (double)len, (idx + 1) / (double)len));
+                    var paint=segmentPaints==null?null:segmentPaints.get(idx);
+                    style = NicknameGlyphEffect.attach(style, paint==null?new NicknameGlyphEffect(gradient, idx / (double)len, (idx + 1) / (double)len)
+                        :new NicknameGlyphEffect(paint.gradient(),paint.from(),paint.to()));
                 }
                 out.add(new Glyph(cp.codepoint(), style));
             }
@@ -712,7 +733,8 @@ public final class NickRenderUtils {
             int remoteGradientEnd,
             String gradientStyle,
             double shimmerSpeed,
-            int shimmerColor, int shimmerHighlightColor, double shimmerSize, double shimmerInterval
+            int shimmerColor, int shimmerHighlightColor, double shimmerSize, double shimmerInterval,
+            java.util.List<com.customcosmetics.features.nickname.NicknameSegments.Segment> segments
     ) {
         static Target local(String name) {
             int[] cps = name.codePoints().toArray();
@@ -735,7 +757,8 @@ public final class NickRenderUtils {
                     0,
                     ConfigManager.nickTweaksGradientStyle,
                     ConfigManager.nickTweaksShimmerSpeed,
-                    ConfigManager.nickTweaksShimmerColor, ConfigManager.nickTweaksShimmerHighlightColor, ConfigManager.nickTweaksShimmerSize,ConfigManager.nickTweaksShimmerInterval
+                    ConfigManager.nickTweaksShimmerColor, ConfigManager.nickTweaksShimmerHighlightColor, ConfigManager.nickTweaksShimmerSize,ConfigManager.nickTweaksShimmerInterval,
+                    com.customcosmetics.features.nickname.NicknameSegments.normalize(ConfigManager.nickTweaksGradientSegments)
             );
         }
 
@@ -759,7 +782,7 @@ public final class NickRenderUtils {
                     profile.gradientStart(),
                     profile.gradientEnd(),
                     profile.gradientStyle(),
-                    profile.shimmerSpeed(), profile.shimmerColor(), profile.shimmerHighlightColor(), profile.shimmerSize(),profile.shimmerInterval()
+                    profile.shimmerSpeed(), profile.shimmerColor(), profile.shimmerHighlightColor(), profile.shimmerSize(),profile.shimmerInterval(),profile.segments()
             );
         }
 

@@ -7,12 +7,12 @@ import java.util.*;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.CustomData;
 import static com.customcosmetics.gui.PinkUi.*;
 
@@ -25,6 +25,8 @@ public final class ItemAppearanceScreen extends Screen {
     private ItemStack item=ItemStack.EMPTY;
     private String uuid="",draftName="",draftModel="",status="";
     private int x,y,w,h,previewWidth,scroll,bodyTop,bodyBottom;
+    private boolean draggingScrollbar;
+    private int scrollbarGrabOffset;
     private PinkUi.Field nameField,modelField;
     public ItemAppearanceScreen(Screen parent){
         super(Component.literal("Item Cosmetics"));this.parent=parent;
@@ -71,17 +73,15 @@ public final class ItemAppearanceScreen extends Screen {
     }
     private void chooseModel(){
         if(uuid.isEmpty()){status="Select an item with a unique SkyBlock item UUID.";return;}
-        var choices=ItemCosmetics.models().stream().map(id->{
-            var icon=new ItemStack(Items.PAPER);icon.set(DataComponents.ITEM_MODEL,id);
-            return new ItemChoiceScreen.Choice(id.getPath().replace('_',' '),id.toString(),icon);
-        }).toList();
+        var choices=ItemCosmetics.modelChoices(item).stream()
+            .map(value->new ItemChoiceScreen.Choice(value.label(),value.id().toString(),value.icon())).toList();
         ClientUiAccess.setScreen(minecraft,new ItemChoiceScreen(this,"Select Model",choices,choice->{draftModel=choice.id();rebuildWidgets();}));
     }
     private void apply(){
         if(uuid.isEmpty()){status="Select an item with a unique SkyBlock item UUID.";return;}
         try{
             var value=new ItemAppearanceStore.Appearance(draftName,draftModel);
-            if(!value.model().isEmpty()&&!ItemCosmetics.hasModel(Identifier.tryParse(value.model()))){modelField.invalid(true);status="This model is not loaded. Choose a model or clear the field.";return;}
+            if(!value.model().isEmpty()&&!ItemCosmetics.renderable(item,Identifier.tryParse(value.model()))){modelField.invalid(true);status="This model has no usable texture. Choose another model or clear the field.";return;}
             ItemCosmetics.store().put(uuid,value);modelField.invalid(false);
             status=ItemCosmetics.save()?"Saved. Only visible on your client.":"Could not save. Please try again.";
         }catch(IllegalArgumentException|IllegalStateException error){status=error.getMessage();}
@@ -92,13 +92,8 @@ public final class ItemAppearanceScreen extends Screen {
         draftName=draftModel="";rebuildWidgets();status="Original name and model restored.";
     }
     private ItemStack preview(){
-        var copy=item.copy();
-        // Remove identity only from this temporary preview so a saved override cannot replace the draft.
-        var data=copy.get(DataComponents.CUSTOM_DATA);
-        if(data!=null){var tag=data.copyTag();tag.remove("uuid");tag.getCompound("ExtraAttributes").ifPresent(extra->extra.remove("uuid"));copy.set(DataComponents.CUSTOM_DATA,CustomData.of(tag));}
         var model=Identifier.tryParse(draftModel.strip());
-        if(ItemCosmetics.hasModel(model))copy.set(DataComponents.ITEM_MODEL,model);
-        return copy;
+        return ItemCosmetics.preview(item,ItemCosmetics.renderable(item,model)?model:null);
     }
     @Override public void extractBackground(GuiGraphicsExtractor g,int mx,int my,float delta){
         if(minecraft.level==null)super.extractBackground(g,mx,my,delta);else g.blurBeforeThisStratum();g.fill(0,0,width,height,0x4020242A);
@@ -119,13 +114,31 @@ public final class ItemAppearanceScreen extends Screen {
         text(g,font,"Custom Name",fx,y+85,TEXT,fw);text(g,font,"Colors: &0–&f, &r, &#RRGGBB",fx,y+135,MUTED,fw);
         text(g,font,"Model ID",fx,y+159,TEXT,fw);
         g.pose().popMatrix();for(var placement:body)if(placement.widget().visible)placement.widget().extractRenderState(g,mx,my,delta);g.disableScissor();
-        if(maxScroll()>0){int track=bodyBottom-bodyTop,thumb=Math.max(12,track*track/160);rounded(g,x+w-10,bodyTop,3,track,1,BORDER);rounded(g,x+w-10,bodyTop+scroll*(track-thumb)/maxScroll(),3,thumb,1,PINK);}
+        if(maxScroll()>0){var bar=scrollbar();rounded(g,x+w-10,bodyTop,3,bodyBottom-bodyTop,1,BORDER);rounded(g,x+w-10,bar.thumbStart(scroll),3,bar.thumbLength(),1,PINK);}
         text(g,font,status.isEmpty()?(uuid.isEmpty()?"Select a SkyBlock item with a unique item UUID.":"Click Apply to save changes to this item."):status,x+16,y+h-61,MUTED,w-32);
     }
-    private int maxScroll(){return Math.max(0,160-(bodyBottom-bodyTop));}
+    private int maxScroll(){return Math.max(0,y+239-bodyBottom);}
+    private ScrollBarLayout scrollbar(){int viewport=Math.max(0,bodyBottom-bodyTop);return ScrollBarLayout.of(bodyTop,viewport,viewport,viewport+maxScroll(),maxScroll());}
     private void positionBody(){for(var p:body){p.widget().setY(p.y()-scroll);p.widget().visible=p.widget().getY()+p.widget().getHeight()>bodyTop&&p.widget().getY()<bodyBottom;}}
     @Override public boolean mouseScrolled(double mx,double my,double horizontal,double vertical){
         CosmeticsScreen.childInteraction();if(mx>=x&&mx<x+w&&my>=bodyTop&&my<bodyBottom){scroll=Math.clamp(scroll-(int)Math.signum(vertical)*24,0,maxScroll());positionBody();return true;}return super.mouseScrolled(mx,my,horizontal,vertical);
+    }
+    @Override public boolean mouseClicked(MouseButtonEvent event,boolean doubleClick){
+        if(event.button()==com.customcosmetics.compatibility.ClientInput.MOUSE_LEFT&&maxScroll()>0
+                &&event.x()>=x+w-18&&event.x()<x+w&&event.y()>=bodyTop&&event.y()<bodyBottom){
+            var bar=scrollbar();int thumbTop=bar.thumbStart(scroll);
+            scrollbarGrabOffset=event.y()>=thumbTop&&event.y()<thumbTop+bar.thumbLength()?(int)event.y()-thumbTop:bar.thumbLength()/2;
+            scroll=bar.offsetAtPointer(event.y(),scrollbarGrabOffset);positionBody();draggingScrollbar=true;CosmeticsScreen.childInteraction();return true;
+        }
+        return super.mouseClicked(event,doubleClick);
+    }
+    @Override public boolean mouseDragged(MouseButtonEvent event,double dx,double dy){
+        if(draggingScrollbar){scroll=scrollbar().offsetAtPointer(event.y(),scrollbarGrabOffset);positionBody();return true;}
+        return super.mouseDragged(event,dx,dy);
+    }
+    @Override public boolean mouseReleased(MouseButtonEvent event){
+        if(draggingScrollbar){draggingScrollbar=false;return true;}
+        return super.mouseReleased(event);
     }
     @Override public boolean isPauseScreen(){return false;}
     @Override public void removed(){ItemCosmetics.save();}

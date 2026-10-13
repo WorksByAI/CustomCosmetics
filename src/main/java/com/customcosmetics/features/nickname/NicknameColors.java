@@ -6,11 +6,16 @@ import com.customcosmetics.config.ConfigManager;
 /** A local color preset. Nickname text, bold and unrelated settings are deliberately excluded. */
 public record NicknameColors(int start, int end, String style, double shimmerSpeed,
         int shimmerColor, int shimmerHighlightColor, boolean chromaEnabled,
-        double chromaSpeed, double chromaSize, double chromaAmount, double chromaLightness, double shimmerSize, double shimmerInterval) {
+        double chromaSpeed, double chromaSize, double chromaAmount, double chromaLightness, double shimmerSize, double shimmerInterval,
+        java.util.List<NicknameSegments.Segment> segments) {
+    public NicknameColors(int start,int end,String style,double shimmerSpeed,int shimmerColor,int shimmerHighlightColor,boolean chromaEnabled,double chromaSpeed,double chromaSize,double chromaAmount,double chromaLightness,double shimmerSize,double shimmerInterval) {
+        this(start,end,style,shimmerSpeed,shimmerColor,shimmerHighlightColor,chromaEnabled,chromaSpeed,chromaSize,chromaAmount,chromaLightness,shimmerSize,shimmerInterval,java.util.List.of());
+    }
     public NicknameColors(int start,int end,String style,double shimmerSpeed,int shimmerColor,int shimmerHighlightColor,boolean chromaEnabled,double chromaSpeed,double chromaSize,double chromaAmount,double chromaLightness) {
         this(start,end,style,shimmerSpeed,shimmerColor,shimmerHighlightColor,chromaEnabled,chromaSpeed,chromaSize,chromaAmount,chromaLightness,NicknameGradient.DEFAULT_SIZE,NicknameGradient.DEFAULT_INTERVAL);
     }
     public NicknameColors {
+        segments = NicknameSegments.normalize(segments);
         shimmerSize = NicknameGradient.normalizeSize(shimmerSize);
         shimmerInterval = NicknameGradient.normalizeInterval(shimmerInterval);
         start &= 0xFFFFFF; end &= 0xFFFFFF;
@@ -30,7 +35,7 @@ public record NicknameColors(int start, int end, String style, double shimmerSpe
             ConfigManager.nickTweaksGradientStyle, ConfigManager.nickTweaksShimmerSpeed,
             ConfigManager.nickTweaksShimmerColor, ConfigManager.nickTweaksShimmerHighlightColor,
             ConfigManager.nickTweaksChromaEnabled, ConfigManager.nickTweaksChromaSpeed,
-            ConfigManager.nickTweaksChromaSize, ConfigManager.nickTweaksChromaChroma, ConfigManager.nickTweaksChromaLightness, ConfigManager.nickTweaksShimmerSize,ConfigManager.nickTweaksShimmerInterval);
+            ConfigManager.nickTweaksChromaSize, ConfigManager.nickTweaksChromaChroma, ConfigManager.nickTweaksChromaLightness, ConfigManager.nickTweaksShimmerSize,ConfigManager.nickTweaksShimmerInterval,ConfigManager.nickTweaksGradientSegments);
     }
     public void apply() {
         ConfigManager.nickTweaksEnabled = true;
@@ -38,6 +43,7 @@ public record NicknameColors(int start, int end, String style, double shimmerSpe
         ConfigManager.nickTweaksGradientStartColor = start;
         ConfigManager.nickTweaksGradientEndColor = end;
         ConfigManager.nickTweaksGradientStyle = style;
+        ConfigManager.nickTweaksGradientSegments = segments;
         ConfigManager.nickTweaksShimmerSpeed = shimmerSpeed;
         ConfigManager.nickTweaksShimmerSize = shimmerSize;
         ConfigManager.nickTweaksShimmerInterval = shimmerInterval;

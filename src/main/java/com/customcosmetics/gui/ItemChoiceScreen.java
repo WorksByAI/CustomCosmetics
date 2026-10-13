@@ -9,6 +9,7 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.input.MouseButtonEvent;
 import static com.customcosmetics.gui.PinkUi.*;
 
 /** A bounded, searchable list; only the visible rows submit item models. */
@@ -24,6 +25,8 @@ public final class ItemChoiceScreen extends Screen {
     private List<Choice> filtered;
     private String query = "";
     private int x,y,w,h,top,bottom,offset;
+    private boolean draggingScrollbar;
+    private int scrollbarGrabOffset;
     public ItemChoiceScreen(Screen parent, String title, List<Choice> choices, Consumer<Choice> selected) {
         super(Component.literal(title)); this.parent=parent; this.choices=List.copyOf(choices); this.selected=selected;
     }
@@ -53,6 +56,28 @@ public final class ItemChoiceScreen extends Screen {
         if(mx>=x&&mx<x+w&&my>=top&&my<bottom){offset-=(int)Math.signum(vertical)*3;refresh();return true;}
         return super.mouseScrolled(mx,my,horizontal,vertical);
     }
+    private ScrollBarLayout scrollbar(){
+        return ScrollBarLayout.of(top,bottom-top,rows.size(),filtered.size(),Math.max(0,filtered.size()-rows.size()));
+    }
+    @Override public boolean mouseClicked(MouseButtonEvent event,boolean doubleClick) {
+        if(event.button()==com.customcosmetics.compatibility.ClientInput.MOUSE_LEFT&&filtered.size()>rows.size()
+                &&event.x()>=x+w-31&&event.x()<x+w-11&&event.y()>=top&&event.y()<bottom) {
+            var bar=scrollbar();int thumbTop=bar.thumbStart(offset);
+            if(event.y()>=thumbTop&&event.y()<thumbTop+bar.thumbLength())scrollbarGrabOffset=(int)event.y()-thumbTop;
+            else scrollbarGrabOffset=bar.thumbLength()/2;
+            offset=bar.offsetAtPointer(event.y(),scrollbarGrabOffset);refresh();draggingScrollbar=true;
+            CosmeticsScreen.childInteraction();return true;
+        }
+        return super.mouseClicked(event,doubleClick);
+    }
+    @Override public boolean mouseDragged(MouseButtonEvent event,double dx,double dy) {
+        if(draggingScrollbar){offset=scrollbar().offsetAtPointer(event.y(),scrollbarGrabOffset);refresh();return true;}
+        return super.mouseDragged(event,dx,dy);
+    }
+    @Override public boolean mouseReleased(MouseButtonEvent event) {
+        if(draggingScrollbar){draggingScrollbar=false;return true;}
+        return super.mouseReleased(event);
+    }
     @Override public void extractBackground(GuiGraphicsExtractor g,int mx,int my,float delta) {
         if(minecraft.level==null)super.extractBackground(g,mx,my,delta);else g.blurBeforeThisStratum();
         g.fill(0,0,width,height,0x4020242A);
@@ -65,9 +90,9 @@ public final class ItemChoiceScreen extends Screen {
         for(var row:rows)if(row.visible)row.extractRenderState(g,mx,my,delta);
         if(filtered.isEmpty())text(g,font,"No matching items",x+28,top+15,MUTED,w-56);
         if(filtered.size()>rows.size()) {
-            int track=rows.size()*34,thumb=Math.max(14,track*rows.size()/filtered.size());
-            rounded(g,x+w-21,top,3,track,1,BORDER);
-            rounded(g,x+w-21,top+offset*(track-thumb)/(filtered.size()-rows.size()),3,thumb,1,PINK);
+            var bar=scrollbar();
+            rounded(g,x+w-21,top,3,bottom-top,1,BORDER);
+            rounded(g,x+w-21,bar.thumbStart(offset),3,bar.thumbLength(),1,PINK);
         }
         g.disableScissor();
     }

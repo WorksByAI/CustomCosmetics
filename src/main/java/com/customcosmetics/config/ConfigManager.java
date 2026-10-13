@@ -32,6 +32,8 @@ public final class ConfigManager {
 
     public static boolean smolpeopleMode = false;
     public static double smolLimbSwingSpeed = 2.5;
+    public static boolean playerSizeEnabled=false;
+    public static double playerSizeX=1,playerSizeY=1,playerSizeZ=1;
     public static boolean nickTweaksEnabled = false;
     public static String nickTweaksNickChanger = "";
     public static boolean nickTweaksChromaEnabled = false;
@@ -44,6 +46,7 @@ public final class ConfigManager {
     public static int nickTweaksGradientStartColor = 0xFFFFFF;
     public static int nickTweaksGradientEndColor = 0xFFFFFF;
     public static String nickTweaksGradientStyle = "character";
+    public static java.util.List<com.customcosmetics.features.nickname.NicknameSegments.Segment> nickTweaksGradientSegments = java.util.List.of();
     public static int nickTweaksShimmerColor = 0xFFCF64;
     public static int nickTweaksShimmerHighlightColor = 0xFFF0BB;
     public static double nickTweaksShimmerSpeed = 1.0;
@@ -111,7 +114,7 @@ public final class ConfigManager {
                 if (!Modifier.isStatic(field.getModifiers()) || Modifier.isTransient(field.getModifiers()) || !settings.has(field.getName())
                         || settings.get(field.getName()).isJsonNull()) continue;
                 try {
-                    Object value = GSON.fromJson(settings.get(field.getName()), field.getType());
+                    Object value = GSON.fromJson(settings.get(field.getName()), field.getGenericType());
                     if (value instanceof Double number && !Double.isFinite(number)) continue;
                     field.set(null, value);
                 } catch (RuntimeException | IllegalAccessException e) {
@@ -120,12 +123,16 @@ public final class ConfigManager {
             }
             nickTweaksNickChanger = NicknameLimit.limit(nickTweaksNickChanger);
             smolLimbSwingSpeed = Math.clamp(smolLimbSwingSpeed, 0.5, 5.0);
+            playerSizeX=com.customcosmetics.features.playersize.PlayerSizeSettings.bounded(playerSizeX);
+            playerSizeY=com.customcosmetics.features.playersize.PlayerSizeSettings.bounded(playerSizeY);
+            playerSizeZ=com.customcosmetics.features.playersize.PlayerSizeSettings.bounded(playerSizeZ);
             syncRefreshIntervalSeconds = getSyncRefreshIntervalSeconds();
             nickTweaksChromaSpeed = Math.clamp(nickTweaksChromaSpeed, 0.0, 8.0);
             nickTweaksChromaSize = Math.clamp(nickTweaksChromaSize, 0.1, 12.0);
             nickTweaksChromaChroma = Math.clamp(nickTweaksChromaChroma, 0.0, 0.4);
             nickTweaksChromaLightness = Math.clamp(nickTweaksChromaLightness, 0.2, 1.0);
             nickTweaksGradientStyle = com.customcosmetics.features.nickname.NicknameGradient.normalizeStyle(nickTweaksGradientStyle);
+            nickTweaksGradientSegments = com.customcosmetics.features.nickname.NicknameSegments.normalize(nickTweaksGradientSegments);
             nickTweaksShimmerSpeed = Double.isFinite(nickTweaksShimmerSpeed) ? Math.clamp(nickTweaksShimmerSpeed, 0, 4) : 1;
             nickTweaksShimmerSize = com.customcosmetics.features.nickname.NicknameGradient.normalizeSize(nickTweaksShimmerSize);
             nickTweaksShimmerInterval = com.customcosmetics.features.nickname.NicknameGradient.normalizeInterval(nickTweaksShimmerInterval);

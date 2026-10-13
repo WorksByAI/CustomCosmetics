@@ -70,6 +70,7 @@ public class SmolPeopleMixin {
             if (SmolPlayers.shouldApplySmolTo(playerEntityRenderState.id)) {
                 matrixStack.scale(0.5f, 0.5f, 0.5f);
             }
+            com.customcosmetics.features.playersize.PlayerSize.apply(playerEntityRenderState.id,matrixStack);
         }
     }
 

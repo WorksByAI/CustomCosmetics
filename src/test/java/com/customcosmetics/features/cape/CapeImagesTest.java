@@ -8,6 +8,25 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class CapeImagesTest {
+    @Test void highResolutionAtlasesKeepTheirDimensionsAndElytraPixelsAcrossLocalReload() throws Exception {
+        var image=new BufferedImage(2048,1024,BufferedImage.TYPE_INT_ARGB);image.setRGB(1700,600,0xFF123456);
+        byte[] png=CapeImages.atlasPng(image);var store=new LocalCapeStore(directory);store.save(png);
+        var restored=CapeImages.decode(new LocalCapeStore(directory).copy());
+        assertEquals(2048,restored.getWidth());assertEquals(1024,restored.getHeight());assertEquals(0xFF123456,restored.getRGB(1700,600));
+        assertTrue(CapeImages.atlas(new BufferedImage(640,320,BufferedImage.TYPE_INT_ARGB)));
+        assertFalse(CapeImages.atlas(new BufferedImage(300,150,BufferedImage.TYPE_INT_ARGB)));
+    }
+    @Test void fileAndEncodedPngLimitsAllowMoreThan128KiBButNeverMoreThanTwoMiB() throws Exception {
+        assertEquals(2*1024*1024,CapeImages.MAX_FILE);assertEquals(CapeImages.MAX_FILE,CapeImages.MAX_PNG);
+        var random=new Random(42);var accepted=new BufferedImage(640,320,BufferedImage.TYPE_INT_ARGB);
+        for(int y=0;y<accepted.getHeight();y++)for(int x=0;x<accepted.getWidth();x++)accepted.setRGB(x,y,random.nextInt());
+        byte[] png=CapeImages.atlasPng(accepted);assertTrue(png.length>131072);assertTrue(png.length<=CapeImages.MAX_PNG);
+        var large=new BufferedImage(1024,512,BufferedImage.TYPE_INT_ARGB);
+        for(int y=0;y<large.getHeight();y++)for(int x=0;x<large.getWidth();x++)large.setRGB(x,y,random.nextInt());
+        assertTrue(assertThrows(java.io.IOException.class,()->CapeImages.atlasPng(large)).getMessage().contains("2 MiB"));
+        var oversized=directory.resolve("too-big.png");java.nio.file.Files.write(oversized,new byte[CapeImages.MAX_FILE+1]);
+        assertTrue(assertThrows(java.io.IOException.class,()->CapeImages.read(oversized)).getMessage().contains("2 MiB"));
+    }
     @Test void administrationUsesTheVerifiedAccountUuidRatherThanASpoofableNickname(){
         assertTrue(CapeAdministrators.includes(UUID.fromString("db78ac18-99d5-4aee-b1d7-893cfc9e358d")));
         assertEquals("ToryHi",CapeAdministrators.ACCOUNTS.get(UUID.fromString("db78ac18-99d5-4aee-b1d7-893cfc9e358d")));

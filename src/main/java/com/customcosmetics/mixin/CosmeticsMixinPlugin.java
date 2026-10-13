@@ -11,6 +11,11 @@ public final class CosmeticsMixinPlugin implements IMixinConfigPlugin {
     @Override public void onLoad(String mixinPackage) {}
     @Override public String getRefMapperConfig() { return null; }
     @Override public boolean shouldApplyMixin(String target, String mixin) {
+        if (mixin.contains("ItemModelVisibilityMixin$") && !mixin.endsWith("State")) {
+            boolean modern = FabricLoader.getInstance().getModContainer("minecraft").orElseThrow()
+                .getMetadata().getVersion().getFriendlyString().startsWith("26.3");
+            return mixin.endsWith("Modern") == modern;
+        }
         if (mixin.contains("SwingAnimationMixin$")) {
             boolean modern = FabricLoader.getInstance().getModContainer("minecraft").orElseThrow()
                 .getMetadata().getVersion().getFriendlyString().startsWith("26.3");

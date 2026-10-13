@@ -10,33 +10,34 @@ import java.util.HexFormat;
 
 /** Pure local image handling. Cropping never contacts the cosmetics service. */
 public final class CapeImages {
-    public static final int MAX_FILE=16*1024*1024,MAX_PNG=131072;
+    public static final int MAX_FILE=2*1024*1024,MAX_PNG=MAX_FILE;
+    private static final long MAX_PIXELS=16L*1024*1024;
     private CapeImages(){}
     public static BufferedImage read(Path path)throws IOException{
-        if(Files.size(path)>MAX_FILE)throw new IOException("Image must be smaller than 16 MiB.");
+        if(Files.size(path)>MAX_FILE)throw new IOException("Image must not exceed 2 MiB.");
         return decode(Files.readAllBytes(path));
     }
     public static BufferedImage decode(byte[] bytes)throws IOException{
-        if(bytes.length>MAX_FILE)throw new IOException("Image is too large.");
+        if(bytes.length>MAX_FILE)throw new IOException("Image must not exceed 2 MiB.");
         try(var input=ImageIO.createImageInputStream(new ByteArrayInputStream(bytes))){
             var readers=ImageIO.getImageReaders(input);if(!readers.hasNext())throw new IOException("Unsupported image. Use PNG, JPEG, BMP or GIF.");
             var reader=readers.next();try{
                 reader.setInput(input,true,true);int width=reader.getWidth(0),height=reader.getHeight(0);
-                if(width<1||height<1||width>4096||height>4096)throw new IOException("Image dimensions must not exceed 4096 x 4096.");
+                if(width<1||height<1||(long)width*height>MAX_PIXELS)throw new IOException("Image requires too much memory to decode.");
                 return reader.read(0);
             }finally{reader.dispose();}
         }
     }
-    public static boolean atlas(BufferedImage image){return image.getWidth()>=64&&image.getWidth()<=512&&image.getWidth()%64==0&&image.getHeight()*2==image.getWidth();}
+    public static boolean atlas(BufferedImage image){return image.getWidth()>=64&&image.getWidth()%64==0&&(long)image.getHeight()*2==image.getWidth();}
     public static byte[] atlasPng(BufferedImage image)throws IOException{
-        if(!atlas(image))throw new IOException("Cape atlas must be 64 x 32, or a multiple up to 512 x 256.");
+        if(!atlas(image))throw new IOException("Cape atlas must be a multiple of 64 x 32 (2:1).");
         var normalized=new BufferedImage(image.getWidth(),image.getHeight(),BufferedImage.TYPE_INT_ARGB);
         for(int y=0;y<image.getHeight();y++)for(int x=0;x<image.getWidth();x++)normalized.setRGB(x,y,image.getRGB(x,y));
         return png(normalized);
     }
     public static byte[] png(BufferedImage image)throws IOException{
         var out=new ByteArrayOutputStream();if(!ImageIO.write(image,"png",out))throw new IOException("Cannot encode PNG.");
-        byte[] bytes=out.toByteArray();if(bytes.length>MAX_PNG)throw new IOException("Cape PNG must be smaller than 128 KiB.");return bytes;
+        byte[] bytes=out.toByteArray();if(bytes.length>MAX_PNG)throw new IOException("Cape PNG must not exceed 2 MiB.");return bytes;
     }
     public static String hash(byte[] bytes){try{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));}catch(Exception e){throw new IllegalStateException(e);}}
     public record Crop(double x,double y,double width,double height){

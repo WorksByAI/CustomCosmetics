@@ -9,6 +9,20 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ConfigManagerTest {
+    @Test void playerSizeSettingsRoundTripAndInvalidAxesCannotEnterRendering() throws Exception {
+        var path=directory.resolve("player-size.json");ConfigManager.playerSizeEnabled=true;ConfigManager.playerSizeX=.5;ConfigManager.playerSizeY=.75;ConfigManager.playerSizeZ=1.25;
+        ConfigManager.save(path);ConfigManager.playerSizeEnabled=false;ConfigManager.playerSizeX=ConfigManager.playerSizeY=ConfigManager.playerSizeZ=1;ConfigManager.load(path);
+        assertTrue(ConfigManager.playerSizeEnabled);assertEquals(.5,ConfigManager.playerSizeX);assertEquals(.75,ConfigManager.playerSizeY);assertEquals(1.25,ConfigManager.playerSizeZ);
+        Files.writeString(path,"{\"settings\":{\"playerSizeX\":-2,\"playerSizeY\":100}}");ConfigManager.load(path);assertEquals(.1,ConfigManager.playerSizeX);assertEquals(3,ConfigManager.playerSizeY);
+    }
+    @Test void segmentedGradientConfigurationLoadsTypedRangesAndPreservesTheirColors() throws Exception {
+        var path=directory.resolve("segments.json");
+        var segments=List.of(new com.customcosmetics.features.nickname.NicknameSegments.Segment(1,4,0xED69E8,0x916BE8),new com.customcosmetics.features.nickname.NicknameSegments.Segment(5,6,0x43D6EC,0x549FF5));
+        ConfigManager.nickTweaksGradientStyle="segmented";ConfigManager.nickTweaksGradientSegments=segments;ConfigManager.save(path);
+        ConfigManager.nickTweaksGradientStyle="smooth";ConfigManager.nickTweaksGradientSegments=List.of();ConfigManager.load(path);
+        assertEquals("segmented",ConfigManager.nickTweaksGradientStyle);assertEquals(segments,ConfigManager.nickTweaksGradientSegments);
+        assertThrows(UnsupportedOperationException.class,()->ConfigManager.nickTweaksGradientSegments.clear());
+    }
     @Test void offlineAndBlockingAdjustmentsRoundTrip() throws Exception {
         var path=directory.resolve("studio.json");
         ConfigManager.offlineMode=true;

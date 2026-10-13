@@ -97,8 +97,113 @@ public final class NicknameGradientGameTest implements FabricClientGameTest {
         });context.waitTicks(3);context.takeScreenshot("nickname-shimmer-settings");
         checkRemoteNameTag(context);
         NicknamePresetGameTest.check(context);
+        checkSegments(context);
         RenderAssertions.nicknameTime=-1;
         System.out.println("NICKNAME_SHIMMER_GPU_OK base="+base+" left="+left+" right="+right+" smooth="+smooth);
+    }
+
+    private static void checkSegments(ClientGameTestContext context) {
+        try {
+            context.getInput().resizeWindow(1600,1000);
+            context.runOnClient(client->{
+                client.options.guiScale().set(2);ConfigManager.nickTweaksNickChanger="ToryHi";
+                ConfigManager.nickTweaksGradientStyle="segmented";ConfigManager.nickTweaksGradientSegments=List.of();
+                ConfigManager.nickTweaksCustomNickColorEnabled=true;ConfigManager.nickTweaksChromaEnabled=false;
+                ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.COLOR));
+            });context.waitTicks(3);
+            context.runOnClient(client->{
+                var screen=ClientUiAccess.screen(client);
+                var cape=editorWidget(client,"Cape",0,com.customcosmetics.gui.PinkUi.Action.class);
+                var sync=editorWidget(client,"Sync",0,com.customcosmetics.gui.PinkUi.Action.class);
+                if(cape.getBottom()>sync.getY()||screen.children().indexOf(cape)>=screen.children().indexOf(sync))
+                    throw new AssertionError("Cape must precede Sync in both sidebar layout and keyboard navigation");
+            });context.takeScreenshot("release-cape-above-sync");
+            editorClick(context,"Cape",0,com.customcosmetics.gui.PinkUi.Action.class);
+            context.runOnClient(client->{if(!(ClientUiAccess.screen(client) instanceof com.customcosmetics.gui.CapeScreen))throw new AssertionError("Cape navigation opened the wrong page");ClientUiAccess.screen(client).onClose();});context.waitTicks(2);
+            NicknamePresetGameTest.click(context,"Edit Gradient Segments",com.customcosmetics.gui.PinkUi.Action.class);
+            editorType(context,"To",0,"4");editorType(context,"From",1,"5");
+            editorType(context,"Start Color",0,"#CC66FF");editorType(context,"End Color",0,"#FF88CC");
+            editorType(context,"Start Color",1,"#43D6EC");editorType(context,"End Color",1,"#549FF5");
+            context.runOnClient(client->{if(!ConfigManager.nickTweaksGradientSegments.isEmpty())throw new AssertionError("Draft edits applied before Apply");});
+            context.takeScreenshot("nickname-segment-editor");
+            editorClick(context,"Add Segment",0,com.customcosmetics.gui.PinkUi.Action.class);
+            context.runOnClient(client->{
+                var screen=ClientUiAccess.screen(client);int x=editorInt(screen,"x"),w=editorInt(screen,"w"),top=editorInt(screen,"top"),bottom=editorInt(screen,"bottom");
+                var max=screen.getClass().getDeclaredMethod("maxScroll");max.setAccessible(true);int range=(Integer)max.invoke(screen);
+                if(range<=0)throw new AssertionError("Added segment did not make the editor scrollable");
+                var info=new net.minecraft.client.input.MouseButtonInfo(com.customcosmetics.compatibility.ClientInput.MOUSE_LEFT,0);
+                var press=new net.minecraft.client.input.MouseButtonEvent(x+w-13,top+2,info);if(!screen.mouseClicked(press,false))throw new AssertionError("Segment scrollbar did not capture the thumb");
+                var drag=new net.minecraft.client.input.MouseButtonEvent(x+w-13,bottom-1,info);screen.mouseDragged(drag,0,bottom-top);screen.mouseReleased(drag);
+                if(editorInt(screen,"scroll")!=range)throw new AssertionError("Segment scrollbar did not reach the last row");
+            });context.waitTicks(2);
+            editorClick(context,"Remove",2,com.customcosmetics.gui.PinkUi.Action.class);
+            editorClick(context,"Apply Segments",0,com.customcosmetics.gui.PinkUi.Action.class);
+            var expected=List.of(new com.customcosmetics.features.nickname.NicknameSegments.Segment(1,4,0xCC66FF,0xFF88CC),new com.customcosmetics.features.nickname.NicknameSegments.Segment(5,6,0x43D6EC,0x549FF5));
+            context.runOnClient(client->{
+                if(!expected.equals(ConfigManager.nickTweaksGradientSegments))throw new AssertionError("Apply lost segmented ranges or colors");
+                var local=prepared(client.font.prepareText(NickRenderUtils.previewNickname(client.getUser().getName()).getVisualOrderText(),0,0,-1,false,false,0));
+                assertSegments(local);
+                double tory=client.font.width("Tory"),t=client.font.width("T");
+                if(Math.abs(local.getFirst().effect().to()-t/tory)>1e-6)throw new AssertionError("Segment glyph widths were measured across the full name");
+                if(!NickRenderUtils.visibleNickname("&d暮&r😀冬").equals("暮😀冬"))throw new AssertionError("Formatting codes or surrogate pairs changed visible positions");
+                var unicode=NickRenderUtils.previewSegments("&d暮&r😀冬",List.of(new com.customcosmetics.features.nickname.NicknameSegments.Segment(2,3,0x00FF00,0x0000FF)),0,0);
+                var visible=new ArrayList<Style>();unicode.getVisualOrderText().accept((index,style,cp)->{visible.add(style);return true;});
+                if(visible.size()!=3||visible.get(0).getColor().getValue()!=0xFF55FF||NicknameGlyphEffect.from(visible.get(0))!=null
+                    ||NicknameGlyphEffect.from(visible.get(1)).gradient().start()!=0x00FF00||NicknameGlyphEffect.from(visible.get(2)).to()!=1)
+                    throw new AssertionError("Unicode ranges or explicit color priority were lost");
+                var payload=com.google.gson.JsonParser.parseString("{\"authVersion\":2,\"users\":{\"12345678-1234-4234-8234-123456789abc\":{\"name\":\"Alice\",\"features\":{\"nickTweaks\":{\"enabled\":true,\"customNickColorEnabled\":true,\"nickChanger\":\"ToryHi\",\"solid\":{\"style\":\"segmented\"}}}}}}").getAsJsonObject();
+                payload.getAsJsonObject("users").getAsJsonObject("12345678-1234-4234-8234-123456789abc").getAsJsonObject("features").getAsJsonObject("nickTweaks").getAsJsonObject("solid").add("segments",com.customcosmetics.features.nickname.NicknameSegments.toJson(expected));
+                var apply=PresenceSync.class.getDeclaredMethod("applyPayload",String.class,boolean.class,boolean.class);apply.setAccessible(true);apply.invoke(null,payload.toString(),false,true);
+                var remote=prepared(client.font.prepareText(net.minecraft.locale.Language.getInstance().getVisualOrder(NickRenderUtils.handleFormattedText(Component.literal("Alice"))),0,0,-1,false,false,0));assertSegments(remote);
+                ClientUiAccess.setScreen(client,new SegmentedSampleScreen());
+            });context.waitTicks(3);
+            checkSegmentPixels(context);context.takeScreenshot("nickname-segmented-toryhi");
+            context.runOnClient(client->ClientUiAccess.setScreen(client,new com.customcosmetics.gui.NicknameSegmentsScreen(null)));
+            editorType(context,"From",1,"4");editorClick(context,"Apply Segments",0,com.customcosmetics.gui.PinkUi.Action.class);
+            context.runOnClient(client->{if(!(ClientUiAccess.screen(client) instanceof com.customcosmetics.gui.NicknameSegmentsScreen)||!expected.equals(ConfigManager.nickTweaksGradientSegments))throw new AssertionError("Overlapping ranges overwrote active settings");});
+            editorClick(context,"Cancel",0,com.customcosmetics.gui.PinkUi.Action.class);
+            context.runOnClient(client->{if(!expected.equals(ConfigManager.nickTweaksGradientSegments))throw new AssertionError("Cancel applied the draft");});
+            System.out.println("NICKNAME_SEGMENTS_GUI_GPU_LOCAL_REMOTE_UNICODE_AND_CANCEL_OK");
+        }catch(Exception error){throw new AssertionError(error);}
+    }
+    private static void assertSegments(List<GradientGlyph> glyphs){
+        if(glyphs.size()!=6)throw new AssertionError("Segmented nickname lost glyphs");
+        var first=glyphs.getFirst().effect();var fourth=glyphs.get(3).effect();var fifth=glyphs.get(4).effect();var last=glyphs.getLast().effect();
+        if(first.gradient()!=fourth.gradient()||first.gradient()==fifth.gradient()||fifth.gradient()!=last.gradient()
+            ||first.from()!=0||fourth.to()!=1||fifth.from()!=0||last.to()!=1
+            ||first.gradient().start()!=0xCC66FF||first.gradient().end()!=0xFF88CC||last.gradient().start()!=0x43D6EC||last.gradient().end()!=0x549FF5)
+            throw new AssertionError("The two native gradient spans bled into each other");
+    }
+    private static int editorInt(Screen screen,String name)throws ReflectiveOperationException{var field=screen.getClass().getDeclaredField(name);field.setAccessible(true);return field.getInt(screen);}
+    private static net.minecraft.client.gui.components.AbstractWidget editorWidget(Minecraft client,String name,int index,Class<?> type){
+        return ClientUiAccess.screen(client).children().stream().filter(type::isInstance).map(child->(net.minecraft.client.gui.components.AbstractWidget)child).filter(child->child.getMessage().getString().equals(name)).toList().get(index);
+    }
+    private static void editorClick(ClientGameTestContext context,String name,int index,Class<?> type){
+        var position=new java.util.concurrent.atomic.AtomicReference<double[]>();
+        context.runOnClient(client->{var widget=editorWidget(client,name,index,type);if(!widget.visible)throw new AssertionError("Hidden segment control "+name);double scale=client.getWindow().getGuiScale();position.set(new double[]{(widget.getX()+widget.getWidth()/2.0)*scale,(widget.getY()+widget.getHeight()/2.0)*scale});});
+        context.getInput().setCursorPos(position.get()[0],position.get()[1]);context.getInput().pressMouse(com.customcosmetics.compatibility.ClientInput.MOUSE_LEFT);context.waitTicks(2);
+    }
+    private static void editorType(ClientGameTestContext context,String name,int index,String value){
+        editorClick(context,name,index,com.customcosmetics.gui.PinkUi.Field.class);
+        context.runOnClient(client->{var field=(com.customcosmetics.gui.PinkUi.Field)editorWidget(client,name,index,com.customcosmetics.gui.PinkUi.Field.class);if(!field.isFocused())throw new AssertionError("Segment field did not receive focus");field.setValue("");});
+        context.getInput().typeChars(value);context.waitTicks(2);
+    }
+    private static void checkSegmentPixels(ClientGameTestContext context){
+        var result=new CompletableFuture<int[]>();
+        context.runOnClient(client->{double scale=client.getWindow().getGuiScale();int left=(int)(40*scale),top=(int)(64*scale),split=left+(int)(client.font.width("Tory")*8*scale),right=left+(int)(client.font.width("ToryHi")*8*scale),bottom=top+(int)(9*8*scale);
+            Screenshot.takeScreenshot(renderTarget(client),image->{try(image){int pink=0,cyan=0,wrongLeft=0,wrongRight=0;
+                for(int y=top;y<bottom;y++)for(int x=left;x<right;x++){int c=image.getPixel(x,y),r=(c>>16)&255,g=(c>>8)&255,b=c&255;if(r>150&&g<170&&b>150){if(x<split)pink++;else wrongRight++;}if(r<110&&g>150&&b>170){if(x>=split)cyan++;else wrongLeft++;}}
+                result.complete(new int[]{pink,cyan,wrongLeft,wrongRight});}catch(Throwable error){result.completeExceptionally(error);}});
+        });context.waitFor(client->result.isDone());var pixels=result.join();if(pixels[0]<50||pixels[1]<50||pixels[2]>5||pixels[3]>5)throw new AssertionError("Actual GPU segment colors crossed the boundary: "+java.util.Arrays.toString(pixels));
+    }
+    private static final class SegmentedSampleScreen extends Screen {
+        SegmentedSampleScreen(){super(Component.literal("Segmented Gradients"));}
+        @Override public boolean isPauseScreen(){return false;}
+        @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float dt){
+            g.fill(0,0,width,height,0xFF171923);g.text(font,"Segmented Gradients",40,25,0xFFFFA6CF,false);
+            g.pose().pushMatrix();g.pose().translate(40,64);g.pose().scale(8,8);g.text(font,NickRenderUtils.previewNickname(minecraft.getUser().getName()),0,0,-1,false);g.pose().popMatrix();
+            g.text(font,"Tory: #CC66FF -> #FF88CC     Hi: #43D6EC -> #549FF5",40,155,0xFFBCC1D0,false);
+        }
     }
 
     private static void checkPreparedText(Minecraft client) {

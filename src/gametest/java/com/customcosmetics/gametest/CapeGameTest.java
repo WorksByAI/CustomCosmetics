@@ -35,6 +35,15 @@ public final class CapeGameTest implements FabricClientGameTest {
                 var other=CapeCosmetics.skin(java.util.UUID.randomUUID(),external);if(other!=external)throw new AssertionError("Offline mode replaced another provider's cape for a remote player");
                 ConfigManager.capeEnabled=false;if(CapeCosmetics.skin(client.player.getUUID(),external)!=external)throw new AssertionError("Disabling custom capes did not restore the original provider");ConfigManager.capeEnabled=true;
             });capturePreview(context);
+            var highResolution=new BufferedImage(2048,1024,BufferedImage.TYPE_INT_ARGB);
+            var graphics=highResolution.createGraphics();try{graphics.setColor(new java.awt.Color(0x00FF6A));graphics.fillRect(0,0,2048,1024);}finally{graphics.dispose();}
+            var atlasFile=file.getParent().resolve("high-resolution-2048x1024.png");javax.imageio.ImageIO.write(highResolution,"png",atlasFile.toFile());
+            context.runOnClient(client->ClientUiAccess.setScreen(client,new CapeFileScreen(new CapeScreen(null),true,atlasFile.getParent())));
+            click(context,"high-resolution-2048x1024.png");context.waitTicks(4);
+            context.runOnClient(client->{
+                var local=CapeCosmetics.localPng();if(local==null)throw new AssertionError("High-resolution cape was rejected by the real file picker");
+                var saved=CapeImages.decode(local);if(saved.getWidth()!=2048||saved.getHeight()!=1024||client.player.getSkin().cape()==null)throw new AssertionError("High-resolution cape was resized or failed to reach the real player skin");
+            });capturePreview(context);context.takeScreenshot("cape-high-resolution-2048x1024");
             testTraffic(context);
             System.out.println("CAPE_NATIVE_PREVIEW_CROP_OFFLINE_ISOLATION_AND_EXPLICIT_REVIEW_OK");
         }catch(Exception failure){throw new AssertionError(failure);}

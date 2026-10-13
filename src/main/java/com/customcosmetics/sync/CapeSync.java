@@ -88,7 +88,7 @@ public final class CapeSync {
             if(body!=null){byte[] bytes=body.toString().getBytes(StandardCharsets.UTF_8);connection.setDoOutput(true);connection.setRequestProperty("Content-Type","application/json");connection.setFixedLengthStreamingMode(bytes.length);try(var output=connection.getOutputStream()){output.write(bytes);}}
             int code=connection.getResponseCode();if(code<200||code>=300){
                 if(code==429){long seconds=86400;try{seconds=Long.parseLong(connection.getHeaderField("Retry-After"));}catch(Exception ignored){}nextSubmissionAt=System.currentTimeMillis()+Math.clamp(seconds,1,86400)*1000;throw new CapeRequestFailure("daily cape submission limit (HTTP 429).");}
-                throw new CapeRequestFailure(code==401?"invalid or expired sync token (HTTP 401).":code==403?"uploads are blocked for this account (HTTP 403).":"server rejected the cape (HTTP "+code+").");
+                throw new CapeRequestFailure(code==401?"invalid or expired sync token (HTTP 401).":code==403?"uploads are blocked for this account (HTTP 403).":code==413?"cape PNG must not exceed 2 MiB (HTTP 413).":"server rejected the cape (HTTP "+code+").");
             }
             try(var input=connection.getInputStream()){return JsonParser.parseString(new String(bounded(input,16384),StandardCharsets.UTF_8)).getAsJsonObject();}
         }finally{connection.disconnect();}

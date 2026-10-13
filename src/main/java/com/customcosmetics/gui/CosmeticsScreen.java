@@ -23,7 +23,7 @@ import static com.customcosmetics.gui.PinkUi.*;
 
 /** Independent pink cosmetics studio, with scrollable settings and keyboard focus. */
 public final class CosmeticsScreen extends Screen {
-    public enum Page { MAIN, SMOL, NICK, COLOR, CHROMA, PRESETS, ANIMATIONS, ITEMS, SYNC }
+    public enum Page { MAIN, SMOL, SIZE, NICK, COLOR, CHROMA, PRESETS, ANIMATIONS, ITEMS, SYNC }
     private static final ScreenSession SESSION = new ScreenSession();
     private final Screen parent;
     private Page page;
@@ -47,7 +47,7 @@ public final class CosmeticsScreen extends Screen {
     private boolean changingColorText;
     private boolean editingShimmerColors;
     private String presetName = "";
-    private boolean pinnedNickname, draggingScroll;
+    private boolean pinnedNickname, pinnedSize, draggingScroll;
     private record Placement(AbstractWidget widget, int y) {}
 
     public CosmeticsScreen(Screen parent, Page page) {
@@ -76,20 +76,24 @@ public final class CosmeticsScreen extends Screen {
         viewBottom = panelY + panelHeight - 18;
         rowY = viewTop;
 
-        Page[] pages = {Page.SMOL, Page.NICK, Page.ANIMATIONS, Page.ITEMS, Page.SYNC};
-        String[] names = {"SmolPeople", "NickTweaks", "Animations", "Item Cosmetics", "Sync"};
+        Page[] pages = {Page.SMOL, Page.SIZE, Page.NICK, Page.ANIMATIONS, Page.ITEMS, Page.SYNC};
+        String[] names = {"SmolPeople", "Player Size", "NickTweaks", "Animations", "Item Cosmetics", "Sync"};
         int navTop = panelHeight < 220 ? 51 : 64;
         int navGap = Math.clamp((panelHeight - navTop - 52) / (pages.length+1), 14, 31);
         for (int i = 0; i < pages.length; i++) {
             Page target = pages[i];
-            PinkUi.Action action = new PinkUi.Action(panelX + 10, panelY + navTop + i * navGap,
+            int slot = i;
+            if (target == Page.SYNC) {
+                navigation.add(addWidget(new PinkUi.Action(panelX+10,panelY+navTop+slot*navGap,sideWidth-20,navGap-4,"Cape",false,
+                    ()->com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,new CapeScreen(this)))));
+                slot++;
+            }
+            PinkUi.Action action = new PinkUi.Action(panelX + 10, panelY + navTop + slot * navGap,
                 sideWidth - 20, navGap - 4, names[i], false, () -> open(target));
             action.selected(() -> target == page
                 || target == Page.NICK && (page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS));
             navigation.add(addWidget(action));
         }
-        navigation.add(addWidget(new PinkUi.Action(panelX+10,panelY+navTop+pages.length*navGap,sideWidth-20,navGap-4,"Cape",false,
-            ()->com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,new CapeScreen(this)))));
         navigation.add(addWidget(new RepositoryButton(panelX + 12, panelY + panelHeight - 42)));
         var mode = new PinkUi.Action(panelX + 47, panelY + panelHeight - 42, sideWidth - 55, 30,
             ConfigManager.offlineMode ? "Offline" : "Online", false, () -> {
@@ -99,6 +103,13 @@ public final class CosmeticsScreen extends Screen {
         navigation.add(addWidget(mode));
         navigation.add(addWidget(new PinkUi.Action(panelX + panelWidth - 32, panelY + 15, 20, 20, "×", false, this::onClose)));
         pinnedNickname = panelHeight >= 360 && (page == Page.NICK || page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS);
+        pinnedSize = panelHeight >= 360 && page == Page.SIZE;
+        if (pinnedSize) {
+            playerPreview();
+            pinnedArt.addAll(art);
+            art.clear();
+            viewTop = rowY;
+        }
         if (pinnedNickname) {
             previewCard(); tabs();
             pinnedArt.addAll(art);
@@ -110,6 +121,7 @@ public final class CosmeticsScreen extends Screen {
         switch (page) {
             case MAIN -> smol();
             case SMOL -> smol();
+            case SIZE -> playerSize();
             case NICK -> nickname();
             case COLOR -> colors();
             case CHROMA -> chroma();
@@ -119,6 +131,7 @@ public final class CosmeticsScreen extends Screen {
             case SYNC -> sync();
         }
         if (page == Page.SMOL || page == Page.NICK || page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS) credit();
+        if(page==Page.SIZE){label("Based on Odin / odtheking.",contentX,rowY+4,DIM,contentWidth);rowY+=24;}
         contentBottom = rowY + 5;
         scroll = Math.clamp(scroll, 0, maxScroll());
         positionControls();
@@ -127,6 +140,7 @@ public final class CosmeticsScreen extends Screen {
     private String pageTitle() {
         return switch (page) {
             case MAIN, SMOL -> "SmolPeople";
+            case SIZE -> "Player Size";
             case NICK, COLOR, CHROMA, PRESETS -> "NickTweaks";
             case ANIMATIONS -> "Animations";
             case ITEMS -> "Item Cosmetics";
@@ -135,6 +149,22 @@ public final class CosmeticsScreen extends Screen {
     }
 
     private void smol() {
+        playerPreview();
+        toggleRow("Enabled", "", () -> ConfigManager.smolpeopleMode, v -> ConfigManager.smolpeopleMode = v);
+        sliderRow("Limb Swing Speed", "", () -> ConfigManager.smolLimbSwingSpeed,
+            0.5, 5, 0.1, 2.5, v -> ConfigManager.smolLimbSwingSpeed = v);
+    }
+
+    private void playerSize(){
+        if (!pinnedSize) playerPreview();
+        toggleRow("Enabled","Share your proportions with other players.",()->ConfigManager.playerSizeEnabled,v->ConfigManager.playerSizeEnabled=v);
+        sliderRow("Size X","",()->ConfigManager.playerSizeX,.1,3,.05,1,v->ConfigManager.playerSizeX=v);
+        sliderRow("Size Y","",()->ConfigManager.playerSizeY,.1,3,.05,1,v->ConfigManager.playerSizeY=v);
+        sliderRow("Size Z","",()->ConfigManager.playerSizeZ,.1,3,.05,1,v->ConfigManager.playerSizeZ=v);
+        fullButton("Reset Player Size",()->{ConfigManager.playerSizeX=ConfigManager.playerSizeY=ConfigManager.playerSizeZ=1;changed();rebuildWidgets();},false);
+    }
+
+    private void playerPreview() {
         int y = card(184);
         label("Preview", contentX + 12, y + 12, PINK, contentWidth - 24);
         art.add(g -> {
@@ -153,17 +183,15 @@ public final class CosmeticsScreen extends Screen {
             g.pose().popMatrix();
             // Use vanilla's inventory renderer, including skin, equipped items and SmolPeople mixins.
             // Entity bounds are screen coordinates; draw outside the scrolling pose.
-            int top = y - (int) Math.round(scroll);
+            int previewScroll = pinnedSize ? 0 : (int) Math.round(scroll);
+            int top = y - previewScroll;
             g.pose().pushMatrix();
-            g.pose().translate(0, (float) Math.round(scroll));
+            g.pose().translate(0, (float) previewScroll);
             InventoryScreen.extractEntityInInventoryFollowsMouse(g,
                 contentX + 4, top + 51, contentX + contentWidth - 4, top + 178,
                 52, 0.0625f, mouseX, mouseY, minecraft.player);
             g.pose().popMatrix();
         });
-        toggleRow("Enabled", "", () -> ConfigManager.smolpeopleMode, v -> ConfigManager.smolpeopleMode = v);
-        sliderRow("Limb Swing Speed", "", () -> ConfigManager.smolLimbSwingSpeed,
-            0.5, 5, 0.1, 2.5, v -> ConfigManager.smolLimbSwingSpeed = v);
     }
 
     private void itemCosmetics() {
@@ -255,14 +283,16 @@ public final class CosmeticsScreen extends Screen {
         if (!pinnedNickname) { previewCard(); tabs(); }
         toggleRow("Custom Nick Color", "Chroma takes priority.", () -> ConfigManager.nickTweaksCustomNickColorEnabled, v -> ConfigManager.nickTweaksCustomNickColorEnabled = v);
         String mode = switch (com.customcosmetics.features.nickname.NicknameGradient.normalizeStyle(ConfigManager.nickTweaksGradientStyle)) {
-            case "smooth" -> "Smooth"; case "shimmer" -> "Shimmer"; default -> "Per Character";
+            case "smooth" -> "Smooth"; case "shimmer" -> "Shimmer"; case "segmented" -> "Segmented"; default -> "Per Character";
         };
         fullButton("Gradient Style: " + mode, () -> {
             ConfigManager.nickTweaksGradientStyle = switch (ConfigManager.nickTweaksGradientStyle) {
-                case "character" -> "smooth"; case "smooth" -> "shimmer"; default -> "character";
+                case "character" -> "smooth"; case "smooth" -> "shimmer"; case "shimmer" -> "segmented"; default -> "character";
             };
             changed(); rebuildWidgets();
         }, false);
+        if(ConfigManager.nickTweaksGradientStyle.equals("segmented"))
+            fullButton("Edit Gradient Segments",()->com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,new NicknameSegmentsScreen(this)),false);
         fullButton("Shimmer Preset", () -> {
             ConfigManager.nickTweaksEnabled = true;
             ConfigManager.nickTweaksCustomNickColorEnabled = true;
@@ -354,7 +384,7 @@ public final class CosmeticsScreen extends Screen {
             label(entry.getKey(), contentX + 12, top + 11, TEXT, contentWidth - 24);
             var colors = entry.getValue();
             label(colors.chromaEnabled() ? "Chroma" : switch (colors.style()) {
-                case "shimmer" -> "Shimmer"; case "smooth" -> "Smooth"; default -> "Per Character";
+                case "shimmer" -> "Shimmer"; case "smooth" -> "Smooth"; case "segmented" -> "Segmented"; default -> "Per Character";
             }, contentX + 12, top + 27, MUTED, contentWidth - 24);
             art.add(g -> gradient(g, contentX + 12, top + 43, contentWidth - 24, 5, colors.start(), colors.end()));
             add(new PinkUi.Action(contentX + 12, top + 57, w, 25, "Apply: " + entry.getKey(), false, () -> {

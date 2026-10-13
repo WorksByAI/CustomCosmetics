@@ -12,6 +12,17 @@ import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
 
 class NicknamePresetStoreTest {
+    @Test void segmentedPresetsSaveReloadAndApplyLocallyWithoutChangingTheNickname() throws Exception {
+        var path=directory.resolve("segments.json");
+        ConfigManager.nickTweaksGradientStyle="segmented";ConfigManager.nickTweaksChromaEnabled=false;
+        ConfigManager.nickTweaksGradientSegments=List.of(new NicknameSegments.Segment(1,4,0xED69E8,0x916BE8),new NicknameSegments.Segment(5,6,0x43D6EC,0x549FF5));
+        ConfigManager.nickTweaksNickChanger="ToryHi";var expected=NicknameColors.capture();new NicknamePresetStore(path).put("Split",expected);
+        ConfigManager.nickTweaksGradientSegments=List.of();ConfigManager.nickTweaksGradientStyle="character";ConfigManager.syncEnabled=false;
+        var disk=new NicknamePresetStore(path);disk.load();disk.entries().get("Split").apply();
+        assertEquals(expected,NicknameColors.capture());assertEquals("ToryHi",ConfigManager.nickTweaksNickChanger);assertFalse(ConfigManager.syncEnabled);
+        var json=JsonParser.parseString(Files.readString(path)).getAsJsonObject();json.getAsJsonObject("presets").getAsJsonObject("Split").remove("segments");Files.writeString(path,json.toString());
+        disk.load();assertTrue(disk.entries().get("Split").segments().isEmpty());
+    }
     @Test void sizeAndIntervalAreLocalPresetDataAndSurviveReloadAndApply() throws Exception {
         ConfigManager.nickTweaksShimmerSize=.35;ConfigManager.nickTweaksShimmerInterval=4.7;
         var saved=NicknameColors.capture();var path=directory.resolve("presets.json");

@@ -15,6 +15,8 @@ public final class ClientLoadProbe {
             "net.minecraft.client.gui.Font$PreparedTextBuilder", "net.minecraft.network.chat.Style",
             "com.customcosmetics.features.nickname.GradientGlyph", "com.customcosmetics.features.nickname.NicknameGlyphEffect",
             "net.minecraft.client.model.player.PlayerModel", "net.minecraft.client.gui.components.AbstractWidget",
+            "net.minecraft.client.renderer.entity.player.AvatarRenderer",
+            "com.customcosmetics.features.playersize.PlayerSize", "com.customcosmetics.features.playersize.PlayerSizeSettings",
             "net.minecraft.world.entity.LivingEntity",
             "com.customcosmetics.update.UpdateChecker", "com.customcosmetics.update.GitHubUpdateCheck",
             "com.customcosmetics.gui.RepositoryButton", "com.customcosmetics.gui.CosmeticsScreen",
@@ -35,6 +37,9 @@ public final class ClientLoadProbe {
         }) {
             var loaded = Class.forName(type, false, loader);
             loaded.getDeclaredMethods();
+            if(type.equals("net.minecraft.client.renderer.entity.player.AvatarRenderer") && java.util.Arrays.stream(loaded.getDeclaredMethods())
+                    .noneMatch(method->method.getName().contains("customcosmetics$additionalScale")))
+                throw new AssertionError("Player Size render hook was not applied");
             if (type.equals("net.minecraft.client.gui.Font$PreparedTextBuilder") && java.util.Arrays.stream(loaded.getDeclaredMethods())
                     .noneMatch(method -> method.getName().contains("customcosmetics$gradientGlyph")))
                 throw new AssertionError("Smooth nickname glyph rendering was not applied");
@@ -55,6 +60,7 @@ public final class ClientLoadProbe {
                     throw new AssertionError("Blocking Mixin not applied to " + type);
             }
         }
+        checkGameReferences(loader,"com/customcosmetics/features/playersize/PlayerSize");
         checkTransformedBlockingCalls(loader, firstPersonRenderer);
         checkHandheldDisplayBasis(loader);
         for (String type : new String[] {"features/blocking/SwordBlocking", "features/blocking/SwordItems", "features/blocking/BlockingPose",

@@ -5,16 +5,26 @@ import com.customcosmetics.client.CustomCosmeticsClient;
 import com.customcosmetics.config.CosmeticsConfigDir;
 import java.util.*;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.item.ItemStackRenderState;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.CustomData;
 
-/** Never modifies an ItemStack or contacts either the game or cosmetics server. */
+/** Never modifies inventory stacks or contacts either the game or cosmetics server. */
 public final class ItemCosmetics {
     private static final Map<CustomData, String> IDENTITIES = new IdentityHashMap<>();
+    private static final Map<ItemStack, Identifier> PREVIEWS = new WeakHashMap<>();
+    private static final Set<ItemStack> VALIDATING = Collections.newSetFromMap(new IdentityHashMap<>());
+    private static final Map<Validation, Boolean> VALIDATED = new LinkedHashMap<>();
+    private record Validation(Identifier model, net.minecraft.world.item.Item item, net.minecraft.core.component.DataComponentPatch components, int count) {}
+    private static Map<Identifier, ?> validatedModels = Map.of();
+    public record ModelChoice(Identifier id, String label, ItemStack icon) {}
     private static ItemAppearanceStore store;
     private static long lastSave;
     private ItemCosmetics() {}
@@ -39,7 +49,7 @@ public final class ItemCosmetics {
         }
     }
     public static List<Identifier> models() {
-        return modelMap().keySet().stream().sorted(Comparator.comparing(Identifier::toString)).toList();
+        return modelChoices(new ItemStack(Items.PAPER)).stream().map(ModelChoice::id).toList();
     }
     public static boolean hasModel(Identifier id) { return id != null && modelMap().containsKey(id); }
     private static Map<Identifier, ?> modelMap() {
@@ -48,11 +58,61 @@ public final class ItemCosmetics {
             return catalog.customcosmetics$itemModels();
         return Map.of();
     }
+    public static List<ModelChoice> modelChoices(ItemStack source) {
+        var vanilla = new HashMap<Identifier, ItemStack>();
+        for (var item : BuiltInRegistries.ITEM) {
+            var icon = item.getDefaultInstance();
+            var id = icon.get(DataComponents.ITEM_MODEL);
+            if (id != null && !icon.isEmpty()) vanilla.putIfAbsent(id, icon);
+        }
+        var result = new ArrayList<ModelChoice>();
+        for (var id : modelMap().keySet()) {
+            var icon = preview(vanilla.getOrDefault(id, source), id);
+            if (renderable(icon, id)) result.add(new ModelChoice(id,
+                vanilla.containsKey(id) ? vanilla.get(id).getHoverName().getString() : id.getPath().replace('_', ' '), icon));
+        }
+        result.sort(Comparator.<ModelChoice, Boolean>comparing(value -> !value.id().getNamespace().equals("minecraft"))
+            .thenComparing(value -> value.id().toString()));
+        return List.copyOf(result);
+    }
+    /** A temporary display copy. Catharsis may resolve the real item, but must not replace this explicit preview. */
+    public static ItemStack preview(ItemStack source, Identifier id) {
+        var copy = source.copy();
+        var data = copy.get(DataComponents.CUSTOM_DATA);
+        if (data != null) {
+            var tag = data.copyTag(); tag.remove("uuid");
+            tag.getCompound("ExtraAttributes").ifPresent(extra -> extra.remove("uuid"));
+            copy.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+        }
+        if (id != null) { copy.set(DataComponents.ITEM_MODEL, id); PREVIEWS.put(copy, id); }
+        return copy;
+    }
+    public static boolean renderable(ItemStack source, Identifier id) {
+        if (!hasModel(id) || source == null || source.isEmpty()) return false;
+        if (!VALIDATING.add(source)) return false;
+        var client = Minecraft.getInstance();
+        var state = new ItemStackRenderState();
+        try {
+            client.getModelManager().getItemModel(id).update(state, source, client.getItemModelResolver(),
+                ItemDisplayContext.GUI, client.level, client.player, 0);
+            return ItemModelVisibility.usable(state);
+        } catch (RuntimeException error) { return false; }
+        finally { VALIDATING.remove(source); }
+    }
+    private static boolean validated(ItemStack source, Identifier id) {
+        var models = modelMap();
+        if (models != validatedModels) { VALIDATED.clear(); validatedModels = models; }
+        if (VALIDATED.size() >= 256) VALIDATED.clear();
+        return VALIDATED.computeIfAbsent(new Validation(id, source.getItem(), source.getComponentsPatch(), source.getCount()), key -> renderable(source, id));
+    }
     public static Identifier model(ItemStack stack, Identifier original) {
+        if (VALIDATING.contains(stack)) return original;
+        var preview = PREVIEWS.get(stack);
+        if (preview != null) return preview;
         if (store == null || !store.enabled()) return original;
         String raw = store.get(uuid(stack)).model();
         Identifier selected = raw.isEmpty() ? null : Identifier.tryParse(raw);
-        return hasModel(selected) ? selected : original;
+        return hasModel(selected) && validated(stack, selected) ? selected : original;
     }
     public static Component name(ItemStack stack, Component original) {
         // The integrated server shares ItemStack classes but must retain its original names.
