@@ -37,6 +37,8 @@ public final class CapeCropScreen extends Screen {
         g.fill((int)bx,(int)by,(int)(bx+source.getWidth()*scale),top,0x90000000);g.fill((int)bx,bottom,(int)(bx+source.getWidth()*scale),(int)(by+source.getHeight()*scale),0x90000000);
         g.fill((int)bx,top,left,bottom,0x90000000);g.fill(right,top,(int)(bx+source.getWidth()*scale),bottom,0x90000000);
         g.fill(left,top,right,top+1,PINK);g.fill(left,bottom-1,right,bottom,PINK);g.fill(left,top,left+1,bottom,PINK);g.fill(right-1,top,right,bottom,PINK);
+        int quality=CapeImages.cropScale(crop);
+        text(g,font,"Cape face: up to "+(10*quality)+" x "+(16*quality)+" · Max 2 MiB",x+14,y+h-72,DIM,w-28);
         text(g,font,notice,x+14,y+h-55,MUTED,w-28);super.extractRenderState(g,mx,my,dt);
     }
     private boolean inside(double mx,double my){return mx>=bx&&my>=by&&mx<bx+source.getWidth()*scale&&my<by+source.getHeight()*scale;}

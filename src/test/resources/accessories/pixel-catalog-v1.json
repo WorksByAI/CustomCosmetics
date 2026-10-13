@@ -1,0 +1,877 @@
+{
+  "version": 1,
+  "slots": [
+    {
+      "id": "wings",
+      "label": "Wings",
+      "styles": [
+        {
+          "id": "feather",
+          "label": "Feather Wings",
+          "kind": "feather",
+          "variant": 0,
+          "color": "#FFF0F7",
+          "accent": "#FFA8CA"
+        },
+        {
+          "id": "seraph",
+          "label": "Seraph Wings",
+          "kind": "feather",
+          "variant": 1,
+          "color": "#FFF0F7",
+          "accent": "#FFA8CA"
+        },
+        {
+          "id": "raven",
+          "label": "Raven Wings",
+          "kind": "feather",
+          "variant": 2,
+          "color": "#40394B",
+          "accent": "#9682AD"
+        },
+        {
+          "id": "bat",
+          "label": "Bat Wings",
+          "kind": "membrane",
+          "variant": 0,
+          "color": "#34263F",
+          "accent": "#BD729A"
+        },
+        {
+          "id": "dragon",
+          "label": "Dragon Wings",
+          "kind": "membrane",
+          "variant": 1,
+          "color": "#412D65",
+          "accent": "#D39DEA"
+        },
+        {
+          "id": "bone",
+          "label": "Skeletal Wings",
+          "kind": "bone",
+          "variant": 0,
+          "color": "#F0DDC1",
+          "accent": "#A28D71"
+        },
+        {
+          "id": "butterfly",
+          "label": "Butterfly Wings",
+          "kind": "butterfly",
+          "variant": 0,
+          "color": "#DD90F2",
+          "accent": "#796ADB"
+        },
+        {
+          "id": "moth",
+          "label": "Moon Moth Wings",
+          "kind": "butterfly",
+          "variant": 1,
+          "color": "#FFF0CA",
+          "accent": "#D0A5E0"
+        },
+        {
+          "id": "pixie",
+          "label": "Pixie Wings",
+          "kind": "butterfly",
+          "variant": 2,
+          "color": "#B4EAEC",
+          "accent": "#86ACDB"
+        },
+        {
+          "id": "crystal",
+          "label": "Crystal Wings",
+          "kind": "crystal",
+          "variant": 0,
+          "color": "#AFF0FF",
+          "accent": "#B997F0"
+        },
+        {
+          "id": "leaf",
+          "label": "Leaf Wings",
+          "kind": "leaf",
+          "variant": 0,
+          "color": "#98C9A8",
+          "accent": "#F5DA91"
+        },
+        {
+          "id": "mechanical",
+          "label": "Mechanical Wings",
+          "kind": "mechanical",
+          "variant": 0,
+          "color": "#555969",
+          "accent": "#FFA8CA"
+        }
+      ]
+    },
+    {
+      "id": "halo",
+      "label": "Halo",
+      "styles": [
+        {
+          "id": "ring",
+          "label": "Golden Halo",
+          "kind": "halo",
+          "variant": 0,
+          "color": "#FFD979",
+          "accent": "#FFF5CD"
+        },
+        {
+          "id": "double",
+          "label": "Double Halo",
+          "kind": "halo",
+          "variant": 1,
+          "color": "#FFD979",
+          "accent": "#FFA8CA"
+        },
+        {
+          "id": "star",
+          "label": "Star Halo",
+          "kind": "halo",
+          "variant": 2,
+          "color": "#F4D58D",
+          "accent": "#FFF4D4"
+        },
+        {
+          "id": "moon",
+          "label": "Moon Halo",
+          "kind": "halo",
+          "variant": 3,
+          "color": "#DDD4FF",
+          "accent": "#AABCEB"
+        }
+      ]
+    },
+    {
+      "id": "ears",
+      "label": "Ears",
+      "styles": [
+        {
+          "id": "cat",
+          "label": "Cat Ears",
+          "kind": "ears",
+          "variant": 0,
+          "color": "#F6D7EC",
+          "accent": "#FFA8CA"
+        },
+        {
+          "id": "fox",
+          "label": "Fox Ears",
+          "kind": "ears",
+          "variant": 1,
+          "color": "#DA9A66",
+          "accent": "#FFF0DA"
+        },
+        {
+          "id": "wolf",
+          "label": "Wolf Ears",
+          "kind": "ears",
+          "variant": 2,
+          "color": "#A5AFBE",
+          "accent": "#E5BBD0"
+        },
+        {
+          "id": "rabbit",
+          "label": "Rabbit Ears",
+          "kind": "ears",
+          "variant": 3,
+          "color": "#FFF0F7",
+          "accent": "#FFA8CA"
+        },
+        {
+          "id": "elf",
+          "label": "Elf Ears",
+          "kind": "ears",
+          "variant": 4,
+          "color": "#E9C2A7",
+          "accent": "#F6D5C5"
+        },
+        {
+          "id": "deer",
+          "label": "Deer Ears",
+          "kind": "ears",
+          "variant": 5,
+          "color": "#B6906B",
+          "accent": "#F2D3AB"
+        },
+        {
+          "id": "horns",
+          "label": "Curved Horns",
+          "kind": "horns",
+          "variant": 0,
+          "color": "#403644",
+          "accent": "#DFADCC"
+        },
+        {
+          "id": "antlers",
+          "label": "Branch Antlers",
+          "kind": "horns",
+          "variant": 1,
+          "color": "#92735D",
+          "accent": "#E1BA87"
+        }
+      ]
+    },
+    {
+      "id": "head",
+      "label": "Head",
+      "styles": [
+        {
+          "id": "robot",
+          "label": "Robot Helmet",
+          "kind": "head",
+          "variant": 0,
+          "color": "#6D687E",
+          "accent": "#B5E3EB"
+        },
+        {
+          "id": "cat",
+          "label": "Fluffy Cat Hood",
+          "kind": "head",
+          "variant": 1,
+          "color": "#E6D0E1",
+          "accent": "#F0A9CC"
+        },
+        {
+          "id": "dragon",
+          "label": "Dragon Helmet",
+          "kind": "head",
+          "variant": 2,
+          "color": "#8474AF",
+          "accent": "#CCB3DF"
+        },
+        {
+          "id": "knight",
+          "label": "Knight Helmet",
+          "kind": "head",
+          "variant": 3,
+          "color": "#9396A5",
+          "accent": "#E0C282"
+        },
+        {
+          "id": "diver",
+          "label": "Diving Helmet",
+          "kind": "head",
+          "variant": 4,
+          "color": "#BA986B",
+          "accent": "#BDE2E8"
+        },
+        {
+          "id": "space",
+          "label": "Space Helmet",
+          "kind": "head",
+          "variant": 5,
+          "color": "#E4DAEB",
+          "accent": "#B1CDE1"
+        }
+      ]
+    },
+    {
+      "id": "hat",
+      "label": "Hats",
+      "styles": [
+        {
+          "id": "crown",
+          "label": "Gem Crown",
+          "kind": "hat",
+          "variant": 0,
+          "color": "#F4CA67",
+          "accent": "#EB89BD"
+        },
+        {
+          "id": "flowers",
+          "label": "Flower Crown",
+          "kind": "hat",
+          "variant": 1,
+          "color": "#F2ACC9",
+          "accent": "#A5D7B1"
+        },
+        {
+          "id": "top",
+          "label": "Ribbon Top Hat",
+          "kind": "hat",
+          "variant": 2,
+          "color": "#3F344B",
+          "accent": "#DE9ABB"
+        },
+        {
+          "id": "witch",
+          "label": "Starlight Witch Hat",
+          "kind": "hat",
+          "variant": 3,
+          "color": "#594779",
+          "accent": "#EFD687"
+        },
+        {
+          "id": "straw",
+          "label": "Straw Hat",
+          "kind": "hat",
+          "variant": 4,
+          "color": "#E5CD90",
+          "accent": "#DE9ABB"
+        },
+        {
+          "id": "cap",
+          "label": "Soft Cap",
+          "kind": "hat",
+          "variant": 5,
+          "color": "#D4AAC7",
+          "accent": "#FFF0F7"
+        },
+        {
+          "id": "beanie",
+          "label": "Pom Beanie",
+          "kind": "hat",
+          "variant": 6,
+          "color": "#E1B5D1",
+          "accent": "#FFF0F7"
+        },
+        {
+          "id": "cowboy",
+          "label": "Cowboy Hat",
+          "kind": "hat",
+          "variant": 7,
+          "color": "#AC8260",
+          "accent": "#E8C38F"
+        },
+        {
+          "id": "ushanka",
+          "label": "Fur Hat",
+          "kind": "hat",
+          "variant": 8,
+          "color": "#AD9FAF",
+          "accent": "#EFE2EF"
+        },
+        {
+          "id": "jester",
+          "label": "Jester Hat",
+          "kind": "hat",
+          "variant": 9,
+          "color": "#AB7BD2",
+          "accent": "#ECB2D6"
+        },
+        {
+          "id": "headphones",
+          "label": "Headphones",
+          "kind": "hat",
+          "variant": 10,
+          "color": "#575467",
+          "accent": "#FFB2D5"
+        }
+      ]
+    },
+    {
+      "id": "face",
+      "label": "Face",
+      "styles": [
+        {
+          "id": "glasses",
+          "label": "Round Glasses",
+          "kind": "face",
+          "variant": 0,
+          "color": "#E0C99F",
+          "accent": "#B7D6E4"
+        },
+        {
+          "id": "shades",
+          "label": "Sunglasses",
+          "kind": "face",
+          "variant": 1,
+          "color": "#343642",
+          "accent": "#766BA9"
+        },
+        {
+          "id": "monocle",
+          "label": "Monocle",
+          "kind": "face",
+          "variant": 2,
+          "color": "#E8C775",
+          "accent": "#C5E9F1"
+        },
+        {
+          "id": "mask",
+          "label": "Soft Mask",
+          "kind": "face",
+          "variant": 3,
+          "color": "#D5C8E6",
+          "accent": "#EABBD4"
+        },
+        {
+          "id": "whiskers",
+          "label": "Cat Whiskers",
+          "kind": "face",
+          "variant": 4,
+          "color": "#F3E0ED",
+          "accent": "#EAA2C4"
+        },
+        {
+          "id": "blush",
+          "label": "Pink Blush",
+          "kind": "face",
+          "variant": 5,
+          "color": "#EDADC5",
+          "accent": "#F6DBE5"
+        }
+      ]
+    },
+    {
+      "id": "hair",
+      "label": "Hair",
+      "styles": [
+        {
+          "id": "long",
+          "label": "Long Hair",
+          "kind": "hair",
+          "variant": 0,
+          "color": "#D4AAC7",
+          "accent": "#FFF0F7"
+        },
+        {
+          "id": "ponytail",
+          "label": "Ponytail",
+          "kind": "hair",
+          "variant": 1,
+          "color": "#C5A2D8",
+          "accent": "#EFBCDA"
+        },
+        {
+          "id": "buns",
+          "label": "Double Buns",
+          "kind": "hair",
+          "variant": 2,
+          "color": "#DEC0DD",
+          "accent": "#ECA2C6"
+        },
+        {
+          "id": "spiky",
+          "label": "Spiky Hair",
+          "kind": "hair",
+          "variant": 3,
+          "color": "#AABDE4",
+          "accent": "#E4DDF9"
+        }
+      ]
+    },
+    {
+      "id": "neck",
+      "label": "Neck",
+      "styles": [
+        {
+          "id": "scarf",
+          "label": "Cozy Scarf",
+          "kind": "neck",
+          "variant": 0,
+          "color": "#E0A4C7",
+          "accent": "#FFE2EF"
+        },
+        {
+          "id": "bow",
+          "label": "Bow Tie",
+          "kind": "neck",
+          "variant": 1,
+          "color": "#AB82CC",
+          "accent": "#EBC4E4"
+        },
+        {
+          "id": "ribbon",
+          "label": "Ribbon Choker",
+          "kind": "neck",
+          "variant": 2,
+          "color": "#D990BA",
+          "accent": "#FFD8ED"
+        },
+        {
+          "id": "chain",
+          "label": "Gem Necklace",
+          "kind": "neck",
+          "variant": 3,
+          "color": "#E6C579",
+          "accent": "#AFD7EE"
+        }
+      ]
+    },
+    {
+      "id": "back",
+      "label": "Back",
+      "styles": [
+        {
+          "id": "pack",
+          "label": "Explorer Backpack",
+          "kind": "back",
+          "variant": 0,
+          "color": "#987657",
+          "accent": "#DFBA81"
+        },
+        {
+          "id": "quiver",
+          "label": "Arrow Quiver",
+          "kind": "back",
+          "variant": 1,
+          "color": "#896C58",
+          "accent": "#F1D0AA"
+        },
+        {
+          "id": "sword",
+          "label": "Back Sword",
+          "kind": "back",
+          "variant": 2,
+          "color": "#D2E0E8",
+          "accent": "#E3ADCB"
+        },
+        {
+          "id": "katana",
+          "label": "Single Katana",
+          "kind": "back",
+          "variant": 3,
+          "color": "#484052",
+          "accent": "#DF9DBE"
+        },
+        {
+          "id": "katanas",
+          "label": "Twin Katanas",
+          "kind": "back",
+          "variant": 4,
+          "color": "#484052",
+          "accent": "#DF9DBE"
+        },
+        {
+          "id": "scythe",
+          "label": "Moon Scythe",
+          "kind": "back",
+          "variant": 5,
+          "color": "#67607C",
+          "accent": "#BFD9F3"
+        },
+        {
+          "id": "staff",
+          "label": "Crystal Staff",
+          "kind": "back",
+          "variant": 6,
+          "color": "#C3C7EE",
+          "accent": "#AFE5EC"
+        },
+        {
+          "id": "boombox",
+          "label": "Boombox",
+          "kind": "back",
+          "variant": 7,
+          "color": "#66647A",
+          "accent": "#FFAFD1"
+        }
+      ]
+    },
+    {
+      "id": "tail",
+      "label": "Tails",
+      "styles": [
+        {
+          "id": "cat",
+          "label": "Cat Tail",
+          "kind": "tail",
+          "variant": 0,
+          "color": "#E4C5DD",
+          "accent": "#F2AACC"
+        },
+        {
+          "id": "fox",
+          "label": "Fox Tail",
+          "kind": "tail",
+          "variant": 1,
+          "color": "#D59A68",
+          "accent": "#FFF0DA"
+        },
+        {
+          "id": "wolf",
+          "label": "Wolf Tail",
+          "kind": "tail",
+          "variant": 2,
+          "color": "#A7AFBD",
+          "accent": "#DCE4EF"
+        },
+        {
+          "id": "rabbit",
+          "label": "Rabbit Tail",
+          "kind": "tail",
+          "variant": 3,
+          "color": "#F8E7F1",
+          "accent": "#F8E7F1"
+        },
+        {
+          "id": "kitsune",
+          "label": "Nine Tails",
+          "kind": "tail",
+          "variant": 4,
+          "color": "#F3DDE7",
+          "accent": "#D797BF"
+        },
+        {
+          "id": "dragon",
+          "label": "Dragon Tail",
+          "kind": "tail",
+          "variant": 5,
+          "color": "#8A80B1",
+          "accent": "#D8B0DF"
+        }
+      ]
+    },
+    {
+      "id": "arms",
+      "label": "Arms",
+      "styles": [
+        {
+          "id": "bracelet",
+          "label": "Gem Bracelets",
+          "kind": "arms",
+          "variant": 0,
+          "color": "#ECD18D",
+          "accent": "#C6DFF2"
+        },
+        {
+          "id": "gloves",
+          "label": "Cozy Gloves",
+          "kind": "arms",
+          "variant": 1,
+          "color": "#D0AECC",
+          "accent": "#F1D8E9"
+        },
+        {
+          "id": "paws",
+          "label": "Cat Paws",
+          "kind": "arms",
+          "variant": 2,
+          "color": "#EEE0ED",
+          "accent": "#EDA3C5"
+        }
+      ]
+    },
+    {
+      "id": "feet",
+      "label": "Feet",
+      "styles": [
+        {
+          "id": "boots",
+          "label": "Ribbon Boots",
+          "kind": "feet",
+          "variant": 0,
+          "color": "#756480",
+          "accent": "#DFA8CA"
+        },
+        {
+          "id": "sneakers",
+          "label": "Soft Sneakers",
+          "kind": "feet",
+          "variant": 1,
+          "color": "#E7D9E6",
+          "accent": "#AC98C4"
+        },
+        {
+          "id": "paws",
+          "label": "Paw Slippers",
+          "kind": "feet",
+          "variant": 2,
+          "color": "#ECD4E4",
+          "accent": "#EA9ABB"
+        }
+      ]
+    },
+    {
+      "id": "pants",
+      "label": "Pants",
+      "styles": [
+        {
+          "id": "trousers",
+          "label": "Cozy Trousers",
+          "kind": "pants",
+          "variant": 0,
+          "color": "#8D7B9F",
+          "accent": "#D9BDD3"
+        },
+        {
+          "id": "shorts",
+          "label": "Soft Shorts",
+          "kind": "pants",
+          "variant": 1,
+          "color": "#B9A4C5",
+          "accent": "#ECD5E7"
+        },
+        {
+          "id": "stars",
+          "label": "Star Pants",
+          "kind": "pants",
+          "variant": 2,
+          "color": "#817399",
+          "accent": "#E5CD96"
+        },
+        {
+          "id": "plaid",
+          "label": "Plaid Trousers",
+          "kind": "pants",
+          "variant": 3,
+          "color": "#AF98B8",
+          "accent": "#E2CDDD"
+        },
+        {
+          "id": "ribbons",
+          "label": "Ribbon Pants",
+          "kind": "pants",
+          "variant": 4,
+          "color": "#D2BAD6",
+          "accent": "#F3C3DF"
+        }
+      ]
+    },
+    {
+      "id": "shoulder",
+      "label": "Shoulder",
+      "styles": [
+        {
+          "id": "cat",
+          "label": "Shoulder Cat",
+          "kind": "animal",
+          "variant": 0,
+          "color": "#D8C7D8",
+          "accent": "#FFA8CA"
+        },
+        {
+          "id": "owl",
+          "label": "Shoulder Owl",
+          "kind": "animal",
+          "variant": 1,
+          "color": "#B4A18B",
+          "accent": "#FFE2A7"
+        },
+        {
+          "id": "dragon",
+          "label": "Tiny Dragon",
+          "kind": "animal",
+          "variant": 2,
+          "color": "#AA99CB",
+          "accent": "#D5C3EE"
+        },
+        {
+          "id": "bee",
+          "label": "Shoulder Bee",
+          "kind": "animal",
+          "variant": 3,
+          "color": "#F3D575",
+          "accent": "#655560"
+        }
+      ]
+    },
+    {
+      "id": "pet",
+      "label": "Pets",
+      "styles": [
+        {
+          "id": "cat",
+          "label": "Floating Cat",
+          "kind": "animal",
+          "variant": 0,
+          "color": "#D8C7D8",
+          "accent": "#FFA8CA"
+        },
+        {
+          "id": "owl",
+          "label": "Floating Owl",
+          "kind": "animal",
+          "variant": 1,
+          "color": "#B4A18B",
+          "accent": "#FFE2A7"
+        },
+        {
+          "id": "dragon",
+          "label": "Baby Dragon",
+          "kind": "animal",
+          "variant": 2,
+          "color": "#AA99CB",
+          "accent": "#D5C3EE"
+        },
+        {
+          "id": "bee",
+          "label": "Floating Bee",
+          "kind": "animal",
+          "variant": 3,
+          "color": "#F3D575",
+          "accent": "#655560"
+        }
+      ]
+    },
+    {
+      "id": "particles",
+      "label": "Aura",
+      "styles": [
+        {
+          "id": "stars",
+          "label": "Orbiting Stars",
+          "kind": "aura",
+          "variant": 0,
+          "color": "#FFD979",
+          "accent": "#FFF1C9"
+        },
+        {
+          "id": "hearts",
+          "label": "Floating Hearts",
+          "kind": "aura",
+          "variant": 1,
+          "color": "#F5A2C6",
+          "accent": "#FFE2EF"
+        },
+        {
+          "id": "petals",
+          "label": "Blossom Petals",
+          "kind": "aura",
+          "variant": 2,
+          "color": "#EDB5DC",
+          "accent": "#F8DFEE"
+        },
+        {
+          "id": "crystals",
+          "label": "Orbiting Crystals",
+          "kind": "aura",
+          "variant": 3,
+          "color": "#B7E5EC",
+          "accent": "#C3ABEB"
+        }
+      ]
+    },
+    {
+      "id": "outfit",
+      "label": "Outfit",
+      "styles": [
+        {
+          "id": "vest",
+          "label": "Button Vest",
+          "kind": "outfit",
+          "variant": 0,
+          "color": "#6B5B77",
+          "accent": "#E6B9D4"
+        },
+        {
+          "id": "jacket",
+          "label": "Cozy Jacket",
+          "kind": "outfit",
+          "variant": 1,
+          "color": "#C3A6C9",
+          "accent": "#F2DDEA"
+        },
+        {
+          "id": "robe",
+          "label": "Star Robe",
+          "kind": "outfit",
+          "variant": 2,
+          "color": "#655582",
+          "accent": "#EAD28B"
+        },
+        {
+          "id": "apron",
+          "label": "Ribbon Apron",
+          "kind": "outfit",
+          "variant": 3,
+          "color": "#EBDDE7",
+          "accent": "#DDA4C7"
+        }
+      ]
+    }
+  ],
+  "license": "AGPL-3.0-or-later",
+  "author": "CustomCosmetics contributors"
+}

@@ -36,8 +36,11 @@ public final class CapeImages {
         return png(normalized);
     }
     public static byte[] png(BufferedImage image)throws IOException{
+        byte[] bytes=encodePng(image);if(bytes.length>MAX_PNG)throw new IOException("Cape PNG must not exceed 2 MiB.");return bytes;
+    }
+    private static byte[] encodePng(BufferedImage image)throws IOException{
         var out=new ByteArrayOutputStream();if(!ImageIO.write(image,"png",out))throw new IOException("Cannot encode PNG.");
-        byte[] bytes=out.toByteArray();if(bytes.length>MAX_PNG)throw new IOException("Cape PNG must not exceed 2 MiB.");return bytes;
+        return out.toByteArray();
     }
     public static String hash(byte[] bytes){try{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));}catch(Exception e){throw new IllegalStateException(e);}}
     public record Crop(double x,double y,double width,double height){
@@ -47,14 +50,23 @@ public final class CapeImages {
     }
     public static byte[] crop(BufferedImage source,Crop crop)throws IOException{
         if(!Double.isFinite(crop.x+crop.y+crop.width+crop.height)||crop.width<=0||crop.height<=0||crop.x<0||crop.y<0||crop.x+crop.width>source.getWidth()+.001||crop.y+crop.height>source.getHeight()+.001||Math.abs(crop.width/crop.height-10.0/16)>.001)throw new IOException("Invalid crop.");
-        var atlas=new BufferedImage(512,256,BufferedImage.TYPE_INT_ARGB);
-        // 10 x 16 cape faces at (1,1) and (12,1), scaled 8x. Preserve edge UVs as well.
-        for(int y=0;y<128;y++)for(int x=0;x<80;x++){
-            int color=source.getRGB(Math.min(source.getWidth()-1,(int)(crop.x+(x+.5)*crop.width/80)),Math.min(source.getHeight()-1,(int)(crop.y+(y+.5)*crop.height/128)));
-            atlas.setRGB(8+x,8+y,color);atlas.setRGB(96+x,8+y,color);
+        int factor=cropScale(crop);
+        for(;;){
+            byte[] bytes=encodePng(cropAtlas(source,crop,factor));if(bytes.length<=MAX_PNG)return bytes;
+            if(factor==1)throw new IOException("Cape PNG must not exceed 2 MiB.");
+            factor=Math.max(1,Math.min(factor-1,(int)Math.floor(factor*Math.sqrt(MAX_PNG/(double)bytes.length)*.95)));
         }
-        for(int y=8;y<136;y++)for(int x=0;x<8;x++){atlas.setRGB(x,y,atlas.getRGB(8,y));atlas.setRGB(88+x,y,atlas.getRGB(87,y));}
-        for(int x=8;x<88;x++)for(int y=0;y<8;y++){atlas.setRGB(x,y,atlas.getRGB(x,8));atlas.setRGB(x+80,y,atlas.getRGB(x,135));}
-        return png(atlas);
+    }
+    public static int cropScale(Crop crop){return Math.max(1,Math.min((int)Math.sqrt(MAX_PIXELS/(64*32)),(int)Math.ceil(crop.width/10)));}
+    private static BufferedImage cropAtlas(BufferedImage source,Crop crop,int factor){
+        var atlas=new BufferedImage(64*factor,32*factor,BufferedImage.TYPE_INT_ARGB);int faceWidth=10*factor,faceHeight=16*factor;
+        // Preserve the selected image's detail and the same cape-face/edge UVs at every scale.
+        for(int y=0;y<faceHeight;y++)for(int x=0;x<faceWidth;x++){
+            int color=source.getRGB(Math.min(source.getWidth()-1,(int)(crop.x+(x+.5)*crop.width/faceWidth)),Math.min(source.getHeight()-1,(int)(crop.y+(y+.5)*crop.height/faceHeight)));
+            atlas.setRGB(factor+x,factor+y,color);atlas.setRGB(12*factor+x,factor+y,color);
+        }
+        for(int y=factor;y<17*factor;y++)for(int x=0;x<factor;x++){atlas.setRGB(x,y,atlas.getRGB(factor,y));atlas.setRGB(11*factor+x,y,atlas.getRGB(11*factor-1,y));}
+        for(int x=factor;x<11*factor;x++)for(int y=0;y<factor;y++){atlas.setRGB(x,y,atlas.getRGB(x,factor));atlas.setRGB(x+10*factor,y,atlas.getRGB(x,17*factor-1));}
+        return atlas;
     }
 }

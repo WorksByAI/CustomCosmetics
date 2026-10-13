@@ -39,10 +39,27 @@ class CapeImagesTest {
         var crop=CapeImages.Crop.centered(100,200);assertEquals(10.0/16,crop.width()/crop.height());
         var moved=crop.move(1000,-1000,100,200);assertEquals(0,moved.x());assertEquals(0,moved.y());
         var zoomed=crop.zoom(.5,100,200);assertEquals(50,zoomed.width());assertEquals(80,zoomed.height());
-        var atlas=CapeImages.decode(CapeImages.crop(source,crop));assertEquals(512,atlas.getWidth());assertEquals(256,atlas.getHeight());
-        assertEquals(source.getRGB(0,20),atlas.getRGB(8,8));assertEquals(atlas.getRGB(8,8),atlas.getRGB(96,8));
-        assertEquals(atlas.getRGB(8,8),atlas.getRGB(0,8));assertEquals(0,atlas.getRGB(400,200));
+        var atlas=CapeImages.decode(CapeImages.crop(source,crop));assertEquals(640,atlas.getWidth());assertEquals(320,atlas.getHeight());
+        assertEquals(source.getRGB(0,20),atlas.getRGB(10,10));assertEquals(atlas.getRGB(10,10),atlas.getRGB(120,10));
+        assertEquals(atlas.getRGB(10,10),atlas.getRGB(0,10));assertEquals(0,atlas.getRGB(400,200));
         assertThrows(java.io.IOException.class,()->CapeImages.crop(source,new CapeImages.Crop(-1,0,10,16)));
+    }
+    @Test void croppingRetainsSinglePixelDetailsInsteadOfReducingEveryFaceTo80By128()throws Exception{
+        var source=new BufferedImage(320,512,BufferedImage.TYPE_INT_ARGB);
+        for(int y=0;y<512;y++)for(int x=0;x<320;x++)source.setRGB(x,y,0xFF000000|((x&1)==0?0xFF00FF:0x00FF00));
+        source.setRGB(157,211,0xFF123456);
+        var atlas=CapeImages.decode(CapeImages.crop(source,CapeImages.Crop.centered(320,512)));
+        assertEquals(2048,atlas.getWidth());assertEquals(1024,atlas.getHeight());
+        for(int y=0;y<512;y+=17)for(int x=0;x<320;x++)assertEquals(source.getRGB(x,y),atlas.getRGB(32+x,32+y));
+        assertEquals(0xFF123456,atlas.getRGB(32+157,32+211));assertEquals(0xFF123456,atlas.getRGB(384+157,32+211));
+        assertEquals(90,CapeImages.cropScale(new CapeImages.Crop(0,0,2000,3200)));
+    }
+    @Test void detailedCropsFitTheEncodedSizeLimitAndStillKeepFarMoreDetailThanTheOldFixedOutput()throws Exception{
+        var source=new BufferedImage(600,960,BufferedImage.TYPE_INT_ARGB);var random=new Random(426);
+        for(int y=0;y<960;y++)for(int x=0;x<600;x++)source.setRGB(x,y,random.nextInt());
+        byte[] bytes=CapeImages.crop(source,CapeImages.Crop.centered(600,960));assertTrue(bytes.length<=CapeImages.MAX_PNG);
+        var atlas=CapeImages.decode(bytes);assertTrue(CapeImages.atlas(atlas));assertTrue(atlas.getWidth()>512);assertTrue(atlas.getWidth()<3840);
+        assertTrue((long)atlas.getWidth()*atlas.getHeight()<=16*1024*1024);
     }
     @Test void nativeAtlasPreservesElytraPixelsAndLocalFileSurvivesRestart()throws Exception{
         var atlas=new BufferedImage(64,32,BufferedImage.TYPE_INT_ARGB);atlas.setRGB(52,20,0xFF123456);

@@ -16,7 +16,7 @@ public final class CapeFileScreen extends Screen {
     private final List<PinkUi.Action> files=new ArrayList<>();private String notice;
     public CapeFileScreen(Screen parent,boolean atlas){this(parent,atlas,defaultDirectory());}
     public CapeFileScreen(Screen parent,boolean atlas,Path directory){super(Component.literal("Choose Cape Image"));this.parent=parent;this.atlas=atlas;this.directory=directory.toAbsolutePath().normalize();notice=atlas?"Multiples of 64 x 32 (2:1) · Max 2 MiB":"PNG, JPEG, BMP or GIF · Max 2 MiB · Local files only";}
-    private static Path defaultDirectory(){var home=Path.of(System.getProperty("user.home"));var downloads=home.resolve("Downloads");return Files.isDirectory(downloads)?downloads:home;}
+    static Path defaultDirectory(){var home=Path.of(System.getProperty("user.home"));var downloads=home.resolve("Downloads");return Files.isDirectory(downloads)?downloads:home;}
     @Override protected void init(){
         files.clear();w=Math.min(640,width-16);h=Math.min(410,height-16);x=(width-w)/2;y=(height-h)/2;top=y+83;bottom=y+h-62;
         pathField=addRenderableWidget(new PinkUi.Field(font,x+14,y+43,w-130,"Folder"));pathField.setMaxLength(4096);pathField.setValue(directory.toString());
@@ -33,7 +33,7 @@ public final class CapeFileScreen extends Screen {
         scroll=Math.clamp(scroll,0,maxScroll());position();
     }
     private void open(Path next){if(next==null)return;try{if(!Files.isDirectory(next)){notice="Folder does not exist.";return;}directory=next.toAbsolutePath().normalize();scroll=0;rebuildWidgets();}catch(Exception error){notice="Cannot open folder.";}}
-    private void select(Path path){try{var image=CapeImages.read(path);if(atlas){CapeCosmetics.saveLocal(CapeImages.atlasPng(image));ClientUiAccess.setScreen(minecraft,parent);}else ClientUiAccess.setScreen(minecraft,new CapeCropScreen(parent,image));}catch(Exception error){notice=error.getMessage()==null?"Could not open image.":error.getMessage();}}
+    private void select(Path path){try{var image=CapeImageImport.read(path,atlas);if(atlas){CapeCosmetics.saveLocal(image.atlas());ClientUiAccess.setScreen(minecraft,parent);}else ClientUiAccess.setScreen(minecraft,new CapeCropScreen(parent,image.source()));}catch(Exception error){notice=error.getMessage()==null?"Could not open image.":error.getMessage();}}
     private int maxScroll(){return Math.max(0,files.size()*28-(bottom-top));}
     private void position(){for(int i=0;i<files.size();i++){var file=files.get(i);file.setY(top+i*28-scroll);file.visible=file.getBottom()>top&&file.getY()<bottom;}}
     @Override public boolean mouseScrolled(double mx,double my,double horizontal,double vertical){if(mx>=x&&mx<x+w&&my>=top&&my<bottom){scroll=Math.clamp(scroll-(int)(vertical*28),0,maxScroll());position();return true;}return super.mouseScrolled(mx,my,horizontal,vertical);}

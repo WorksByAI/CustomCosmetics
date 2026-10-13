@@ -143,6 +143,13 @@ and necessary build and installation scripts. The complete buildable
 project is available from the public release tag and its source archive.
 A Gradle -sources.jar alone is not the complete buildable project.
 
+Original accessory assets
+-------------------------
+The wardrobe models, catalog and grayscale material atlas are original works
+by CustomCosmetics contributors, Copyright (C) 2026, AGPL-3.0-or-later.
+No Lunar Client, Badlion or Essential models or textures are included.
+The material atlas can be reproduced with tools/generate-accessory-materials.py.
+
 Original Baity notice (preserved verbatim)
 -----------------------------------------
 

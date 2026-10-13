@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.0
+
+- New Feature: Accessories.
+
+- Accessories: Add Pixel and Detailed collections.
+
+- Accessories: Fix model clipping.
+
+- Cape: Add system file picker and preserve cropped image detail.
+
+- Cape: Fix preview after restarting the client.
+
 ## 1.1.1
 
 - Cape: Fix preview and slow uploads.

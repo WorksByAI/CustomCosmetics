@@ -23,7 +23,7 @@ import static com.customcosmetics.gui.PinkUi.*;
 
 /** Independent pink cosmetics studio, with scrollable settings and keyboard focus. */
 public final class CosmeticsScreen extends Screen {
-    public enum Page { MAIN, SMOL, SIZE, NICK, COLOR, CHROMA, PRESETS, ANIMATIONS, ITEMS, SYNC }
+    public enum Page { MAIN, SMOL, SIZE, NICK, COLOR, CHROMA, PRESETS, ANIMATIONS, ITEMS, ACCESSORIES, SYNC }
     private static final ScreenSession SESSION = new ScreenSession();
     private final Screen parent;
     private Page page;
@@ -47,7 +47,7 @@ public final class CosmeticsScreen extends Screen {
     private boolean changingColorText;
     private boolean editingShimmerColors;
     private String presetName = "";
-    private boolean pinnedNickname, pinnedSize, draggingScroll;
+    private boolean pinnedNickname, pinnedSize, pinnedAccessories, draggingScroll;
     private record Placement(AbstractWidget widget, int y) {}
 
     public CosmeticsScreen(Screen parent, Page page) {
@@ -76,8 +76,8 @@ public final class CosmeticsScreen extends Screen {
         viewBottom = panelY + panelHeight - 18;
         rowY = viewTop;
 
-        Page[] pages = {Page.SMOL, Page.SIZE, Page.NICK, Page.ANIMATIONS, Page.ITEMS, Page.SYNC};
-        String[] names = {"SmolPeople", "Player Size", "NickTweaks", "Animations", "Item Cosmetics", "Sync"};
+        Page[] pages = {Page.SMOL, Page.SIZE, Page.NICK, Page.ANIMATIONS, Page.ITEMS, Page.ACCESSORIES, Page.SYNC};
+        String[] names = {"SmolPeople", "Player Size", "NickTweaks", "Animations", "Item Cosmetics", "Accessories", "Sync"};
         int navTop = panelHeight < 220 ? 51 : 64;
         int navGap = Math.clamp((panelHeight - navTop - 52) / (pages.length+1), 14, 31);
         for (int i = 0; i < pages.length; i++) {
@@ -104,6 +104,8 @@ public final class CosmeticsScreen extends Screen {
         navigation.add(addWidget(new PinkUi.Action(panelX + panelWidth - 32, panelY + 15, 20, 20, "×", false, this::onClose)));
         pinnedNickname = panelHeight >= 360 && (page == Page.NICK || page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS);
         pinnedSize = panelHeight >= 360 && page == Page.SIZE;
+        pinnedAccessories = panelHeight >= 360 && page == Page.ACCESSORIES;
+        if(pinnedAccessories){accessoryPreview();pinnedArt.addAll(art);art.clear();viewTop=rowY;}
         if (pinnedSize) {
             playerPreview();
             pinnedArt.addAll(art);
@@ -128,6 +130,7 @@ public final class CosmeticsScreen extends Screen {
             case PRESETS -> presets();
             case ANIMATIONS -> animations();
             case ITEMS -> itemCosmetics();
+            case ACCESSORIES -> accessories();
             case SYNC -> sync();
         }
         if (page == Page.SMOL || page == Page.NICK || page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS) credit();
@@ -144,6 +147,7 @@ public final class CosmeticsScreen extends Screen {
             case NICK, COLOR, CHROMA, PRESETS -> "NickTweaks";
             case ANIMATIONS -> "Animations";
             case ITEMS -> "Item Cosmetics";
+            case ACCESSORIES -> "Accessories";
             case SYNC -> "Sync";
         };
     }
@@ -192,6 +196,24 @@ public final class CosmeticsScreen extends Screen {
                 52, 0.0625f, mouseX, mouseY, minecraft.player);
             g.pose().popMatrix();
         });
+    }
+
+    private void accessories() {
+        if(!pinnedAccessories)accessoryPreview();
+        accessoryControls();
+    }
+    private void accessoryPreview(){
+        int y=card(166);label("Preview",contentX+12,y+10,PINK,contentWidth-24);
+        art.add(g->{int offset=pinnedAccessories?0:(int)Math.round(scroll);g.pose().pushMatrix();g.pose().translate(0,offset);
+            int half=(contentWidth-24)/2;
+            CapePreview.drawAccessories(g,contentX+12,y+26-offset,half,130,true);
+            CapePreview.drawAccessories(g,contentX+12+half,y+26-offset,half,130,false);g.pose().popMatrix();});
+    }
+    private void accessoryControls(){
+        fullButton("Open Wardrobe",()->com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,new WardrobeScreen(this)),false);
+        label("Choose styles for each part, then adjust colors and size.",contentX,rowY,MUTED,contentWidth);rowY+=24;
+        label("Online outfits follow your normal sync interval.",contentX,rowY,MUTED,contentWidth);rowY+=24;
+        fullButton("Clear Outfit",()->{ConfigManager.accessories=com.customcosmetics.features.accessories.AccessoriesSettings.NONE;changed();rebuildWidgets();},false);
     }
 
     private void itemCosmetics() {

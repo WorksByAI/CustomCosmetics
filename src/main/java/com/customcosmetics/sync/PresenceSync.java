@@ -18,6 +18,7 @@ import com.customcosmetics.config.ConfigManager;
 import com.customcosmetics.config.RemoteServerConfig;
 import com.customcosmetics.features.nickname.NicknameSegments;
 import com.customcosmetics.features.playersize.PlayerSizeSettings;
+import com.customcosmetics.features.accessories.AccessoriesSettings;
 import com.customcosmetics.gui.module.Module;
 import com.customcosmetics.gui.module.ModuleManager;
 import com.customcosmetics.utils.MessageUtils;
@@ -89,6 +90,10 @@ public final class PresenceSync {
     private PresenceSync() {
     }
 
+    public static AccessoriesSettings getRemoteAccessories(UUID uuid){
+        if(!RemoteAccess.online())return AccessoriesSettings.NONE;
+        var user=remoteSnapshot.users().get(uuid);return user==null||user.stale()?AccessoriesSettings.NONE:user.accessories();
+    }
     public static PlayerSizeSettings getRemotePlayerSize(UUID uuid){
         if(!RemoteAccess.online())return PlayerSizeSettings.NORMAL;
         var user=remoteSnapshot.users().get(uuid);return user==null||user.stale()?PlayerSizeSettings.NORMAL:user.playerSize();
@@ -273,7 +278,7 @@ public final class PresenceSync {
                     nowIsoToEpochMs(nowIso),
                     false,
                     local.gradientStyle(),
-                    local.shimmerSpeed(), local.shimmerColor(), local.shimmerHighlightColor(), local.shimmerSize(),local.shimmerInterval(),local.segments(),local.playerSize()
+                    local.shimmerSpeed(), local.shimmerColor(), local.shimmerHighlightColor(), local.shimmerSize(),local.shimmerInterval(),local.segments(),local.playerSize(),local.accessories()
             ));
 
             JsonObject root = new JsonObject();
@@ -349,6 +354,7 @@ public final class PresenceSync {
         features.add("smolPeople", smolPeople);
 
         features.add("playerSize",state.playerSize().json());
+        features.add("accessories",state.accessories().json());
         userObj.add("features", features);
 
         JsonObject meta = new JsonObject();
@@ -618,7 +624,7 @@ public final class PresenceSync {
             Double.isFinite(ConfigManager.nickTweaksShimmerSpeed) ? clamp(ConfigManager.nickTweaksShimmerSpeed, 0, 4) : 1,
             ConfigManager.nickTweaksShimmerColor & 0xFFFFFF, ConfigManager.nickTweaksShimmerHighlightColor & 0xFFFFFF, ConfigManager.nickTweaksShimmerSize,ConfigManager.nickTweaksShimmerInterval,
             nickTweaksEnabled && customNickColorEnabled && !chromaEnabled && ConfigManager.nickTweaksGradientStyle.equals("segmented")
-                ? NicknameSegments.normalize(ConfigManager.nickTweaksGradientSegments) : List.of(),PlayerSizeSettings.local().active()
+                ? NicknameSegments.normalize(ConfigManager.nickTweaksGradientSegments) : List.of(),PlayerSizeSettings.local().active(),ConfigManager.accessories.active()
         );
         return state;
     }
@@ -674,6 +680,7 @@ public final class PresenceSync {
         smol.addProperty("limbSwingSpeed", state.smolLimbSwingSpeed());
         features.add("smolPeople", smol);
         features.add("playerSize",state.playerSize().json());
+        features.add("accessories",state.accessories().json());
         user.add("features", features);
 
         JsonObject meta = new JsonObject();
@@ -906,7 +913,7 @@ public final class PresenceSync {
                 lastSeenEpochMs,
                 stale,
                 gradientStyle,
-                shimmerSpeed, shimmerColor, shimmerHighlightColor, shimmerSize, shimmerInterval,segments,PlayerSizeSettings.parse(features==null?null:features.get("playerSize"))
+                shimmerSpeed, shimmerColor, shimmerHighlightColor, shimmerSize, shimmerInterval,segments,PlayerSizeSettings.parse(features==null?null:features.get("playerSize")),AccessoriesSettings.parse(features==null?null:features.get("accessories"))
             );
             newUsers.put(uuid, state);
             if (nickTweaksEnabled) {
@@ -957,7 +964,7 @@ public final class PresenceSync {
             + "|" + (r.gradientStart() & 0xFFFFFF) + "|" + (r.gradientEnd() & 0xFFFFFF)
             + "|" + r.boldEnabled() + "|" + r.customNickColorEnabled() + "|" + (r.nickChanger() == null ? "" : r.nickChanger())
             + "|" + r.gradientStyle() + "|" + r.shimmerSpeed() + "|" + r.shimmerColor() + "|" + r.shimmerHighlightColor() + "|" + r.shimmerSize() + "|" + r.shimmerInterval()
-            + "|" + r.segments() + "|" + r.playerSize() + "|" + java.util.Arrays.toString(r.chromaPalette() == null ? new int[0] : r.chromaPalette()));
+            + "|" + r.segments() + "|" + r.playerSize() + "|" + r.accessories() + "|" + java.util.Arrays.toString(r.chromaPalette() == null ? new int[0] : r.chromaPalette()));
     }
 
 
@@ -1135,9 +1142,10 @@ public final class PresenceSync {
             double shimmerSize,
             double shimmerInterval,
             List<NicknameSegments.Segment> segments,
-            PlayerSizeSettings playerSize
+            PlayerSizeSettings playerSize,
+            AccessoriesSettings accessories
     ) {
-        public RemoteUserState{playerSize=playerSize==null?PlayerSizeSettings.NORMAL:playerSize.active();}
+        public RemoteUserState{playerSize=playerSize==null?PlayerSizeSettings.NORMAL:playerSize.active();accessories=accessories==null?AccessoriesSettings.NONE:accessories.active();}
     }
 
     private record LocalUserState(
@@ -1164,15 +1172,16 @@ public final class PresenceSync {
             double shimmerSize,
             double shimmerInterval,
             List<NicknameSegments.Segment> segments,
-            PlayerSizeSettings playerSize
+            PlayerSizeSettings playerSize,
+            AccessoriesSettings accessories
     ) {
-        private LocalUserState{playerSize=playerSize==null?PlayerSizeSettings.NORMAL:playerSize.active();}
+        private LocalUserState{playerSize=playerSize==null?PlayerSizeSettings.NORMAL:playerSize.active();accessories=accessories==null?AccessoriesSettings.NONE:accessories.active();}
         String signature() {
             return uuid + "|" + name + "|" + nickTweaksEnabled + "|" + chromaEnabled + "|" + smolEnabled + "|" + smolLimbSwingSpeed + "|" + chromaSpeed
                     + "|" + chromaSize + "|" + chromaAmount + "|" + chromaLightness
                     + "|" + gradientStart + "|" + gradientEnd + "|" + boldSelf + "|" + customNickColorEnabled + "|" + nickChanger
                     + "|" + gradientStyle + "|" + shimmerSpeed + "|" + shimmerColor + "|" + shimmerHighlightColor + "|" + shimmerSize + "|" + shimmerInterval
-                    + "|" + segments + "|" + playerSize + "|" + java.util.Arrays.toString(chromaPalette);
+                    + "|" + segments + "|" + playerSize + "|" + accessories + "|" + java.util.Arrays.toString(chromaPalette);
         }
     }
 }

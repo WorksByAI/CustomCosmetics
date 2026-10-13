@@ -4,6 +4,10 @@
   "plugin": "com.customcosmetics.mixin.CosmeticsMixinPlugin",
   "compatibilityLevel": "JAVA_25",
   "client": [
+    "AccessoriesMixin$State",
+    "AccessoriesMixin$Snapshot",
+    "AccessoriesMixin$Renderer",
+    "AccessoriesMixin$Bounds",
     "NicknameStyleMixin",
     "CapeSkinMixin",
     "BlockingPreviewMixin",
@@ -33,5 +37,7 @@
     "NametagMixin$EntityMixin",
     "NametagMixin$TextMixin"
   ],
-  "injectors": { "defaultRequire": 1 }
+  "injectors": {
+    "defaultRequire": 1
+  }
 }

@@ -20,10 +20,14 @@ public final class CapeCosmetics {
     private static int previewDepth;
     private static long textureRetry;
     private CapeCosmetics(){}
-    public static void init(){try{local=new LocalCapeStore(CosmeticsConfigDir.getCosmeticsConfigDir());}catch(Exception e){notice("Could not load local cape: "+e.getMessage());}}
+    public static void init(){textureRetry=0;try{local=new LocalCapeStore(CosmeticsConfigDir.getCosmeticsConfigDir());}catch(Exception e){notice("Could not load local cape: "+e.getMessage());}}
     public static void tick(){if(local!=null&&local.hash()!=null&&!loaded(local.hash())&&System.currentTimeMillis()>=textureRetry){textureRetry=System.currentTimeMillis()+5000;try{texture(local.copy());}catch(IOException ignored){}}}
     public static byte[] localPng(){return local==null?null:local.copy();}
-    public static synchronized Identifier preview(){return local==null||local.hash()==null?null:textures.get(local.hash());}
+    public static boolean hasLocal(){return local!=null&&local.hash()!=null;}
+    public static synchronized Identifier preview(){
+        var client=Minecraft.getInstance();UUID self=client.player==null?client.getUser().getProfileId():client.player.getUUID();
+        return textures.get(CapeVisibility.previewHash(self,RemoteAccess.online(),hasLocal()?local.hash():null,approved));
+    }
     public static void saveLocal(byte[] png)throws IOException{local.save(png);texture(local.copy());}
     public static void clearLocal()throws IOException{local.clear();}
     public static void approved(Map<UUID,String> state){approved=Map.copyOf(state);}

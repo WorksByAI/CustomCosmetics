@@ -32,6 +32,7 @@ public final class ConfigManager {
 
     public static boolean smolpeopleMode = false;
     public static double smolLimbSwingSpeed = 2.5;
+    public static com.customcosmetics.features.accessories.AccessoriesSettings accessories=com.customcosmetics.features.accessories.AccessoriesSettings.NONE;
     public static boolean playerSizeEnabled=false;
     public static double playerSizeX=1,playerSizeY=1,playerSizeZ=1;
     public static boolean nickTweaksEnabled = false;
@@ -121,6 +122,7 @@ public final class ConfigManager {
                     LOGGER.warn("Ignoring invalid setting {}", field.getName());
                 }
             }
+            if(accessories==null)accessories=com.customcosmetics.features.accessories.AccessoriesSettings.NONE;
             nickTweaksNickChanger = NicknameLimit.limit(nickTweaksNickChanger);
             smolLimbSwingSpeed = Math.clamp(smolLimbSwingSpeed, 0.5, 5.0);
             playerSizeX=com.customcosmetics.features.playersize.PlayerSizeSettings.bounded(playerSizeX);

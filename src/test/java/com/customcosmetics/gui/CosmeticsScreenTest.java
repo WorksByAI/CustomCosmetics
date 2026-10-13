@@ -16,6 +16,14 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** Inspect the compiled screen without starting Minecraft or creating a graphics context. */
 class CosmeticsScreenTest {
+    @Test void accessoryControlsStayLocalAndLayerCannotDrawFirstPersonOrSendGameplayPackets() throws Exception {
+        var screen=read("com/customcosmetics/gui/CosmeticsScreen");assertTrue(pageReferences(code(screen,"init")).contains("ACCESSORIES"));
+        for(var method:screen.methods())if(method.methodName().stringValue().toLowerCase().contains("accessor"))
+            assertTrue(instructions(method).stream().filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast).noneMatch(call->call.owner().name().stringValue().startsWith("com/customcosmetics/sync/")||call.owner().name().stringValue().startsWith("java/net/")));
+        var layer=read("com/customcosmetics/features/accessories/AccessoryLayer");assertEquals("net/minecraft/client/renderer/entity/layers/RenderLayer",layer.superclass().orElseThrow().name().stringValue());
+        var wardrobe=read("com/customcosmetics/gui/WardrobeScreen");assertTrue(wardrobe.methods().stream().flatMap(method->instructions(method).stream()).filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast).noneMatch(call->call.owner().name().stringValue().startsWith("java/net/")||call.owner().name().stringValue().startsWith("com/customcosmetics/sync/")));
+        assertTrue(layer.methods().stream().flatMap(method->instructions(method).stream()).filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast).noneMatch(call->Set.of("send","sendPacket","sendImmediately","setBoundingBox","refreshDimensions").contains(call.name().stringValue())));
+    }
     private static final String SCREEN = "com/customcosmetics/gui/CosmeticsScreen";
     @Test void playerSizeEditsStayLocalAndNeverChangeGameplayDimensions() throws Exception {
         var screen=read(SCREEN);

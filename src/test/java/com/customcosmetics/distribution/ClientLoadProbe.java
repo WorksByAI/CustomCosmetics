@@ -11,6 +11,8 @@ public final class ClientLoadProbe {
         String firstPersonRenderer = System.getProperty("fabric.gameVersion").startsWith("26.3")
             ? "net.minecraft.client.renderer.FirstPersonHandsAndItemsRenderer" : "net.minecraft.client.renderer.ItemInHandRenderer";
         for (String type : new String[] {
+            "com.customcosmetics.features.accessories.AccessoryLayer", "com.customcosmetics.features.accessories.AccessoryRenderState", "net.minecraft.client.renderer.entity.state.AvatarRenderState", "net.minecraft.client.renderer.entity.EntityRenderer",
+            "com.customcosmetics.features.accessories.AccessoryMeshes", "com.customcosmetics.features.accessories.DetailedAccessoryMeshes", "com.customcosmetics.gui.WardrobeScreen", "net.minecraft.client.renderer.entity.LivingEntityRenderer",
             "net.minecraft.client.Minecraft", firstPersonRenderer, "net.minecraft.client.gui.Font",
             "net.minecraft.client.gui.Font$PreparedTextBuilder", "net.minecraft.network.chat.Style",
             "com.customcosmetics.features.nickname.GradientGlyph", "com.customcosmetics.features.nickname.NicknameGlyphEffect",
@@ -36,6 +38,9 @@ public final class ClientLoadProbe {
             "com.customcosmetics.features.animations.PresenceWorld", "com.customcosmetics.features.animations.ViewModelAnimations"
         }) {
             var loaded = Class.forName(type, false, loader);
+            if(type.endsWith("AvatarRenderState")&&!java.util.Arrays.stream(loaded.getInterfaces()).anyMatch(i->i.getName().endsWith("AccessoryRenderState")))throw new AssertionError("Accessory state mixin missing");
+            if(type.equals("net.minecraft.client.renderer.entity.EntityRenderer")&&java.util.Arrays.stream(loaded.getDeclaredMethods()).noneMatch(m->m.getName().contains("customcosmetics$extractAccessories")))throw new AssertionError("Accessory snapshot hook missing");
+            if(type.equals("net.minecraft.client.renderer.entity.LivingEntityRenderer")&&java.util.Arrays.stream(loaded.getDeclaredMethods()).noneMatch(m->m.getName().contains("customcosmetics$expandCosmeticBounds")))throw new AssertionError("Accessory culling compatibility hook missing");
             loaded.getDeclaredMethods();
             if(type.equals("net.minecraft.client.renderer.entity.player.AvatarRenderer") && java.util.Arrays.stream(loaded.getDeclaredMethods())
                     .noneMatch(method->method.getName().contains("customcosmetics$additionalScale")))
@@ -61,6 +66,18 @@ public final class ClientLoadProbe {
             }
         }
         checkGameReferences(loader,"com/customcosmetics/features/playersize/PlayerSize");
+        checkGameReferences(loader,"com/customcosmetics/features/accessories/AccessoryLayer");
+        checkGameReferences(loader,"com/customcosmetics/features/accessories/AccessoryMeshes");
+        checkGameReferences(loader,"com/customcosmetics/features/accessories/DetailedAccessoryMeshes");
+        checkGameReferences(loader,"com/customcosmetics/features/accessories/AccessoryModelFit");
+        checkGameReferences(loader,"com/customcosmetics/features/accessories/GarmentMeshes");
+        checkGameReferences(loader,"com/customcosmetics/features/accessories/AccessoryModelBake");
+        checkGameReferences(loader,"com/customcosmetics/gui/WardrobeScreen");
+        Class.forName("com.customcosmetics.compatibility.AccessoryRenderAccess",true,loader).getMethod("validate",Class.class)
+            .invoke(null,Class.forName("net.minecraft.client.renderer.OrderedSubmitNodeCollector",false,loader));
+        Class.forName("com.customcosmetics.compatibility.NativeFileDialogs",true,loader).getMethod("validate",boolean.class)
+            .invoke(null,System.getProperty("fabric.gameVersion").startsWith("26.3"));
+        checkGameReferences(loader,"com/customcosmetics/gui/CapeScreen");
         checkGameReferences(loader,"com/customcosmetics/gui/CapePreview");
         Class.forName("com.customcosmetics.compatibility.CapePreviewSwing",true,loader).getMethod("validate",Class.class)
             .invoke(null,Class.forName("net.minecraft.client.renderer.entity.state.AvatarRenderState",false,loader));

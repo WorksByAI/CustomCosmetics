@@ -15,6 +15,8 @@ import java.util.concurrent.atomic.*;
 import java.nio.file.*;
 
 public final class CapeGameTest implements FabricClientGameTest {
+    public static final java.util.Queue<NativeFileDialogs.Result> fileSelections=new ConcurrentLinkedQueue<>();
+    public static volatile boolean deferFileSelection;public static volatile java.util.function.Consumer<NativeFileDialogs.Result> delayedFileSelection;
     private static final AtomicInteger neutralPreviews=new AtomicInteger();
     public static void observePreview(net.minecraft.client.renderer.entity.state.AvatarRenderState state){
         if(!state.rightHandItemState.isEmpty()||!state.leftHandItemState.isEmpty()||!state.rightHandItemStack.isEmpty()||!state.leftHandItemStack.isEmpty()
@@ -30,7 +32,17 @@ public final class CapeGameTest implements FabricClientGameTest {
         try(var world=context.worldBuilder().create()){
             world.getServer().runCommand("time set noon");world.getServer().runCommand("weather clear");
             context.waitTicks(10);context.getInput().resizeWindow(1600,1000);
-            var source=new BufferedImage(100,200,BufferedImage.TYPE_INT_ARGB);for(int y=0;y<200;y++)for(int x=0;x<100;x++)source.setRGB(x,y,0xFF00FF6A);
+            if(Files.exists(CosmeticsConfigDir.getCosmeticsConfigDir().resolve("cape-local.png"))){
+                context.runOnClient(client->{
+                    ConfigManager.capeEnabled=true;CosmeticsMode.setOffline(true);CapeCosmetics.tick();
+                    if(!CapeCosmetics.hasLocal()||CapeCosmetics.preview()==null||client.player.getSkin().cape()==null
+                            ||!client.player.getSkin().cape().texturePath().equals(CapeCosmetics.preview()))
+                        throw new AssertionError("An existing cape file failed to load during actual client startup");
+                    ClientUiAccess.setScreen(client,new CapeScreen(null));
+                });context.waitTicks(4);context.takeScreenshot("cape-existing-file-at-client-startup");
+                System.out.println("CAPE_EXISTING_FILE_NATIVE_STARTUP_TEXTURE_AND_PREVIEW_OK");
+            }
+            var source=new BufferedImage(320,512,BufferedImage.TYPE_INT_ARGB);for(int y=0;y<512;y++)for(int x=0;x<320;x++)source.setRGB(x,y,0xFF00FF6A);source.setRGB(137,200,0xFFCC0066);
             var file=Path.of(System.getProperty("customcosmetics.testProjectDir"),"build/audit/cape-input/input.png");Files.createDirectories(file.getParent());javax.imageio.ImageIO.write(source,"png",file.toFile());
             context.runOnClient(client->{
                 client.options.guiScale().set(2);ConfigManager.capeEnabled=true;CosmeticsMode.setOffline(true);
@@ -39,11 +51,13 @@ public final class CapeGameTest implements FabricClientGameTest {
                 client.player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND,new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.SHIELD));
                 client.player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD,new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.CARVED_PUMPKIN));
                 client.player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST,new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_CHESTPLATE));
-                ClientUiAccess.setScreen(client,new CapeFileScreen(new CapeScreen(null),false,file.getParent()));
-            });click(context,"input.png");context.waitTicks(3);context.takeScreenshot("cape-crop");
+                fileSelections.add(NativeFileDialogs.Result.selected(file.toString()));ClientUiAccess.setScreen(client,new CapeScreen(null));
+            });click(context,"Choose Image & Crop");context.waitFor(client->ClientUiAccess.screen(client) instanceof CapeCropScreen);context.waitTicks(3);context.takeScreenshot("cape-crop");
             click(context,"Save Local Cape");context.waitTicks(4);
             context.runOnClient(client->{
                 if(CapeCosmetics.localPng()==null||client.player.getSkin().cape()==null)throw new AssertionError("Local cape did not reach the actual player skin");
+                var cropped=CapeImages.decode(CapeCosmetics.localPng());if(cropped.getWidth()!=2048||cropped.getHeight()!=1024||cropped.getRGB(32+137,32+200)!=0xFFCC0066)throw new AssertionError("The real crop GUI discarded original image details");
+                System.out.println("CAPE_REAL_CROP_GUI_PRESERVES_SINGLE_PIXEL_DETAIL_OK");
                 var original=client.player.getSkin();var sentinel=new net.minecraft.core.ClientAsset.Texture(){public net.minecraft.resources.Identifier id(){return net.minecraft.resources.Identifier.fromNamespaceAndPath("othermod","cape");}public net.minecraft.resources.Identifier texturePath(){return id();}};
                 var external=new net.minecraft.world.entity.player.PlayerSkin(original.body(),sentinel,sentinel,original.model(),original.secure());
                 var self=CapeCosmetics.skin(client.player.getUUID(),external);
@@ -60,15 +74,40 @@ public final class CapeGameTest implements FabricClientGameTest {
             var highResolution=new BufferedImage(2048,1024,BufferedImage.TYPE_INT_ARGB);
             var graphics=highResolution.createGraphics();try{graphics.setColor(new java.awt.Color(0x00FF6A));graphics.fillRect(0,0,2048,1024);}finally{graphics.dispose();}
             var atlasFile=file.getParent().resolve("high-resolution-2048x1024.png");javax.imageio.ImageIO.write(highResolution,"png",atlasFile.toFile());
-            context.runOnClient(client->ClientUiAccess.setScreen(client,new CapeFileScreen(new CapeScreen(null),true,atlasFile.getParent())));
-            click(context,"high-resolution-2048x1024.png");context.waitTicks(4);
+            context.runOnClient(client->{fileSelections.add(NativeFileDialogs.Result.selected(atlasFile.toString()));ClientUiAccess.setScreen(client,new CapeScreen(null));});
+            var atlasHash=CapeImages.hash(CapeImages.atlasPng(highResolution));click(context,"Choose Cape + Elytra");context.waitFor(client->CapeImages.hash(CapeCosmetics.localPng()).equals(atlasHash));context.waitTicks(4);
             context.runOnClient(client->{
                 var local=CapeCosmetics.localPng();if(local==null)throw new AssertionError("High-resolution cape was rejected by the real file picker");
                 var saved=CapeImages.decode(local);if(saved.getWidth()!=2048||saved.getHeight()!=1024||client.player.getSkin().cape()==null)throw new AssertionError("High-resolution cape was resized or failed to reach the real player skin");
             });capturePreview(context);context.takeScreenshot("cape-high-resolution-2048x1024");
+            restartPreview(context);
+            testFileDialog(context,atlasFile);
             testTraffic(context);
             System.out.println("CAPE_NATIVE_PREVIEW_CROP_OFFLINE_ISOLATION_AND_EXPLICIT_REVIEW_OK");
         }catch(Exception failure){throw new AssertionError(failure);}
+    }
+    private void restartPreview(ClientGameTestContext context)throws Exception{
+        var saved=new AtomicReference<byte[]>();var approved=new AtomicReference<net.minecraft.resources.Identifier>();
+        context.runOnClient(client->{saved.set(CapeCosmetics.localPng());CapeCosmetics.close();CapeCosmetics.init();CapeCosmetics.tick();
+            if(!CapeCosmetics.hasLocal()||CapeCosmetics.preview()==null||!client.player.getSkin().cape().texturePath().equals(CapeCosmetics.preview()))throw new AssertionError("Persisted local cape was not restored after cold texture/store initialization");});
+        context.waitTicks(3);capturePreview(context);context.takeScreenshot("cape-restored-local-after-restart");
+        context.runOnClient(client->{CapeCosmetics.clearLocal();CapeCosmetics.close();CapeCosmetics.init();CosmeticsMode.setOffline(false);
+            var hash=CapeImages.hash(saved.get());approved.set(CapeCosmetics.texture(saved.get()));CapeCosmetics.approved(java.util.Map.of(client.player.getUUID(),hash));
+            if(CapeCosmetics.hasLocal()||CapeCosmetics.localPng()!=null||!approved.get().equals(CapeCosmetics.preview()))throw new AssertionError("Approved cape did not become the preview when the local draft was absent");
+            if(!client.player.getSkin().cape().texturePath().equals(approved.get()))throw new AssertionError("Preview does not match the approved cape worn in the world");
+            ClientUiAccess.setScreen(client,new CapeScreen(null));
+        });context.waitTicks(4);capturePreview(context);context.takeScreenshot("cape-approved-after-restart-without-local-file");
+        context.runOnClient(client->{CosmeticsMode.setOffline(true);if(CapeCosmetics.preview()!=null)throw new AssertionError("Offline preview used an approved remote cape");CapeCosmetics.saveLocal(saved.get());ClientUiAccess.setScreen(client,new CapeScreen(null));});
+        context.waitTicks(3);System.out.println("CAPE_COLD_RESTART_LOCAL_AND_APPROVED_PREVIEW_FALLBACK_WITH_OFFLINE_ISOLATION_OK");
+    }
+    private static void testFileDialog(ClientGameTestContext context,Path file)throws Exception{
+        var before=CapeImages.hash(CapeCosmetics.localPng());fileSelections.add(NativeFileDialogs.Result.cancelled());click(context,"Choose Image & Crop");context.waitTicks(3);
+        context.runOnClient(client->{if(!(ClientUiAccess.screen(client) instanceof CapeScreen)||NativeFileDialogs.busy()||!before.equals(CapeImages.hash(CapeCosmetics.localPng())))throw new AssertionError("Cancelling the system picker changed the local cape");});
+        deferFileSelection=true;click(context,"Choose Cape + Elytra");context.waitTicks(2);
+        context.runOnClient(client->{if(!NativeFileDialogs.busy()||delayedFileSelection==null)throw new AssertionError("A second dialog is not guarded");ClientUiAccess.setScreen(client,null);delayedFileSelection.accept(NativeFileDialogs.Result.selected(file.toString()));delayedFileSelection=null;});context.waitTicks(3);
+        context.runOnClient(client->{if(ClientUiAccess.screen(client)!=null||NativeFileDialogs.busy()||!before.equals(CapeImages.hash(CapeCosmetics.localPng())))throw new AssertionError("A late OS selection reopened a closed screen");ClientUiAccess.setScreen(client,new CapeScreen(null));});
+        fileSelections.add(NativeFileDialogs.Result.unavailableResult());click(context,"Choose Image & Crop");context.waitTicks(3);context.runOnClient(client->{if(!(ClientUiAccess.screen(client) instanceof CapeFileScreen))throw new AssertionError("Unavailable native picker did not offer the in-game fallback");ClientUiAccess.setScreen(client,new CapeScreen(null));});
+        System.out.println("CAPE_SYSTEM_PICKER_BINDING_IMPORT_CANCEL_LATE_RESULT_AND_FALLBACK_OK");
     }
     private void capturePreview(ClientGameTestContext context)throws Exception{
         var result=new CompletableFuture<Integer>();context.runOnClient(client->{

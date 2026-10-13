@@ -9,6 +9,7 @@
 - **Animations**：调整手持物品大小、位置、旋转和挥动速度，支持格挡位置、旋转与实时预览。
 - **Item Cosmetics**：在本地自定义物品名称与模型，支持已启用资源包中的模型。
 - **Cape**：自定义披风，支持图片裁剪与预览；在线共享需审核，本地披风仅自己可见。
+- **Accessories**：像素风与精细风原创饰品，支持自由搭配、调色、大小调整与同步。
 - **远程同步**：双方连接远程服务器即可互相看到装饰和格挡。
 - **离线模式**：断开远程连接，装饰仅自己可见。
 - **更新提示**：每次启动检查 GitHub 最新正式版，有更新时在聊天栏提示。
@@ -32,14 +33,15 @@ A Fabric mod for custom cosmetics, with synchronization between players.
 - **Player Size**: Synced X/Y/Z player model scaling.
 - **NickTweaks**: Custom nicknames, segmented gradients, shimmer and chroma, with saved color presets.
 - **BlockHit**: 1.7-style blocking, Default / Jigsaw styles, weapon lists and optional filtering of other players.
-- **Animations**: Adjust held-item size, position, rotation, and swing speed, with blocking position, rotation, and a live preview.
+- **Animations**: Held-item and blocking transforms, swing speed and preview.
 - **Item Cosmetics**: Local custom item names and models, including models from enabled resource packs.
 - **Cape**: Custom capes with image cropping and preview. Online sharing requires review; local capes stay private.
-- **Remote Sync**: Players connected to the remote server can see each other's cosmetics and blocking animations.
+- **Accessories**: Original Pixel and Detailed cosmetics with mixing, colors, resizing and synchronization.
+- **Remote Sync**: Share cosmetics and blocking on the same server.
 - **Offline Mode**: Disconnect from remote services and show cosmetics locally.
 - **Update Notifications**: Checks GitHub releases at startup and announces updates in chat.
 
-Use `/customcosmetics` to open the settings. The GitHub icon in the bottom-left corner opens the source repository.
+Use `/customcosmetics` for settings; the GitHub icon opens the source.
 
 Supports Minecraft **26.1.x / 26.2 / 26.3**. Requires Java 25, Fabric Loader 0.19.5+, and Fabric API for your Minecraft version.
 Sharing blocking animations also requires [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api).

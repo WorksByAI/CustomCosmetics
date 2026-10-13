@@ -9,6 +9,13 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ConfigManagerTest {
+    @Test void accessoriesRoundTripPreservesDisabledDraftsAndIndependentColors() throws Exception {
+        var path=directory.resolve("accessories.json");
+        var expected=com.customcosmetics.features.accessories.AccessoriesSettings.NONE.with("wings",com.customcosmetics.features.accessories.AccessoriesSettings.WINGS.enabled(true).color(0x123456)).with("ears",com.customcosmetics.features.accessories.AccessoriesSettings.EARS.scale(1.5));
+        ConfigManager.accessories=expected;ConfigManager.save(path);ConfigManager.accessories=com.customcosmetics.features.accessories.AccessoriesSettings.NONE;ConfigManager.load(path);assertEquals(expected,ConfigManager.accessories);
+        var extra=expected.with("hat",expected.part("hat").enabled(true).style("witch").color(0xDDBBCC)).with("tail",expected.part("tail").enabled(true).style("kitsune"));
+        ConfigManager.accessories=extra;ConfigManager.save(path);ConfigManager.accessories=com.customcosmetics.features.accessories.AccessoriesSettings.NONE;ConfigManager.load(path);assertEquals(extra,ConfigManager.accessories);
+    }
     @Test void playerSizeSettingsRoundTripAndInvalidAxesCannotEnterRendering() throws Exception {
         var path=directory.resolve("player-size.json");ConfigManager.playerSizeEnabled=true;ConfigManager.playerSizeX=.5;ConfigManager.playerSizeY=.75;ConfigManager.playerSizeZ=1.25;
         ConfigManager.save(path);ConfigManager.playerSizeEnabled=false;ConfigManager.playerSizeX=ConfigManager.playerSizeY=ConfigManager.playerSizeZ=1;ConfigManager.load(path);

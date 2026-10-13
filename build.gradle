@@ -106,14 +106,14 @@ if (providers.gradleProperty('appearance_game_only').getOrElse('false').toBoolea
 
 // Isolate this renderer's game test from older input/animation test APIs.
 if (providers.gradleProperty('cape_game_only').getOrElse('false').toBoolean()) {
-    sourceSets.gametest.java.include '**/CapeGameTest.java', '**/mixin/CapePreviewProbeMixin.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
+    sourceSets.gametest.java.include '**/CapeGameTest.java', '**/mixin/CapePreviewProbeMixin.java', '**/mixin/CapeFileDialogProbeMixin.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
     tasks.named('processGametestResources') {
         inputs.property 'cape_game_only', true
         filesMatching('fabric.mod.json') {
             filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.CapeGameTest') }
         }
         filesMatching('customcosmetics-test.mixins.json') {
-            filter { line -> line.contains('"client":') ? '  "client": ["CapePreviewProbeMixin", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line }
+            filter { line -> line.contains('"client":') ? '  "client": ["CapePreviewProbeMixin", "CapeFileDialogProbeMixin", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line }
         }
     }
 }
@@ -139,6 +139,21 @@ if (providers.gradleProperty('nickname_game_only').getOrElse('false').toBoolean(
         }
         filesMatching('customcosmetics-test.mixins.json') {
             filter { line -> line.contains('"client":') ? '  "client": ["UpdateCheckOfflineMixin", "NicknameGradientProbeMixin"],' : line }
+        }
+    }
+}
+
+if (providers.gradleProperty('accessories_game_only').getOrElse('false').toBoolean()) {
+    sourceSets.gametest.java.include '**/AccessoriesGameTest.java', '**/NicknamePresetGameTest.java',
+        '**/mixin/AccessoriesProbeMixin.java', '**/mixin/AccessoryMotionPreviewMixin.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
+    tasks.named('processGametestResources') {
+        inputs.property 'accessories_game_only', true
+        inputs.file('build.gradle')
+        filesMatching('fabric.mod.json') {
+            filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.AccessoriesGameTest') }
+        }
+        filesMatching('customcosmetics-test.mixins.json') {
+            filter { line -> line.contains('"client":') ? '  "client": ["AccessoriesProbeMixin", "AccessoryMotionPreviewMixin", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line }
         }
     }
 }

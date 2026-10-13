@@ -124,6 +124,18 @@ class LicensePackagingTest {
                 "LICENSES/Odin-BSD-3-Clause.txt",
                 "src/gametest/resources/fabric.mod.json", "src/gametest/resources/customcosmetics-test.mixins.json",
                 "tools/update_weapon_catalog.py", "tools/test_update_weapon_catalog.py",
+                "src/main/java/com/customcosmetics/features/accessories/AccessoryLayer.java",
+                "src/main/java/com/customcosmetics/features/accessories/AccessoryModelFit.java",
+                "src/main/java/com/customcosmetics/features/accessories/AccessoryPlacement.java",
+                "src/main/java/com/customcosmetics/gui/WardrobeScreen.java",
+                "src/main/java/com/customcosmetics/features/cape/CapeVisibility.java",
+                "src/test/java/com/customcosmetics/features/cape/CapePreviewSelectionTest.java",
+                "src/gametest/java/com/customcosmetics/gametest/AccessoriesGameTest.java",
+                "src/gametest/java/com/customcosmetics/gametest/mixin/AccessoryMotionPreviewMixin.java",
+                "src/main/resources/assets/customcosmetics/accessories/catalog.json",
+                "src/main/resources/assets/customcosmetics/textures/accessories/materials.png",
+                "src/main/resources/assets/customcosmetics/textures/accessories/detailed-materials.png",
+                "tools/generate-accessory-materials.py", "tools/test_accessory_materials.py",
                 "README.md", "CHANGELOG.md" }) {
                 assertBundled(zip, prefix + file, file);
             }
@@ -139,6 +151,8 @@ class LicensePackagingTest {
         assertFalse(readme.contains("/docs/") || readme.contains("SOURCE-DELIVERY.md"));
         String changes = Files.readString(ROOT.resolve("CHANGELOG.md"));
         assertTrue(changes.contains("## " + System.getProperty("customcosmetics.version")));
+        assertTrue(changes.contains("New Feature: Accessories."));
+        assertTrue(changes.contains("Cape: Fix preview after restarting the client."));
         assertTrue(changes.contains("NickTweaks: Add segmented gradients."));
         assertTrue(changes.contains("Cape: Support high-resolution atlases up to 2 MiB."));
         assertTrue(changes.contains("Cape: Fix preview and slow uploads."));
