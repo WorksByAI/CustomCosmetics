@@ -20,11 +20,13 @@ final class NicknamePresetGameTest {
                 ConfigManager.nickTweaksGradientStyle="shimmer";
                 ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.COLOR));
             }); context.waitTicks(3);
+            type(context,"Shimmer Size value","0.35");
+            type(context,"Shimmer Interval value","4.7");
             click(context,"Editing:",PinkUi.Action.class);
             type(context,"HEX color","#0055FF");
             click(context,"Highlight",PinkUi.Action.class); type(context,"HEX color","#66DDFF");
             context.runOnClient(client -> {
-                if(ConfigManager.nickTweaksShimmerColor!=0x0055FF||ConfigManager.nickTweaksShimmerHighlightColor!=0x66DDFF)
+                if(ConfigManager.nickTweaksShimmerColor!=0x0055FF||ConfigManager.nickTweaksShimmerHighlightColor!=0x66DDFF||Math.abs(ConfigManager.nickTweaksShimmerSize-.35)>.0001||Math.abs(ConfigManager.nickTweaksShimmerInterval-4.7)>.0001)
                     throw new AssertionError("Shimmer color controls did not update both colors");
             }); context.takeScreenshot("nickname-custom-shimmer-colors");
             click(context,"Presets",PinkUi.Action.class); type(context,"Preset Name","ToryHi Blue");

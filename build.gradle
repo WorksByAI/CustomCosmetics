@@ -84,6 +84,18 @@ loom.runs.named('clientGameTest') {
 tasks.named('runClientGameTest') { dependsOn 'test' }
 
 // Isolate this renderer's game test from older input/animation test APIs.
+if (providers.gradleProperty('studio_game_only').getOrElse('false').toBoolean()) {
+    sourceSets.gametest.java.include '**/StudioGameTest.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
+    tasks.named('processGametestResources') {
+        inputs.property 'studio_game_only', true
+        filesMatching('fabric.mod.json') {
+            filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.StudioGameTest') }
+        }
+        filesMatching('customcosmetics-test.mixins.json') {
+            filter { line -> line.contains('"client":') ? '  "client": ["UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line }
+        }
+    }
+}
 if (providers.gradleProperty('nickname_game_only').getOrElse('false').toBoolean()) {
     sourceSets.gametest.java.include '**/NicknameGradientGameTest.java', '**/NicknamePresetGameTest.java', '**/RenderAssertions.java',
         '**/mixin/NicknameGradientProbeMixin.java', '**/mixin/UpdateCheckOfflineMixin.java'

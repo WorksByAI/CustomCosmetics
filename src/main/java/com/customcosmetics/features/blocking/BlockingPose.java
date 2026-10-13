@@ -34,7 +34,9 @@ public final class BlockingPose {
                 (current.m31() - origin.m31()) * (float)(ConfigManager.animationSwingY - 1),
                 (current.m32() - origin.m32()) * (float)(ConfigManager.animationSwingZ - 1));
         }
+        BlockingAdjustment.position(pose, side);
         nativeApply(pose, side, swing, style);
+        BlockingAdjustment.rotation(pose, side);
     }
     private static void nativeApply(PoseStack pose, int side, float swing, BlockingStyle style) {
         if (style == BlockingStyle.JIGSAW) flatApply(pose, side, swing);

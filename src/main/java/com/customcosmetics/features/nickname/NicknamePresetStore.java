@@ -59,6 +59,8 @@ public final class NicknamePresetStore {
                     if (next.keySet().stream().anyMatch(key -> key.equalsIgnoreCase(name))) continue;
                     JsonObject value = entry.getValue().getAsJsonObject();
                     if (!value.has("start") || !value.has("end") || !value.has("style")) continue;
+                    if (!value.has("shimmerSize")) value.addProperty("shimmerSize", NicknameGradient.DEFAULT_SIZE);
+                    if (!value.has("shimmerInterval")) value.addProperty("shimmerInterval", NicknameGradient.DEFAULT_INTERVAL);
                     NicknameColors colors = JSON.fromJson(value, NicknameColors.class);
                     if (colors != null && next.size() < MAX_PRESETS) next.put(name, colors);
                 } catch (RuntimeException ignored) { /* Retain other valid presets. */ }

@@ -46,6 +46,7 @@ public final class NicknameGradientGameTest implements FabricClientGameTest {
             ConfigManager.nickTweaksEnabled=true;ConfigManager.nickTweaksCustomNickColorEnabled=true;
             ConfigManager.nickTweaksChromaEnabled=false;ConfigManager.nickTweaksNickChanger="暮冬";
             ConfigManager.nickTweaksGradientStyle="shimmer";ConfigManager.nickTweaksShimmerSpeed=1;
+            ConfigManager.nickTweaksShimmerSize=.16;ConfigManager.nickTweaksShimmerInterval=2;
             ConfigManager.nickTweaksGradientStartColor=NicknameGradient.PRESET_START;
             ConfigManager.nickTweaksGradientEndColor=NicknameGradient.PRESET_END;
             NickRenderUtils.invalidateLocalTargetsCache();
@@ -55,9 +56,9 @@ public final class NicknameGradientGameTest implements FabricClientGameTest {
         RenderAssertions.nicknameTime=0;context.waitTicks(4);
         PixelCounts base=capture(context,"shimmer-base");
         if(base.cyan<30||base.blue<30||base.pink<30)throw new AssertionError("GPU glyphs lack the cyan/blue/pink gradient: "+base);
-        RenderAssertions.nicknameTime=1000;context.waitTicks(3);
+        RenderAssertions.nicknameTime=400;context.waitTicks(3);
         PixelCounts left=capture(context,"shimmer-left");
-        RenderAssertions.nicknameTime=1600;context.waitTicks(3);
+        RenderAssertions.nicknameTime=1000;context.waitTicks(3);
         PixelCounts right=capture(context,"shimmer-right");
         if(left.leftGold<=base.leftGold+30||right.rightGold<=base.rightGold+30)
             throw new AssertionError("The highlight did not sweep inside both real Chinese glyphs: base="+base+" left="+left+" right="+right);
@@ -65,11 +66,18 @@ public final class NicknameGradientGameTest implements FabricClientGameTest {
             ConfigManager.nickTweaksGradientStartColor=0;ConfigManager.nickTweaksGradientEndColor=0;
             ConfigManager.nickTweaksShimmerColor=0x00FF00;ConfigManager.nickTweaksShimmerHighlightColor=0x00FF00;
             ClientUiAccess.setScreen(client,new SampleScreen());
-        });RenderAssertions.nicknameTime=1600;context.waitTicks(3);
+        });RenderAssertions.nicknameTime=1000;context.waitTicks(3);
         PixelCounts custom=capture(context,"custom-green-shimmer");
         if(custom.green<30||custom.leftGold!=0||custom.rightGold!=0)
             throw new AssertionError("Custom shimmer colors did not reach GPU glyphs: "+custom);
+        context.runOnClient(client->{ConfigManager.nickTweaksShimmerSize=.48;ClientUiAccess.setScreen(client,new SampleScreen());});
+        RenderAssertions.nicknameTime=Math.round(new NicknameGradient("shimmer",0,0,1,0,0,.48,2).motionMillis()/2.0);context.waitTicks(3);
+        PixelCounts wide=capture(context,"wide-green-shimmer");
+        if(wide.green<custom.green*1.5)throw new AssertionError("Size did not widen real GPU shimmer: narrow="+custom+" wide="+wide);
+        RenderAssertions.nicknameTime=new NicknameGradient("shimmer",0,0,1,0,0,.48,2).motionMillis()+500;context.waitTicks(3);
+        PixelCounts gap=capture(context,"shimmer-interval-gap");if(gap.green!=0)throw new AssertionError("Sweep persisted during its idle interval");
         context.runOnClient(client->{
+            ConfigManager.nickTweaksShimmerSize=.16;ConfigManager.nickTweaksShimmerInterval=2;
             ConfigManager.nickTweaksGradientStartColor=NicknameGradient.PRESET_START;ConfigManager.nickTweaksGradientEndColor=NicknameGradient.PRESET_END;
             ConfigManager.nickTweaksShimmerColor=NicknameGradient.DEFAULT_SHIMMER;ConfigManager.nickTweaksShimmerHighlightColor=NicknameGradient.DEFAULT_HIGHLIGHT;
             ClientUiAccess.setScreen(client,new SampleScreen());
@@ -172,11 +180,11 @@ public final class NicknameGradientGameTest implements FabricClientGameTest {
                 var features=new com.google.gson.JsonObject();var nick=new com.google.gson.JsonObject();
                 nick.addProperty("enabled",true);nick.addProperty("customNickColorEnabled",true);nick.addProperty("nickChanger","暮冬");
                 var solid=new com.google.gson.JsonObject();solid.addProperty("customColorStart","#24CFDF");solid.addProperty("customColorEnd","#EA78C5");
-                solid.addProperty("style","shimmer");solid.addProperty("shimmerSpeed",1.7);solid.addProperty("shimmerColor","#0055FF");solid.addProperty("shimmerHighlightColor","#66DDFF");nick.add("solid",solid);features.add("nickTweaks",nick);user.add("features",features);
+                solid.addProperty("style","shimmer");solid.addProperty("shimmerSpeed",1.7);solid.addProperty("shimmerColor","#0055FF");solid.addProperty("shimmerHighlightColor","#66DDFF");solid.addProperty("shimmerSize",.35);solid.addProperty("shimmerInterval",4.7);nick.add("solid",solid);features.add("nickTweaks",nick);user.add("features",features);
                 UUID id=UUID.fromString("12345678-1234-4234-8234-123456789abc");users.add(id.toString(),user);payload.add("users",users);
                 var apply=PresenceSync.class.getDeclaredMethod("applyPayload",String.class,boolean.class,boolean.class);apply.setAccessible(true);apply.invoke(null,payload.toString(),false,true);
                 var profile=PresenceSync.getChromaProfileByName("Alice");
-                if(profile==null||!profile.gradientStyle().equals("shimmer")||profile.shimmerSpeed()!=1.7||profile.shimmerColor()!=0x0055FF||profile.shimmerHighlightColor()!=0x66DDFF)throw new AssertionError("The remote gradient settings were lost");
+                if(profile==null||!profile.gradientStyle().equals("shimmer")||profile.shimmerSpeed()!=1.7||profile.shimmerColor()!=0x0055FF||profile.shimmerHighlightColor()!=0x66DDFF||profile.shimmerSize()!=.35||profile.shimmerInterval()!=4.7)throw new AssertionError("The remote gradient settings were lost");
                 var remoteGlyphs=prepared(client.font.prepareText(net.minecraft.locale.Language.getInstance().getVisualOrder(NickRenderUtils.handleFormattedText(Component.literal("Alice"))),0,0,-1,false,false,0));
                 if(remoteGlyphs.size()!=2||remoteGlyphs.getFirst().effect().gradient().shimmerColor()!=0x0055FF||remoteGlyphs.getFirst().effect().gradient().shimmerHighlightColor()!=0x66DDFF)
                     throw new AssertionError("Remote formatted nickname did not create gradient glyphs");

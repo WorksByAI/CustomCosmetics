@@ -103,13 +103,14 @@ public final class PresenceAuthClient {
 
     /** Fixed official endpoint, default TLS validation, no redirects or service-provided URLs. */
     public static void joinMojang(UUID uuid, String accessToken, String serverId) throws Exception {
+        RemoteAccess.requireOnline();
         if (accessToken == null || accessToken.isBlank() || "0".equals(accessToken))
             throw new SyncRequestException(SyncFailure.of(SyncFailure.Reason.INVALID_MINECRAFT_SESSION, SyncFailure.Stage.MINECRAFT_AUTH));
         JsonObject body = new JsonObject();
         body.addProperty("accessToken", accessToken);
         body.addProperty("selectedProfile", uuid.toString().replace("-", ""));
         body.addProperty("serverId", serverId);
-        HttpURLConnection connection = (HttpURLConnection) MOJANG_JOIN.toURL().openConnection();
+        HttpURLConnection connection = RemoteAccess.manage((HttpURLConnection) MOJANG_JOIN.toURL().openConnection());
         try {
             configurePost(connection, body);
             int status = connection.getResponseCode();

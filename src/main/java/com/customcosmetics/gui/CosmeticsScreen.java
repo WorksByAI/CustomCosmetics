@@ -89,6 +89,12 @@ public final class CosmeticsScreen extends Screen {
             navigation.add(addWidget(action));
         }
         navigation.add(addWidget(new RepositoryButton(panelX + 12, panelY + panelHeight - 42)));
+        var mode = new PinkUi.Action(panelX + 47, panelY + panelHeight - 42, sideWidth - 55, 30,
+            ConfigManager.offlineMode ? "Offline" : "Online", false, () -> {
+                com.customcosmetics.config.CosmeticsMode.setOffline(!ConfigManager.offlineMode); rebuildWidgets();
+            });
+        mode.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal("Offline: local cosmetics only. No remote connections.")));
+        navigation.add(addWidget(mode));
         navigation.add(addWidget(new PinkUi.Action(panelX + panelWidth - 32, panelY + 15, 20, 20, "×", false, this::onClose)));
         pinnedNickname = panelHeight >= 360 && (page == Page.NICK || page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS);
         if (pinnedNickname) {
@@ -171,6 +177,8 @@ public final class CosmeticsScreen extends Screen {
     private void animations() {
         toggleRow("Sword Blocking", "Hold Use with a sword. Visual effect only.",
             () -> ConfigManager.swordBlockingEnabled, v -> ConfigManager.swordBlockingEnabled = v);
+        fullButton("Adjust Blocking", () -> com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,
+            new BlockingAdjustmentScreen(this)), false);
         blockingStyle = add(new BlockingStyleDropdown(contentX, rowY, contentWidth));
         rowY += 38;
         blockingMode = add(new BlockingModeDropdown(contentX, rowY, contentWidth));
@@ -258,15 +266,18 @@ public final class CosmeticsScreen extends Screen {
             ConfigManager.nickTweaksCustomNickColorEnabled = true;
             ConfigManager.nickTweaksChromaEnabled = false;
             ConfigManager.nickTweaksGradientStyle = "shimmer";
-            ConfigManager.nickTweaksShimmerSpeed = 1;
+            ConfigManager.nickTweaksShimmerSpeed = 1; ConfigManager.nickTweaksShimmerSize = 0.16; ConfigManager.nickTweaksShimmerInterval = 2;
             ConfigManager.nickTweaksGradientStartColor = com.customcosmetics.features.nickname.NicknameGradient.PRESET_START;
             ConfigManager.nickTweaksGradientEndColor = com.customcosmetics.features.nickname.NicknameGradient.PRESET_END;
             ConfigManager.nickTweaksShimmerColor = 0xFFCF64; ConfigManager.nickTweaksShimmerHighlightColor = 0xFFF0BB;
             editingShimmerColors = false;
             changed(); rebuildWidgets();
         }, false);
-        if (ConfigManager.nickTweaksGradientStyle.equals("shimmer"))
+        if (ConfigManager.nickTweaksGradientStyle.equals("shimmer")) {
+            sliderRow("Shimmer Size", "", () -> ConfigManager.nickTweaksShimmerSize, 0.02, 1, 0.01, 0.16, v -> ConfigManager.nickTweaksShimmerSize = v);
+            sliderRow("Shimmer Interval", "Seconds between sweeps.", () -> ConfigManager.nickTweaksShimmerInterval, 0, 30, 0.1, 2, v -> ConfigManager.nickTweaksShimmerInterval = v);
             sliderRow("Shimmer Speed", "", () -> ConfigManager.nickTweaksShimmerSpeed, 0, 4, 0.1, 1, v -> ConfigManager.nickTweaksShimmerSpeed = v);
+        }
         if (!ConfigManager.nickTweaksGradientStyle.equals("shimmer")) editingShimmerColors = false;
         if (ConfigManager.nickTweaksGradientStyle.equals("shimmer"))
             fullButton("Editing: " + (editingShimmerColors ? "Shimmer Colors" : "Gradient Colors"), () -> {
@@ -445,7 +456,7 @@ public final class CosmeticsScreen extends Screen {
     private void updateSyncNowButton() {
         if (syncNowButton == null) return;
         int remaining = PresenceSync.manualSyncCooldownSeconds();
-        syncNowButton.active = remaining == 0;
+        syncNowButton.active = !ConfigManager.offlineMode && remaining == 0;
         String label = remaining > 0 ? "Sync Now (" + remaining + "s)" : "Sync Now";
         if (!label.equals(syncNowButton.getMessage().getString())) syncNowButton.setMessage(Component.literal(label));
     }

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.3
+
+NickTweaks: Add Shimmer Size and Interval.
+
+Animations: Add blocking position, rotation and preview.
+
+Add Offline Mode.
+
 ## 1.0.2
 
 NickTweaks: Add color presets and customizable shimmer colors.

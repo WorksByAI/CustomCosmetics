@@ -18,10 +18,11 @@ public final class UpdateChecker {
         String installed = FabricLoader.getInstance().getModContainer("customcosmetics").orElseThrow()
             .getMetadata().getVersion().getFriendlyString();
         check = new GitHubUpdateCheck(installed);
-        check.start();
+        if (com.customcosmetics.sync.RemoteAccess.online()) check.start();
     }
     public static void tick(Minecraft client) {
-        if (check == null) return;
+        if (check == null || !com.customcosmetics.sync.RemoteAccess.online()) return;
+        check.start();
         String latest = check.poll(client.level != null && client.player != null);
         if (latest != null) ClientUiAccess.chat(client).addClientSystemMessage(message(check.installed(), latest));
     }

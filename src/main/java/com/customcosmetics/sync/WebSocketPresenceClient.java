@@ -157,5 +157,5 @@ public final class WebSocketPresenceClient implements BlockingPresence, WebSocke
     @Override public CompletionStage<?> onPong(WebSocket ws,java.nio.ByteBuffer data){ws.request(1);return null;}
     @Override public CompletionStage<?> onClose(WebSocket ws,int code,String reason){failure="close:"+code;close();return null;}
     @Override public void onError(WebSocket ws,Throwable error){failure="transport:"+error.getClass().getSimpleName();close();}
-    @Override public void close(){if(closed)return;closed=true;var pending=connecting;if(pending!=null)pending.cancel(true);var ws=socket;if(ws!=null)ws.abort();worker.shutdownNow();http.shutdownNow();remoteSnapshot=Map.of();receiver.accept(Map.of());}
+    @Override public void close(){if(closed)return;closed=true;RemoteAccess.release(this);var pending=connecting;if(pending!=null)pending.cancel(true);var ws=socket;if(ws!=null)ws.abort();worker.shutdownNow();http.shutdownNow();remoteSnapshot=Map.of();receiver.accept(Map.of());}
 }

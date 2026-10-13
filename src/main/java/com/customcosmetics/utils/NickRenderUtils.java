@@ -712,7 +712,7 @@ public final class NickRenderUtils {
             int remoteGradientEnd,
             String gradientStyle,
             double shimmerSpeed,
-            int shimmerColor, int shimmerHighlightColor
+            int shimmerColor, int shimmerHighlightColor, double shimmerSize, double shimmerInterval
     ) {
         static Target local(String name) {
             int[] cps = name.codePoints().toArray();
@@ -735,7 +735,7 @@ public final class NickRenderUtils {
                     0,
                     ConfigManager.nickTweaksGradientStyle,
                     ConfigManager.nickTweaksShimmerSpeed,
-                    ConfigManager.nickTweaksShimmerColor, ConfigManager.nickTweaksShimmerHighlightColor
+                    ConfigManager.nickTweaksShimmerColor, ConfigManager.nickTweaksShimmerHighlightColor, ConfigManager.nickTweaksShimmerSize,ConfigManager.nickTweaksShimmerInterval
             );
         }
 
@@ -759,7 +759,7 @@ public final class NickRenderUtils {
                     profile.gradientStart(),
                     profile.gradientEnd(),
                     profile.gradientStyle(),
-                    profile.shimmerSpeed(), profile.shimmerColor(), profile.shimmerHighlightColor()
+                    profile.shimmerSpeed(), profile.shimmerColor(), profile.shimmerHighlightColor(), profile.shimmerSize(),profile.shimmerInterval()
             );
         }
 
@@ -818,7 +818,9 @@ public final class NickRenderUtils {
                 local ? ConfigManager.nickTweaksGradientEndColor : remoteGradientEnd,
                 local ? ConfigManager.nickTweaksShimmerSpeed : shimmerSpeed,
                 local ? ConfigManager.nickTweaksShimmerColor : shimmerColor,
-                local ? ConfigManager.nickTweaksShimmerHighlightColor : shimmerHighlightColor);
+                local ? ConfigManager.nickTweaksShimmerHighlightColor : shimmerHighlightColor,
+                local ? ConfigManager.nickTweaksShimmerSize : shimmerSize,
+                local ? ConfigManager.nickTweaksShimmerInterval : shimmerInterval);
         }
 
         String replacementRaw() {

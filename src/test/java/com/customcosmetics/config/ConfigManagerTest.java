@@ -9,12 +9,27 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ConfigManagerTest {
+    @Test void offlineAndBlockingAdjustmentsRoundTrip() throws Exception {
+        var path=directory.resolve("studio.json");
+        ConfigManager.offlineMode=true;
+        ConfigManager.blockingX=.2;ConfigManager.blockingY=-.3;ConfigManager.blockingZ=.4;
+        ConfigManager.blockingRotationX=15;ConfigManager.blockingRotationY=-25;ConfigManager.blockingRotationZ=35;
+        ConfigManager.save(path);
+        ConfigManager.offlineMode=false;
+        com.customcosmetics.features.blocking.BlockingAdjustment.reset();
+        ConfigManager.load(path);
+        assertTrue(ConfigManager.offlineMode);
+        assertEquals(.2,ConfigManager.blockingX);assertEquals(-.3,ConfigManager.blockingY);assertEquals(.4,ConfigManager.blockingZ);
+        assertEquals(15,ConfigManager.blockingRotationX);assertEquals(-25,ConfigManager.blockingRotationY);assertEquals(35,ConfigManager.blockingRotationZ);
+    }
     @Test void nicknameGradientOptionsRoundTripAndInvalidStylesFallBackSafely() throws Exception {
         var path=directory.resolve("shimmer.json");
         ConfigManager.nickTweaksGradientStyle="shimmer";ConfigManager.nickTweaksShimmerSpeed=1.6;
+        ConfigManager.nickTweaksShimmerSize=.35;ConfigManager.nickTweaksShimmerInterval=4.7;
         ConfigManager.nickTweaksShimmerColor=0x0055FF;ConfigManager.nickTweaksShimmerHighlightColor=0x66DDFF;
         ConfigManager.save(path);ConfigManager.nickTweaksShimmerColor=0;ConfigManager.nickTweaksShimmerHighlightColor=0;ConfigManager.nickTweaksGradientStyle="character";ConfigManager.nickTweaksShimmerSpeed=0;
         ConfigManager.load(path);assertEquals("shimmer",ConfigManager.nickTweaksGradientStyle);assertEquals(1.6,ConfigManager.nickTweaksShimmerSpeed);
+        assertEquals(.35,ConfigManager.nickTweaksShimmerSize);assertEquals(4.7,ConfigManager.nickTweaksShimmerInterval);
         assertEquals(0x0055FF,ConfigManager.nickTweaksShimmerColor);assertEquals(0x66DDFF,ConfigManager.nickTweaksShimmerHighlightColor);
         Files.writeString(path,"{\"settings\":{\"nickTweaksGradientStyle\":\"unexpected\",\"nickTweaksShimmerSpeed\":90}}");
         ConfigManager.load(path);assertEquals("character",ConfigManager.nickTweaksGradientStyle);assertEquals(4,ConfigManager.nickTweaksShimmerSpeed);

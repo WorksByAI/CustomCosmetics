@@ -28,8 +28,13 @@ public final class BlockingSync {
     private static long now() { return System.nanoTime() / 1_000_000; }
     public static void localHandChanged(BlockHand hand, String itemId) { if (live != null && !live.closed()) live.setPose(hand, itemId); }
     public static BlockingTransport.Pose pose(UUID uuid) {
+        if (!RemoteAccess.online()) return null;
         var pose = remote.get(uuid);
         return pose != null && pose.expiresAt() > now() ? pose : null;
+    }
+    public static void disconnect() {
+        GENERATION.incrementAndGet(); if (live != null) live.close();
+        live = null; remote = Map.of(); authenticated = null; endpoint = ""; nextConnect = 0;
     }
     public static BlockHand hand(UUID uuid) {
         var pose = pose(uuid);
@@ -38,7 +43,7 @@ public final class BlockingSync {
     public static void tick(BlockHand local, String itemId, Object worldIdentity) {
         String base = PresenceSync.serviceBaseUrl(), host = SyncEndpoint.normalizeHost(ConfigManager.syncUdpHost);
         boolean useUdp = "udp".equals(ConfigManager.syncBlockingTransport);
-        boolean active = worldIdentity != null && !base.isBlank() && (!useUdp || host != null && !host.isBlank())
+        boolean active = RemoteAccess.online() && worldIdentity != null && !base.isBlank() && (!useUdp || host != null && !host.isBlank())
             && ConfigManager.swordBlockingEnabled && ConfigManager.swordBlockingSyncEnabled && ConfigManager.syncEnabled;
         String key = active ? base + "|" + ConfigManager.syncBlockingTransport + "|" + host + ":" + ConfigManager.syncUdpPort : "";
         var auth = active ? PresenceSync.actionSession() : null;
@@ -60,8 +65,8 @@ public final class BlockingSync {
                 var session = useUdp ? TRANSPORT.udpSession(base, auth) : null;
                 java.util.function.Consumer<Map<UUID, BlockingTransport.Pose>> receiver =
                     poses -> { if (generation == GENERATION.get()) remote = poses; };
-                BlockingPresence candidate = useUdp ? new UdpPresenceClient(host, ConfigManager.syncUdpPort, session, receiver)
-                    : new WebSocketPresenceClient(base, auth, receiver);
+                BlockingPresence candidate = RemoteAccess.channel(() -> useUdp ? new UdpPresenceClient(host, ConfigManager.syncUdpPort, session, receiver)
+                    : new WebSocketPresenceClient(base, auth, receiver));
                 client.execute(() -> {
                     if (generation != GENERATION.get()) { candidate.close(); return; }
                     live = candidate;

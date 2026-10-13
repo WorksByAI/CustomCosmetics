@@ -42,7 +42,7 @@ public final class GitHubUpdateCheck {
     public String poll(boolean worldReady) { return worldReady ? pending.getAndSet(null) : null; }
 
     static Optional<String> fetch(URI endpoint, String installed) throws IOException {
-        HttpURLConnection connection = (HttpURLConnection) endpoint.toURL().openConnection();
+        HttpURLConnection connection = com.customcosmetics.sync.RemoteAccess.manage((HttpURLConnection) endpoint.toURL().openConnection());
         connection.setConnectTimeout(5000); connection.setReadTimeout(5000);
         connection.setInstanceFollowRedirects(false); connection.setUseCaches(false);
         connection.setRequestProperty("Accept", "application/vnd.github+json");

@@ -47,6 +47,11 @@ public final class ConfigManager {
     public static int nickTweaksShimmerColor = 0xFFCF64;
     public static int nickTweaksShimmerHighlightColor = 0xFFF0BB;
     public static double nickTweaksShimmerSpeed = 1.0;
+    public static double nickTweaksShimmerSize = 0.16;
+    public static double nickTweaksShimmerInterval = 2;
+    public static volatile boolean offlineMode = false;
+    public static double blockingX=0, blockingY=0, blockingZ=0;
+    public static double blockingRotationX=0, blockingRotationY=0, blockingRotationZ=0;
     public static boolean swordBlockingEnabled = true;
     public static String swordBlockingStyle = "default";
     public static boolean swordBlockingSyncEnabled = true;
@@ -121,6 +126,8 @@ public final class ConfigManager {
             nickTweaksChromaLightness = Math.clamp(nickTweaksChromaLightness, 0.2, 1.0);
             nickTweaksGradientStyle = com.customcosmetics.features.nickname.NicknameGradient.normalizeStyle(nickTweaksGradientStyle);
             nickTweaksShimmerSpeed = Double.isFinite(nickTweaksShimmerSpeed) ? Math.clamp(nickTweaksShimmerSpeed, 0, 4) : 1;
+            nickTweaksShimmerSize = com.customcosmetics.features.nickname.NicknameGradient.normalizeSize(nickTweaksShimmerSize);
+            nickTweaksShimmerInterval = com.customcosmetics.features.nickname.NicknameGradient.normalizeInterval(nickTweaksShimmerInterval);
             clampAnimations();
             swordBlockingStyle = com.customcosmetics.features.blocking.BlockingStyle.parse(swordBlockingStyle).value();
             swordBlockingListMode = com.customcosmetics.features.blocking.BlockingRules.Mode.parse(swordBlockingListMode).value();

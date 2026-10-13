@@ -61,6 +61,7 @@ public final class SmolPlayers {
             return ConfigManager.smolpeopleMode;
         }
 
+        if (ConfigManager.offlineMode) return false;
         Player targetPlayer = getPlayerByEntityId(entityId);
         if (targetPlayer == null) {
             return false;

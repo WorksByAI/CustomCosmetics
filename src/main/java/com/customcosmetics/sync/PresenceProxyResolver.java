@@ -65,6 +65,7 @@ public final class PresenceProxyResolver {
     }
 
     public static boolean establishSession(String healthUrl) {
+        if (!RemoteAccess.online()) return false;
         resetSession();
         if (healthUrl == null || healthUrl.isBlank()) {
             sessionReady = true;
@@ -123,6 +124,7 @@ public final class PresenceProxyResolver {
     }
 
     public static HttpURLConnection openConnection(String url, int attempt) throws Exception {
+        RemoteAccess.requireOnline();
         URI uri = URI.create(url);
         ResolvedRoute route = routeForAttempt(attempt);
         HttpURLConnection conn = (HttpURLConnection) (route.proxy() == null
@@ -132,7 +134,7 @@ public final class PresenceProxyResolver {
         if (route.proxy() != null) {
             applyProxyAuthIfConfigured(conn,route);
         }
-        return conn;
+        return RemoteAccess.manage(conn);
     }
     static ResolvedRoute webSocketRoute() { return routeForAttempt(0); }
 
@@ -144,6 +146,7 @@ public final class PresenceProxyResolver {
                     ? uri.toURL().openConnection(Proxy.NO_PROXY)
                     : uri.toURL().openConnection(route.proxy()));
             SyncTls.configure(connection);
+            connection = RemoteAccess.manage(connection);
             connection.setRequestMethod("GET");
             connection.setConnectTimeout(CONNECT_TIMEOUT_MS);
             connection.setReadTimeout(READ_TIMEOUT_MS);

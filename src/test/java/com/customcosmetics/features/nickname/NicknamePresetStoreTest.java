@@ -12,6 +12,19 @@ import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
 
 class NicknamePresetStoreTest {
+    @Test void sizeAndIntervalAreLocalPresetDataAndSurviveReloadAndApply() throws Exception {
+        ConfigManager.nickTweaksShimmerSize=.35;ConfigManager.nickTweaksShimmerInterval=4.7;
+        var saved=NicknameColors.capture();var path=directory.resolve("presets.json");
+        new NicknamePresetStore(path).put("Wide",saved);
+        var disk=new NicknamePresetStore(path);disk.load();
+        ConfigManager.nickTweaksShimmerSize=.05;ConfigManager.nickTweaksShimmerInterval=0;
+        disk.entries().get("Wide").apply();assertEquals(saved,NicknameColors.capture());
+        var root=JsonParser.parseString(Files.readString(path)).getAsJsonObject();
+        root.getAsJsonObject("presets").getAsJsonObject("Wide").remove("shimmerSize");
+        root.getAsJsonObject("presets").getAsJsonObject("Wide").remove("shimmerInterval");
+        Files.writeString(path,root.toString());disk.load();
+        assertEquals(.16,disk.entries().get("Wide").shimmerSize());assertEquals(2,disk.entries().get("Wide").shimmerInterval());
+    }
     @TempDir Path directory;
     private final Map<Field,Object> original = new HashMap<>();
     @BeforeEach void isolate() throws Exception {

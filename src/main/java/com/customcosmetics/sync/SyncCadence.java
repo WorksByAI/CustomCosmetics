@@ -10,7 +10,7 @@ public final class SyncCadence {
     private boolean readStarted, manualStarted;
     public record Due(boolean read, boolean checkWrite, boolean heartbeat) {}
     public Due tick(long now, boolean active, long pollMs) {
-        if (!active) { reset(); return new Due(false, false, false); }
+        if (!active) return new Due(false, false, false);
         boolean read = !readStarted || now - lastRead >= Math.clamp(pollMs, MIN_POLL_MS, MAX_POLL_MS);
         boolean check = now >= nextCheck;
         boolean heartbeat = now >= nextHeartbeat;

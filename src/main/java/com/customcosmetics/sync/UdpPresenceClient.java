@@ -138,5 +138,5 @@ public final class UdpPresenceClient implements BlockingPresence {
         return Map.copyOf(poses);
     }
     private static void send(DatagramSocket socket, byte[] data) throws java.io.IOException { socket.send(new DatagramPacket(data, data.length)); }
-    @Override public void close() { closed = true; var connection = socket; if (connection != null) connection.close(); }
+    @Override public void close() { closed = true; RemoteAccess.release(this); var connection = socket; if (connection != null) connection.close(); }
 }

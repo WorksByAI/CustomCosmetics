@@ -97,12 +97,13 @@ public final class PresenceSync {
         activeWorldConnection = null;
         wasAutoSyncActive = false;
         loadCacheFromDisk();
-        if (ConfigManager.syncEnabled) {
+        if (RemoteAccess.online() && ConfigManager.syncEnabled) {
             CompletableFuture.runAsync(PresenceSync::runPresenceConnectivityProbe);
         }
     }
 
     public static void runPresenceConnectivityProbe() {
+        if (!RemoteAccess.online()) return;
         String fetchUrl = resolveFetchUrl();
         if (fetchUrl == null || fetchUrl.isBlank()) {
             return;
@@ -111,6 +112,7 @@ public final class PresenceSync {
     }
 
     public static void tick() {
+        if (!RemoteAccess.online()) return;
         if (RemoteServerConfig.reload(false)) onServerAddressChanged();
         handleImmediateSyncTriggers();
     }
@@ -132,6 +134,7 @@ public final class PresenceSync {
     }
 
     public static boolean syncOnce() {
+        if (!RemoteAccess.online()) return false;
         if (RemoteServerConfig.reload(true)) onServerAddressChanged();
         if (!CADENCE.tryManualSync(System.nanoTime())) return false;
         long now = System.currentTimeMillis();
@@ -143,23 +146,28 @@ public final class PresenceSync {
     }
 
     public static void onClickGuiClosed() {
-        attemptReport(System.currentTimeMillis(), false, false);
+        // GUI changes remain local until the configured automatic sync tick.
     }
 
     public static void onServerAddressChanged() {
+        onModeChanged();
+        CADENCE.reset();
+    }
+
+    public static void onModeChanged() {
         ENDPOINT_VERSION.incrementAndGet();
         MANUAL_RESULT.cancel();
         PresenceProxyResolver.resetSession();
         authSession = null;
         lastReportedSignature = "";
         nextReportAllowedAt = 0;
-        CADENCE.reset();
         remoteSnapshot = new RemoteSnapshot(Map.of(), Map.of(), List.of(), false);
         NickRenderUtils.invalidateLocalTargetsCache();
         STARTUP_NOTICE.addressChanged();
     }
 
     private static void attemptReport(long now, boolean forceUpload, boolean forceRemoteSync) {
+        if (!RemoteAccess.online()) return;
         if (!forceRemoteSync && !ConfigManager.syncEnabled) return;
         String base = serviceBaseUrl();
         if (base.isBlank()) {
@@ -244,7 +252,7 @@ public final class PresenceSync {
                     nowIsoToEpochMs(nowIso),
                     false,
                     local.gradientStyle(),
-                    local.shimmerSpeed(), local.shimmerColor(), local.shimmerHighlightColor()
+                    local.shimmerSpeed(), local.shimmerColor(), local.shimmerHighlightColor(), local.shimmerSize(),local.shimmerInterval()
             ));
 
             JsonObject root = new JsonObject();
@@ -305,6 +313,8 @@ public final class PresenceSync {
                 solid.addProperty("shimmerSpeed", state.shimmerSpeed());
                 solid.addProperty("shimmerColor", String.format("#%06X", state.shimmerColor() & 0xFFFFFF));
                 solid.addProperty("shimmerHighlightColor", String.format("#%06X", state.shimmerHighlightColor() & 0xFFFFFF));
+                solid.addProperty("shimmerSize", state.shimmerSize());
+                solid.addProperty("shimmerInterval", state.shimmerInterval());
                 nickTweaks.add("solid", solid);
             }
         }
@@ -365,9 +375,10 @@ public final class PresenceSync {
         wasAutoSyncActive = active;
         SyncCadence.Due due = CADENCE.tick(System.currentTimeMillis(), active,
             ConfigManager.getSyncRefreshIntervalSeconds() * 1000L);
-        if (due.read()) requestRemoteRefresh(false);
-        if (due.checkWrite() || due.heartbeat())
-            attemptReport(System.currentTimeMillis(), due.heartbeat(), false);
+        if (due.read()) {
+            requestRemoteRefresh(false);
+            attemptReport(System.currentTimeMillis(), true, false);
+        }
         if (inWorld) {
             long version = ENDPOINT_VERSION.get();
             if (MANUAL_RESULT.needs(version, StartupSyncNotice.Operation.READ)) requestRemoteRefresh(true);
@@ -398,6 +409,7 @@ public final class PresenceSync {
     }
 
     private static void requestRemoteRefresh(boolean forceRemoteSync) {
+        if (!RemoteAccess.online()) return;
         if (!forceRemoteSync && !ConfigManager.syncEnabled) return;
         String url = resolveFetchUrl();
         if (url.isBlank()) {
@@ -424,7 +436,7 @@ public final class PresenceSync {
     }
 
     static String serviceBaseUrl() {
-        return SyncEndpoint.baseUrl();
+        return RemoteAccess.online() ? SyncEndpoint.baseUrl() : "";
     }
 
     private static String resolveFetchUrl() {
@@ -438,12 +450,14 @@ public final class PresenceSync {
     }
 
     public static boolean isSmolEnabledFor(UUID uuid) {
+        if (!RemoteAccess.online()) return false;
         if (uuid == null) return false;
         RemoteUserState state = remoteSnapshot.users().get(uuid);
         return state != null && state.smolPeopleEnabled();
     }
 
     public static Boolean getRemoteSmolPreference(UUID uuid) {
+        if (!RemoteAccess.online()) return null;
         if (uuid == null) return null;
         RemoteUserState state = remoteSnapshot.users().get(uuid);
         if (state == null) return null;
@@ -451,6 +465,7 @@ public final class PresenceSync {
     }
 
     public static Double getRemoteSmolLimbSwingSpeed(UUID uuid) {
+        if (!RemoteAccess.online()) return null;
         RemoteUserState state = uuid == null ? null : remoteSnapshot.users().get(uuid);
         return state == null ? null : state.smolLimbSwingSpeed();
     }
@@ -460,16 +475,17 @@ public final class PresenceSync {
     }
 
     public static boolean hasRemoteSmolUser() {
-        return remoteSnapshot.hasSmol();
+        return RemoteAccess.online() && remoteSnapshot.hasSmol();
     }
 
     public static ChromaProfile getChromaProfileByName(String name) {
+        if (!RemoteAccess.online()) return null;
         if (name == null || name.isBlank()) return null;
         return remoteSnapshot.profiles().get(name.toLowerCase(Locale.ROOT));
     }
 
     public static List<RemoteNickname> remoteNicknames() {
-        return remoteSnapshot.nicknames();
+        return RemoteAccess.online() ? remoteSnapshot.nicknames() : List.of();
     }
 
     private static boolean fetchAndReplace(String url, boolean forceRemoteSync, long endpointVersion) throws SyncRequestException {
@@ -482,6 +498,10 @@ public final class PresenceSync {
                 connection.setReadTimeout(FETCH_READ_TIMEOUT_MS);
                 connection.setUseCaches(false);
                 connection.setRequestProperty("Accept", "application/json");
+                var identity = authSession;
+                var account = Minecraft.getInstance().getUser();
+                if (identity != null && identity.validFor(serviceBaseUrl(), account.getProfileId(), account.getName()))
+                    connection.setRequestProperty("Authorization", "Bearer " + identity.token());
                 LocalPlayer player = Minecraft.getInstance().player;
                 if (player != null) {
                     connection.setRequestProperty("x-customcosmetics-uuid", player.getUUID().toString());
@@ -572,7 +592,7 @@ public final class PresenceSync {
             nickChanger,
             com.customcosmetics.features.nickname.NicknameGradient.normalizeStyle(ConfigManager.nickTweaksGradientStyle),
             Double.isFinite(ConfigManager.nickTweaksShimmerSpeed) ? clamp(ConfigManager.nickTweaksShimmerSpeed, 0, 4) : 1,
-            ConfigManager.nickTweaksShimmerColor & 0xFFFFFF, ConfigManager.nickTweaksShimmerHighlightColor & 0xFFFFFF
+            ConfigManager.nickTweaksShimmerColor & 0xFFFFFF, ConfigManager.nickTweaksShimmerHighlightColor & 0xFFFFFF, ConfigManager.nickTweaksShimmerSize,ConfigManager.nickTweaksShimmerInterval
         );
         return state;
     }
@@ -615,6 +635,8 @@ public final class PresenceSync {
                 solid.addProperty("shimmerSpeed", state.shimmerSpeed());
                 solid.addProperty("shimmerColor", String.format("#%06X", state.shimmerColor() & 0xFFFFFF));
                 solid.addProperty("shimmerHighlightColor", String.format("#%06X", state.shimmerHighlightColor() & 0xFFFFFF));
+                solid.addProperty("shimmerSize", state.shimmerSize());
+                solid.addProperty("shimmerInterval", state.shimmerInterval());
                 nickTweaks.add("solid", solid);
             }
         }
@@ -740,6 +762,7 @@ public final class PresenceSync {
     }
 
     private static void applyPayload(String json, boolean overrideOwnState, boolean forceRemoteSync) {
+        if (!RemoteAccess.online()) return;
         JsonElement rootElement = JsonParser.parseString(json);
         if (!rootElement.isJsonObject()) return;
 
@@ -787,6 +810,8 @@ public final class PresenceSync {
             int gradientEnd = 0xC299FF;
             String gradientStyle = "character";
             double shimmerSpeed = 1;
+            double shimmerSize = com.customcosmetics.features.nickname.NicknameGradient.DEFAULT_SIZE;
+            double shimmerInterval = com.customcosmetics.features.nickname.NicknameGradient.DEFAULT_INTERVAL;
             int shimmerColor = 0xFFCF64, shimmerHighlightColor = 0xFFF0BB;
             int[] palette = new int[0];
 
@@ -815,6 +840,8 @@ public final class PresenceSync {
                     shimmerSpeed = Double.isFinite(rawShimmerSpeed) ? clamp(rawShimmerSpeed, 0, 4) : 1;
                     shimmerColor = parseHexColor(solidObj, "shimmerColor", 0xFFCF64);
                     shimmerHighlightColor = parseHexColor(solidObj, "shimmerHighlightColor", 0xFFF0BB);
+                    shimmerSize = com.customcosmetics.features.nickname.NicknameGradient.normalizeSize(getAsDouble(solidObj,"shimmerSize",0.16));
+                    shimmerInterval = com.customcosmetics.features.nickname.NicknameGradient.normalizeInterval(getAsDouble(solidObj,"shimmerInterval",2));
                     palette = new int[]{gradientStart, gradientEnd};
                 }
             }
@@ -849,14 +876,14 @@ public final class PresenceSync {
                 lastSeenEpochMs,
                 stale,
                 gradientStyle,
-                shimmerSpeed, shimmerColor, shimmerHighlightColor
+                shimmerSpeed, shimmerColor, shimmerHighlightColor, shimmerSize, shimmerInterval
             );
             newUsers.put(uuid, state);
             if (nickTweaksEnabled) {
                 String nameLower = name.toLowerCase(Locale.ROOT);
                 newChromaByName.put(
                     nameLower,
-                    new ChromaProfile(chromaEnabled, palette, speed, chromaSize, chromaAmount, chromaLightness, gradientStart, gradientEnd, boldSelf, customNickColorEnabled, nickChanger, gradientStyle, shimmerSpeed, shimmerColor, shimmerHighlightColor)
+                    new ChromaProfile(chromaEnabled, palette, speed, chromaSize, chromaAmount, chromaLightness, gradientStart, gradientEnd, boldSelf, customNickColorEnabled, nickChanger, gradientStyle, shimmerSpeed, shimmerColor, shimmerHighlightColor, shimmerSize, shimmerInterval)
                 );
                 newNicknames.add(new RemoteNickname(uuid, name, newChromaByName.get(nameLower)));
             }
@@ -899,7 +926,7 @@ public final class PresenceSync {
             + "|" + r.smolLimbSwingSpeed() + "|" + r.chromaSpeed() + "|" + r.chromaSize() + "|" + r.chromaAmount() + "|" + r.chromaLightness()
             + "|" + (r.gradientStart() & 0xFFFFFF) + "|" + (r.gradientEnd() & 0xFFFFFF)
             + "|" + r.boldEnabled() + "|" + r.customNickColorEnabled() + "|" + (r.nickChanger() == null ? "" : r.nickChanger())
-            + "|" + r.gradientStyle() + "|" + r.shimmerSpeed() + "|" + r.shimmerColor() + "|" + r.shimmerHighlightColor()
+            + "|" + r.gradientStyle() + "|" + r.shimmerSpeed() + "|" + r.shimmerColor() + "|" + r.shimmerHighlightColor() + "|" + r.shimmerSize() + "|" + r.shimmerInterval()
             + "|" + java.util.Arrays.toString(r.chromaPalette() == null ? new int[0] : r.chromaPalette()));
     }
 
@@ -1023,12 +1050,16 @@ public final class PresenceSync {
             String gradientStyle,
             double shimmerSpeed,
             int shimmerColor,
-            int shimmerHighlightColor
+            int shimmerHighlightColor,
+            double shimmerSize,
+            double shimmerInterval
     ) {
         public ChromaProfile(boolean chromaEnabled, int[] palette, double speed, double chromaSize, double chromaAmount, double chromaLightness, int gradientStart, int gradientEnd, boolean boldSelf, boolean customNickColorEnabled, String nickChanger, String gradientStyle, double shimmerSpeed) {
-            this(chromaEnabled, palette, speed, chromaSize, chromaAmount, chromaLightness, gradientStart, gradientEnd, boldSelf, customNickColorEnabled, nickChanger, gradientStyle, shimmerSpeed, 0xFFCF64, 0xFFF0BB);
+            this(chromaEnabled, palette, speed, chromaSize, chromaAmount, chromaLightness, gradientStart, gradientEnd, boldSelf, customNickColorEnabled, nickChanger, gradientStyle, shimmerSpeed, 0xFFCF64, 0xFFF0BB, 0.16, 2);
         }
         public ChromaProfile {
+            shimmerInterval = com.customcosmetics.features.nickname.NicknameGradient.normalizeInterval(shimmerInterval);
+            shimmerSize = com.customcosmetics.features.nickname.NicknameGradient.normalizeSize(shimmerSize);
             shimmerColor &= 0xFFFFFF; shimmerHighlightColor &= 0xFFFFFF;
             if (palette == null) palette = new int[0];
             gradientStart &= 0xFFFFFF;
@@ -1065,7 +1096,9 @@ public final class PresenceSync {
             String gradientStyle,
             double shimmerSpeed,
             int shimmerColor,
-            int shimmerHighlightColor
+            int shimmerHighlightColor,
+            double shimmerSize,
+            double shimmerInterval
     ) {
     }
 
@@ -1089,13 +1122,15 @@ public final class PresenceSync {
             String gradientStyle,
             double shimmerSpeed,
             int shimmerColor,
-            int shimmerHighlightColor
+            int shimmerHighlightColor,
+            double shimmerSize,
+            double shimmerInterval
     ) {
         String signature() {
             return uuid + "|" + name + "|" + nickTweaksEnabled + "|" + chromaEnabled + "|" + smolEnabled + "|" + smolLimbSwingSpeed + "|" + chromaSpeed
                     + "|" + chromaSize + "|" + chromaAmount + "|" + chromaLightness
                     + "|" + gradientStart + "|" + gradientEnd + "|" + boldSelf + "|" + customNickColorEnabled + "|" + nickChanger
-                    + "|" + gradientStyle + "|" + shimmerSpeed + "|" + shimmerColor + "|" + shimmerHighlightColor
+                    + "|" + gradientStyle + "|" + shimmerSpeed + "|" + shimmerColor + "|" + shimmerHighlightColor + "|" + shimmerSize + "|" + shimmerInterval
                     + "|" + java.util.Arrays.toString(chromaPalette);
         }
     }
