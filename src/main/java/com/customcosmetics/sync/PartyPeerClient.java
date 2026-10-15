@@ -1,0 +1,135 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+package com.customcosmetics.sync;
+
+import com.customcosmetics.features.party.PartyRoster;
+import com.google.gson.*;
+import java.net.*;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+import java.io.IOException;
+
+/** Ephemeral, pair-key-authenticated UDP hole punching; game sockets and login tokens are never used. */
+public final class PartyPeerClient implements AutoCloseable {
+    public interface Sender {void send(byte[] bytes,InetSocketAddress address)throws IOException;}
+    public interface Receiver {void record(JsonObject record)throws Exception;}
+    public record Context(UUID self,long epoch,long scope,String world,PartyRoster roster,boolean enabled){}
+    private record Pending(long sent,InetSocketAddress address){}
+    private static final int MAX_PEERS=16;
+    private static final class Replay {
+        long highest,bits;
+        boolean accept(long sequence){if(sequence<=0)return false;if(sequence>highest){long gap=sequence-highest;bits=gap>=64?1:bits<<gap|1;highest=sequence;return true;}
+            long gap=highest-sequence;if(gap>=64||(bits&(1L<<gap))!=0)return false;bits|=1L<<gap;return true;}
+    }
+    private static final class Peer {
+        String id,key;UUID uuid;String name;long epoch,scope,deadline,nextProbe,nextShadow,lastData=Long.MIN_VALUE/2,window,remoteWantUntil;double relayRtt=500;
+        int count;boolean want,remoteWant;UdpPacket cipher;Counters counters;
+        List<InetSocketAddress> candidates=List.of();final Map<InetSocketAddress,PeerPath> paths=new HashMap<>();final Map<Long,Pending> pending=new HashMap<>();
+        InetSocketAddress address;
+    }
+    private static final class Counters {long[] outgoing=new long[3];Replay[] replay={null,new Replay(),new Replay()};long ping;}
+    private final Sender sender;private final Receiver receiver;private final Map<String,Peer> peers=new HashMap<>();
+    // Forget keys/addresses on opt-out, but retain nonce/replay counters for this session.
+    // Re-authorizing an unchanged pair ID must never restart AES-GCM nonces.
+    private final Map<String,Counters> counters=new HashMap<>();
+    private Context context;private Set<String> permitted=Set.of();private Set<UUID> selected=Set.of();private boolean changed;
+    private long permittedUntil;
+    private double tokens=25000;private long budgetTime;
+    public PartyPeerClient(Sender sender,Receiver receiver){this.sender=sender;this.receiver=receiver;}
+    public void context(Context next){
+        if(!Objects.equals(context,next)){close();context=next;}
+    }
+    public Set<UUID> direct(){return selected;}
+    public boolean sendingDirect(){return peers.values().stream().anyMatch(p->p.remoteWant);}
+    public boolean changed(){boolean value=changed;changed=false;return value;}
+    public int size(){return peers.size();}
+    public void permit(JsonArray ids,long now){
+        if(ids==null||ids.size()>MAX_PEERS){permitted=Set.of();peers.clear();return;}
+        var allowed=new HashSet<String>();for(var id:ids){String value=id.getAsString();if(value.matches("[a-f0-9]{32}"))allowed.add(value);}
+        permitted=Set.copyOf(allowed);permittedUntil=now+4000;peers.keySet().retainAll(allowed);
+    }
+    public void offer(JsonObject grant,long now)throws Exception {
+        if(context==null||!context.enabled()||context.world().isEmpty())return;
+        String id=grant.get("id").getAsString(),key=grant.get("key").getAsString();UUID uuid=UUID.fromString(grant.get("uuid").getAsString());
+        String name=grant.get("name").getAsString();long epoch=grant.get("epoch").getAsLong(),scope=grant.get("scope").getAsLong();
+        long remaining=grant.get("expiresAt").getAsLong()-grant.get("serverTime").getAsLong();
+        if(now>=permittedUntil||!permitted.contains(id)||!key.matches("[a-f0-9]{64}")||epoch<1||scope<1||uuid.equals(context.self())||
+            !name.matches("[A-Za-z0-9_]{3,16}")||!context.roster().contains(uuid,name)||
+            grant.get("selfEpoch").getAsLong()!=context.epoch()||grant.get("selfScope").getAsLong()!=context.scope()||
+            !grant.get("world").getAsString().equals(context.world())||remaining<=0||remaining>10000)return;
+        var candidates=new ArrayList<InetSocketAddress>();var list=grant.getAsJsonArray("candidates");if(list.isEmpty()||list.size()>2)return;
+        for(var value:list){var candidate=value.getAsJsonObject();String host=candidate.get("host").getAsString();int port=candidate.get("port").getAsInt();
+            if(!host.matches("(?:[0-9]{1,3}\\.){3}[0-9]{1,3}")||port<1||port>65535)return;
+            var address=InetAddress.getByName(host);if(address.isAnyLocalAddress()||address.isMulticastAddress())return;
+            candidates.add(new InetSocketAddress(address,port));
+        }
+        Peer peer=peers.get(id);
+        if(peer==null){if(peers.size()>=MAX_PEERS||!counters.containsKey(id)&&counters.size()>=4096)return;peers.values().removeIf(p->p.uuid.equals(uuid));peer=new Peer();peer.id=id;peer.key=key;peer.uuid=uuid;peer.name=name;peer.epoch=epoch;peer.scope=scope;
+            peer.counters=counters.computeIfAbsent(id,ignored->new Counters());
+            peer.cipher=new UdpPacket(HexFormat.of().parseHex(id),HexFormat.of().parseHex(key),context.self().toString().compareTo(uuid.toString())<0,4);peers.put(id,peer);
+        }else if(!peer.key.equals(key)||peer.epoch!=epoch||peer.scope!=scope||!peer.uuid.equals(uuid))return;
+        peer.deadline=now+remaining;peer.candidates=List.copyOf(candidates);peer.relayRtt=Math.clamp(grant.get("relayRttMs").getAsDouble(),0,10000);
+        peer.paths.keySet().removeIf(a->!allowed(candidates,a));
+    }
+    private static boolean allowed(List<InetSocketAddress> candidates,InetSocketAddress source){return candidates.stream().anyMatch(a->a.getAddress().equals(source.getAddress()));}
+    public void tick(long now,double relayRtt){
+        if(now>=permittedUntil){permitted=Set.of();peers.clear();}
+        peers.values().removeIf(p->p.deadline<=now);
+        var next=new HashSet<UUID>();
+        for(var p:peers.values()){
+            if(p.remoteWant&&now>=p.remoteWantUntil){p.remoteWant=false;changed=true;}
+            for(var iterator=p.pending.entrySet().iterator();iterator.hasNext();){var pending=iterator.next().getValue();if(now-pending.sent()>1000){p.paths.computeIfAbsent(pending.address(),ignored->new PeerPath()).lost(now);iterator.remove();}}
+            double relay=(relayRtt>=0?relayRtt:500)+p.relayRtt;
+            var best=p.paths.entrySet().stream().filter(e->e.getValue().viable(now,relay)).min(Comparator.comparingDouble(e->e.getValue().rtt)).orElse(null);
+            p.want=best!=null&&now-p.lastData<=1000;
+            if(p.want){p.address=best.getKey();next.add(p.uuid);}
+            if(now>=p.nextProbe){p.nextProbe=now+250;
+                var addresses=new LinkedHashSet<>(p.candidates);if(p.address!=null&&allowed(p.candidates,p.address))addresses.add(p.address);
+                for(var address:addresses){if(p.pending.size()>=16)break;long ping=++p.counters.ping;var m=new JsonObject();m.addProperty("type","probe");m.addProperty("ping",ping);m.addProperty("want",p.want);
+                    if(send(p,2,m,address,now))p.pending.put(ping,new Pending(now,address));}
+            }
+        }
+        var result=Set.copyOf(next);if(!result.equals(selected)){selected=result;changed=true;for(var p:peers.values())p.nextProbe=0;}
+    }
+    public void publish(JsonObject state,long now){
+        for(var p:peers.values()){
+            if(p.deadline<=now||p.address==null||!allowed(p.candidates,p.address))continue;
+            if(!p.remoteWant&&now<p.nextShadow)continue;
+            p.nextShadow=now+500;var m=state.deepCopy();m.addProperty("sentAt",now);send(p,1,m,p.address,now);
+        }
+    }
+    private boolean send(Peer p,int flow,JsonObject m,InetSocketAddress address,long now){
+        try{tokens=Math.min(25000,tokens+Math.max(0,now-budgetTime)*250);budgetTime=now;
+            byte[] data=p.cipher.encode(flow,++p.counters.outgoing[flow],m.toString().getBytes(StandardCharsets.UTF_8));if(tokens<data.length+28)return false;
+            tokens-=data.length+28;sender.send(data,address);return true;
+        }catch(Exception unavailable){return false;}
+    }
+    public boolean receive(byte[] bytes,InetSocketAddress source,long now){
+        if(bytes.length<45||bytes.length>1200||bytes[0]!='C'||bytes[1]!='C'||bytes[2]!='P'||bytes[3]!='4')return false;
+        var p=peers.get(HexFormat.of().formatHex(bytes,5,21));if(p==null||p.deadline<=now||!allowed(p.candidates,source))return true;
+        if(now-p.window>=1000){p.window=now;p.count=0;}if(++p.count>80)return true;
+        try{
+            var packet=p.cipher.decode(bytes);if(!p.counters.replay[packet.flow()].accept(packet.sequence()))return true;
+            var m=JsonParser.parseString(new String(packet.body(),StandardCharsets.UTF_8)).getAsJsonObject();String type=m.get("type").getAsString();
+            if(packet.flow()==2){
+                long ping=m.get("ping").getAsLong();boolean want=m.get("want").getAsBoolean();if(ping<1)return true;
+                if(type.equals("probe")){var reply=new JsonObject();reply.addProperty("type","pong");reply.addProperty("ping",ping);reply.addProperty("clock",now);reply.addProperty("want",p.want);send(p,2,reply,source,now);}
+                else if(type.equals("pong")){
+                    var pending=p.pending.remove(ping);if(pending==null||!pending.address().getAddress().equals(source.getAddress()))return true;
+                    var path=p.paths.computeIfAbsent(source,ignored->new PeerPath());path.pong(now,pending.sent(),m.get("clock").getAsLong());
+                    if(p.address==null||!p.paths.containsKey(p.address)||path.rtt<p.paths.get(p.address).rtt)p.address=source;
+                }else return true;
+                p.remoteWantUntil=now+1000;if(p.remoteWant!=want){p.remoteWant=want;changed=true;}return true;
+            }
+            if(!type.equals("state")||m.get("scope").getAsLong()!=p.scope||!m.get("world").getAsString().equals(context.world()))return true;
+            String channel=m.get("channel").getAsString();long ttl=channel.equals("position")?3000:channel.equals("blocking")?1250:0;
+            if(ttl==0||m.get("sequence").getAsLong()<1)return true;
+            var path=p.paths.get(source);if(path==null||path.rtt<0)return true;
+            long age=(long)Math.max(0,now-(m.get("sentAt").getAsLong()-path.offset));if(age>=ttl)return true;
+            p.lastData=now;
+            var record=m.deepCopy();record.addProperty("type","record");record.addProperty("uuid",p.uuid.toString());record.addProperty("name",p.name);record.addProperty("epoch",p.epoch);
+            record.addProperty("actorScope",p.scope);record.addProperty("scope",context.scope());record.addProperty("serverTime",0);record.addProperty("expiresAt",ttl-age);
+            receiver.record(record);return true;
+        }catch(Exception malformed){return true;}
+    }
+    @Override public void close(){peers.clear();permitted=Set.of();if(!selected.isEmpty())changed=true;selected=Set.of();context=null;}
+}

@@ -34,7 +34,7 @@ class VisualOnlyTest {
                 "mixin/SwordBlockingMixin$FirstPersonModern", "mixin/SwordBlockingMixin$ThirdPerson",
                 "mixin/SwordBlockingMixin$ModernEquipment", "mixin/SwordBlockingMixin$ThirdPersonItem",
                 "features/animations/ViewModelAnimations", "features/animations/SwingTimeline",
-                "sync/UdpPresenceClient", "sync/UdpPacket")) {
+                "sync/UdpPresenceClient", "sync/UdpPacket", "sync/RealtimeSync", "sync/RealtimeClient", "sync/RealtimeRoute")) {
             try (var in = getClass().getClassLoader().getResourceAsStream("com/customcosmetics/" + type + ".class")) {
                 assertNotNull(in);
                 var model = ClassFile.of().parse(in.readAllBytes());
@@ -49,7 +49,8 @@ class VisualOnlyTest {
                                 "attack", "startDestroyBlock", "continueDestroyBlock", "stopDestroyBlock",
                                 "sendPacket", "getConnection", "setDown", "setKey", "setItemInHand").contains(name)
                                 || name.equals("send") && !owner.equals("java/net/DatagramSocket")
-                                    && !owner.equals("com/customcosmetics/sync/UdpPresenceClient"), owner + " " + name);
+                                    && !owner.equals("com/customcosmetics/sync/UdpPresenceClient")
+                                    && !owner.equals("com/customcosmetics/sync/RealtimeClient"), owner + " " + name);
                             assertFalse(owner.startsWith("net/minecraft/") && name.equals("swing"), "A visual animation must not invoke the player's packet-producing swing");
                         }
                         if (element instanceof FieldInstruction field && field.opcode().name().startsWith("PUT")) {

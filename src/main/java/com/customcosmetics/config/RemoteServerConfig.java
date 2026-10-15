@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
 /** Empty values use the bundled service; filled values are validated and applied together. */
 public final class RemoteServerConfig {
     public record Endpoint(String host, int port, boolean https, boolean sni, String udpHost, int udpPort, String transport) {}
-    public static final Endpoint DEFAULT = new Endpoint("cc.toryhi.com", 443, true, true, "cc.toryhi.com", 25578, "wss");
+    public static final Endpoint DEFAULT = new Endpoint("cc.toryhi.com", 443, true, true, "cc.toryhi.com", 25578, "auto");
     private static Path file;
     private static String previousText;
     private static long nextCheck;
@@ -43,7 +43,7 @@ public final class RemoteServerConfig {
         boolean sni = flag(json, "syncServerSni", true);
         String transport = value(json, "syncBlockingTransport").toLowerCase(java.util.Locale.ROOT);
         if (transport.isEmpty()) transport = DEFAULT.transport();
-        if (!transport.equals("wss") && !transport.equals("udp")) throw new IllegalArgumentException("Invalid blocking transport");
+        if (!transport.equals("wss") && !transport.equals("udp") && !transport.equals("auto")) throw new IllegalArgumentException("Invalid blocking transport");
         return new Endpoint(host, port, https, sni, host(json, "syncUdpHost", DEFAULT.udpHost()), port(json, "syncUdpPort", DEFAULT.udpPort()), transport);
     }
     private static String value(JsonObject json, String key) {

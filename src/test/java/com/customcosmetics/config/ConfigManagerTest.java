@@ -9,6 +9,53 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ConfigManagerTest {
+    @Test void partyP2pDefaultsOnAndExplicitOptOutPersists() throws Exception {
+        assertTrue(ConfigManager.partyP2pEnabled);var path=directory.resolve("party-p2p.json");
+        ConfigManager.partyP2pEnabled=false;ConfigManager.save(path);ConfigManager.partyP2pEnabled=true;ConfigManager.load(path);assertFalse(ConfigManager.partyP2pEnabled);
+    }
+    @Test void tracersAreOptionalAndSaveTheirOwnColor() throws Exception {
+        assertFalse(ConfigManager.partyTracersEnabled);var path=directory.resolve("party-tracers.json");
+        ConfigManager.partyTracersEnabled=true;ConfigManager.partyTracerColor=0x12ABEF;ConfigManager.save(path);
+        ConfigManager.partyTracersEnabled=false;ConfigManager.partyTracerColor=0;ConfigManager.load(path);
+        assertTrue(ConfigManager.partyTracersEnabled);assertEquals(0x12ABEF,ConfigManager.partyTracerColor);
+        assertEquals(0xFFA6CF,ConfigManager.partyEspColor);
+    }
+    @Test void partySettingsDefaultOnAndRoundTripWithValidatedRenderingBounds() throws Exception {
+        assertTrue(ConfigManager.partyEspEnabled);assertTrue(ConfigManager.partyChatEnabled);
+        assertEquals("`",ConfigManager.partyChatPrefix);assertEquals("fixed",ConfigManager.partyNametagMode);assertEquals(1,ConfigManager.partyNametagSize);
+        var path=directory.resolve("party.json");
+        ConfigManager.partyEspEnabled=true;ConfigManager.partyChatEnabled=true;ConfigManager.partyEspStyle="both";
+        ConfigManager.partyEspColor=0x12ABEF;ConfigManager.partyEspOpacity=.35;ConfigManager.partyEspLineWidth=2.5;
+        ConfigManager.partyFarMarkers=false;ConfigManager.partyShowNames=false;ConfigManager.partyChatPrefix="!!";
+        ConfigManager.partyNametagMode="distance";ConfigManager.partyNametagSize=1.7;ConfigManager.save(path);
+        ConfigManager.partyEspEnabled=false;ConfigManager.partyChatEnabled=false;ConfigManager.partyEspStyle="fill";
+        ConfigManager.partyEspColor=0;ConfigManager.partyEspOpacity=.1;ConfigManager.partyEspLineWidth=1;
+        ConfigManager.partyFarMarkers=true;ConfigManager.partyShowNames=true;ConfigManager.partyChatPrefix="`";
+        ConfigManager.partyNametagMode="fixed";ConfigManager.partyNametagSize=1;ConfigManager.load(path);
+        assertTrue(ConfigManager.partyEspEnabled);assertTrue(ConfigManager.partyChatEnabled);assertEquals("both",ConfigManager.partyEspStyle);
+        assertEquals(0x12ABEF,ConfigManager.partyEspColor);assertEquals(.35,ConfigManager.partyEspOpacity);assertEquals(2.5,ConfigManager.partyEspLineWidth);
+        assertFalse(ConfigManager.partyFarMarkers);assertFalse(ConfigManager.partyShowNames);
+        assertEquals("!!",ConfigManager.partyChatPrefix);assertEquals("distance",ConfigManager.partyNametagMode);assertEquals(1.7,ConfigManager.partyNametagSize);
+        Files.writeString(path,"{\"settings\":{\"partyEspStyle\":\"invalid\",\"partyEspOpacity\":-2,\"partyEspLineWidth\":100,\"partyNametagMode\":\"invalid\",\"partyNametagSize\":100}}");ConfigManager.load(path);
+        assertEquals("outline",ConfigManager.partyEspStyle);assertEquals(.05,ConfigManager.partyEspOpacity);assertEquals(4,ConfigManager.partyEspLineWidth);
+        assertEquals("fixed",ConfigManager.partyNametagMode);assertEquals(3,ConfigManager.partyNametagSize);
+    }
+    @Test void explicitPartyOptOutAndEmptyChatPrefixRemainSaved() throws Exception {
+        var path=directory.resolve("party-opt-out.json");ConfigManager.partyEspEnabled=false;ConfigManager.partyChatEnabled=false;ConfigManager.partyChatPrefix="";ConfigManager.save(path);
+        ConfigManager.partyEspEnabled=true;ConfigManager.partyChatEnabled=true;ConfigManager.partyChatPrefix="`";ConfigManager.load(path);
+        assertFalse(ConfigManager.partyEspEnabled);assertFalse(ConfigManager.partyChatEnabled);assertEquals("",ConfigManager.partyChatPrefix);
+    }
+    @Test void partyConnectionNoticesHaveTheirOwnSavedSwitch() throws Exception {
+        assertTrue(ConfigManager.partyConnectionNotifications);var path=directory.resolve("party-notices.json");
+        ConfigManager.partyConnectionNotifications=false;ConfigManager.save(path);ConfigManager.partyConnectionNotifications=true;ConfigManager.load(path);
+        assertFalse(ConfigManager.partyConnectionNotifications);assertTrue(ConfigManager.partyEspEnabled);assertTrue(ConfigManager.partyChatEnabled);
+    }
+    @Test void partyDisplayDistanceDefaultsToUnlimitedAndRoundTripsIndependently() throws Exception {
+        assertEquals(0,ConfigManager.partyMaxDisplayDistance);var path=directory.resolve("party-distance.json");
+        ConfigManager.partyMaxDisplayDistance=128;ConfigManager.save(path);ConfigManager.partyMaxDisplayDistance=0;ConfigManager.load(path);assertEquals(128,ConfigManager.partyMaxDisplayDistance);
+        Files.writeString(path,"{\"settings\":{\"partyMaxDisplayDistance\":-1}}");ConfigManager.load(path);assertEquals(0,ConfigManager.partyMaxDisplayDistance);
+        Files.writeString(path,"{\"settings\":{\"partyMaxDisplayDistance\":99999999}}");ConfigManager.load(path);assertEquals(30000000,ConfigManager.partyMaxDisplayDistance);
+    }
     @Test void accessoriesRoundTripPreservesDisabledDraftsAndIndependentColors() throws Exception {
         var path=directory.resolve("accessories.json");
         var expected=com.customcosmetics.features.accessories.AccessoriesSettings.NONE.with("wings",com.customcosmetics.features.accessories.AccessoriesSettings.WINGS.enabled(true).color(0x123456)).with("ears",com.customcosmetics.features.accessories.AccessoriesSettings.EARS.scale(1.5));
@@ -80,7 +127,7 @@ class ConfigManagerTest {
         assertFalse(ConfigManager.swordBlockingListsApplyToOthers); assertFalse(ConfigManager.syncNotifications);
         assertEquals("cc.toryhi.com",ConfigManager.syncServerIp); assertEquals("cc.toryhi.com",ConfigManager.syncUdpHost);
         assertEquals(443,ConfigManager.syncServerPort); assertEquals(25578,ConfigManager.syncUdpPort);
-        assertTrue(ConfigManager.syncServerHttps); assertTrue(ConfigManager.syncServerSni); assertEquals("wss",ConfigManager.syncBlockingTransport);
+        assertTrue(ConfigManager.syncServerHttps); assertTrue(ConfigManager.syncServerSni); assertEquals("auto",ConfigManager.syncBlockingTransport);
     }
     @Test void mainConfigurationDoesNotSaveConnectionsOrDuplicateFriends() throws Exception {
         var path = directory.resolve("config.json"); ConfigManager.save(path);

@@ -26,21 +26,27 @@ public final class BlockingSync {
     private static long nextConnect;
     private BlockingSync() {}
     private static long now() { return System.nanoTime() / 1_000_000; }
-    public static void localHandChanged(BlockHand hand, String itemId) { if (live != null && !live.closed()) live.setPose(hand, itemId); }
+    public static void localHandChanged(BlockHand hand, String itemId) { if(RealtimeSync.enabled())RealtimeSync.block(hand,itemId);else if (live != null && !live.closed()) live.setPose(hand, itemId); }
     public static BlockingTransport.Pose pose(UUID uuid) {
         if (!RemoteAccess.online()) return null;
+        if(RealtimeSync.enabled())return RealtimeSync.pose(uuid);
         var pose = remote.get(uuid);
         return pose != null && pose.expiresAt() > now() ? pose : null;
     }
     public static void disconnect() {
         GENERATION.incrementAndGet(); if (live != null) live.close();
         live = null; remote = Map.of(); authenticated = null; endpoint = ""; nextConnect = 0;
+        RealtimeSync.disconnect();
     }
     public static BlockHand hand(UUID uuid) {
         var pose = pose(uuid);
         return pose != null ? pose.hand() : BlockHand.NONE;
     }
     public static void tick(BlockHand local, String itemId, Object worldIdentity) {
+        if(RealtimeSync.enabled()){
+            if(live!=null){GENERATION.incrementAndGet();live.close();live=null;remote=Map.of();endpoint="";}
+            RealtimeSync.block(local,itemId);return;
+        }
         String base = PresenceSync.serviceBaseUrl(), host = SyncEndpoint.normalizeHost(ConfigManager.syncUdpHost);
         boolean useUdp = "udp".equals(ConfigManager.syncBlockingTransport);
         boolean active = RemoteAccess.online() && worldIdentity != null && !base.isBlank() && (!useUdp || host != null && !host.isBlank())

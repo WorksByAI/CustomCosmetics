@@ -143,6 +143,12 @@ class LicensePackagingTest {
                 "src/test/java/com/customcosmetics/compatibility/ModernUiNicknameTextTest.java",
                 "src/gametest/java/com/customcosmetics/gametest/ModernUiNicknameGameTest.java",
                 "src/gametest/java/com/customcosmetics/gametest/mixin/ModernUiNicknameProbeMixin.java",
+                "src/main/java/com/customcosmetics/sync/RealtimeClient.java",
+                "src/main/java/com/customcosmetics/sync/RealtimeConnections.java",
+                "src/main/java/com/customcosmetics/sync/PartyPeerClient.java",
+                "src/main/java/com/customcosmetics/features/party/PartyTracer.java",
+                "src/test/java/com/customcosmetics/sync/RealtimeConnectionsTest.java",
+                "src/gametest/java/com/customcosmetics/gametest/PartyGameTest.java",
                 "README.md", "CHANGELOG.md" }) {
                 assertBundled(zip, prefix + file, file);
             }
@@ -158,6 +164,9 @@ class LicensePackagingTest {
         assertFalse(readme.contains("/docs/") || readme.contains("SOURCE-DELIVERY.md"));
         String changes = Files.readString(ROOT.resolve("CHANGELOG.md"));
         assertTrue(changes.contains("## " + System.getProperty("customcosmetics.version")));
+        assertTrue(changes.contains("New Feature: Party ESP and IRC For Party Members."));
+        assertTrue(changes.contains("Sync: Improve latency in mainland China."));
+        assertFalse(changes.substring(changes.indexOf("## 1.3.0"),changes.indexOf("## 1.2.1")).contains("P2P"));
         assertTrue(changes.contains("New Feature: Accessories."));
         assertTrue(changes.contains("Cape: Fix preview after restarting the client."));
         assertTrue(changes.contains("NickTweaks: Add segmented gradients."));

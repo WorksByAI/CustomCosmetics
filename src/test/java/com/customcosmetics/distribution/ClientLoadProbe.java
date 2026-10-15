@@ -31,6 +31,14 @@ public final class ClientLoadProbe {
             "com.customcosmetics.features.blocking.SwordItems", "com.customcosmetics.features.blocking.SwordBlocking",
             "com.customcosmetics.features.blocking.VisualBlockhit",
             "com.customcosmetics.sync.BlockingSync", "com.customcosmetics.sync.WebSocketPresenceClient",
+            "com.customcosmetics.sync.RealtimeSync", "com.customcosmetics.sync.RealtimeClient", "com.customcosmetics.sync.RealtimeRoute",
+            "com.customcosmetics.sync.PartyPeerClient", "com.customcosmetics.sync.RealtimeConnections",
+            "com.customcosmetics.features.party.PartyFeatures", "com.customcosmetics.features.party.PartyHighlight",
+            "com.customcosmetics.features.party.PartyConnectionNotice", "com.customcosmetics.features.party.PartyNametagScale",
+            "com.customcosmetics.features.party.PartyTracer", "com.customcosmetics.features.party.PartyPositionTrack",
+            "com.customcosmetics.sync.SyncCommands", "com.customcosmetics.client.CustomCosmeticsClient",
+            "com.customcosmetics.features.party.PartyGeometry", "com.customcosmetics.sync.PartyClient", "com.customcosmetics.sync.PartySync",
+            "com.customcosmetics.compatibility.PartyRenderPipeline",
             "com.customcosmetics.config.RemoteServerConfig", "com.customcosmetics.config.NicknameLimit",
             "net.minecraft.world.item.ItemStack", "net.minecraft.client.renderer.item.ItemModelResolver", "net.minecraft.client.resources.model.ModelManager",
             "com.customcosmetics.features.items.ItemCosmetics", "com.customcosmetics.features.items.ItemNameText",
@@ -38,6 +46,10 @@ public final class ClientLoadProbe {
             "com.customcosmetics.features.animations.PresenceWorld", "com.customcosmetics.features.animations.ViewModelAnimations"
         }) {
             var loaded = Class.forName(type, false, loader);
+            if(type.endsWith("PartyRenderPipeline")){
+                Object partyType=loaded.getMethod("type").invoke(null);
+                if(partyType==null)throw new AssertionError("Party render pipeline is missing");
+            }
             if(type.endsWith("AvatarRenderState")&&!java.util.Arrays.stream(loaded.getInterfaces()).anyMatch(i->i.getName().endsWith("AccessoryRenderState")))throw new AssertionError("Accessory state mixin missing");
             if(type.equals("net.minecraft.client.renderer.entity.EntityRenderer")&&java.util.Arrays.stream(loaded.getDeclaredMethods()).noneMatch(m->m.getName().contains("customcosmetics$extractAccessories")))throw new AssertionError("Accessory snapshot hook missing");
             if(type.equals("net.minecraft.client.renderer.entity.LivingEntityRenderer")&&java.util.Arrays.stream(loaded.getDeclaredMethods()).noneMatch(m->m.getName().contains("customcosmetics$expandCosmeticBounds")))throw new AssertionError("Accessory culling compatibility hook missing");
@@ -66,6 +78,14 @@ public final class ClientLoadProbe {
             }
         }
         checkGameReferences(loader,"com/customcosmetics/features/playersize/PlayerSize");
+        checkGameReferences(loader,"com/customcosmetics/features/party/PartyHighlight");
+        checkGameReferences(loader,"com/customcosmetics/features/party/PartyGeometry");
+        checkGameReferences(loader,"com/customcosmetics/features/party/PartyTracer");
+        checkGameReferences(loader,"com/customcosmetics/features/party/PartyPositionTrack");
+        checkGameReferences(loader,"com/customcosmetics/features/party/PartyFeatures");
+        checkGameReferences(loader,"com/customcosmetics/features/party/PartyConnectionNotice");
+        checkGameReferences(loader,"com/customcosmetics/sync/SyncCommands");
+        checkGameReferences(loader,"com/customcosmetics/sync/PartySync");
         checkGameReferences(loader,"com/customcosmetics/features/accessories/AccessoryLayer");
         checkGameReferences(loader,"com/customcosmetics/features/accessories/AccessoryMeshes");
         checkGameReferences(loader,"com/customcosmetics/features/accessories/DetailedAccessoryMeshes");

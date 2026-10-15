@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.0
+
+- New Feature: Party ESP and IRC For Party Members.
+
+- Party: Add customizable tracers.
+
+- Sync: Improve latency in mainland China.
+
+- 目前没有足够的玩家测试同步功能，如发现问题，请提交 Issue 或联系 QQ：1612998346。
+
 ## 1.2.1
 
 - Add support for Modern UI.

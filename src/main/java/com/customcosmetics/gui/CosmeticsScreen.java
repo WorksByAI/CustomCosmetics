@@ -23,7 +23,7 @@ import static com.customcosmetics.gui.PinkUi.*;
 
 /** Independent pink cosmetics studio, with scrollable settings and keyboard focus. */
 public final class CosmeticsScreen extends Screen {
-    public enum Page { MAIN, SMOL, SIZE, NICK, COLOR, CHROMA, PRESETS, ANIMATIONS, ITEMS, ACCESSORIES, SYNC }
+    public enum Page { MAIN, SMOL, SIZE, NICK, COLOR, CHROMA, PRESETS, ANIMATIONS, ITEMS, ACCESSORIES, PARTY, SYNC }
     private static final ScreenSession SESSION = new ScreenSession();
     private final Screen parent;
     private Page page;
@@ -76,8 +76,8 @@ public final class CosmeticsScreen extends Screen {
         viewBottom = panelY + panelHeight - 18;
         rowY = viewTop;
 
-        Page[] pages = {Page.SMOL, Page.SIZE, Page.NICK, Page.ANIMATIONS, Page.ITEMS, Page.ACCESSORIES, Page.SYNC};
-        String[] names = {"SmolPeople", "Player Size", "NickTweaks", "Animations", "Item Cosmetics", "Accessories", "Sync"};
+        Page[] pages = {Page.SMOL, Page.SIZE, Page.NICK, Page.ANIMATIONS, Page.ITEMS, Page.ACCESSORIES, Page.PARTY, Page.SYNC};
+        String[] names = {"SmolPeople", "Player Size", "NickTweaks", "Animations", "Item Cosmetics", "Accessories", "Party", "Sync"};
         int navTop = panelHeight < 220 ? 51 : 64;
         int navGap = Math.clamp((panelHeight - navTop - 52) / (pages.length+1), 14, 31);
         for (int i = 0; i < pages.length; i++) {
@@ -131,6 +131,7 @@ public final class CosmeticsScreen extends Screen {
             case ANIMATIONS -> animations();
             case ITEMS -> itemCosmetics();
             case ACCESSORIES -> accessories();
+            case PARTY -> party();
             case SYNC -> sync();
         }
         if (page == Page.SMOL || page == Page.NICK || page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS) credit();
@@ -148,10 +149,49 @@ public final class CosmeticsScreen extends Screen {
             case ANIMATIONS -> "Animations";
             case ITEMS -> "Item Cosmetics";
             case ACCESSORIES -> "Accessories";
+            case PARTY -> "Party";
             case SYNC -> "Sync";
         };
     }
 
+    private void party(){
+        toggleRow("Party ESP","Highlight your teammates and share your position.",()->ConfigManager.partyEspEnabled,v->ConfigManager.partyEspEnabled=v);
+        toggleRow("IRC For Party Members","Send messages to your connected party members.",()->ConfigManager.partyChatEnabled,v->ConfigManager.partyChatEnabled=v);
+        toggleRow("Connection Notifications","Show connection results after joining a party.",()->ConfigManager.partyConnectionNotifications,v->ConfigManager.partyConnectionNotifications=v);
+        int prefixY=card(84);label("Chat Prefix",contentX+12,prefixY+10,TEXT,contentWidth-24);
+        var prefixField=input(contentX+12,prefixY+28,Math.min(160,contentWidth-24),"Chat Prefix",ConfigManager.partyChatPrefix,32,value->{});
+        prefixField.setResponder(value->{
+            activity();boolean valid=value.equals(com.customcosmetics.features.party.PartyChatRules.prefix(value));prefixField.invalid(!valid);
+            if(valid){ConfigManager.partyChatPrefix=value;changed();}
+        });
+        label("Empty: send all chat to CC Party. Commands are unchanged.",contentX+12,prefixY+62,MUTED,contentWidth-24);
+        int distanceY=card(64);label("Max Display Distance (blocks)",contentX+12,distanceY+10,TEXT,contentWidth-24);
+        var distanceField=input(contentX+12,distanceY+28,100,"Max Display Distance",String.format(Locale.ROOT,"%.0f",ConfigManager.partyMaxDisplayDistance),8,value->{});
+        distanceField.setResponder(value->{
+            activity();boolean valid=value.matches("[0-9]{1,8}")&&Double.parseDouble(value)<=com.customcosmetics.features.party.PartyDisplayRange.MAX;distanceField.invalid(!valid);
+            if(valid){ConfigManager.partyMaxDisplayDistance=Double.parseDouble(value);changed();}
+        });
+        label("0 = unlimited",contentX+124,distanceY+38,MUTED,contentWidth-136);
+        fullButton("ESP Style: "+switch(ConfigManager.partyEspStyle){case "fill"->"Fill";case "both"->"Fill + Outline";default->"Outline";},()->{
+            ConfigManager.partyEspStyle=switch(ConfigManager.partyEspStyle){case "outline"->"fill";case "fill"->"both";default->"outline";};changed();rebuildWidgets();
+        },false);
+        int y=card(64);label("ESP Color",contentX+12,y+10,TEXT,contentWidth-24);
+        var field=input(contentX+12,y+28,Math.min(120,contentWidth-24),"ESP Color",hex(ConfigManager.partyEspColor),7,value->{});
+        field.setResponder(value->{activity();boolean valid=value.matches("#?[0-9a-fA-F]{6}");field.invalid(!valid);if(valid){ConfigManager.partyEspColor=Integer.parseInt(value.replace("#",""),16);changed();}});
+        sliderRow("Fill Opacity","",()->ConfigManager.partyEspOpacity,.05,.75,.05,.2,v->ConfigManager.partyEspOpacity=v);
+        sliderRow("Outline Width","",()->ConfigManager.partyEspLineWidth,.5,4,.25,1.5,v->ConfigManager.partyEspLineWidth=v);
+        toggleRow("Tracers","Draw lines from the crosshair to your teammates.",()->ConfigManager.partyTracersEnabled,v->ConfigManager.partyTracersEnabled=v);
+        int tracerY=card(64);label("Tracer Color",contentX+12,tracerY+10,TEXT,contentWidth-24);
+        var tracerField=input(contentX+12,tracerY+28,Math.min(120,contentWidth-24),"Tracer Color",hex(ConfigManager.partyTracerColor),7,value->{});
+        tracerField.setResponder(value->{activity();boolean valid=value.matches("#?[0-9a-fA-F]{6}");tracerField.invalid(!valid);if(valid){ConfigManager.partyTracerColor=Integer.parseInt(value.replace("#",""),16);changed();}});
+        toggleRow("Show Names","Show teammate names and distances.",()->ConfigManager.partyShowNames,v->ConfigManager.partyShowNames=v);
+        fullButton("Nametag Scaling: "+("distance".equals(ConfigManager.partyNametagMode)?"Distance":"Fixed Screen Size"),()->{
+            ConfigManager.partyNametagMode="distance".equals(ConfigManager.partyNametagMode)?"fixed":"distance";changed();rebuildWidgets();
+        },false);
+        sliderRow("Nametag Size","",()->ConfigManager.partyNametagSize,.5,3,.1,1,v->ConfigManager.partyNametagSize=v);
+        toggleRow("Distant Markers","Requires Hypixel Mod API and both players sharing positions.",()->ConfigManager.partyFarMarkers,v->ConfigManager.partyFarMarkers=v);
+        label("Without Mod API: /p list for nearby ESP and chat.",contentX,rowY+4,DIM,contentWidth);rowY+=24;
+    }
     private void smol() {
         playerPreview();
         toggleRow("Enabled", "", () -> ConfigManager.smolpeopleMode, v -> ConfigManager.smolpeopleMode = v);
@@ -451,6 +491,8 @@ public final class CosmeticsScreen extends Screen {
         updateSyncNowButton();
         rowY += 24;
         label("DEV",contentX,rowY,PINK,contentWidth); rowY += 20;
+        toggleRow("Disable P2P Connections","If you don't know what this button does, leave it off.",()->!ConfigManager.partyP2pEnabled,v->ConfigManager.partyP2pEnabled=!v);
+        connectionStatus();
         var lines = font.split(Component.literal("If you don't know what these settings do, leave them blank."),contentWidth);
         for (var line : lines) { int y = rowY; art.add(g -> g.text(font,line,contentX,y,MUTED,false)); rowY += 12; }
         rowY += 8;
@@ -473,6 +515,17 @@ public final class CosmeticsScreen extends Screen {
             ConfigManager.syncProxySource = sources.get((sources.indexOf(ConfigManager.syncProxySource) + 1) % sources.size());
             proxyChanged(); rebuildWidgets();
         })); rowY += 36;
+    }
+
+    private void connectionStatus(){
+        int y=card(108);
+        art.add(g->{
+            var roster=com.customcosmetics.features.party.PartyFeatures.roster();
+            text(g,font,roster.title(),contentX+12,y+12,PINK,contentWidth-24);
+            text(g,font,roster.sourceLabel(),contentX+12,y+28,MUTED,contentWidth-24);
+            var lines=com.customcosmetics.sync.RealtimeSync.connectionStatus().lines().toList();
+            for(int i=0;i<lines.size();i++)text(g,font,lines.get(i),contentX+12,y+48+i*12,MUTED,contentWidth-24);
+        });
     }
 
     private PinkUi.Field proxyText(String title,String value,Consumer<String> setter) {

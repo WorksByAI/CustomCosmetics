@@ -9,6 +9,12 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class UdpPacketTest {
+    @Test void peerKeysHaveTheirOwnProtocolDomainAndOppositeDirections()throws Exception {
+        var a=new UdpPacket(new byte[16],new byte[32],true,4);var b=new UdpPacket(new byte[16],new byte[32],false,4);
+        byte[] packet=a.encode(1,1,new byte[]{7});assertArrayEquals(new byte[]{7},b.decode(packet).body());
+        assertThrows(GeneralSecurityException.class,()->new UdpPacket(new byte[16],new byte[32],false,3).decode(packet));
+        assertThrows(GeneralSecurityException.class,()->a.decode(packet));
+    }
     @Test void reorderedPlayerStreamsRemainIndependentAndCannotResurrectAnOldStart() {
         var latest = new LatestUdpPoses(); UUID a = new UUID(1, 1), b = new UUID(2, 2);
         var pose = new BlockingTransport.Pose(com.customcosmetics.features.blocking.BlockHand.MAIN, 750);

@@ -25,6 +25,17 @@ class CosmeticsScreenTest {
         assertTrue(layer.methods().stream().flatMap(method->instructions(method).stream()).filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast).noneMatch(call->Set.of("send","sendPacket","sendImmediately","setBoundingBox","refreshDimensions").contains(call.name().stringValue())));
     }
     private static final String SCREEN = "com/customcosmetics/gui/CosmeticsScreen";
+    @Test void p2pControlsAndLiveProtocolCountsBelongOnlyToSyncDev() throws Exception {
+        var screen=read(SCREEN);
+        var sync=code(screen,"sync");
+        var strings=sync.stream().filter(ConstantInstruction.class::isInstance).map(ConstantInstruction.class::cast).map(ConstantInstruction::constantValue).toList();
+        assertTrue(strings.containsAll(List.of("DEV","Disable P2P Connections","If you don't know what this button does, leave it off.")));
+        assertTrue(strings.indexOf("DEV")<strings.indexOf("Disable P2P Connections"));
+        assertTrue(sync.stream().filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast).anyMatch(call->call.name().stringValue().equals("connectionStatus")));
+        var party=code(screen,"party");
+        assertTrue(party.stream().filter(ConstantInstruction.class::isInstance).map(ConstantInstruction.class::cast).noneMatch(value->value.constantValue().equals("P2P Connections")||value.constantValue().equals("Disable P2P Connections")));
+        assertTrue(party.stream().filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast).noneMatch(call->Set.of("status","connectionStatus","membershipStatus").contains(call.name().stringValue())));
+    }
     @Test void playerSizeEditsStayLocalAndNeverChangeGameplayDimensions() throws Exception {
         var screen=read(SCREEN);
         assertTrue(pageReferences(code(screen,"init")).contains("SIZE"));

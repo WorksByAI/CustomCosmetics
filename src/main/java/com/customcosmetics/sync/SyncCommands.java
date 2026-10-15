@@ -24,7 +24,7 @@ public final class SyncCommands {
     public static void register(CommandDispatcher<FabricClientCommandSource> dispatcher) {
         LiteralArgumentBuilder<FabricClientCommandSource> root = ClientCommands.literal("customcosmetics")
             .executes(context -> {
-                com.customcosmetics.client.CustomCosmeticsClient.openGuiNextTick = true;
+                com.customcosmetics.client.CustomCosmeticsClient.requestGui(com.customcosmetics.gui.CosmeticsScreen.Page.MAIN);
                 return 1;
             });
 
@@ -48,6 +48,10 @@ public final class SyncCommands {
                     .executes(context -> setSyncEnabled(false)))
         );
 
+        root.then(ClientCommands.literal("party").executes(context->{
+            com.customcosmetics.client.CustomCosmeticsClient.requestGui(com.customcosmetics.gui.CosmeticsScreen.Page.PARTY);
+            return 1;
+        }));
         dispatcher.register(root);
     }
 

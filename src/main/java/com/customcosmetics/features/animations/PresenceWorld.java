@@ -15,6 +15,11 @@ public final class PresenceWorld {
     private static boolean hypixel;
     private PresenceWorld() {}
     public record Scope(String world, Set<UUID> players) {}
+    public static boolean isHypixel(Minecraft client){
+        read(client);var server=client.getCurrentServer();
+        return client.player!=null&&!client.hasSingleplayerServer()&&(hypixel||server!=null&&server.ip.toLowerCase(Locale.ROOT).matches("(?:.*\\.)?hypixel\\.net(?::[0-9]+)?"));
+    }
+    public static int environment(Minecraft client){read(client);return environment;}
 
     public static void init() {
         if (initialized) return;

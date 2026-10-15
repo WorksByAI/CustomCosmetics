@@ -17,6 +17,8 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
     public static final String MOD_ID = "customcosmetics";
     public static final Logger LOGGER = LoggerFactory.getLogger("CustomCosmetics");
     public static boolean openGuiNextTick;
+    public static CosmeticsScreen.Page openGuiPageNextTick=CosmeticsScreen.Page.MAIN;
+    public static void requestGui(CosmeticsScreen.Page page){openGuiPageNextTick=page;openGuiNextTick=true;}
 
     @Override
     public void onInitializeClient() {
@@ -26,6 +28,7 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
         com.customcosmetics.features.nickname.NicknamePresets.init();
         com.customcosmetics.features.items.ItemCosmetics.init();
         PresenceSync.init();
+        com.customcosmetics.features.party.PartyFeatures.init();
         com.customcosmetics.update.UpdateChecker.init();
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) -> SyncCommands.register(dispatcher));
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
@@ -34,12 +37,15 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
             com.customcosmetics.features.cape.CapeCosmetics.tick();
             com.customcosmetics.features.items.ItemCosmetics.tick();
             PresenceSync.tick();
+            com.customcosmetics.features.party.PartyFeatures.tick(client);
             com.customcosmetics.update.UpdateChecker.tick(client);
             SwordBlocking.tick(client);
+            com.customcosmetics.sync.RealtimeSync.tick(client);
             com.customcosmetics.features.animations.ViewModelAnimations.tick(client);
             com.customcosmetics.features.blocking.VisualBlockhit.tick(client);
             if (openGuiNextTick) {
-                com.customcosmetics.compatibility.ClientUiAccess.setScreen(client, new CosmeticsScreen(null, CosmeticsScreen.Page.MAIN));
+                var page=openGuiPageNextTick;openGuiPageNextTick=CosmeticsScreen.Page.MAIN;
+                com.customcosmetics.compatibility.ClientUiAccess.setScreen(client, new CosmeticsScreen(null, page));
                 openGuiNextTick = false;
             }
         });
@@ -47,6 +53,7 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
             com.customcosmetics.features.cape.CapeCosmetics.close();
             com.customcosmetics.gui.BlockingPreview.close();
             com.customcosmetics.sync.BlockingSync.disconnect();
+            com.customcosmetics.sync.PartySync.disconnect();
             ConfigManager.saveConfig();
             com.customcosmetics.features.items.ItemCosmetics.save();
         });

@@ -35,7 +35,8 @@ class RemoteServerConfigTest {
     }
     @Test void udpCanBeSelectedExplicitlyAndUnknownTransportsAreRejected() {
         assertEquals("udp",RemoteServerConfig.parse("{\"syncBlockingTransport\":\"udp\"}").transport());
-        assertEquals("wss",RemoteServerConfig.parse("{}").transport());
+        assertEquals("auto",RemoteServerConfig.parse("{}").transport());
+        assertEquals("wss",RemoteServerConfig.parse("{\"syncBlockingTransport\":\"wss\"}").transport());
         assertThrows(IllegalArgumentException.class,()->RemoteServerConfig.parse("{\"syncBlockingTransport\":\"tcp\"}"));
     }
     @Test void editingAndClearingTheFileChangesTheEffectiveConnectionImmediately() throws Exception {

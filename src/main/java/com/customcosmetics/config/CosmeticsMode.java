@@ -9,6 +9,7 @@ public final class CosmeticsMode {
     public static void setOffline(boolean offline) {
         RemoteAccess.offline(offline);
         PresenceSync.onModeChanged(); BlockingSync.disconnect();
+        PartySync.disconnect();
         NickRenderUtils.invalidateLocalTargetsCache(); ConfigManager.requestSave();
     }
 }

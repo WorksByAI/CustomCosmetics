@@ -41,6 +41,13 @@ public final class WebSocketPresenceClient implements BlockingPresence, WebSocke
             Consumer<Map<UUID, BlockingTransport.Pose>> receiver) {
         this.receiver=receiver;this.session=session;
         if(session!=null&&!session.baseUrl().equals(base))throw new IllegalArgumentException("Session belongs to another service");
+        http=createHttpClient();
+        connecting=http.newWebSocketBuilder().connectTimeout(Duration.ofSeconds(8)).subprotocols("customcosmetics.v1")
+            .buildAsync(endpoint(base),this);
+        connecting.whenComplete((ws,error)->{if(error!=null){failure="connect:"+error.getClass().getSimpleName();close();}else if(closed)ws.abort();});
+        worker.scheduleWithFixedDelay(()->{try{pump();}catch(RuntimeException error){failure="send:"+error.getClass().getSimpleName();close();}},0,25,TimeUnit.MILLISECONDS);
+    }
+    static HttpClient createHttpClient(){
         var route=PresenceProxyResolver.webSocketRoute();
         var builder=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8)).followRedirects(HttpClient.Redirect.NEVER)
             .proxy(new ProxySelector(){
@@ -57,11 +64,7 @@ public final class WebSocketPresenceClient implements BlockingPresence, WebSocke
             });
         }
         if(!com.customcosmetics.config.ConfigManager.syncServerSni){var ssl=new SSLParameters();ssl.setServerNames(List.of());builder.sslParameters(ssl);}
-        http=builder.build();
-        connecting=http.newWebSocketBuilder().connectTimeout(Duration.ofSeconds(8)).subprotocols("customcosmetics.v1")
-            .buildAsync(endpoint(base),this);
-        connecting.whenComplete((ws,error)->{if(error!=null){failure="connect:"+error.getClass().getSimpleName();close();}else if(closed)ws.abort();});
-        worker.scheduleWithFixedDelay(()->{try{pump();}catch(RuntimeException error){failure="send:"+error.getClass().getSimpleName();close();}},0,25,TimeUnit.MILLISECONDS);
+        return builder.build();
     }
     static URI endpoint(String base) {
         var uri=URI.create(base);
