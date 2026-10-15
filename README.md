@@ -17,7 +17,7 @@
 
 输入 `/customcosmetics` 打开设置，左下角 GitHub 图标可访问源码仓库。
 
-支持 Minecraft **26.1.x / 26.2 / 26.3**，需要 Java 25、Fabric Loader 0.19.5+ 和对应版本的 Fabric API。
+支持 Minecraft **26.1.2～26.3**，需要 Java 25、Fabric Loader 0.19.5+ 和对应版本的 Fabric API。
 共享格挡或远处队友位置需安装 [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api)。
 
 采用 **AGPL-3.0-or-later**。部分代码移植自 [Baity](https://github.com/raueyhs/Baity)，原作者 raueyhs。详见 [LICENSE](https://github.com/WorksByAI/CustomCosmetics/blob/main/LICENSE) 和 [NOTICE](https://github.com/WorksByAI/CustomCosmetics/blob/main/NOTICE)。
@@ -45,7 +45,7 @@ A Fabric mod for cosmetics and player synchronization.
 
 Use `/customcosmetics` for settings; the GitHub icon opens the source.
 
-Supports Minecraft **26.1.x / 26.2 / 26.3**. Requires Java 25, Fabric Loader 0.19.5+, and Fabric API for your Minecraft version.
+Supports Minecraft **26.1.2–26.3**. Requires Java 25, Fabric Loader 0.19.5+, and Fabric API for your Minecraft version.
 Sharing blocking or distant party positions requires [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api).
 
 Licensed under **AGPL-3.0-or-later**. Portions of the code are ported from [Baity](https://github.com/raueyhs/Baity), originally authored by raueyhs. See [LICENSE](https://github.com/WorksByAI/CustomCosmetics/blob/main/LICENSE) and [NOTICE](https://github.com/WorksByAI/CustomCosmetics/blob/main/NOTICE).

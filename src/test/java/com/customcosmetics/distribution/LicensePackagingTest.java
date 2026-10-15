@@ -161,6 +161,9 @@ class LicensePackagingTest {
         String readme = Files.readString(ROOT.resolve("README.md"));
         assertTrue(readme.length() < 3800, "The bilingual README should stay a short feature overview");
         assertTrue(readme.contains("## English") && readme.contains("基于 Fabric") && readme.contains("A Fabric mod"));
+        assertTrue(readme.contains("支持 Minecraft **26.1.2～26.3**"));
+        assertTrue(readme.contains("Supports Minecraft **26.1.2–26.3**"));
+        assertFalse(readme.contains("26.1.x / 26.2 / 26.3"));
         assertFalse(readme.contains("/docs/") || readme.contains("SOURCE-DELIVERY.md"));
         String changes = Files.readString(ROOT.resolve("CHANGELOG.md"));
         assertTrue(changes.contains("## " + System.getProperty("customcosmetics.version")));
