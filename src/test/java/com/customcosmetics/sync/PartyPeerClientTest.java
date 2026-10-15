@@ -71,4 +71,30 @@ class PartyPeerClientTest {
         arena.sent.clear();arena.run(300,true);
         assertTrue(arena.sent.stream().filter(p->p.fromA&&p.bytes[4]==2).allMatch(p->java.nio.ByteBuffer.wrap(p.bytes,21,8).getLong()>highest));
     }
+    @Test void reportDistinguishesMissingAuthorizationBlockedUdpAndSuccessfulDirectWithoutSecrets()throws Exception{
+        var arena=new Arena(0);arena.run(1500,false);
+        String report=String.join("\n",arena.a.diagnostics(arena.now,20));
+        assertTrue(report.contains("No authenticated probe reply"));assertTrue(report.contains("states=0"));
+        assertFalse(report.contains(ID));assertFalse(report.contains(KEY));assertFalse(report.contains("127.0.0.1"));
+        arena.run(6500,true);arena.a.permit(ids(),arena.now);arena.b.permit(ids(),arena.now);arena.a.offer(offer(true),arena.now);arena.b.offer(offer(false),arena.now);
+        arena.run(1800,true);assertTrue(String.join("\n",arena.a.diagnostics(arena.now,20)).contains("P2P selected"));
+        arena.a.permit(new JsonArray(),arena.now);arena.a.tick(arena.now,20);
+        assertTrue(String.join("\n",arena.a.diagnostics(arena.now,20)).contains("No peer offer"));
+    }
+    @Test void invalidWorldAndSessionOffersExplainTheRejection()throws Exception{
+        var arena=new Arena(0);arena.a.close();arena.a.context(new PartyPeerClient.Context(A,101,1,WORLD,ROSTER,true));arena.a.permit(ids(),arena.now);
+        var otherWorld=offer(true);otherWorld.addProperty("world","b".repeat(64));arena.a.offer(otherWorld,arena.now);
+        assertTrue(String.join("\n",arena.a.diagnostics(arena.now,20)).contains("Peer world does not match"));
+        var stale=offer(true);stale.addProperty("selfScope",2);arena.a.offer(stale,arena.now);
+        assertTrue(String.join("\n",arena.a.diagnostics(arena.now,20)).contains("another local session or scope"));
+    }
+    @Test @SuppressWarnings("unchecked") void recoveredCandidateReceivesShadowStateWhenTheOldFastPathHasStopped()throws Exception{
+        var arena=new Arena(0);arena.run(1000,true);arena.wire.clear();arena.now+=1300;
+        var peersField=PartyPeerClient.class.getDeclaredField("peers");peersField.setAccessible(true);var peer=((Map<?,?>)peersField.get(arena.a)).values().iterator().next();
+        var pathsField=peer.getClass().getDeclaredField("paths");pathsField.setAccessible(true);var paths=(Map<InetSocketAddress,PeerPath>)pathsField.get(peer);
+        var recovered=new InetSocketAddress("127.0.0.1",30003);var path=new PeerPath();for(int i=0;i<3;i++)path.pong(arena.now,arena.now-80,arena.now-40);paths.put(recovered,path);
+        arena.a.tick(arena.now,20);arena.a.publish(position(999,arena.now),arena.now);
+        assertEquals(recovered,arena.wire.stream().filter(packet->packet.bytes[4]==1).findFirst().orElseThrow().destination());
+        assertTrue(arena.a.direct().isEmpty(),"A recovered probe alone must not suppress the relay before fresh direct state arrives");
+    }
 }

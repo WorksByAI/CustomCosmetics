@@ -41,6 +41,7 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
             com.customcosmetics.update.UpdateChecker.tick(client);
             SwordBlocking.tick(client);
             com.customcosmetics.sync.RealtimeSync.tick(client);
+            com.customcosmetics.sync.SyncDebug.tick();
             com.customcosmetics.features.animations.ViewModelAnimations.tick(client);
             com.customcosmetics.features.blocking.VisualBlockhit.tick(client);
             if (openGuiNextTick) {

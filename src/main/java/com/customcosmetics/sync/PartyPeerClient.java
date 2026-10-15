@@ -23,6 +23,7 @@ public final class PartyPeerClient implements AutoCloseable {
     private static final class Peer {
         String id,key;UUID uuid;String name;long epoch,scope,deadline,nextProbe,nextShadow,lastData=Long.MIN_VALUE/2,window,remoteWantUntil;double relayRtt=500;
         int count;boolean want,remoteWant;UdpPacket cipher;Counters counters;
+        long probesSent,probesReceived,pongsReceived,statesReceived,replays,invalidPackets,blockedSources,expiredStates,sendFailures,budgetDrops;
         List<InetSocketAddress> candidates=List.of();final Map<InetSocketAddress,PeerPath> paths=new HashMap<>();final Map<Long,Pending> pending=new HashMap<>();
         InetSocketAddress address;
     }
@@ -34,6 +35,7 @@ public final class PartyPeerClient implements AutoCloseable {
     private Context context;private Set<String> permitted=Set.of();private Set<UUID> selected=Set.of();private boolean changed;
     private long permittedUntil;
     private double tokens=25000;private long budgetTime;
+    private long offersReceived,offersAccepted,offersRejected;private String lastRejection="";
     public PartyPeerClient(Sender sender,Receiver receiver){this.sender=sender;this.receiver=receiver;}
     public void context(Context next){
         if(!Objects.equals(context,next)){close();context=next;}
@@ -42,33 +44,65 @@ public final class PartyPeerClient implements AutoCloseable {
     public boolean sendingDirect(){return peers.values().stream().anyMatch(p->p.remoteWant);}
     public boolean changed(){boolean value=changed;changed=false;return value;}
     public int size(){return peers.size();}
+    private void reject(String reason){offersRejected++;lastRejection=reason;}
+    public List<String> diagnostics(long now,double relayRtt){
+        var lines=new ArrayList<String>();
+        lines.add("P2P: direct="+selected.size()+", offers="+peers.size()+", authorized="+(now<permittedUntil?permitted.size():0));
+        lines.add("Offer history: received="+offersReceived+", accepted="+offersAccepted+", rejected="+offersRejected+(lastRejection.isEmpty()?"":"; last rejection: "+lastRejection));
+        if(peers.isEmpty())lines.add("No peer offer. Remote consent, UDP verification, mutual party and same-world eligibility cannot be confirmed locally.");
+        for(var p:peers.values().stream().sorted(Comparator.comparing(peer->peer.name)).toList()){
+            double relay=(relayRtt>=0?relayRtt:500)+p.relayRtt;
+            var best=p.paths.entrySet().stream().min(Comparator.comparingDouble(e->e.getValue().rtt<0?Double.MAX_VALUE:e.getValue().rtt)).orElse(null);
+            var usable=p.paths.entrySet().stream().filter(e->e.getValue().viable(now,relay)).min(Comparator.comparingDouble(e->e.getValue().rtt)).orElse(null);
+            var path=usable!=null?usable.getValue():best==null?null:best.getValue();
+            String reason=selected.contains(p.uuid)?"P2P selected":p.pongsReceived==0?(p.probesReceived==0?"No authenticated probe reply; UDP reachability is unconfirmed":"Inbound probes arrive, but no replies to our probes; reachability may be asymmetric"):path==null?"No authenticated probe reply":switch(path.decision(now,relay)){
+                case COOLDOWN->"Recovering after packet loss ("+Math.max(0,path.holdUntil-now)+"ms remaining)";
+                case PROBING->"Waiting for probe replies ("+path.good+"/3)";
+                case STALE->"Probe replies stopped";
+                case LOSS->"Probe loss estimate too high";
+                case SLOW->"Direct RTT exceeds quality limit";
+                case READY->"Probes work, but no fresh direct state";
+            };
+            lines.add("Peer "+p.name+": "+reason+"; candidates="+p.candidates.size()+", remote receiving P2P="+p.remoteWant);
+            lines.add("  Probes sent/replies/inbound="+p.probesSent+"/"+p.pongsReceived+"/"+p.probesReceived+", states="+p.statesReceived+", state age="+age(now,p.lastData));
+            lines.add("  Direct RTT="+ms(path==null?-1:path.rtt)+", estimated relay RTT="+ms(relay)+", P2P limit="+ms(PeerPath.rttLimit(relay))+", probe loss estimate="+(path==null?"unknown":Math.round(path.loss*100)+"%"));
+            lines.add("  Drops: invalid="+p.invalidPackets+", replay="+p.replays+", source="+p.blockedSources+", expired="+p.expiredStates+", send errors="+p.sendFailures+", budget="+p.budgetDrops);
+        }
+        return List.copyOf(lines);
+    }
+    static String ms(double value){return value<0?"unknown":Math.round(value)+"ms";}
+    static String age(long now,long received){return received==-1||received==Long.MIN_VALUE/2?"never":Math.max(0,now-received)+"ms";}
     public void permit(JsonArray ids,long now){
         if(ids==null||ids.size()>MAX_PEERS){permitted=Set.of();peers.clear();return;}
         var allowed=new HashSet<String>();for(var id:ids){String value=id.getAsString();if(value.matches("[a-f0-9]{32}"))allowed.add(value);}
         permitted=Set.copyOf(allowed);permittedUntil=now+4000;peers.keySet().retainAll(allowed);
     }
     public void offer(JsonObject grant,long now)throws Exception {
-        if(context==null||!context.enabled()||context.world().isEmpty())return;
+        offersReceived++;
+        if(context==null||!context.enabled()||context.world().isEmpty()){reject("Local P2P context is disabled or world is unknown");return;}
         String id=grant.get("id").getAsString(),key=grant.get("key").getAsString();UUID uuid=UUID.fromString(grant.get("uuid").getAsString());
         String name=grant.get("name").getAsString();long epoch=grant.get("epoch").getAsLong(),scope=grant.get("scope").getAsLong();
         long remaining=grant.get("expiresAt").getAsLong()-grant.get("serverTime").getAsLong();
-        if(now>=permittedUntil||!permitted.contains(id)||!key.matches("[a-f0-9]{64}")||epoch<1||scope<1||uuid.equals(context.self())||
-            !name.matches("[A-Za-z0-9_]{3,16}")||!context.roster().contains(uuid,name)||
-            grant.get("selfEpoch").getAsLong()!=context.epoch()||grant.get("selfScope").getAsLong()!=context.scope()||
-            !grant.get("world").getAsString().equals(context.world())||remaining<=0||remaining>10000)return;
-        var candidates=new ArrayList<InetSocketAddress>();var list=grant.getAsJsonArray("candidates");if(list.isEmpty()||list.size()>2)return;
+        if(now>=permittedUntil||!permitted.contains(id)){reject("No current server authorization for this pair");return;}
+        if(!key.matches("[a-f0-9]{64}")||epoch<1||scope<1||!name.matches("[A-Za-z0-9_]{3,16}")){reject("Invalid authenticated offer fields");return;}
+        if(uuid.equals(context.self())||!context.roster().contains(uuid,name)){reject("Peer is not in the local party roster");return;}
+        if(grant.get("selfEpoch").getAsLong()!=context.epoch()||grant.get("selfScope").getAsLong()!=context.scope()){reject("Offer belongs to another local session or scope");return;}
+        if(!grant.get("world").getAsString().equals(context.world())){reject("Peer world does not match");return;}
+        if(remaining<=0||remaining>10000){reject("Offer is expired or has an invalid lifetime");return;}
+        var candidates=new ArrayList<InetSocketAddress>();var list=grant.getAsJsonArray("candidates");if(list.isEmpty()||list.size()>2){reject("Missing or invalid IPv4 candidates");return;}
         for(var value:list){var candidate=value.getAsJsonObject();String host=candidate.get("host").getAsString();int port=candidate.get("port").getAsInt();
-            if(!host.matches("(?:[0-9]{1,3}\\.){3}[0-9]{1,3}")||port<1||port>65535)return;
-            var address=InetAddress.getByName(host);if(address.isAnyLocalAddress()||address.isMulticastAddress())return;
+            if(!host.matches("(?:[0-9]{1,3}\\.){3}[0-9]{1,3}")||port<1||port>65535){reject("Invalid IPv4 candidate or port");return;}
+            var address=InetAddress.getByName(host);if(address.isAnyLocalAddress()||address.isMulticastAddress()){reject("Unusable IPv4 candidate");return;}
             candidates.add(new InetSocketAddress(address,port));
         }
         Peer peer=peers.get(id);
-        if(peer==null){if(peers.size()>=MAX_PEERS||!counters.containsKey(id)&&counters.size()>=4096)return;peers.values().removeIf(p->p.uuid.equals(uuid));peer=new Peer();peer.id=id;peer.key=key;peer.uuid=uuid;peer.name=name;peer.epoch=epoch;peer.scope=scope;
+        if(peer==null){if(peers.size()>=MAX_PEERS||!counters.containsKey(id)&&counters.size()>=4096){reject("Direct peer capacity reached");return;}peers.values().removeIf(p->p.uuid.equals(uuid));peer=new Peer();peer.id=id;peer.key=key;peer.uuid=uuid;peer.name=name;peer.epoch=epoch;peer.scope=scope;
             peer.counters=counters.computeIfAbsent(id,ignored->new Counters());
             peer.cipher=new UdpPacket(HexFormat.of().parseHex(id),HexFormat.of().parseHex(key),context.self().toString().compareTo(uuid.toString())<0,4);peers.put(id,peer);
-        }else if(!peer.key.equals(key)||peer.epoch!=epoch||peer.scope!=scope||!peer.uuid.equals(uuid))return;
+        }else if(!peer.key.equals(key)||peer.epoch!=epoch||peer.scope!=scope||!peer.uuid.equals(uuid)){reject("Conflicting pair session");return;}
         peer.deadline=now+remaining;peer.candidates=List.copyOf(candidates);peer.relayRtt=Math.clamp(grant.get("relayRttMs").getAsDouble(),0,10000);
         peer.paths.keySet().removeIf(a->!allowed(candidates,a));
+        offersAccepted++;lastRejection="";
     }
     private static boolean allowed(List<InetSocketAddress> candidates,InetSocketAddress source){return candidates.stream().anyMatch(a->a.getAddress().equals(source.getAddress()));}
     public void tick(long now,double relayRtt){
@@ -80,12 +114,14 @@ public final class PartyPeerClient implements AutoCloseable {
             for(var iterator=p.pending.entrySet().iterator();iterator.hasNext();){var pending=iterator.next().getValue();if(now-pending.sent()>1000){p.paths.computeIfAbsent(pending.address(),ignored->new PeerPath()).lost(now);iterator.remove();}}
             double relay=(relayRtt>=0?relayRtt:500)+p.relayRtt;
             var best=p.paths.entrySet().stream().filter(e->e.getValue().viable(now,relay)).min(Comparator.comparingDouble(e->e.getValue().rtt)).orElse(null);
+            // Warm the recovered path before requiring fresh direct state to suppress the relay.
+            if(best!=null)p.address=best.getKey();
             p.want=best!=null&&now-p.lastData<=1000;
-            if(p.want){p.address=best.getKey();next.add(p.uuid);}
+            if(p.want)next.add(p.uuid);
             if(now>=p.nextProbe){p.nextProbe=now+250;
                 var addresses=new LinkedHashSet<>(p.candidates);if(p.address!=null&&allowed(p.candidates,p.address))addresses.add(p.address);
                 for(var address:addresses){if(p.pending.size()>=16)break;long ping=++p.counters.ping;var m=new JsonObject();m.addProperty("type","probe");m.addProperty("ping",ping);m.addProperty("want",p.want);
-                    if(send(p,2,m,address,now))p.pending.put(ping,new Pending(now,address));}
+                    if(send(p,2,m,address,now)){p.probesSent++;p.pending.put(ping,new Pending(now,address));}}
             }
         }
         var result=Set.copyOf(next);if(!result.equals(selected)){selected=result;changed=true;for(var p:peers.values())p.nextProbe=0;}
@@ -99,23 +135,24 @@ public final class PartyPeerClient implements AutoCloseable {
     }
     private boolean send(Peer p,int flow,JsonObject m,InetSocketAddress address,long now){
         try{tokens=Math.min(25000,tokens+Math.max(0,now-budgetTime)*250);budgetTime=now;
-            byte[] data=p.cipher.encode(flow,++p.counters.outgoing[flow],m.toString().getBytes(StandardCharsets.UTF_8));if(tokens<data.length+28)return false;
+            byte[] data=p.cipher.encode(flow,++p.counters.outgoing[flow],m.toString().getBytes(StandardCharsets.UTF_8));if(tokens<data.length+28){p.budgetDrops++;return false;}
             tokens-=data.length+28;sender.send(data,address);return true;
-        }catch(Exception unavailable){return false;}
+        }catch(Exception unavailable){p.sendFailures++;return false;}
     }
     public boolean receive(byte[] bytes,InetSocketAddress source,long now){
         if(bytes.length<45||bytes.length>1200||bytes[0]!='C'||bytes[1]!='C'||bytes[2]!='P'||bytes[3]!='4')return false;
-        var p=peers.get(HexFormat.of().formatHex(bytes,5,21));if(p==null||p.deadline<=now||!allowed(p.candidates,source))return true;
+        var p=peers.get(HexFormat.of().formatHex(bytes,5,21));if(p==null||p.deadline<=now)return true;if(!allowed(p.candidates,source)){p.blockedSources++;return true;}
         if(now-p.window>=1000){p.window=now;p.count=0;}if(++p.count>80)return true;
         try{
-            var packet=p.cipher.decode(bytes);if(!p.counters.replay[packet.flow()].accept(packet.sequence()))return true;
+            var packet=p.cipher.decode(bytes);if(!p.counters.replay[packet.flow()].accept(packet.sequence())){p.replays++;return true;}
             var m=JsonParser.parseString(new String(packet.body(),StandardCharsets.UTF_8)).getAsJsonObject();String type=m.get("type").getAsString();
             if(packet.flow()==2){
                 long ping=m.get("ping").getAsLong();boolean want=m.get("want").getAsBoolean();if(ping<1)return true;
-                if(type.equals("probe")){var reply=new JsonObject();reply.addProperty("type","pong");reply.addProperty("ping",ping);reply.addProperty("clock",now);reply.addProperty("want",p.want);send(p,2,reply,source,now);}
+                if(type.equals("probe")){p.probesReceived++;var reply=new JsonObject();reply.addProperty("type","pong");reply.addProperty("ping",ping);reply.addProperty("clock",now);reply.addProperty("want",p.want);send(p,2,reply,source,now);}
                 else if(type.equals("pong")){
                     var pending=p.pending.remove(ping);if(pending==null||!pending.address().getAddress().equals(source.getAddress()))return true;
                     var path=p.paths.computeIfAbsent(source,ignored->new PeerPath());path.pong(now,pending.sent(),m.get("clock").getAsLong());
+                    p.pongsReceived++;
                     if(p.address==null||!p.paths.containsKey(p.address)||path.rtt<p.paths.get(p.address).rtt)p.address=source;
                 }else return true;
                 p.remoteWantUntil=now+1000;if(p.remoteWant!=want){p.remoteWant=want;changed=true;}return true;
@@ -124,12 +161,12 @@ public final class PartyPeerClient implements AutoCloseable {
             String channel=m.get("channel").getAsString();long ttl=channel.equals("position")?3000:channel.equals("blocking")?1250:0;
             if(ttl==0||m.get("sequence").getAsLong()<1)return true;
             var path=p.paths.get(source);if(path==null||path.rtt<0)return true;
-            long age=(long)Math.max(0,now-(m.get("sentAt").getAsLong()-path.offset));if(age>=ttl)return true;
-            p.lastData=now;
+            long age=(long)Math.max(0,now-(m.get("sentAt").getAsLong()-path.offset));if(age>=ttl){p.expiredStates++;return true;}
+            p.lastData=now;p.statesReceived++;
             var record=m.deepCopy();record.addProperty("type","record");record.addProperty("uuid",p.uuid.toString());record.addProperty("name",p.name);record.addProperty("epoch",p.epoch);
             record.addProperty("actorScope",p.scope);record.addProperty("scope",context.scope());record.addProperty("serverTime",0);record.addProperty("expiresAt",ttl-age);
             receiver.record(record);return true;
-        }catch(Exception malformed){return true;}
+        }catch(Exception malformed){p.invalidPackets++;return true;}
     }
     @Override public void close(){peers.clear();permitted=Set.of();if(!selected.isEmpty())changed=true;selected=Set.of();context=null;}
 }

@@ -92,7 +92,17 @@ public final class PresenceSync {
 
     public static AccessoriesSettings getRemoteAccessories(UUID uuid){
         if(!RemoteAccess.online())return AccessoriesSettings.NONE;
-        var user=remoteSnapshot.users().get(uuid);return user==null||user.stale()?AccessoriesSettings.NONE:user.accessories();
+        var user=remoteSnapshot.users().get(uuid);
+        return user==null||user.stale()||com.customcosmetics.config.PlayerBlocklist.contains(ConfigManager.accessoriesBlockedPlayers,uuid,user.name())?AccessoriesSettings.NONE:user.accessories();
+    }
+    public record SyncedPlayer(UUID uuid,String name,String nickname){}
+    public static String cachedPlayerName(UUID uuid){var user=remoteSnapshot.users().get(uuid);return user==null?null:user.name();}
+    /** A read-only view of the existing appearance cache; opening/searching a blocklist never fetches data. */
+    public static List<SyncedPlayer> syncedPlayers(){
+        if(!RemoteAccess.online())return List.of();
+        return remoteSnapshot.users().entrySet().stream().filter(entry->!entry.getValue().stale())
+            .map(entry->{var user=entry.getValue();String alias=user.nickTweaksEnabled()?NickRenderUtils.visibleNickname(user.nickChanger()):user.name();
+                return new SyncedPlayer(entry.getKey(),user.name(),alias.isBlank()?user.name():alias);}).toList();
     }
     public static PlayerSizeSettings getRemotePlayerSize(UUID uuid){
         if(!RemoteAccess.online())return PlayerSizeSettings.NORMAL;

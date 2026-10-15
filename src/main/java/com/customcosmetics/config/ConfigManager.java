@@ -33,10 +33,12 @@ public final class ConfigManager {
     public static boolean smolpeopleMode = false;
     public static double smolLimbSwingSpeed = 2.5;
     public static com.customcosmetics.features.accessories.AccessoriesSettings accessories=com.customcosmetics.features.accessories.AccessoriesSettings.NONE;
+    public static java.util.List<PlayerBlocklist.Entry> accessoriesBlockedPlayers = java.util.List.of();
     public static boolean playerSizeEnabled=false;
     public static double playerSizeX=1,playerSizeY=1,playerSizeZ=1;
     public static boolean nickTweaksEnabled = false;
     public static String nickTweaksNickChanger = "";
+    public static java.util.List<com.customcosmetics.config.PlayerBlocklist.Entry> nickTweaksBlockedPlayers = java.util.List.of();
     public static boolean nickTweaksChromaEnabled = false;
     public static boolean nickTweaksCustomNickColorEnabled = false;
     public static boolean nickTweaksBoldSelf = false;
@@ -55,6 +57,7 @@ public final class ConfigManager {
     public static double nickTweaksShimmerInterval = 2;
     public static volatile boolean offlineMode = false;
     public static boolean capeEnabled = true;
+    public static java.util.List<PlayerBlocklist.Entry> capeBlockedPlayers = java.util.List.of();
     public static boolean partyEspEnabled=true,partyChatEnabled=true;
     public static boolean partyConnectionNotifications=true;
     public static boolean partyP2pEnabled=true;
@@ -137,6 +140,9 @@ public final class ConfigManager {
             }
             if(accessories==null)accessories=com.customcosmetics.features.accessories.AccessoriesSettings.NONE;
             nickTweaksNickChanger = NicknameLimit.limit(nickTweaksNickChanger);
+            nickTweaksBlockedPlayers = com.customcosmetics.config.PlayerBlocklist.normalize(nickTweaksBlockedPlayers);
+            accessoriesBlockedPlayers = PlayerBlocklist.normalize(accessoriesBlockedPlayers);
+            capeBlockedPlayers = PlayerBlocklist.normalize(capeBlockedPlayers);
             smolLimbSwingSpeed = Math.clamp(smolLimbSwingSpeed, 0.5, 5.0);
             playerSizeX=com.customcosmetics.features.playersize.PlayerSizeSettings.bounded(playerSizeX);
             playerSizeY=com.customcosmetics.features.playersize.PlayerSizeSettings.bounded(playerSizeY);
@@ -152,7 +158,7 @@ public final class ConfigManager {
             nickTweaksShimmerSize = com.customcosmetics.features.nickname.NicknameGradient.normalizeSize(nickTweaksShimmerSize);
             nickTweaksShimmerInterval = com.customcosmetics.features.nickname.NicknameGradient.normalizeInterval(nickTweaksShimmerInterval);
             clampAnimations();
-            partyEspStyle=java.util.Set.of("fill","outline","both").contains(partyEspStyle)?partyEspStyle:"outline";
+            partyEspStyle=java.util.Set.of("none","fill","outline","both").contains(partyEspStyle)?partyEspStyle:"outline";
             partyEspOpacity=Math.clamp(partyEspOpacity,.05,.75);partyEspLineWidth=Math.clamp(partyEspLineWidth,.5,4);
             partyNametagMode=com.customcosmetics.features.party.PartyNametagScale.mode(partyNametagMode);
             partyNametagSize=com.customcosmetics.features.party.PartyNametagScale.size(partyNametagSize);

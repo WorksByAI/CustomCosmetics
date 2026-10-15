@@ -80,11 +80,33 @@ public final class CapeGameTest implements FabricClientGameTest {
                 var local=CapeCosmetics.localPng();if(local==null)throw new AssertionError("High-resolution cape was rejected by the real file picker");
                 var saved=CapeImages.decode(local);if(saved.getWidth()!=2048||saved.getHeight()!=1024||client.player.getSkin().cape()==null)throw new AssertionError("High-resolution cape was resized or failed to reach the real player skin");
             });capturePreview(context);context.takeScreenshot("cape-high-resolution-2048x1024");
+            checkPlayerBlocks(context);
             restartPreview(context);
             testFileDialog(context,atlasFile);
             testTraffic(context);
             System.out.println("CAPE_NATIVE_PREVIEW_CROP_OFFLINE_ISOLATION_AND_EXPLICIT_REVIEW_OK");
         }catch(Exception failure){throw new AssertionError(failure);}
+    }
+    private void checkPlayerBlocks(ClientGameTestContext context){
+        context.runOnClient(client->{
+            var saved=ConfigManager.capeBlockedPlayers;var nicknames=ConfigManager.nickTweaksBlockedPlayers;
+            var other=java.util.UUID.fromString("12345678-1234-4234-8234-123456789abc");
+            try{
+                CosmeticsMode.setOffline(false);String hash=CapeImages.hash(CapeCosmetics.localPng());CapeCosmetics.approved(java.util.Map.of(other,hash,client.player.getUUID(),hash));
+                var original=client.player.getSkin();var vanilla=new net.minecraft.world.entity.player.PlayerSkin(original.body(),null,null,original.model(),original.secure());
+                if(CapeCosmetics.skin(other,vanilla)==vanilla)throw new AssertionError("Approved remote cape fixture did not reach the real skin provider");
+                PlayerBlocks.set(PlayerBlocks.Kind.CAPE,java.util.List.of(new PlayerBlocklist.Entry(other,"Alice"),new PlayerBlocklist.Entry(client.player.getUUID(),client.getUser().getName())));
+                if(CapeCosmetics.skin(other,vanilla)!=vanilla)throw new AssertionError("Cape block did not preserve the original cape provider");
+                if(CapeCosmetics.skin(client.player.getUUID(),vanilla)==vanilla)throw new AssertionError("A remote-player block changed the local cape");
+                PlayerBlocks.set(PlayerBlocks.Kind.CAPE,java.util.List.of());PlayerBlocks.set(PlayerBlocks.Kind.NICK,java.util.List.of(new PlayerBlocklist.Entry(other,"Alice")));
+                if(CapeCosmetics.skin(other,vanilla)==vanilla)throw new AssertionError("A nickname block accidentally hid the cape");
+                ClientUiAccess.setScreen(client,new CapeScreen(null));
+                var button=(PinkUi.Action)ClientUiAccess.screen(client).children().stream().filter(child->child instanceof PinkUi.Action action&&action.getMessage().getString().equals("Blocked Capes")).findFirst().orElseThrow();button.onClick(null,false);
+                if(!(ClientUiAccess.screen(client) instanceof CosmeticsScreen))throw new AssertionError("Cape blocklist button did not open settings");
+            }finally{ConfigManager.capeBlockedPlayers=saved;ConfigManager.nickTweaksBlockedPlayers=nicknames;CapeCosmetics.clearRemote();CosmeticsMode.setOffline(true);}
+        });context.waitTicks(3);context.takeScreenshot("cape-player-blocklist");
+        context.runOnClient(client->ClientUiAccess.setScreen(client,new CapeScreen(null)));
+        System.out.println("CAPE_LOCAL_PLAYER_BLOCK_PRESERVES_VANILLA_PROVIDER_SELF_AND_OTHER_FEATURES_OK");
     }
     private void restartPreview(ClientGameTestContext context)throws Exception{
         var saved=new AtomicReference<byte[]>();var approved=new AtomicReference<net.minecraft.resources.Identifier>();

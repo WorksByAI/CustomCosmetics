@@ -106,8 +106,10 @@ public final class ModernUiNicknameText {
     public static final class Buffers implements AutoCloseable,InvocationHandler {
         private final Object original;
         private final Palette palette;private final boolean shadow;
+        private final Matrix4fc pose;
         private final IdentityHashMap<VertexConsumer,GradientGlyph.GradientVertices> wrappers=new IdentityHashMap<>();
-        public Buffers(Object original,Palette palette,boolean shadow){this.original=original;this.palette=palette;this.shadow=shadow;}
+        public Buffers(Object original,Palette palette,boolean shadow){this(original,palette,shadow,null);}
+        public Buffers(Object original,Palette palette,boolean shadow,Matrix4fc pose){this.original=original;this.palette=palette;this.shadow=shadow;this.pose=pose;}
         public Object source(){var type=bufferType(original);return Proxy.newProxyInstance(type.getClassLoader(),new Class<?>[]{type},this);}
         @Override public Object invoke(Object proxy,Method method,Object[] args)throws Throwable{
             try{
@@ -115,7 +117,7 @@ public final class ModernUiNicknameText {
                 if(method.getName().equals("getBuffer"))wrappers.values().forEach(GradientGlyph.GradientVertices::finish);
                 var result=method.invoke(original,args);
                 return method.getName().equals("getBuffer")&&result instanceof VertexConsumer vertices
-                    ?wrappers.computeIfAbsent(vertices,key->palette.wrap(key,shadow)):result;
+                    ?wrappers.computeIfAbsent(vertices,key->palette.wrap(key,shadow).bulkPose(pose)).optimized():result;
             }catch(InvocationTargetException problem){throw problem.getCause();}
         }
         @Override public void close(){wrappers.values().forEach(GradientGlyph.GradientVertices::finish);}

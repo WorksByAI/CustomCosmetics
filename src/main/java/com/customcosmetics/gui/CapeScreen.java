@@ -14,6 +14,7 @@ public final class CapeScreen extends Screen {
     public CapeScreen(Screen parent){super(Component.literal("Cape"));this.parent=parent;}
     @Override protected void init(){
         w=Math.min(620,width-16);h=Math.min(410,height-16);x=(width-w)/2;y=(height-h)/2;
+        addRenderableWidget(new PinkUi.Action(x+w-164,y+10,150,22,"Blocked Capes",false,()->ClientUiAccess.setScreen(minecraft,new CosmeticsScreen(this,CosmeticsScreen.Page.BLOCKED_CAPES))));
         int buttonY=y+h-119,cell=(w-38)/2;
         cropButton=addRenderableWidget(new PinkUi.Action(x+14,buttonY,cell,24,"Choose Image & Crop",false,()->choose(false)));
         atlasButton=addRenderableWidget(new PinkUi.Action(x+24+cell,buttonY,cell,24,"Choose Cape + Elytra",false,()->choose(true)));

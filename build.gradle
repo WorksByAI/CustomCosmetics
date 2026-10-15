@@ -17,6 +17,7 @@ repositories {
 }
 
 dependencies {
+    if(providers.gradleProperty('sodium_test_jar').isPresent())testRuntimeOnly files(providers.gradleProperty('sodium_test_jar').get())
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     implementation "net.fabricmc:fabric-loader:${project.loader_version}"
     implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
@@ -31,6 +32,7 @@ dependencies {
 
 tasks.named('test', Test) {
     useJUnitPlatform()
+    systemProperty 'customcosmetics.sodiumTestRequired', providers.gradleProperty('sodium_test_jar').isPresent()
     dependsOn tasks.named('jar'), tasks.named('sourcesJar'), 'fullSourceZip'
     inputs.files(tasks.named('jar'), tasks.named('sourcesJar'), tasks.named('fullSourceZip'))
     inputs.files('LICENSE', 'NOTICE', 'README.md', 'LICENSES', 'gradle/wrapper')
@@ -80,6 +82,10 @@ loom.runs.named('clientGameTest') {
     vmArg "-Dcustomcosmetics.itemModelCatharsisTest=${providers.gradleProperty('appearance_catharsis_test').getOrElse('false')}"
     vmArg "-Dcustomcosmetics.nicknameOnly=${providers.gradleProperty('nickname_game_only').getOrElse('false')}"
     vmArg "-Dcustomcosmetics.nicknameAnimation=${providers.gradleProperty('nickname_capture_animation').getOrElse('false')}"
+}
+
+if(providers.gradleProperty('sodium_test_jar').isPresent()&&providers.gradleProperty('sodium_game_test').getOrElse('false').toBoolean()){
+    dependencies {gametestRuntimeOnly files(providers.gradleProperty('sodium_test_jar').get())}
 }
 
 tasks.named('runClientGameTest') { dependsOn 'test' }

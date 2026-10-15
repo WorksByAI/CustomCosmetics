@@ -44,6 +44,7 @@ public final class CapeCosmetics {
     public static synchronized PlayerSkin skin(UUID uuid,PlayerSkin original){
         if(!ConfigManager.capeEnabled)return original;
         var client=Minecraft.getInstance();UUID self=client.player==null?null:client.player.getUUID();
+        if(!Objects.equals(uuid,self)&&com.customcosmetics.sync.PlayerBlocks.blocked(com.customcosmetics.sync.PlayerBlocks.Kind.CAPE,uuid,com.customcosmetics.sync.PresenceSync.cachedPlayerName(uuid)))return original;
         String hash=CapeVisibility.hash(uuid,self,RemoteAccess.online(),ConfigManager.capeEnabled,previewDepth>0,local==null?null:local.hash(),approved);
         Identifier id=hash==null?null:textures.get(hash);
         if(id==null)return original;

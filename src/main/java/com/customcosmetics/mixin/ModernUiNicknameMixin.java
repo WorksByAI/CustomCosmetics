@@ -65,7 +65,7 @@ public final class ModernUiNicknameMixin {
         private void customcosmetics$nativeGlyphs(VertexConsumer vertices,float density,int r,int g,int b,int a,float baseline,boolean shadow,Operation<Void> original){
             if(customcosmetics$palette.empty()){original.call(vertices,density,r,g,b,a,baseline,shadow);return;}
             var colored=customcosmetics$palette.wrap(vertices,shadow);
-            try{original.call(colored,density,r,g,b,a,baseline,shadow);}finally{colored.finish();}
+            try{original.call(colored.optimized(),density,r,g,b,a,baseline,shadow);}finally{colored.finish();}
         }
     }
     @Pseudo @Mixin(targets="icyllis.modernui.mc.text.TextEffectRenderState",remap=false)
@@ -79,7 +79,7 @@ public final class ModernUiNicknameMixin {
         private void customcosmetics$nativeEffects(VertexConsumer vertices,int r,int g,int b,int a,float baseline,boolean shadow,Operation<Void> original){
             if(customcosmetics$palette.empty()){original.call(vertices,r,g,b,a,baseline,shadow);return;}
             var colored=customcosmetics$palette.wrap(vertices,shadow);
-            try{original.call(colored,r,g,b,a,baseline,shadow);}finally{colored.finish();}
+            try{original.call(colored.optimized(),r,g,b,a,baseline,shadow);}finally{colored.finish();}
         }
     }
     @Pseudo @Mixin(targets="icyllis.modernui.mc.text.TextLayout",remap=false)
@@ -88,7 +88,7 @@ public final class ModernUiNicknameMixin {
         private float customcosmetics$nativeWorldGlyphs(Matrix4fc pose,@Coerce Object buffers,float x,float y,int r,int g,int b,int a,
                 boolean shadow,int mode,boolean polygonOffset,float scale,int background,int light,Operation<Float> original){
             var palette=ModernUiNicknameText.current();if(palette.empty())return original.call(pose,buffers,x,y,r,g,b,a,shadow,mode,polygonOffset,scale,background,light);
-            try(var colors=new ModernUiNicknameText.Buffers(buffers,palette,shadow)){
+            try(var colors=new ModernUiNicknameText.Buffers(buffers,palette,shadow,pose)){
                 return original.call(pose,colors.source(),x,y,r,g,b,a,shadow,mode,polygonOffset,scale,background,light);
             }
         }

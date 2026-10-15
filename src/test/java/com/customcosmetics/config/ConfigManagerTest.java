@@ -9,6 +9,25 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ConfigManagerTest {
+    @Test void nicknameBlocksRoundTripAsLocalAccountNamesAndStableIdentities() throws Exception {
+        var path=directory.resolve("nickname-blocks.json");
+        var uuid=UUID.fromString("12345678-1234-4234-8234-123456789abc");
+        var expected=List.of(new com.customcosmetics.config.PlayerBlocklist.Entry(null,"Alice"),new com.customcosmetics.config.PlayerBlocklist.Entry(uuid,"Bob"));
+        ConfigManager.nickTweaksBlockedPlayers=expected;ConfigManager.accessoriesBlockedPlayers=List.of(expected.getLast());ConfigManager.capeBlockedPlayers=List.of(expected.getFirst());ConfigManager.save(path);ConfigManager.nickTweaksBlockedPlayers=List.of();ConfigManager.accessoriesBlockedPlayers=List.of();ConfigManager.capeBlockedPlayers=List.of();ConfigManager.load(path);
+        assertEquals(expected,ConfigManager.nickTweaksBlockedPlayers);
+        assertEquals(List.of(expected.getLast()),ConfigManager.accessoriesBlockedPlayers);
+        assertEquals(List.of(expected.getFirst()),ConfigManager.capeBlockedPlayers);
+        Files.writeString(path,"{\"settings\":{\"nickTweaksBlockedPlayers\":[null,{\"account\":\"Bad Name\"},{\"account\":\" Alice \"},{\"account\":\"ALICE\"}]}}");
+        ConfigManager.load(path);assertEquals(List.of(expected.getFirst()),ConfigManager.nickTweaksBlockedPlayers);
+    }
+    @Test void namesOnlyEspStylePersistsWithoutDisablingPositionSharing() throws Exception {
+        var path=directory.resolve("party-names-only.json");
+        ConfigManager.partyEspEnabled=true;ConfigManager.partyEspStyle="none";ConfigManager.save(path);
+        ConfigManager.partyEspStyle="outline";ConfigManager.load(path);
+        assertEquals("none",ConfigManager.partyEspStyle);assertTrue(ConfigManager.partyEspEnabled);
+        assertTrue(com.customcosmetics.features.party.PartyFeatures.sharingPositions());
+        assertTrue(ConfigManager.partyShowNames);assertTrue(ConfigManager.partyFarMarkers);
+    }
     @Test void partyP2pDefaultsOnAndExplicitOptOutPersists() throws Exception {
         assertTrue(ConfigManager.partyP2pEnabled);var path=directory.resolve("party-p2p.json");
         ConfigManager.partyP2pEnabled=false;ConfigManager.save(path);ConfigManager.partyP2pEnabled=true;ConfigManager.load(path);assertFalse(ConfigManager.partyP2pEnabled);

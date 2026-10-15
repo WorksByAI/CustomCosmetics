@@ -2,6 +2,7 @@ package com.customcosmetics.gui;
 
 import com.customcosmetics.compatibility.ClientInput;
 import com.customcosmetics.config.ConfigManager;
+import com.customcosmetics.config.PlayerBlocklist;
 import com.customcosmetics.sync.PresenceSync;
 import com.customcosmetics.utils.NickRenderUtils;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -23,7 +24,7 @@ import static com.customcosmetics.gui.PinkUi.*;
 
 /** Independent pink cosmetics studio, with scrollable settings and keyboard focus. */
 public final class CosmeticsScreen extends Screen {
-    public enum Page { MAIN, SMOL, SIZE, NICK, COLOR, CHROMA, PRESETS, ANIMATIONS, ITEMS, ACCESSORIES, PARTY, SYNC }
+    public enum Page { MAIN, SMOL, SIZE, NICK, COLOR, CHROMA, PRESETS, BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, ANIMATIONS, ITEMS, ACCESSORIES, PARTY, SYNC }
     private static final ScreenSession SESSION = new ScreenSession();
     private final Screen parent;
     private Page page;
@@ -47,6 +48,8 @@ public final class CosmeticsScreen extends Screen {
     private boolean changingColorText;
     private boolean editingShimmerColors;
     private String presetName = "";
+    private String blockedPlayerName = "";
+    private String blockedPlayerSearch = "";
     private boolean pinnedNickname, pinnedSize, pinnedAccessories, draggingScroll;
     private record Placement(AbstractWidget widget, int y) {}
 
@@ -91,7 +94,8 @@ public final class CosmeticsScreen extends Screen {
             PinkUi.Action action = new PinkUi.Action(panelX + 10, panelY + navTop + slot * navGap,
                 sideWidth - 20, navGap - 4, names[i], false, () -> open(target));
             action.selected(() -> target == page
-                || target == Page.NICK && (page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS));
+                || target == Page.ACCESSORIES && page == Page.BLOCKED_ACCESSORIES
+                || target == Page.NICK && (page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS || page == Page.BLOCKED_NICKS));
             navigation.add(addWidget(action));
         }
         navigation.add(addWidget(new RepositoryButton(panelX + 12, panelY + panelHeight - 42)));
@@ -128,6 +132,7 @@ public final class CosmeticsScreen extends Screen {
             case COLOR -> colors();
             case CHROMA -> chroma();
             case PRESETS -> presets();
+            case BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES -> blockedPlayers();
             case ANIMATIONS -> animations();
             case ITEMS -> itemCosmetics();
             case ACCESSORIES -> accessories();
@@ -145,12 +150,13 @@ public final class CosmeticsScreen extends Screen {
         return switch (page) {
             case MAIN, SMOL -> "SmolPeople";
             case SIZE -> "Player Size";
-            case NICK, COLOR, CHROMA, PRESETS -> "NickTweaks";
+            case NICK, COLOR, CHROMA, PRESETS, BLOCKED_NICKS -> "NickTweaks";
             case ANIMATIONS -> "Animations";
             case ITEMS -> "Item Cosmetics";
-            case ACCESSORIES -> "Accessories";
+            case ACCESSORIES, BLOCKED_ACCESSORIES -> "Accessories";
             case PARTY -> "Party";
             case SYNC -> "Sync";
+            case BLOCKED_CAPES -> "Cape";
         };
     }
 
@@ -172,8 +178,8 @@ public final class CosmeticsScreen extends Screen {
             if(valid){ConfigManager.partyMaxDisplayDistance=Double.parseDouble(value);changed();}
         });
         label("0 = unlimited",contentX+124,distanceY+38,MUTED,contentWidth-136);
-        fullButton("ESP Style: "+switch(ConfigManager.partyEspStyle){case "fill"->"Fill";case "both"->"Fill + Outline";default->"Outline";},()->{
-            ConfigManager.partyEspStyle=switch(ConfigManager.partyEspStyle){case "outline"->"fill";case "fill"->"both";default->"outline";};changed();rebuildWidgets();
+        fullButton("ESP Style: "+switch(ConfigManager.partyEspStyle){case "none"->"None";case "fill"->"Fill";case "both"->"Fill + Outline";default->"Outline";},()->{
+            ConfigManager.partyEspStyle=switch(ConfigManager.partyEspStyle){case "outline"->"fill";case "fill"->"both";case "both"->"none";default->"outline";};changed();rebuildWidgets();
         },false);
         int y=card(64);label("ESP Color",contentX+12,y+10,TEXT,contentWidth-24);
         var field=input(contentX+12,y+28,Math.min(120,contentWidth-24),"ESP Color",hex(ConfigManager.partyEspColor),7,value->{});
@@ -250,6 +256,7 @@ public final class CosmeticsScreen extends Screen {
             CapePreview.drawAccessories(g,contentX+12+half,y+26-offset,half,130,false);g.pose().popMatrix();});
     }
     private void accessoryControls(){
+        fullButton("Blocked Accessories",()->open(Page.BLOCKED_ACCESSORIES),false);
         fullButton("Open Wardrobe",()->com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,new WardrobeScreen(this)),false);
         label("Choose styles for each part, then adjust colors and size.",contentX,rowY,MUTED,contentWidth);rowY+=24;
         label("Online outfits follow your normal sync interval.",contentX,rowY,MUTED,contentWidth);rowY+=24;
@@ -339,6 +346,61 @@ public final class CosmeticsScreen extends Screen {
         });
         label("Color codes: &0–&f, &r", contentX + 12, y + 65, MUTED, contentWidth - 24);
         toggleRow("Bold Self Nick", "", () -> ConfigManager.nickTweaksBoldSelf, v -> ConfigManager.nickTweaksBoldSelf = v);
+        fullButton("Blocked Nicknames",()->open(Page.BLOCKED_NICKS),false);
+    }
+
+    private com.customcosmetics.sync.PlayerBlocks.Kind blockKind(){return switch(page){case BLOCKED_ACCESSORIES->com.customcosmetics.sync.PlayerBlocks.Kind.ACCESSORIES;case BLOCKED_CAPES->com.customcosmetics.sync.PlayerBlocks.Kind.CAPE;default->com.customcosmetics.sync.PlayerBlocks.Kind.NICK;};}
+    private List<PlayerBlocklist.Entry> blockList(){return com.customcosmetics.sync.PlayerBlocks.entries(blockKind());}
+    private void blockList(List<PlayerBlocklist.Entry> entries){com.customcosmetics.sync.PlayerBlocks.set(blockKind(),entries);}
+    private void blockedPlayers(){
+        boolean accessories=page==Page.BLOCKED_ACCESSORIES,capes=page==Page.BLOCKED_CAPES;
+        fullButton(capes?"Back to Cape":accessories?"Back to Accessories":"Back to NickTweaks",()->{if(capes)onClose();else open(accessories?Page.ACCESSORIES:Page.NICK);},false);
+        label(capes?"Blocked Capes":accessories?"Blocked Accessories":"Blocked Nicknames",contentX,rowY+4,PINK,contentWidth);rowY+=22;
+        for(var line:font.split(Component.literal(capes?"Hide these players' custom capes. Local only.":accessories?"Hide these players' accessories. Local only.":"Show these players' original account names. Local only."),contentWidth)){
+            int y=rowY;art.add(g->g.text(font,line,contentX,y,MUTED,false));rowY+=12;
+        }rowY+=10;
+        rowY+=8;label("Synced Players",contentX,rowY+4,PINK,contentWidth);rowY+=24;
+        int searchY=card(64);label("Search Nickname or Account",contentX+12,searchY+10,TEXT,contentWidth-24);
+        var search=input(contentX+12,searchY+28,contentWidth-24,"Search Nickname or Account",blockedPlayerSearch,64,value->{});
+        search.setResponder(value->{activity();blockedPlayerSearch=value;rebuildWidgets();
+            var replacement=controls.stream().map(Placement::widget).filter(widget->widget instanceof PinkUi.Field&&widget.getMessage().getString().equals("Search Nickname or Account")).findFirst().orElseThrow();
+            setFocused(replacement);((PinkUi.Field)replacement).moveCursorToEnd(false);
+        });
+        String query=blockedPlayerSearch.strip().toLowerCase(Locale.ROOT);
+        var matches=PresenceSync.syncedPlayers().stream().filter(player->!player.uuid().equals(minecraft.getUser().getProfileId()))
+            .filter(player->player.name().toLowerCase(Locale.ROOT).contains(query)||player.nickname().toLowerCase(Locale.ROOT).contains(query))
+            .sorted(java.util.Comparator.comparing(PresenceSync.SyncedPlayer::name,String.CASE_INSENSITIVE_ORDER)).toList();
+        if(matches.isEmpty()){label("No matching synced players.",contentX+12,rowY+10,DIM,contentWidth-24);rowY+=30;}
+        for(var player:matches){
+            String alias=player.nickname();if(alias.isBlank())alias=player.name();
+            int row=card(50);label(alias,contentX+12,row+10,TEXT,contentWidth-116);label(player.name(),contentX+12,row+29,DIM,contentWidth-116);
+            boolean blocked=PlayerBlocklist.contains(blockList(),player.uuid(),player.name());
+            var action=add(new PinkUi.Action(contentX+contentWidth-92,row+12,80,26,blocked?"Blocked":"Block",false,()->{
+                var entries=new ArrayList<>(blockList());entries.add(new PlayerBlocklist.Entry(player.uuid(),player.name()));
+                blockList(entries);changed();rebuildWidgets();
+            }));action.active=!blocked;
+        }
+        rowY+=8;label("Blocked Players",contentX,rowY+4,PINK,contentWidth);rowY+=24;
+        if(blockList().isEmpty()){label("No blocked players.",contentX+12,rowY+10,DIM,contentWidth-24);rowY+=30;}
+        for(var entry:blockList()){
+            int row=card(38);label(entry.account(),contentX+12,row+14,TEXT,contentWidth-116);
+            add(new PinkUi.Action(contentX+contentWidth-92,row+6,80,26,"Unblock",false,()->{
+                blockList(blockList().stream().filter(value->!value.equals(entry)).toList());changed();rebuildWidgets();
+            }));
+        }
+        int y=card(68);label("Account Name",contentX+12,y+10,TEXT,contentWidth-24);
+        var field=input(contentX+12,y+28,contentWidth-126,"Blocked Account Name",blockedPlayerName,16,value->{});
+        field.setHint(Component.literal("Minecraft username"));
+        var block=add(new PinkUi.Action(contentX+contentWidth-102,y+28,90,26,"Block",true,()->{
+            String name=blockedPlayerName.strip();
+            if(!com.customcosmetics.config.PlayerBlocklist.valid(name))return;
+            var result=com.customcosmetics.sync.PlayerBlocks.edit(true,blockKind(),name,PresenceSync.syncedPlayers());toast(result.message());
+            blockedPlayerName="";changed();rebuildWidgets();
+        }));
+        block.active=com.customcosmetics.config.PlayerBlocklist.valid(blockedPlayerName.strip());
+        field.setResponder(value->{activity();blockedPlayerName=value;
+            boolean valid=com.customcosmetics.config.PlayerBlocklist.valid(value.strip());field.invalid(!value.isEmpty()&&!valid);block.active=valid;
+        });
     }
 
     private void colors() {

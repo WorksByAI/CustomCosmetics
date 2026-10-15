@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.3.1
+
+- Add a mod icon.
+
+- Sync: Add local debug reports.
+
+- Sync: Prioritize direct connections and improve fallback recovery.
+
+- Fix Sodium compatibility for gradient text.
+
+- Party: Add a names-only ESP style.
+
+- Add local nickname, accessory and cape blocklists with nickname search and commands.
+
 ## 1.3.0
 
 - New Feature: Party ESP and IRC For Party Members.

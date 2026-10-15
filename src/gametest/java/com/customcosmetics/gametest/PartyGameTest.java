@@ -43,6 +43,7 @@ public final class PartyGameTest implements FabricClientGameTest{
             context.runOnClient(client->ConfigManager.partyEspStyle="fill");context.waitTicks(4);int fill=capture(context,"party-fill-through-wall");
             context.runOnClient(client->ConfigManager.partyEspStyle="both");context.waitTicks(4);int both=capture(context,"party-fill-outline-and-distant-marker");
             if(outline<100||fill<=outline*2||both<outline)throw new AssertionError("Party ESP GPU fill/outline failed behind opaque stone: outline="+outline+",fill="+fill+",both="+both);
+            checkNamesOnly(context);
             context.runOnClient(client->{ConfigManager.partyEspEnabled=false;ConfigManager.partyTracersEnabled=true;ConfigManager.partyTracerColor=0xFFA6CF;
                 if(PartyHighlight.targets(client).size()!=2||!PartyFeatures.sharingPositions())throw new AssertionError("Tracers must work independently of ESP");});
             context.waitTicks(4);int tracers=capture(context,"party-tracers-through-wall");
@@ -96,9 +97,46 @@ public final class PartyGameTest implements FabricClientGameTest{
             }catch(ReflectiveOperationException error){throw new AssertionError(error);}});
             context.takeScreenshot("party-settings");
             checkSyncDev(context);
+            context.runOnClient(client->{try{
+                var dispatcher=new com.mojang.brigadier.CommandDispatcher<net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource>();SyncCommands.register(dispatcher);
+                if(SyncDebug.enabled())throw new AssertionError("Debug mode must default to off");
+                dispatcher.execute("customcosmetics dev on",null);if(!SyncDebug.enabled())throw new AssertionError("Debug command did not enable sampling");
+                dispatcher.execute("customcosmetics dev status",null);
+                dispatcher.execute("customcosmetics dev off",null);if(SyncDebug.enabled())throw new AssertionError("Debug command did not stop sampling");
+                dispatcher.execute("customcosmetics dev",null);if(!SyncDebug.enabled())throw new AssertionError("Debug toggle did not enable sampling");
+                dispatcher.execute("customcosmetics dev",null);if(SyncDebug.enabled())throw new AssertionError("Debug toggle did not disable sampling");
+                for(String feature:List.of("accessories","nick","cape")){
+                    if(dispatcher.execute("customcosmetics block add "+feature+" NativeMate",null)!=1)throw new AssertionError("Block command failed for "+feature);
+                    if(dispatcher.execute("customcosmetics block remove "+feature+" NativeMate",null)!=1)throw new AssertionError("Unblock command failed for "+feature);
+                }
+                System.out.println("LOCAL_BLOCK_COMMAND_ADD_REMOVE_ALL_THREE_FEATURES_OK");
+                System.out.println("SYNC_DEBUG_NATIVE_COMMAND_ON_OFF_STATUS_AND_LOCAL_COPY_REPORT_OK");
+            }catch(com.mojang.brigadier.exceptions.CommandSyntaxException error){throw new AssertionError(error);}});
             context.runOnClient(client->{ConfigManager.partyEspEnabled=false;if(!PartyHighlight.targets(client).isEmpty())throw new AssertionError("Disabled ESP still rendered");});
             System.out.println("PARTY_NATIVE_GPU_WALL_OUTLINE_FILL_UNLOADED_MARKER_STRANGER_FILTER_CHAT_PREFIX_AND_GUI_OK outline="+outline+" fill="+fill+" both="+both);
         }
+    }
+    private static void checkNamesOnly(ClientGameTestContext context){
+        context.runOnClient(client->{
+            ConfigManager.partyEspStyle="none";
+            if(PartyHighlight.targets(client).size()!=2||!PartyFeatures.sharingPositions())throw new AssertionError("Names-only must retain near and distant teammates and position sharing");
+            var camera=new net.minecraft.client.renderer.state.level.CameraRenderState();camera.pos=client.player.position();camera.orientation=new org.joml.Quaternionf();camera.depthFar=256;
+            var calls=new java.util.concurrent.atomic.AtomicIntegerArray(2);
+            var queue=(net.minecraft.client.renderer.SubmitNodeCollector)java.lang.reflect.Proxy.newProxyInstance(PartyGameTest.class.getClassLoader(),new Class<?>[]{net.minecraft.client.renderer.SubmitNodeCollector.class},(proxy,method,args)->{
+                if(method.getName().equals("submitCustomGeometry"))calls.incrementAndGet(0);
+                if(method.getName().equals("submitText"))calls.incrementAndGet(1);
+                return null;
+            });
+            for(var target:PartyHighlight.targets(client))PartyHighlight.submit(target,camera,queue,client.font);
+            if(calls.get(0)!=0||calls.get(1)!=2)throw new AssertionError("None must submit names without any fill/outline geometry: "+calls.get(0)+"/"+calls.get(1));
+            ConfigManager.partyShowNames=false;ConfigManager.partyFarMarkers=false;calls.set(1,0);
+            PartyHighlight.submit(new PartyHighlight.Target(A,"Alice",new net.minecraft.world.phys.AABB(0,0,4,1,2,5),true),camera,queue,client.font);
+            PartyHighlight.submit(new PartyHighlight.Target(FAR,"FarMate",new net.minecraft.world.phys.AABB(0,0,400,1,2,401),false),camera,queue,client.font);
+            if(calls.get(0)!=0||calls.get(1)!=0)throw new AssertionError("None ignored name/marker switches");
+            ConfigManager.partyShowNames=true;ConfigManager.partyFarMarkers=true;
+        });
+        context.waitTicks(4);capture(context,"party-none-names-only-through-wall");
+        System.out.println("PARTY_NONE_NEAR_AND_FAR_NAMES_WITHOUT_BOX_GEOMETRY_OK");
     }
     private static void checkSyncDev(ClientGameTestContext context){
         context.runOnClient(client->{try{

@@ -33,6 +33,8 @@ public final class ClientLoadProbe {
             "com.customcosmetics.sync.BlockingSync", "com.customcosmetics.sync.WebSocketPresenceClient",
             "com.customcosmetics.sync.RealtimeSync", "com.customcosmetics.sync.RealtimeClient", "com.customcosmetics.sync.RealtimeRoute",
             "com.customcosmetics.sync.PartyPeerClient", "com.customcosmetics.sync.RealtimeConnections",
+            "com.customcosmetics.config.PlayerBlocklist", "com.customcosmetics.sync.PlayerBlocks", "com.customcosmetics.sync.PlayerBlockCommands",
+            "com.customcosmetics.sync.SyncDebug", "com.customcosmetics.sync.DebugSession", "com.customcosmetics.compatibility.SodiumGlyphWriter",
             "com.customcosmetics.features.party.PartyFeatures", "com.customcosmetics.features.party.PartyHighlight",
             "com.customcosmetics.features.party.PartyConnectionNotice", "com.customcosmetics.features.party.PartyNametagScale",
             "com.customcosmetics.features.party.PartyTracer", "com.customcosmetics.features.party.PartyPositionTrack",

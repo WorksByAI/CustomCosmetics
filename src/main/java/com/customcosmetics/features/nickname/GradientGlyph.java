@@ -36,7 +36,8 @@ public record GradientGlyph(TextRenderable.Styled original, NicknameGlyphEffect 
     }
     public void render(Matrix4fc pose, VertexConsumer vertices, int light, boolean inverseDepth) {
         var colors = new GradientVertices(vertices, effect, x, y, advance, foreground, System.currentTimeMillis());
-        original.render(pose, colors, light, inverseDepth);
+        colors.bulkPose(pose);
+        original.render(pose, colors.optimized(), light, inverseDepth);
         colors.finish();
     }
 
@@ -59,6 +60,18 @@ public record GradientGlyph(TextRenderable.Styled original, NicknameGlyphEffect 
         private final Vertex[] quad = new Vertex[4];
         private int count;
         private Vertex current;
+        private org.joml.Matrix4f bulkInverse;
+        public GradientVertices bulkPose(Matrix4fc pose){bulkInverse=pose==null?null:new org.joml.Matrix4f(pose).invert();return this;}
+        public VertexConsumer addBulkVertex(float x,float y,float z){
+            addVertex(x,y,z);
+            if(bulkInverse!=null){var local=bulkInverse.transformPosition(x,y,z,new org.joml.Vector3f());current.paintX=local.x;current.paintY=local.y;}
+            return this;
+        }
+        private VertexConsumer optimized;
+        public VertexConsumer optimized(){
+            if(optimized==null)optimized=com.customcosmetics.compatibility.SodiumGlyphWriter.wrap(this);
+            return optimized;
+        }
 
         public GradientVertices(VertexConsumer destination, NicknameGlyphEffect effect, float x, float y, float advance, int foreground, long time) {
             this.destination = destination; this.effect = effect; this.x = x; this.y = y;
@@ -74,7 +87,7 @@ public record GradientGlyph(TextRenderable.Styled original, NicknameGlyphEffect 
         }
         @Override public VertexConsumer addVertex(float x, float y, float z) {
             if (count == 4) finish();
-            current = new Vertex(); current.x = x; current.y = y; current.z = z; quad[count++] = current;
+            current = new Vertex(); current.x = current.paintX = x; current.y = current.paintY = y; current.z = z; quad[count++] = current;
             return this;
         }
         @Override public VertexConsumer addVertexWith2DPose(Matrix3x2fc pose,float x,float y) {
@@ -97,14 +110,14 @@ public record GradientGlyph(TextRenderable.Styled original, NicknameGlyphEffect 
                 if(selector==null){if(quad[0].color==foreground)sample=new Sample(effect,x,y,advance,false);}
                 else {
                     float left=Float.POSITIVE_INFINITY,top=left,right=Float.NEGATIVE_INFINITY,bottom=right;
-                    for(var vertex:quad){left=Math.min(left,vertex.x);top=Math.min(top,vertex.y);right=Math.max(right,vertex.x);bottom=Math.max(bottom,vertex.y);}
+                    for(var vertex:quad){left=Math.min(left,vertex.paintX);top=Math.min(top,vertex.paintY);right=Math.max(right,vertex.paintX);bottom=Math.max(bottom,vertex.paintY);}
                     sample=selector.select(new Quad(left,top,right,bottom,quad[0].color));
                 }
             }
             if (sample==null) {
                 for (int i=0;i<count;i++) emit(quad[i], null);
             } else {
-                int strips = Math.clamp((int)Math.ceil(Math.abs(quad[3].x - quad[0].x) * 2), 1, 64);
+                int strips = Math.clamp((int)Math.ceil(Math.abs(quad[3].paintX - quad[0].paintX) * 2-0.0001f), 1, 64);
                 for (int strip=0;strip<strips;strip++) {
                     float a = strip/(float)strips, b=(strip+1)/(float)strips;
                     emit(between(quad[0],quad[3],a),sample);
@@ -120,9 +133,9 @@ public record GradientGlyph(TextRenderable.Styled original, NicknameGlyphEffect 
                 :vertex.pose == null ? destination.addVertex(vertex.x,vertex.y,vertex.z):destination.addVertex(vertex.pose,vertex.x,vertex.y,vertex.z);
             int color=vertex.color;
             if (sample!=null) {
-                var paint=sample.effect();double fraction=(vertex.x-sample.x())/Math.max(.01f,sample.advance());
+                var paint=sample.effect();double fraction=(vertex.paintX-sample.x())/Math.max(.01f,sample.advance());
                 double position=paint.from()+(paint.to()-paint.from())*fraction;
-                int rgb=paint.gradient().color(position,(vertex.y-sample.y())/8.0,time);
+                int rgb=paint.gradient().color(position,(vertex.paintY-sample.y())/8.0,time);
                 if(sample.shadow())rgb=(rgb&0xFCFCFC)>>>2;
                 color=(color & 0xFF000000) | rgb;
             }
@@ -138,13 +151,14 @@ public record GradientGlyph(TextRenderable.Styled original, NicknameGlyphEffect 
         private static Vertex between(Vertex a,Vertex b,float t) {
             Vertex v=new Vertex();v.pose=a.pose;v.pose2d=a.pose2d;v.color=a.color;v.light=a.light;
             v.x=a.x+(b.x-a.x)*t;v.y=a.y+(b.y-a.y)*t;v.z=a.z+(b.z-a.z)*t;
+            v.paintX=a.paintX+(b.paintX-a.paintX)*t;v.paintY=a.paintY+(b.paintY-a.paintY)*t;
             v.u=a.u+(b.u-a.u)*t;v.v=a.v+(b.v-a.v)*t;
             v.u3=a.u3+(b.u3-a.u3)*t;v.v3=a.v3+(b.v3-a.v3)*t;v.hasUv3=a.hasUv3;
             v.overlay=a.overlay;v.hasOverlay=a.hasOverlay;v.nx=a.nx;v.ny=a.ny;v.nz=a.nz;v.hasNormal=a.hasNormal;
             v.lineWidth=a.lineWidth;v.hasLineWidth=a.hasLineWidth;return v;
         }
         private static final class Vertex {
-            Matrix4fc pose;Matrix3x2fc pose2d;float x,y,z,u,v,u3,v3,nx,ny,nz,lineWidth;int color,light,overlay;boolean hasOverlay,hasUv3,hasNormal,hasLineWidth;
+            Matrix4fc pose;Matrix3x2fc pose2d;float x,y,z,paintX,paintY,u,v,u3,v3,nx,ny,nz,lineWidth;int color,light,overlay;boolean hasOverlay,hasUv3,hasNormal,hasLineWidth;
         }
     }
 }

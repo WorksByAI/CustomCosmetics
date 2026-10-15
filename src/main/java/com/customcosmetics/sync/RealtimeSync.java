@@ -22,6 +22,12 @@ public final class RealtimeSync {
     public static Map<UUID,PartyClient.Teammate> teammates(){return RemoteAccess.online()&&live!=null?live.teammates():Map.of();}
     public static String status(){return live==null?"Disconnected":live.status();}
     public static String connectionStatus(){return live==null||live.closed()?PartySync.status():live.status();}
+    public static List<String> diagnostics(){
+        if(!RemoteAccess.online())return List.of("Realtime: Offline mode; remote connections are closed.");
+        if(!enabled())return List.of("Realtime: Manual legacy UDP transport does not support party P2P.");
+        if(live!=null)return live.diagnostics();
+        return List.of("Realtime: "+(authenticating?"Waiting for Minecraft authentication":identity==null?"No authenticated realtime session":"Waiting to connect; retry in "+Math.max(0,nextAttempt-System.currentTimeMillis())+"ms"));
+    }
     public static void disconnect(){generation++;if(live!=null)live.close();live=null;endpoint="";identity=null;nextAttempt=0;authenticating=false;}
     public static void tick(Minecraft client){
         boolean blocking=ConfigManager.swordBlockingEnabled&&ConfigManager.swordBlockingSyncEnabled&&ConfigManager.syncEnabled;

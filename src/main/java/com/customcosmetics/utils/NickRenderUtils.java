@@ -683,6 +683,7 @@ public final class NickRenderUtils {
         for (PresenceSync.RemoteNickname entry : remote) {
             // A local player never uses a remote record, including their own stale server-side settings.
             if (entry.uuid().equals(selfUuid) || entry.name().equalsIgnoreCase(selfName)) continue;
+            if (com.customcosmetics.config.PlayerBlocklist.contains(ConfigManager.nickTweaksBlockedPlayers, entry.uuid(), entry.name())) continue;
             if (entry.name().isBlank() || !seen.add(entry.name().toLowerCase(Locale.ROOT))) continue;
             targets.add(Target.remote(entry.name(), entry.profile()));
         }

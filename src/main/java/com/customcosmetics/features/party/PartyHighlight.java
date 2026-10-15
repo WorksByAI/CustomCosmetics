@@ -58,7 +58,7 @@ public final class PartyHighlight{
         }
         if(!ConfigManager.partyEspEnabled)return;
         int color=ConfigManager.partyEspColor&0xFFFFFF;String mode=ConfigManager.partyEspStyle;
-        if(target.loaded()){
+        if(target.loaded()&&!mode.equals("none")){
             var pose=new PoseStack();int fill=(Math.clamp((int)Math.round(ConfigManager.partyEspOpacity*255),1,220)<<24)|color;
             double thickness=Math.min(.12,.008*ConfigManager.partyEspLineWidth*Math.max(1,distance/24));
             queue.submitCustomGeometry(pose,PartyRenderPipeline.type(),(matrix,vertices)->{

@@ -52,6 +52,11 @@ public final class SyncCommands {
             com.customcosmetics.client.CustomCosmeticsClient.requestGui(com.customcosmetics.gui.CosmeticsScreen.Page.PARTY);
             return 1;
         }));
+        root.then(ClientCommands.literal("dev").executes(context->SyncDebug.toggle())
+            .then(ClientCommands.literal("on").executes(context->SyncDebug.setEnabled(true)))
+            .then(ClientCommands.literal("off").executes(context->SyncDebug.setEnabled(false)))
+            .then(ClientCommands.literal("status").executes(context->SyncDebug.status())));
+        root.then(PlayerBlockCommands.command());
         dispatcher.register(root);
     }
 

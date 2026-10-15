@@ -36,6 +36,8 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
     private View sent;private Block sentBlock;private long scope,acknowledged,rosterSequence,blockSequence,positionSequence;
     private long expires,started=clock(),nextView,nextBlock,nextPosition,nextProbe,lastWs=clock(),nextUdpProbe;private boolean lastRoute;private int stopCopies;
     private int udpPositionInterval=50,wssPositionInterval=100;
+    private long udpProbesSent,udpReplies;private long lastUdpReply=-1;
+    private String closeReason="Client disconnected";
     public RealtimeClient(String base,PresenceAuthClient.Session session,boolean forceWss){
         this(base,session,forceWss,DatagramSocket::new);
     }
@@ -44,8 +46,8 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
         this.forceWss=forceWss;this.datagrams=datagrams;token=session.token();self=session.uuid();
         peers=new PartyPeerClient((bytes,address)->{if(udp==null)throw new java.io.IOException("UDP unavailable");udp.send(new DatagramPacket(bytes,bytes.length,address));},m->acceptRecord(m,0,RealtimeConnections.Path.P2P));
         connecting=http.newWebSocketBuilder().connectTimeout(Duration.ofSeconds(8)).subprotocols("customcosmetics.realtime.v1").buildAsync(endpoint(base),this);
-        connecting.whenComplete((ws,error)->{if(error!=null)close();else if(closed)ws.abort();});
-        worker.scheduleWithFixedDelay(()->{try{pump();}catch(Exception invalid){close();}},0,10,TimeUnit.MILLISECONDS);
+        connecting.whenComplete((ws,error)->{if(error!=null)fail("WSS connection failed ("+error.getClass().getSimpleName()+")");else if(closed)ws.abort();});
+        worker.scheduleWithFixedDelay(()->{try{pump();}catch(Exception invalid){fail("Realtime worker failed ("+invalid.getClass().getSimpleName()+")");}},0,10,TimeUnit.MILLISECONDS);
     }
     static URI endpoint(String base){String uri=WebSocketPresenceClient.endpoint(base).toString();return URI.create(uri.substring(0,uri.length()-"/actions/ws".length())+"/realtime/ws");}
     private static long clock(){return System.nanoTime()/1000000;}
@@ -62,6 +64,19 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
     public synchronized String status(){return connections.status(ready(),peers.direct(),clock());}
     synchronized boolean usingUdpRelay(){return udpSelected;}
     public synchronized Set<UUID> directPeers(){return peers.direct();}
+    public synchronized List<String> diagnostics(){
+        long now=clock();var lines=new ArrayList<String>();
+        lines.add("Realtime: "+(closed?closeReason:ready()?"Connected":"Connecting; waiting for authentication or view acknowledgement"));
+        lines.add("Relay: "+(udpSelected?"UDP":"TCP/WSS")+"; UDP RTT="+PartyPeerClient.ms(route.udpMs())+"; WSS RTT="+PartyPeerClient.ms(route.wssMs()));
+        lines.add("UDP socket="+(udp!=null&&!udp.isClosed()?"open":"unavailable")+"; probes sent/replies="+udpProbesSent+"/"+udpReplies+"; last reply="+PartyPeerClient.age(now,lastUdpReply)+"; return-path cookie="+(!peerCookie.isEmpty()?"received (server verification not yet confirmed)":"not received"));
+        lines.add("World="+(desired.world().isEmpty()?"unknown":desired.world().substring(0,Math.min(12,desired.world().length())))+"; environment="+desired.environment()+"; view acknowledged="+ready());
+        if(forceWss)lines.add("P2P: Disabled by forced WSS transport.");
+        else if(!desired.p2p())lines.add("P2P: Disabled by local setting or missing party position sharing.");
+        else if(desired.world().isEmpty())lines.add("P2P: Waiting for a valid world from Hypixel Mod API.");
+        lines.addAll(peers.diagnostics(now,udpSelected?route.udpMs():route.wssMs()));
+        return List.copyOf(lines);
+    }
+    private synchronized void fail(String reason){if(!closed){closeReason=reason;close();}}
     public Map<UUID,BlockingTransport.Pose> blocks(){return blocks;}
     public Map<UUID,PartyClient.Teammate> teammates(){return teammates;}
     private void send(JsonObject m){sending=socket.sendText(m.toString(),true);}
@@ -76,15 +91,16 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
     private synchronized void pump()throws Exception{
         if(closed||socket==null)return;
         long now=clock();blocks=unexpiredBlocks(blocks,now);teammates=unexpiredPositions(teammates,System.currentTimeMillis());
-        if(!ready){if(now-started>10000)close();return;}
-        if(System.currentTimeMillis()>=expires||now-lastWs>10000){close();return;}
+        if(!ready){if(now-started>10000)fail("WSS authentication timed out");return;}
+        if(System.currentTimeMillis()>=expires){fail("Realtime authentication lease expired");return;}
+        if(now-lastWs>10000){fail("WSS control replies timed out");return;}
         boolean selected=!forceWss&&udp!=null&&route.select(now);udpSelected=selected;
         if(selected!=lastRoute){lastRoute=selected;pendingStates.clear();sentBlock=null;nextBlock=nextPosition=nextRelayPosition=nextProbe=nextUdpProbe=0;}
         if(ready())peers.context(new PartyPeerClient.Context(self,epoch,scope,desired.world(),desired.roster(),desired.p2p()&&!forceWss&&udp!=null));
         peers.tick(now,selected?route.udpMs():route.wssMs());
         if(peers.changed())nextPosition=nextRelayPosition=nextUdpProbe=nextProbe=0;
         if(udp!=null&&now>=nextUdpProbe){nextUdpProbe=now+1000;var m=new JsonObject();m.addProperty("type","probe");m.addProperty("ping",now);m.addProperty("active",selected);
-            m.addProperty("p2p",ready()&&desired.p2p()&&!forceWss);m.addProperty("cookie",peerCookie);m.addProperty("relayRttMs",selected?route.udpMs():route.wssMs());if(localCandidate!=null)m.add("local",localCandidate);direct(m);datagram(2,m);}
+            m.addProperty("p2p",ready()&&desired.p2p()&&!forceWss);m.addProperty("cookie",peerCookie);m.addProperty("relayRttMs",selected?route.udpMs():route.wssMs());if(localCandidate!=null)m.add("local",localCandidate);direct(m);datagram(2,m);udpProbesSent++;}
         boolean canSend=sending==null||sending.isDone();
         if(sending!=null&&sending.isCompletedExceptionally()){close();return;}
         if(!sameScope(desired,sent==null?new View("",Set.of(),PartyRoster.EMPTY,0,false):sent)&&!canSend)return;
@@ -123,7 +139,7 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
         if(!ready)return;
         if(type.equals("view")&&!datagram){acknowledged=m.get("scope").getAsLong();nextUdpProbe=0;return;}
         if(type.equals("pong")&&!datagram){route.wss(now-m.get("ping").getAsLong());if(m.has("positionIntervalMs"))wssPositionInterval=positionInterval(false,m.get("positionIntervalMs").getAsInt());return;}
-        if(type.equals("probe")&&datagram){route.udp(now,now-m.get("ping").getAsLong(),m.get("healthy").getAsBoolean());if(m.has("positionIntervalMs"))udpPositionInterval=positionInterval(true,m.get("positionIntervalMs").getAsInt());
+        if(type.equals("probe")&&datagram){udpReplies++;lastUdpReply=now;route.udp(now,now-m.get("ping").getAsLong(),m.get("healthy").getAsBoolean());if(m.has("positionIntervalMs"))udpPositionInterval=positionInterval(true,m.get("positionIntervalMs").getAsInt());
             if(m.has("cookie")){String cookie=m.get("cookie").getAsString();if(cookie.matches("[a-f0-9]{32}")&&!cookie.equals(peerCookie)){peerCookie=cookie;nextUdpProbe=0;}}
             peers.permit(m.getAsJsonArray("peerIds"),now);return;}
         if(type.equals("peer-list")&&datagram){if(ready()&&m.get("scope").getAsLong()==scope)peers.permit(m.getAsJsonArray("ids"),now);return;}
@@ -175,7 +191,7 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
     }
     @Override public CompletionStage<?> onPing(WebSocket ws,java.nio.ByteBuffer data){ws.request(1);return ws.sendPong(data);}
     @Override public CompletionStage<?> onPong(WebSocket ws,java.nio.ByteBuffer data){ws.request(1);return null;}
-    @Override public CompletionStage<?> onClose(WebSocket ws,int code,String reason){close();return null;}
-    @Override public void onError(WebSocket ws,Throwable error){close();}
+    @Override public CompletionStage<?> onClose(WebSocket ws,int code,String reason){fail("WSS closed (code "+code+")");return null;}
+    @Override public void onError(WebSocket ws,Throwable error){fail("WSS error ("+error.getClass().getSimpleName()+")");}
     @Override public synchronized void close(){if(closed)return;closed=true;ready=false;token=null;peers.close();pendingStates.clear();blocks=Map.of();teammates=Map.of();if(udp!=null)udp.close();if(socket!=null)socket.abort();if(connecting!=null)connecting.cancel(true);worker.shutdownNow();http.shutdownNow();RemoteAccess.release(this);}
 }
