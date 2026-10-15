@@ -4,6 +4,13 @@
   "plugin": "com.customcosmetics.mixin.CosmeticsMixinPlugin",
   "compatibilityLevel": "JAVA_25",
   "client": [
+    "ModernUiNicknameMixin$GuiText",
+    "ModernUiNicknameMixin$PreparedText",
+    "ModernUiNicknameMixin$GlyphRun",
+    "ModernUiNicknameMixin$Effects",
+    "ModernUiNicknameMixin$Layout",
+    "ModernUiNicknameMixin$WorldText",
+    "ModernUiNicknameMixin$Width",
     "AccessoriesMixin$State",
     "AccessoriesMixin$Snapshot",
     "AccessoriesMixin$Renderer",

@@ -366,6 +366,7 @@ public final class NickRenderUtils {
 
     public static FormattedCharSequence handleCharSequence(FormattedCharSequence original) {
         if (original == null) return null;
+        if(original instanceof com.customcosmetics.features.nickname.NicknameText)return original;
         if (shouldSkipNickTweakSubstitution()) return original;
         List<Target> targets = collectTargets();
         if (targets.isEmpty()) return original;
@@ -430,7 +431,7 @@ public final class NickRenderUtils {
             out.add(FormattedCharSequence.codepoint(glyph.codepoint(), glyph.style()));
         }
         FormattedCharSequence result = FormattedCharSequence.composite(out);
-        return result;
+        return new com.customcosmetics.features.nickname.ProcessedNicknameText(result);
     }
 
     public static boolean hasSmoothGradient() {

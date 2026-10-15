@@ -94,6 +94,10 @@ public final class ClientLoadProbe {
             "gui/ItemAppearanceScreen", "gui/ItemChoiceScreen", "gui/ItemChoiceScreen$Row",
             "mixin/ItemAppearanceMixin$Names", "mixin/ItemAppearanceMixin$Models", "utils/NickRenderUtils",
             "features/nickname/GradientGlyph", "features/nickname/GradientGlyph$GradientVertices",
+            "features/nickname/NicknameText", "features/nickname/ProcessedNicknameText",
+            "compatibility/ModernUiNicknameText", "compatibility/ModernUiNicknameText$Palette", "compatibility/ModernUiNicknameText$Buffers",
+            "mixin/ModernUiNicknameMixin$GuiText", "mixin/ModernUiNicknameMixin$PreparedText", "mixin/ModernUiNicknameMixin$GlyphRun",
+            "mixin/ModernUiNicknameMixin$Effects", "mixin/ModernUiNicknameMixin$Layout", "mixin/ModernUiNicknameMixin$WorldText", "mixin/ModernUiNicknameMixin$Width",
             "features/nickname/NicknameGlyphEffect", "mixin/NicknameGradientMixin", "mixin/NicknameStyleMixin"}) checkGameReferences(loader, "com/customcosmetics/" + type);
         Class.forName("com.customcosmetics.compatibility.RepositoryLinks", true, loader);
         Class.forName("com.customcosmetics.compatibility.SwingAccess", true, loader)

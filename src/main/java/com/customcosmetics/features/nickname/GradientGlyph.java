@@ -8,6 +8,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import org.joml.Matrix4fc;
+import org.joml.Matrix3x2fc;
 
 /** Uses the original glyph texture, geometry, draw order, bounds and shadow. */
 public record GradientGlyph(TextRenderable.Styled original, NicknameGlyphEffect effect,
@@ -40,6 +41,9 @@ public record GradientGlyph(TextRenderable.Styled original, NicknameGlyphEffect 
     }
 
     /** Sub-pixel strips let a narrow highlight travel inside a single Chinese glyph. */
+    public record Sample(NicknameGlyphEffect effect,float x,float y,float advance,boolean shadow) {}
+    public record Quad(float left,float top,float right,float bottom,int color) {}
+    @FunctionalInterface public interface QuadSelector { Sample select(Quad quad); }
     public static final class GradientVertices implements VertexConsumer {
         private static final Method UV3 = uv3Method();
         private static Method uv3Method() {
@@ -51,6 +55,7 @@ public record GradientGlyph(TextRenderable.Styled original, NicknameGlyphEffect 
         private final float x, y, advance;
         private final int foreground;
         private final long time;
+        private final QuadSelector selector;
         private final Vertex[] quad = new Vertex[4];
         private int count;
         private Vertex current;
@@ -58,6 +63,11 @@ public record GradientGlyph(TextRenderable.Styled original, NicknameGlyphEffect 
         public GradientVertices(VertexConsumer destination, NicknameGlyphEffect effect, float x, float y, float advance, int foreground, long time) {
             this.destination = destination; this.effect = effect; this.x = x; this.y = y;
             this.advance = Math.max(0.01f, advance); this.foreground = foreground; this.time = time;
+            this.selector = null;
+        }
+        public GradientVertices(VertexConsumer destination,QuadSelector selector,long time) {
+            this.destination=destination;this.selector=selector;this.time=time;
+            effect=null;x=y=0;advance=1;foreground=0;
         }
         @Override public VertexConsumer addVertex(Matrix4fc pose, float x, float y, float z) {
             addVertex(x, y, z); current.pose = pose; return this;
@@ -66,6 +76,9 @@ public record GradientGlyph(TextRenderable.Styled original, NicknameGlyphEffect 
             if (count == 4) finish();
             current = new Vertex(); current.x = x; current.y = y; current.z = z; quad[count++] = current;
             return this;
+        }
+        @Override public VertexConsumer addVertexWith2DPose(Matrix3x2fc pose,float x,float y) {
+            addVertex(x,y,0);current.pose2d=pose;return this;
         }
         @Override public VertexConsumer setColor(int color) { current.color = color; return this; }
         @Override public VertexConsumer setColor(int r, int g, int b, int a) { return setColor((a << 24) | (r << 16) | (g << 8) | b); }
@@ -79,28 +92,39 @@ public record GradientGlyph(TextRenderable.Styled original, NicknameGlyphEffect 
 
         public void finish() {
             if (count == 0) return;
-            if (count != 4 || quad[0].color != foreground) {
-                for (int i=0;i<count;i++) emit(quad[i], false);
+            Sample sample=null;
+            if(count==4){
+                if(selector==null){if(quad[0].color==foreground)sample=new Sample(effect,x,y,advance,false);}
+                else {
+                    float left=Float.POSITIVE_INFINITY,top=left,right=Float.NEGATIVE_INFINITY,bottom=right;
+                    for(var vertex:quad){left=Math.min(left,vertex.x);top=Math.min(top,vertex.y);right=Math.max(right,vertex.x);bottom=Math.max(bottom,vertex.y);}
+                    sample=selector.select(new Quad(left,top,right,bottom,quad[0].color));
+                }
+            }
+            if (sample==null) {
+                for (int i=0;i<count;i++) emit(quad[i], null);
             } else {
                 int strips = Math.clamp((int)Math.ceil(Math.abs(quad[3].x - quad[0].x) * 2), 1, 64);
                 for (int strip=0;strip<strips;strip++) {
                     float a = strip/(float)strips, b=(strip+1)/(float)strips;
-                    emit(between(quad[0],quad[3],a),true);
-                    emit(between(quad[1],quad[2],a),true);
-                    emit(between(quad[1],quad[2],b),true);
-                    emit(between(quad[0],quad[3],b),true);
+                    emit(between(quad[0],quad[3],a),sample);
+                    emit(between(quad[1],quad[2],a),sample);
+                    emit(between(quad[1],quad[2],b),sample);
+                    emit(between(quad[0],quad[3],b),sample);
                 }
             }
             count=0;current=null;
         }
-        private void emit(Vertex vertex, boolean gradient) {
-            VertexConsumer sink = vertex.pose == null ? destination.addVertex(vertex.x,vertex.y,vertex.z)
-                : destination.addVertex(vertex.pose,vertex.x,vertex.y,vertex.z);
+        private void emit(Vertex vertex, Sample sample) {
+            VertexConsumer sink = vertex.pose2d!=null?destination.addVertexWith2DPose(vertex.pose2d,vertex.x,vertex.y)
+                :vertex.pose == null ? destination.addVertex(vertex.x,vertex.y,vertex.z):destination.addVertex(vertex.pose,vertex.x,vertex.y,vertex.z);
             int color=vertex.color;
-            if (gradient) {
-                double fraction=(vertex.x-x)/advance;
-                double position=effect.from()+(effect.to()-effect.from())*fraction;
-                color=(color & 0xFF000000) | effect.gradient().color(position,(vertex.y-y)/8.0,time);
+            if (sample!=null) {
+                var paint=sample.effect();double fraction=(vertex.x-sample.x())/Math.max(.01f,sample.advance());
+                double position=paint.from()+(paint.to()-paint.from())*fraction;
+                int rgb=paint.gradient().color(position,(vertex.y-sample.y())/8.0,time);
+                if(sample.shadow())rgb=(rgb&0xFCFCFC)>>>2;
+                color=(color & 0xFF000000) | rgb;
             }
             sink.setColor(color).setUv(vertex.u,vertex.v).setLight(vertex.light);
             if(vertex.hasUv3) {
@@ -112,7 +136,7 @@ public record GradientGlyph(TextRenderable.Styled original, NicknameGlyphEffect 
             if(vertex.hasLineWidth)sink.setLineWidth(vertex.lineWidth);
         }
         private static Vertex between(Vertex a,Vertex b,float t) {
-            Vertex v=new Vertex();v.pose=a.pose;v.color=a.color;v.light=a.light;
+            Vertex v=new Vertex();v.pose=a.pose;v.pose2d=a.pose2d;v.color=a.color;v.light=a.light;
             v.x=a.x+(b.x-a.x)*t;v.y=a.y+(b.y-a.y)*t;v.z=a.z+(b.z-a.z)*t;
             v.u=a.u+(b.u-a.u)*t;v.v=a.v+(b.v-a.v)*t;
             v.u3=a.u3+(b.u3-a.u3)*t;v.v3=a.v3+(b.v3-a.v3)*t;v.hasUv3=a.hasUv3;
@@ -120,7 +144,7 @@ public record GradientGlyph(TextRenderable.Styled original, NicknameGlyphEffect 
             v.lineWidth=a.lineWidth;v.hasLineWidth=a.hasLineWidth;return v;
         }
         private static final class Vertex {
-            Matrix4fc pose;float x,y,z,u,v,u3,v3,nx,ny,nz,lineWidth;int color,light,overlay;boolean hasOverlay,hasUv3,hasNormal,hasLineWidth;
+            Matrix4fc pose;Matrix3x2fc pose2d;float x,y,z,u,v,u3,v3,nx,ny,nz,lineWidth;int color,light,overlay;boolean hasOverlay,hasUv3,hasNormal,hasLineWidth;
         }
     }
 }

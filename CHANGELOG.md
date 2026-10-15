@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.1
+
+- Add support for Modern UI.
+
 ## 1.2.0
 
 - New Feature: Accessories.

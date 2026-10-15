@@ -60,7 +60,7 @@ public class NickTweaksMixin {
 
         @ModifyVariable(method = "width(Ljava/lang/String;)I", at = @At("HEAD"), argsOnly = true)
         private String customcosmetics$chromaWidthString(String text) {
-            return NickRenderUtils.handleString(text);
+            return com.customcosmetics.compatibility.ModernUiNicknameText.active((Font)(Object)this)?text:NickRenderUtils.handleString(text);
         }
 
         @Inject(method = "width(Lnet/minecraft/network/chat/FormattedText;)I", at = @At("HEAD"), cancellable = true)

@@ -136,6 +136,13 @@ class LicensePackagingTest {
                 "src/main/resources/assets/customcosmetics/textures/accessories/materials.png",
                 "src/main/resources/assets/customcosmetics/textures/accessories/detailed-materials.png",
                 "tools/generate-accessory-materials.py", "tools/test_accessory_materials.py",
+                "src/main/java/com/customcosmetics/compatibility/ModernUiNicknameText.java",
+                "src/main/java/com/customcosmetics/mixin/ModernUiNicknameMixin.java",
+                "src/main/java/com/customcosmetics/features/nickname/NicknameText.java",
+                "src/main/java/com/customcosmetics/features/nickname/ProcessedNicknameText.java",
+                "src/test/java/com/customcosmetics/compatibility/ModernUiNicknameTextTest.java",
+                "src/gametest/java/com/customcosmetics/gametest/ModernUiNicknameGameTest.java",
+                "src/gametest/java/com/customcosmetics/gametest/mixin/ModernUiNicknameProbeMixin.java",
                 "README.md", "CHANGELOG.md" }) {
                 assertBundled(zip, prefix + file, file);
             }
