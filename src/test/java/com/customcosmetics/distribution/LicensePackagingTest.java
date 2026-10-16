@@ -23,6 +23,29 @@ class LicensePackagingTest {
                 || entry.getName().startsWith(prefix + "ops/")));
         }
     }
+    @Test void beta8IncludesBuildableVisualMapEditingSourcesAndTests() throws Exception {
+        try (var zip = new ZipFile(System.getProperty("customcosmetics.fullSourceZip"))) {
+            String prefix = "CustomCosmetics-" + System.getProperty("customcosmetics.version") + "/";
+            for (String name : new String[]{
+                    "src/main/java/com/customcosmetics/features/map/MaterialReplacement.java",
+                    "src/main/java/com/customcosmetics/features/map/MaterialReplacementPlan.java",
+                    "src/main/java/com/customcosmetics/features/map/Freecam.java",
+                    "src/main/java/com/customcosmetics/features/map/FmeImport.java",
+                    "src/main/java/com/customcosmetics/gui/MapReplaceScreen.java",
+                    "src/main/resources/assets/customcosmetics/map/rooms.json",
+                    "src/test/java/com/customcosmetics/features/map/MaterialReplacementPlanTest.java",
+                    "src/gametest/java/com/customcosmetics/gametest/MapReplacementGameTest.java",
+                    "src/gametest/java/com/customcosmetics/gametest/FmeEditorGameTest.java"})
+                assertBundled(zip, prefix + name, name);
+        }
+        String build = Files.readString(ROOT.resolve("build.gradle"));
+        for (String profile : new String[]{"skin_game_only", "fme_game_only", "freecam_game_only", "map_replace_game_only"})
+            assertTrue(build.contains("gradleProperty('" + profile + "')"), profile);
+        try (var files = Files.walk(ROOT.resolve("src/test"))) {
+            for (Path file : files.filter(path -> path.toString().endsWith(".java")).toList())
+                assertFalse(Files.readString(file).contains("\"server/" + "test/"), file.toString());
+        }
+    }
     @Test void publisherContactIsConsistentInReadmeNoticeAndDistributedMetadata() throws Exception {
         assertTrue(Files.readString(ROOT.resolve("README.md")).contains("https://qm.qq.com/q/Km3ScGpvga"));
         for(String name:new String[]{"README.md","NOTICE","src/main/resources/fabric.mod.json"}){

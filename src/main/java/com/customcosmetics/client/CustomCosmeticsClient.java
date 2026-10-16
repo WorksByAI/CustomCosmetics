@@ -38,6 +38,7 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
             if (com.customcosmetics.sync.RemoteAccess.online()) com.customcosmetics.features.animations.PresenceWorld.init();
             ConfigManager.flushPendingSave();
             com.customcosmetics.features.map.MapEditor.tick(client);
+            com.customcosmetics.features.map.Freecam.tick(client);
             com.customcosmetics.features.damage.DamageSplash.tick(client);
             com.customcosmetics.features.cape.CapeCosmetics.tick();
             com.customcosmetics.features.items.ItemCosmetics.tick();
@@ -57,6 +58,8 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
             }
         });
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
+            com.customcosmetics.features.map.Freecam.stop(client);
+            com.customcosmetics.features.map.MapEditor.flushRooms();
             com.customcosmetics.features.cape.CapeCosmetics.close();
             com.customcosmetics.features.skins.LocalSkins.close();
             com.customcosmetics.gui.BlockingPreview.close();

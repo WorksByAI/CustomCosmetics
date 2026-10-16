@@ -90,17 +90,6 @@ if(providers.gradleProperty('sodium_test_jar').isPresent()&&providers.gradleProp
 
 tasks.named('runClientGameTest') { dependsOn 'test' }
 
-if (providers.gradleProperty('map_game_only').getOrElse('false').toBoolean()) {
-    sourceSets.gametest.java.include '**/MapEditorGameTest.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
-    tasks.named('processGametestResources') {
-        inputs.property 'map_game_only', true
-        inputs.file('build.gradle')
-        filesMatching('fabric.mod.json') { filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.MapEditorGameTest') } }
-        filesMatching('customcosmetics-test.mixins.json') { filter { line -> line.contains('"client":') ? '  "client": ["UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line } }
-    }
-}
-
-
 if (providers.gradleProperty('skin_game_only').getOrElse('false').toBoolean()) {
     sourceSets.gametest.java.include '**/SkinGameTest.java', '**/mixin/SkinPeerFixtureMixin.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
     tasks.named('processGametestResources') {
@@ -111,6 +100,55 @@ if (providers.gradleProperty('skin_game_only').getOrElse('false').toBoolean()) {
     }
 }
 
+if (providers.gradleProperty('fme_game_only').getOrElse('false').toBoolean()) {
+    sourceSets.gametest.java.include '**/FmeEditorGameTest.java', '**/MapAdventureGameTest.java', '**/FreecamGameTest.java', '**/mixin/FreecamProbe.java', '**/mixin/FmeInputTrace.java', '**/mixin/MapAdventureScopeMixin.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
+    tasks.named('processGametestResources') {
+        inputs.property 'fme_game_only', true
+        inputs.file('build.gradle')
+        filesMatching('fabric.mod.json') { filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.FmeEditorGameTest') } }
+        filesMatching('customcosmetics-test.mixins.json') { filter { line -> line.contains('"client":') ? '  "client": ["FmeInputTrace", "FreecamProbe$Packets", "FreecamProbe$Actions", "MapAdventureScopeMixin", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line } }
+    }
+}
+
+if (providers.gradleProperty('adventure_map_game_only').getOrElse('false').toBoolean()) {
+    sourceSets.gametest.java.include '**/MapAdventureGameTest.java', '**/FreecamGameTest.java', '**/mixin/FreecamProbe.java', '**/mixin/MapAdventureScopeMixin.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
+    tasks.named('processGametestResources') {
+        inputs.property 'adventure_map_game_only', true
+        inputs.file('build.gradle')
+        filesMatching('fabric.mod.json') { filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.MapAdventureGameTest') } }
+        filesMatching('customcosmetics-test.mixins.json') { filter { line -> line.contains('"client":') ? '  "client": ["FreecamProbe$Packets", "FreecamProbe$Actions", "MapAdventureScopeMixin", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line } }
+    }
+}
+
+if (providers.gradleProperty('freecam_game_only').getOrElse('false').toBoolean()) {
+    sourceSets.gametest.java.include '**/FreecamGameTest.java', '**/mixin/FreecamProbe.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
+    tasks.named('processGametestResources') {
+        inputs.property 'freecam_game_only', true
+        inputs.file('build.gradle')
+        filesMatching('fabric.mod.json') { filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.FreecamGameTest') } }
+        filesMatching('customcosmetics-test.mixins.json') { filter { line -> line.contains('"client":') ? '  "client": ["FreecamProbe$Packets", "FreecamProbe$Actions", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line } }
+    }
+}
+
+if (providers.gradleProperty('map_game_only').getOrElse('false').toBoolean()) {
+    sourceSets.gametest.java.include '**/MapEditorGameTest.java', '**/MapSpecialGameTest.java', '**/mixin/MapSpecialProbe.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
+    tasks.named('processGametestResources') {
+        inputs.property 'map_game_only', true
+        inputs.file('build.gradle')
+        filesMatching('fabric.mod.json') { filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.MapSpecialGameTest') } }
+        filesMatching('customcosmetics-test.mixins.json') { filter { line -> line.contains('"client":') ? '  "client": ["MapSpecialProbe", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line } }
+    }
+}
+
+if (providers.gradleProperty('map_replace_game_only').getOrElse('false').toBoolean()) {
+    sourceSets.gametest.java.include '**/MapReplacementGameTest.java', '**/MapEditorGameTest.java', '**/MapSpecialGameTest.java', '**/mixin/MapSpecialProbe.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
+    tasks.named('processGametestResources') {
+        inputs.property 'map_replace_game_only', true
+        inputs.file('build.gradle')
+        filesMatching('fabric.mod.json') { filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.MapReplacementGameTest') } }
+        filesMatching('customcosmetics-test.mixins.json') { filter { line -> line.contains('"client":') ? '  "client": ["MapSpecialProbe", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line } }
+    }
+}
 
 tasks.named('processGametestResources') {
     def catharsisFixture = providers.gradleProperty('appearance_catharsis_test').getOrElse('false').toBoolean()

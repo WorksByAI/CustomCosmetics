@@ -110,16 +110,28 @@
 
 ## Map Editor
 
-- 独立实现的本地地图编辑功能，不包含 FunnyMap 的小地图，不加载旧 JAR。
-- 默认关闭。`/customcosmetics map` 打开配置。默认仅限 Hypixel 地牢和本地单人世界；可关闭 Dungeon Only。
-- **Legit**：只替换原模型的材质与 UV，半砖、楼梯等保持原来的模型形状、碰撞、挖掘目标和交互。真实方块被服务器挖掉后不再绘制。原本为空气的新增方块只绘制外观，没有碰撞，也不修改世界数据。
-- **Cheating**：替换客户端方块和碰撞，其他玩家与服务器保留原地图。关闭、切回 Legit 或换世界时恢复；恢复使用最近收到的服务端状态。服务器可能纠正移动，不能保证不会触发服务器规则。
-- Edit Mode：右键涂改所看的方块；Shift＋右键在相邻空气放置；左键撤销该处编辑；中键吸取原方块材质。编辑开启时拦截对应操作，不向服务器发送这些编辑点击。正常游玩前关闭 Edit Mode。
-- Block Material 使用方块 ID，例如 `minecraft:gold_block`。`minecraft:air` 在 Legit 下只隐藏原模型，碰撞仍然存在。支持普通方块；不编辑箱子等方块实体或流体。
-- `/customcosmetics map pos1`、`pos2` 标记所看方块，`fill` 填充选区；`undo` 撤销，`clear` 清除当前编辑，最多 8192 处编辑、32 次撤销。
-- 预设保存到配置文件夹的 `map-editor.json`。可保存、选择、加载、删除，支持 0/90/180/270 度旋转。默认锚点为地牢的 32 格房间中心；`/customcosmetics map anchor` 改为当前站位。支持 `save <name>`、`load <name>` 指令。
-- 自动房间识别仅限 Hypixel 地牢区域，比较保存时房间的 9 根原始方块柱与四种旋转。指纹缺失、区块未加载或不匹配时不自动应用，可手动加载。此识别不提供小地图或地牢解谜提示。
-- 新预设格式与旧 FunnyMapExtras 配置不直接兼容。
+- **Force Dungeon**：默认关闭，位于 Dungeon Only 下方。开启后直接按地牢处理，不需要侧边栏、官方地址或 Mod API 先识别成功；编辑、Freecam、方块识别房间、自动保存与恢复共用此设置。也会检查当前视角附近的房间中心，识别旧固定区域之外的已知房间。设置会保存，可用 `/customcosmetics map force [on/off]` 切换。楼层仍从侧边栏读取；无楼层信息时按房间保存，不猜测 F7 或错误套用楼层配置。
+- 自动识别直接拼接旧式侧边栏的队伍前缀／后缀，避免内部行 ID 插入 Catacombs 名称造成漏识别，并忽略不可见的字形控制字符。Force Dungeon 关闭后，正常地牢仍会自动识别并恢复已保存的房间改图。`/customcosmetics map status` 显示自动／强制状态、楼层和房间，并将原始侧边栏诊断写入 `logs/latest.log`。
+- 支持 F7 与 M7 自动识别，两者的 Boss 房共用一份改图。旧版分开的 F7／M7 配置会合并，并在改写本地房间库之前保留 `map-rooms.json.before-shared-f7-m7-*.bak` 备份；重叠坐标优先保留 F7，M7 独有坐标一并保留。FME 原始文件不会改写，导入预览会提示冲突。
+- 选块菜单支持箱子、末影箱、告示牌、头颅等特殊方块，以及水和岩浆。虚拟箱子仅渲染，不会创建真实容器或碰撞；已有容器可以改色或隐藏，内容和碰撞会保留。`/customcosmetics map blocks`、`blockgui` 和 `import` 会在聊天框关闭后打开对应界面。
+
+- **Freecam（灵魂出窍）**：Map Editor 内开关，或 `/customcosmetics map freecam [on/off]`。可在原版「控制 → 按键绑定 → CustomCosmetics: Map Editor」绑定快捷键，默认未绑定，避免冲突。WASD 飞行，随视线前进，跳跃上升、潜行下降、疾跑加速；速度可调 1–40 格/秒。人物留在原地，鼠标只转动游离视角；改图取点跟随视角。关闭后回到人物，换世界、断线、死亡或上载具时自动退出。只能查看已经加载的区块。游离视角不发送移动、视角或编辑交互包；连接保活、聊天及服务器传送确认继续正常处理。Freecam 开关每次进入世界均为关闭，不会重启自动开启。
+
+- **纯视觉改图**：只替换原模型的材质与 UV，半砖、楼梯等保持原来的模型形状、碰撞、挖掘目标和交互。真实方块被服务器挖掉后不再绘制；已知的“原本有方块”属性会随房间配置保存，重新加载时不会把已挖掉的位置当作新增方块。原本为空气的新增方块只绘制外观，没有碰撞，也不修改世界数据。玻璃与隐藏方块会在渲染时露出相邻表面，避免裁面造成透视空洞，兼容原版、Indigo 与 Sodium。已删除所有改写客户端方块和碰撞的模式。
+- **批量替换材质**：Map Editor → Replace Materials，分别选择原方块和目标材质，再点 Replace。默认仅匹配当前房间已加载的原方块类型（忽略朝向等状态）；不同 ID 的半砖、楼梯需分别选择。可以改为 Selected Region，使用 `/customcosmetics map pos1`、`pos2` 设置范围。整批可一次撤销，并自动保存到已识别房间；临时挖掉和服务器恢复继续沿用原有纯视觉行为。最多保留 8192 个活跃位置修改，超限整批不应用。扫描分帧进行，不请求服务器加载区块。命令示例：`/customcosmetics map replace minecraft:quartz_block minecraft:dark_oak_planks`；末尾加 `selection` 则只替换框选范围。不在可识别房间时请使用框选；未识别区域可用手动 Preset 保存。这是一次性替换，不会自动处理随后新加载的方块。
+
+- Dungeon Only 根据正在显示的 Catacombs 侧边栏识别地牢，支持队伍颜色专用侧边栏、文字格式码与自定义代理连接地址，不依赖官方域名或 Mod API 握手。未识别到地牢时会提示原因，编辑点击仍留在本地。`/customcosmetics map status` 显示识别、编辑开关和瞄准目标的状态。
+
+- 默认关闭。`/customcosmetics map` 打开设置；默认仅在地牢和本地单人世界允许编辑，可关闭 Dungeon Only。保留原版冒险模式，不改变建造权限。
+- **FME 操作**：右键直接在相邻位置放置，左键隐藏原方块或删除自定义方块，中键拾取所见材质。Shift＋右键强制替换已隐藏方块。编辑取点跟随当前相机（含独立 Freecam），忽略被隐藏的外观；编辑点击不发送放置、挖掘或交互包。正常游玩前关闭 Edit Mode。
+- **Choose Block / Favorites**：图标网格支持名字／ID 搜索；左键选择（绿色）、右键收藏（青色），Favorites 单独显示收藏。`/customcosmetics map blocks` 或 `blockgui` 打开；原版控制设置可绑定选块菜单和编辑模式快捷键，默认未绑定。选择和收藏保存在 `map-editor.json`。
+- **房间自动保存**：放置、隐藏、删除、填充和撤销自动更新 `map-rooms.json`。使用 FunnyMap 的房间名称和列特征，按房间中心及朝向保存相对坐标，同一房间自动恢复并旋转。目录之外的新房间使用四方向特征匹配，显示 `Room <特征>`。未完整加载或尚未识别时先保留本次编辑，识别完成后补存，不猜测方向。
+- Boss 等房间网格以外的区域按 F/M 楼层保存绝对坐标。Automatically Restore Rooms 可关闭自动恢复；编辑仍会保存。Reset This Room 或 `/customcosmetics map clearroom` 清除当前房间模板。
+- **Editor HUD** 显示房间、上次编辑房间、模式、所选方块和操作提示，可单独关闭。`/customcosmetics map guide` 查看指南。
+- **Import FME Config**：设置页入口或 `/customcosmetics map import`。选择旧版 `extrasConfig.json`、`floorsConfig.json`、`favBlocks.json` 任一个，会读取同文件夹中的三种配置；也支持粘贴目录或拖入文件。先预览，再导入；默认保留已有房间，Replace Existing Room Layouts 开启后才替换。
+- 导入保留房间旋转参照、相对坐标及可转换的旧方块属性，包括彩色羊毛、玻璃和石头变种。旧数字楼层同时适用于普通和大师同层，0 对应 Entrance。未知材质、失效属性、方块实体和液体会列在预览中并跳过。原房间结构无法匹配时不盲目套用。导入前在 `map-import-backups` 备份当前配置，旧 FME 文件始终只读。单个输入文件上限 8 MiB。
+- 支持现代方块 ID 和属性，如 `minecraft:gold_block`、`minecraft:oak_stairs[facing=east]`；`minecraft:air` 在 Legit 下只隐藏外观，碰撞仍存在。最多同时编辑 8192 格，支持 32 次撤销；房间库最多 512 个布局、65536 格。
+- 保留高级手动预设（`map-editor.json`）和区域工具：`pos1`、`pos2`、`fill`、`undo`、`clear`、`anchor`、`save <name>`、`load <name>`。旧手动预设不丢失。此功能不包含 FunnyMap 小地图，也不加载旧 JAR。
 
 ### 饰品位置微调
 

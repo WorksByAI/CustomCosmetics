@@ -16,6 +16,11 @@ public final class ClientLoadProbe {
             "com.customcosmetics.features.accessories.AccessoryLayer", "com.customcosmetics.features.accessories.AccessoryRenderState", "net.minecraft.client.renderer.entity.state.AvatarRenderState", "net.minecraft.client.renderer.entity.EntityRenderer",
             "com.customcosmetics.features.accessories.AccessoryMeshes", "com.customcosmetics.features.accessories.DetailedAccessoryMeshes", "com.customcosmetics.features.accessories.MiniMePet", "com.customcosmetics.compatibility.MiniMeRenderAccess", "com.customcosmetics.gui.WardrobeScreen", "net.minecraft.client.renderer.entity.LivingEntityRenderer",
             "net.minecraft.client.Minecraft", firstPersonRenderer, "net.minecraft.client.gui.Font",
+            "net.minecraft.client.renderer.block.ModelBlockRenderer", "net.minecraft.client.renderer.chunk.VisGraph",
+            "net.minecraft.client.renderer.block.BlockModelLighter",
+            "net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher",
+            "net.fabricmc.fabric.impl.client.indigo.renderer.render.AltModelBlockRendererImpl",
+            "net.fabricmc.fabric.impl.client.indigo.renderer.aocalc.AoCalculator",
             "net.minecraft.client.gui.Font$PreparedTextBuilder", "net.minecraft.network.chat.Style",
             "com.customcosmetics.features.nickname.GradientGlyph", "com.customcosmetics.features.nickname.NicknameGlyphEffect",
             "net.minecraft.client.model.player.PlayerModel", "net.minecraft.client.gui.components.AbstractWidget",
@@ -91,6 +96,15 @@ public final class ClientLoadProbe {
         checkGameReferences(loader,"com/customcosmetics/features/party/SharingChams");
         checkGameReferences(loader,"com/customcosmetics/compatibility/ChamsRenderAccess");
         checkGameReferences(loader,"com/customcosmetics/gui/CosmeticsScreen");
+        checkGameReferences(loader,"com/customcosmetics/features/map/MapEditor");
+        checkGameReferences(loader,"com/customcosmetics/features/map/MaterialReplacement");
+        checkGameReferences(loader,"com/customcosmetics/features/map/MaterialReplacement$Job");
+        checkGameReferences(loader,"com/customcosmetics/gui/MapReplaceScreen");
+        checkGameReferences(loader,"com/customcosmetics/features/map/GhostBlocks");
+        checkGameReferences(loader,"com/customcosmetics/features/map/DungeonSidebar");
+        for(String type:new String[]{"features/map/MapEditor$1","features/map/DungeonSidebarReader","features/map/DungeonRooms","features/map/RoomCores","features/map/RoomLayouts","features/map/FmeImport","features/map/LegacyMaterials","gui/FmeImportScreen","features/map/MapEditorUi","gui/MapBlockScreen","gui/MapBlockScreen$Cell"})checkGameReferences(loader,"com/customcosmetics/"+type);
+        checkGameReferences(loader,"com/customcosmetics/features/map/Freecam");
+        checkGameReferences(loader,"com/customcosmetics/compatibility/SidebarAccess");
         checkGameReferences(loader,"com/customcosmetics/features/party/PartyHighlight");
         checkGameReferences(loader,"com/customcosmetics/features/party/PartyGeometry");
         checkGameReferences(loader,"com/customcosmetics/features/party/PartyTracer");

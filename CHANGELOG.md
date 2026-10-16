@@ -1,5 +1,43 @@
 # Changelog
 
+## 1.4.3-beta.8 (test build)
+
+- Map Editor: Add one-click material replacement for the current room or a selected region.
+- Map Editor: Choose source and replacement blocks from the searchable palette; undo a whole batch in one step.
+
+## 1.4.3-beta.7 (test build)
+
+- Map Editor: Allow chests, special blocks and fluids in the block palette.
+- Map Editor: Render virtual containers and preserve real container contents.
+- Map Editor: Fix blockgui, blocks and import screens closing immediately after chat commands.
+- Map Editor: Remove Cheating mode; all edits preserve real collision and mining.
+- Map Editor: Fix missing neighboring faces and section occlusion behind glass and hidden blocks.
+
+## 1.4.3-beta.6 (test build)
+
+- Map Editor: Add Force Dungeon and scan nearby room centers outside the legacy grid.
+- Map Editor: Fix automatic Catacombs detection when legacy score row IDs interrupt the location name.
+- Map Editor: Share F7/M7 boss edits and migrate legacy layouts with backups.
+- Map Editor: Log raw sidebar diagnostics with the map status command.
+
+## 1.4.3-beta.5 (test build)
+
+- Map Editor: Add FME-style mouse controls and a searchable block palette with favorites.
+- Map Editor: Automatically save room edits and restore them across room rotations.
+- Map Editor: Add a compact editing HUD and per-room reset.
+- Map Editor: Import legacy FME room, floor and favorite configurations with preview and backups.
+
+## 1.4.3-beta.4
+
+- Map Editor: Fix Catacombs detection through proxy addresses and colored sidebars.
+- Map Editor: Fix Shift-right-click placement and detached camera block picking.
+- Map Editor: Keep blocked editor clicks local and add `/customcosmetics map status` diagnostics.
+
+## 1.4.3-beta.3
+
+- Map Editor: Add local-only Freecam with configurable flight speed and key binding.
+- Freecam: Keep the player stationary, edit from the camera, and restore normal controls on exit.
+
 ## 1.4.3-beta.2
 
 - Map Editor: Add material-only Legit edits, visual air blocks and optional client-collision Cheating mode.

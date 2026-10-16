@@ -763,19 +763,26 @@ public final class CosmeticsScreen extends Screen {
         for(var line:font.split(Component.literal("PNG up to 2 MiB. Model pixels are preserved. Transfers are limited to 16 KiB/s total, with missing-chunk retries."),contentWidth-16)){int y=rowY;art.add(g->g.text(font,line,contentX+8,y,MUTED,false));rowY+=12;}
     }
     private void mapEditor(){
+        toggleRow("Freecam","WASD / Jump / Sneak: fly. Sprint: faster. Bind a key in Controls.",com.customcosmetics.features.map.Freecam::active,v->com.customcosmetics.features.map.MapCommands.run(()->com.customcosmetics.features.map.Freecam.setEnabled(v)));
+        sliderGrid(List.of(new NumericSetting("Freecam Speed (blocks/s)",()->com.customcosmetics.features.map.Freecam.speed,1,40,1,12,v->{com.customcosmetics.features.map.Freecam.speed=v;com.customcosmetics.features.map.MapEditor.save();})));
         toggleRow("Map Editor","Local edits. Other players keep the original map.",()->com.customcosmetics.features.map.MapEditor.enabled,v->{com.customcosmetics.features.map.MapEditor.enabled=v;com.customcosmetics.features.map.MapEditor.refresh();});
-        fullButton("Mode: "+(com.customcosmetics.features.map.MapEditor.mode==com.customcosmetics.features.map.MapEdits.Mode.LEGIT?"Legit":"Cheating"),()->{
-            com.customcosmetics.features.map.MapEditor.mode=com.customcosmetics.features.map.MapEditor.mode==com.customcosmetics.features.map.MapEdits.Mode.LEGIT?com.customcosmetics.features.map.MapEdits.Mode.CHEATING:com.customcosmetics.features.map.MapEdits.Mode.LEGIT;com.customcosmetics.features.map.MapEditor.refresh();rebuildWidgets();
-        });
-        String explanation=com.customcosmetics.features.map.MapEditor.mode==com.customcosmetics.features.map.MapEdits.Mode.LEGIT?"Legit: keeps real collision and mining. Air additions are visual only.":"Cheating: changes client blocks and collision. The server may reject movement.";
+        String explanation="Visual only: keeps real collision and mining. Air additions have no collision.";
         for(var line:font.split(Component.literal(explanation),contentWidth-16)){int y=rowY;art.add(g->g.text(font,line,contentX+8,y,MUTED,false));rowY+=12;}rowY+=6;
-        toggleRow("Dungeon Only","Also available in local single-player worlds.",()->com.customcosmetics.features.map.MapEditor.dungeonOnly,v->{com.customcosmetics.features.map.MapEditor.dungeonOnly=v;com.customcosmetics.features.map.MapEditor.refresh();});
-        toggleRow("Edit Mode","Right: paint. Shift+right: place. Left: remove edit. Middle: pick material.",()->com.customcosmetics.features.map.MapEditor.editing,v->{com.customcosmetics.features.map.MapEditor.editing=v;if(v)com.customcosmetics.features.map.MapEditor.enabled=true;com.customcosmetics.features.map.MapEditor.refresh();});
+        toggleRow("Dungeon Only","Edit only inside the Catacombs or local single-player worlds.",()->com.customcosmetics.features.map.MapEditor.dungeonOnly,v->{com.customcosmetics.features.map.MapEditor.dungeonOnly=v;com.customcosmetics.features.map.MapEditor.refresh();});
+        toggleRow("Force Dungeon","Assume you are in a dungeon. Detect rooms from loaded blocks even when sidebar detection fails.",()->com.customcosmetics.features.map.MapEditor.forceDungeon,com.customcosmetics.features.map.MapEditor::forceDungeon);
+        toggleRow("Edit Mode","Right: place. Left: hide/delete. Middle: pick. Changes save by room automatically.",()->com.customcosmetics.features.map.MapEditor.editing,v->{com.customcosmetics.features.map.MapEditor.editing=v;if(v)com.customcosmetics.features.map.MapEditor.enabled=true;com.customcosmetics.features.map.MapEditor.refresh();});
+        fullButton("Import FME Config",()->com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,new FmeImportScreen(this)));
+        fullButton("Choose Block / Favorites",com.customcosmetics.features.map.MapEditorUi::open);
+        fullButton("Replace Materials",()->com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,new MapReplaceScreen(this)));
+        toggleRow("Editor HUD","Room, selected block and controls while editing.",()->com.customcosmetics.features.map.MapEditor.showHud,v->{com.customcosmetics.features.map.MapEditor.showHud=v;com.customcosmetics.features.map.MapEditor.save();});
+        label("Room: "+com.customcosmetics.features.map.MapEditor.roomLabel(),contentX,rowY+5,MUTED,contentWidth);rowY+=24;
+        label("Room library: "+com.customcosmetics.features.map.MapEditor.ROOMS.count()+" saved layouts",contentX,rowY+5,MUTED,contentWidth);rowY+=24;
+        fullButton("Reset This Room",()->com.customcosmetics.features.map.MapCommands.run(com.customcosmetics.features.map.MapEditor::clearRoom));
         fieldRow("Block Material","Block Material",com.customcosmetics.features.map.MapEditor.material,128,"Example: minecraft:gold_block. Air hides a real block visually in Legit mode.",220,v->{if(com.customcosmetics.features.map.MapEditor.state(v)!=null)com.customcosmetics.features.map.MapEditor.material=v;});
         fullButton("Undo",()->com.customcosmetics.features.map.MapEditor.undo());
         fullButton("Clear Current Edits",()->com.customcosmetics.features.map.MapEditor.clear());
-        label("Room Presets",contentX,rowY+5,PINK,contentWidth);rowY+=26;
-        toggleRow("Recognize Dungeon Rooms","Matches saved ceiling fingerprints and four rotations. No minimap.",()->com.customcosmetics.features.map.MapEditor.autoRooms,v->{com.customcosmetics.features.map.MapEditor.autoRooms=v;com.customcosmetics.features.map.MapEditor.save();});
+        label("Advanced · Manual Presets",contentX,rowY+5,PINK,contentWidth);rowY+=26;
+        toggleRow("Automatically Restore Rooms","Automatically applies saved rooms, including rotations. Named rooms use FunnyMap data; new rooms use ceiling fingerprints.",()->com.customcosmetics.features.map.MapEditor.autoRooms,v->{com.customcosmetics.features.map.MapEditor.autoRooms=v;com.customcosmetics.features.map.MapEditor.save();});
         fieldRow("Preset Name","Preset Name",com.customcosmetics.features.map.MapEditor.presetName,48,"Saved locally. Room centers are automatic; use /customcosmetics map anchor for a manual anchor.",200,v->com.customcosmetics.features.map.MapEditor.presetName=v);
         fullButton("Save Current Preset",()->com.customcosmetics.features.map.MapCommands.run(com.customcosmetics.features.map.MapEditor::savePreset));
         var names=com.customcosmetics.features.map.MapEditor.presets();if(!names.isEmpty())fullButton("Select Saved Preset: "+com.customcosmetics.features.map.MapEditor.presetName,()->{int i=names.indexOf(com.customcosmetics.features.map.MapEditor.presetName);com.customcosmetics.features.map.MapEditor.presetName=names.get((i+1)%names.size());rebuildWidgets();});

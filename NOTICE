@@ -173,3 +173,13 @@ Original Baity notice (preserved verbatim)
 
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+FunnyMap room recognition
+-------------------------
+The room catalog in assets/customcosmetics/map/rooms.json and the legacy column
+hash in RoomCores are adapted from Harry282/FunnyMap, AGPL-3.0.
+Source: https://github.com/Harry282/FunnyMap
+Reference revision: ba49c64ae8274e92b8b9e9d4dc60576fece5be4b (2024-08-13).
+CustomCosmetics adds modern block-name conversion, canonical room persistence,
+new-room fingerprint fallback, a block palette and visual-only editing.
+No code or assets from the unlicensed FunnyMapExtras decompiled mirror are included.

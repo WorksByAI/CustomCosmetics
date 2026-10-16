@@ -6,14 +6,13 @@ import java.util.*;
 /** Immutable editor data. Coordinates are independent of Minecraft world storage. */
 public final class MapEdits {
     public static final int LIMIT=8192;
-    public enum Mode { LEGIT, CHEATING }
     public record Position(int x,int y,int z) {
         public Position add(Position p){return new Position(x+p.x,y+p.y,z+p.z);}
         public Position subtract(Position p){return new Position(x-p.x,y-p.y,z-p.z);}
         public Position rotate(int turns){return switch(Math.floorMod(turns,4)){case 1->new Position(-z,y,x);case 2->new Position(-x,y,-z);case 3->new Position(z,y,-x);default->this;};}
     }
     public record Edit(Position position,String material,boolean originallyAir) {
-        public Edit { Objects.requireNonNull(position);if(material==null||!material.matches("[a-z0-9_.-]+:[a-z0-9_./-]+"))throw new IllegalArgumentException("Invalid block ID"); }
+        public Edit { Objects.requireNonNull(position);if(material==null||material.length()>512||!material.matches("[a-z0-9_.-]+:[a-z0-9_./-]+(?:\\[[a-z0-9_]+=[a-z0-9_]+(?:,[a-z0-9_]+=[a-z0-9_]+)*\\])?"))throw new IllegalArgumentException("Invalid block ID"); }
         public Edit transform(Position origin,int turns){return new Edit(position.rotate(turns).add(origin),material,originallyAir);}
         public boolean ghost(boolean currentlyAir){return originallyAir&&currentlyAir&&!material.equals("minecraft:air");}
     }

@@ -12,6 +12,7 @@ public final class ClientInput {
     public static final int UP = value("KEY_UP"), DOWN = value("KEY_DOWN");
     public static final int PAGE_UP = value("KEY_PAGEUP"), PAGE_DOWN = value("KEY_PAGEDOWN");
     public static final int MOUSE_LEFT = value("MOUSE_BUTTON_LEFT");
+    public static final int MOUSE_RIGHT = value("MOUSE_BUTTON_RIGHT");
     private ClientInput() {}
     private static int value(String name) {
         try { return InputConstants.class.getField(name).getInt(null); }
