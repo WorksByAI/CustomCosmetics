@@ -20,6 +20,10 @@ public final class PresenceWorld {
         return client.player!=null&&!client.hasSingleplayerServer()&&(hypixel||server!=null&&server.ip.toLowerCase(Locale.ROOT).matches("(?:.*\\.)?hypixel\\.net(?::[0-9]+)?"));
     }
     public static int environment(Minecraft client){read(client);return environment;}
+    /** Cheap render-time check; do not rebuild the nearby-player interest list for every marker frame. */
+    public static boolean hasHypixelLocation(Minecraft client){
+        return client.player!=null&&client.level!=null&&!client.hasSingleplayerServer()&&connection==client.getConnection()&&hypixel&&!WorldScope.hypixelKey(environment,instance).isEmpty();
+    }
 
     public static void init() {
         if (initialized) return;

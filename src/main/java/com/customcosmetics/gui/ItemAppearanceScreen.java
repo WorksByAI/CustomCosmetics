@@ -29,7 +29,7 @@ public final class ItemAppearanceScreen extends Screen {
     private int scrollbarGrabOffset;
     private PinkUi.Field nameField,modelField;
     public ItemAppearanceScreen(Screen parent){
-        super(Component.literal("Item Cosmetics"));this.parent=parent;
+        super(Component.literal("Item Customization"));this.parent=parent;
         var player=net.minecraft.client.Minecraft.getInstance().player;
         if(player!=null&&!ItemCosmetics.uuid(player.getMainHandItem()).isEmpty())select(player.getMainHandItem());
     }
@@ -99,7 +99,7 @@ public final class ItemAppearanceScreen extends Screen {
         if(minecraft.level==null)super.extractBackground(g,mx,my,delta);else g.blurBeforeThisStratum();g.fill(0,0,width,height,0x4020242A);
     }
     @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float delta){
-        outline(g,x,y,w,h,11,BORDER,PANEL);text(g,font,"Item Cosmetics",x+16,y+17,PINK,w-32);
+        outline(g,x,y,w,h,11,BORDER,PANEL);text(g,font,"Item Customization",x+16,y+17,PINK,w-32);
         for(var widget:controls)widget.extractRenderState(g,mx,my,delta);
         g.enableScissor(x+15,bodyTop,x+w-15,bodyBottom);g.pose().pushMatrix();g.pose().translate(0,-scroll);
         int fx=x+previewWidth+24,fw=w-previewWidth-40;

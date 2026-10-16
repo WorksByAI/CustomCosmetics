@@ -16,6 +16,14 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** Inspect the compiled screen without starting Minecraft or creating a graphics context. */
 class CosmeticsScreenTest {
+    @Test void itemCustomizationHasOneVisibleNameAndOdinFooterIsRemoved()throws Exception{
+        for(String type:List.of("com/customcosmetics/gui/CosmeticsScreen","com/customcosmetics/gui/ItemAppearanceScreen")){
+            var strings=read(type).methods().stream().flatMap(method->instructions(method).stream()).filter(ConstantInstruction.class::isInstance)
+                .map(ConstantInstruction.class::cast).map(ConstantInstruction::constantValue).toList();
+            assertTrue(strings.contains("Item Customization"));assertFalse(strings.contains("Item Cosmetics"));
+            assertFalse(strings.contains("Based on Odin / odtheking."));
+        }
+    }
     @Test void accessoryControlsStayLocalAndLayerCannotDrawFirstPersonOrSendGameplayPackets() throws Exception {
         var screen=read("com/customcosmetics/gui/CosmeticsScreen");assertTrue(pageReferences(code(screen,"init")).contains("ACCESSORIES"));
         for(var method:screen.methods())if(method.methodName().stringValue().toLowerCase().contains("accessor"))
@@ -29,12 +37,25 @@ class CosmeticsScreenTest {
         var screen=read(SCREEN);
         var sync=code(screen,"sync");
         var strings=sync.stream().filter(ConstantInstruction.class::isInstance).map(ConstantInstruction.class::cast).map(ConstantInstruction::constantValue).toList();
-        assertTrue(strings.containsAll(List.of("DEV","Disable P2P Connections","If you don't know what this button does, leave it off.")));
-        assertTrue(strings.indexOf("DEV")<strings.indexOf("Disable P2P Connections"));
+        String hint="If you don't know what these settings do, leave them blank.";
+        assertTrue(strings.containsAll(List.of("DEV","Disable P2P Connections",hint)));
+        assertFalse(strings.contains("If you don't know what this button does, leave it off."));
+        assertTrue(strings.indexOf("DEV")<strings.indexOf(hint));
+        assertTrue(strings.indexOf(hint)<strings.indexOf("Disable P2P Connections"));
+        assertTrue(strings.indexOf("Proxy Auth")<strings.indexOf("Disable P2P Connections"));
+        assertTrue(strings.indexOf("Disable P2P Connections")<strings.indexOf("P2P UDP Port"));
         assertTrue(sync.stream().filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast).anyMatch(call->call.name().stringValue().equals("connectionStatus")));
         var party=code(screen,"party");
         assertTrue(party.stream().filter(ConstantInstruction.class::isInstance).map(ConstantInstruction.class::cast).noneMatch(value->value.constantValue().equals("P2P Connections")||value.constantValue().equals("Disable P2P Connections")));
         assertTrue(party.stream().filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast).noneMatch(call->Set.of("status","connectionStatus","membershipStatus").contains(call.name().stringValue())));
+    }
+    @Test void sharingPageSeparatesPartyAndLocationSettings()throws Exception{
+        var strings=code(read(SCREEN),"party").stream().filter(ConstantInstruction.class::isInstance).map(ConstantInstruction.class::cast).map(ConstantInstruction::constantValue).toList();
+        assertTrue(strings.containsAll(List.of("Party Sharing","Location Sharing","Share My Position")));
+        assertTrue(strings.indexOf("Party Sharing")<strings.indexOf("Party ESP"));
+        assertTrue(strings.indexOf("Location Sharing")<strings.indexOf("Share My Position"));
+        var titles=code(read(SCREEN),"pageTitle").stream().filter(ConstantInstruction.class::isInstance).map(ConstantInstruction.class::cast).map(ConstantInstruction::constantValue).toList();
+        assertTrue(titles.containsAll(List.of("Sharing","Equipments (Beta)")));assertFalse(titles.contains("Party"));assertFalse(titles.contains("Accessories"));
     }
     @Test void playerSizeEditsStayLocalAndNeverChangeGameplayDimensions() throws Exception {
         var screen=read(SCREEN);
@@ -96,7 +117,9 @@ class CosmeticsScreenTest {
     void friendsHasNoPageControlConfigurationOrDistributedClasses() throws Exception {
         var screen = read(SCREEN);
         assertFalse(pageReferences(code(screen, "init")).contains("FRIENDS"));
-        assertTrue(pageReferences(code(screen, "init")).containsAll(Set.of("SMOL", "NICK", "SYNC")));
+        assertTrue(pageReferences(code(screen, "init")).containsAll(Set.of("SIZE", "NICK")));
+        assertTrue(screen.methods().stream().anyMatch(method->pageReferences(instructions(method)).contains("SYNC")));
+        assertFalse(pageReferences(code(screen,"init")).contains("SMOL"));
         assertTrue(code(screen, "smol").stream().filter(ConstantInstruction.class::isInstance)
             .map(ConstantInstruction.class::cast).noneMatch(value -> Set.of("Friends", "Manage Friends").contains(value.constantValue())));
         assertTrue(screen.methods().stream().noneMatch(method -> method.methodName().stringValue().equals("friends")));

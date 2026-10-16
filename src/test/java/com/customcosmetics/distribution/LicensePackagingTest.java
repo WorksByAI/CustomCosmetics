@@ -149,7 +149,7 @@ class LicensePackagingTest {
                 "src/main/java/com/customcosmetics/features/party/PartyTracer.java",
                 "src/test/java/com/customcosmetics/sync/RealtimeConnectionsTest.java",
                 "src/gametest/java/com/customcosmetics/gametest/PartyGameTest.java",
-                "README.md", "CHANGELOG.md" }) {
+                "docs/features.md", "README.md", "CHANGELOG.md" }) {
                 assertBundled(zip, prefix + file, file);
             }
             assertCleanSource(zip, prefix);
@@ -188,16 +188,17 @@ class LicensePackagingTest {
 
     @Test
     void publicSnapshotContainsOnlyReleaseDocumentationAndClientSources() throws Exception {
-        assertFalse(Files.exists(ROOT.resolve("docs")));
+        try(var files=Files.walk(ROOT.resolve("docs"))){assertEquals(java.util.List.of("features.md"),files.filter(Files::isRegularFile).map(path->path.getFileName().toString()).toList());}
+        assertTrue(Files.readString(ROOT.resolve("README.md")).contains("[功能列表](docs/features.md)"));
         assertFalse(Files.exists(ROOT.resolve("SOURCE-DELIVERY.md")));
         assertFalse(Files.exists(ROOT.resolve("server")));
         try (var zip = new ZipFile(System.getProperty("customcosmetics.fullSourceZip"))) {
             String prefix = "CustomCosmetics-" + System.getProperty("customcosmetics.version") + "/";
             for (String type : new String[]{"UdpPresenceClient", "WebSocketPresenceClient"})
                 assertNotNull(zip.getEntry(prefix + "src/main/java/com/customcosmetics/sync/" + type + ".java"));
-            assertTrue(zip.stream().noneMatch(entry -> entry.getName().startsWith(prefix + "server/") || entry.getName().contains("/docs/")));
+            assertTrue(zip.stream().noneMatch(entry -> entry.getName().startsWith(prefix + "server/")));
             assertTrue(zip.stream().filter(entry -> entry.getName().endsWith(".md"))
-                .allMatch(entry -> entry.getName().equals(prefix + "README.md") || entry.getName().equals(prefix + "CHANGELOG.md")));
+                .allMatch(entry -> entry.getName().equals(prefix + "README.md") || entry.getName().equals(prefix + "CHANGELOG.md") || entry.getName().equals(prefix + "docs/features.md")));
         }
         assertFalse(Files.readString(ROOT.resolve("NOTICE")).contains("docs/"));
     }

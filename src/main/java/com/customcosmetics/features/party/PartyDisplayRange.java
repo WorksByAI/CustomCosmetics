@@ -10,4 +10,8 @@ public final class PartyDisplayRange {
         double bounded=normalize(limit);
         return Double.isFinite(distanceSquared)&&distanceSquared>=0&&(bounded==0||distanceSquared<=bounded*bounded);
     }
+    public static boolean nametagVisible(double hideWithin,double distanceSquared){
+        double bounded=normalize(hideWithin);
+        return Double.isFinite(distanceSquared)&&distanceSquared>=0&&(bounded==0||distanceSquared>bounded*bounded);
+    }
 }

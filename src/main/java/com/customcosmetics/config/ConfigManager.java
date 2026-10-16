@@ -61,6 +61,7 @@ public final class ConfigManager {
     public static boolean partyEspEnabled=true,partyChatEnabled=true;
     public static boolean partyConnectionNotifications=true;
     public static boolean partyP2pEnabled=true;
+    public static volatile int syncP2pPort=0;
     public static boolean partyTracersEnabled=false;
     public static int partyTracerColor=0xFFA6CF;
     public static String partyChatPrefix="`";
@@ -70,7 +71,11 @@ public final class ConfigManager {
     public static boolean partyFarMarkers=true,partyShowNames=true;
     public static String partyNametagMode="fixed";
     public static double partyNametagSize=1;
+    public static double partyNametagHideDistance=8;
     public static double partyMaxDisplayDistance=0;
+    public static boolean positionSharingEnabled=false,positionSharingReceive=false;
+    public static String positionSharingMode="public";
+    public static java.util.List<PlayerBlocklist.Entry> positionSharingTargets=java.util.List.of();
     public static double blockingX=0, blockingY=0, blockingZ=0;
     public static double blockingRotationX=0, blockingRotationY=0, blockingRotationZ=0;
     public static boolean swordBlockingEnabled = true;
@@ -116,6 +121,8 @@ public final class ConfigManager {
         return syncServerPort >= 1 && syncServerPort <= 65535 ? syncServerPort : (syncServerHttps ? 443 : 80);
     }
 
+    public static int getSyncP2pPort() { return syncP2pPort>=0&&syncP2pPort<=65535?syncP2pPort:0; }
+
     public static void loadConfig() {
         load(CosmeticsConfigDir.getCosmeticsConfigDir().resolve("config.json"));
         RemoteServerConfig.init(CosmeticsConfigDir.getCosmeticsConfigDir().resolve("customremoteserver.json"));
@@ -148,6 +155,7 @@ public final class ConfigManager {
             playerSizeY=com.customcosmetics.features.playersize.PlayerSizeSettings.bounded(playerSizeY);
             playerSizeZ=com.customcosmetics.features.playersize.PlayerSizeSettings.bounded(playerSizeZ);
             syncRefreshIntervalSeconds = getSyncRefreshIntervalSeconds();
+            syncP2pPort=getSyncP2pPort();
             nickTweaksChromaSpeed = Math.clamp(nickTweaksChromaSpeed, 0.0, 8.0);
             nickTweaksChromaSize = Math.clamp(nickTweaksChromaSize, 0.1, 12.0);
             nickTweaksChromaChroma = Math.clamp(nickTweaksChromaChroma, 0.0, 0.4);
@@ -162,8 +170,11 @@ public final class ConfigManager {
             partyEspOpacity=Math.clamp(partyEspOpacity,.05,.75);partyEspLineWidth=Math.clamp(partyEspLineWidth,.5,4);
             partyNametagMode=com.customcosmetics.features.party.PartyNametagScale.mode(partyNametagMode);
             partyNametagSize=com.customcosmetics.features.party.PartyNametagScale.size(partyNametagSize);
+            partyNametagHideDistance=com.customcosmetics.features.party.PartyDisplayRange.normalize(partyNametagHideDistance);
             partyMaxDisplayDistance=com.customcosmetics.features.party.PartyDisplayRange.normalize(partyMaxDisplayDistance);
             partyChatPrefix=com.customcosmetics.features.party.PartyChatRules.prefix(partyChatPrefix);
+            positionSharingMode=com.customcosmetics.features.party.PositionAudience.mode(positionSharingMode);
+            positionSharingTargets=com.customcosmetics.features.party.PositionAudience.targets(positionSharingTargets);
             swordBlockingStyle = com.customcosmetics.features.blocking.BlockingStyle.parse(swordBlockingStyle).value();
             swordBlockingListMode = com.customcosmetics.features.blocking.BlockingRules.Mode.parse(swordBlockingListMode).value();
             swordBlockingBlacklist = com.customcosmetics.features.blocking.BlockingRules.sanitize(swordBlockingBlacklist);

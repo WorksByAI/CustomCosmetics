@@ -2,6 +2,7 @@
 package com.customcosmetics.sync;
 
 import com.customcosmetics.features.party.PartyRoster;
+import com.customcosmetics.features.party.PositionAudience;
 import com.google.gson.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
@@ -12,7 +13,9 @@ import java.io.IOException;
 public final class PartyPeerClient implements AutoCloseable {
     public interface Sender {void send(byte[] bytes,InetSocketAddress address)throws IOException;}
     public interface Receiver {void record(JsonObject record)throws Exception;}
-    public record Context(UUID self,long epoch,long scope,String world,PartyRoster roster,boolean enabled){}
+    public record Context(UUID self,long epoch,long scope,String world,PartyRoster roster,boolean enabled,PositionAudience audience,boolean partyConsent){
+        public Context(UUID self,long epoch,long scope,String world,PartyRoster roster,boolean enabled){this(self,epoch,scope,world,roster,enabled,PositionAudience.PARTY,true);}
+    }
     private record Pending(long sent,InetSocketAddress address){}
     private static final int MAX_PEERS=16;
     private static final class Replay {
@@ -21,11 +24,12 @@ public final class PartyPeerClient implements AutoCloseable {
             long gap=highest-sequence;if(gap>=64||(bits&(1L<<gap))!=0)return false;bits|=1L<<gap;return true;}
     }
     private static final class Peer {
-        String id,key;UUID uuid;String name;long epoch,scope,deadline,nextProbe,nextShadow,lastData=Long.MIN_VALUE/2,window,remoteWantUntil;double relayRtt=500;
+        String id,key;UUID uuid;String name;long epoch,scope,deadline,nextProbe,nextShadow,lastData=Long.MIN_VALUE/2,window,remoteWantUntil,probingSince;double relayRtt=500;
         int count;boolean want,remoteWant;UdpPacket cipher;Counters counters;
+        boolean sendPosition,receivePosition;
         long probesSent,probesReceived,pongsReceived,statesReceived,replays,invalidPackets,blockedSources,expiredStates,sendFailures,budgetDrops;
         List<InetSocketAddress> candidates=List.of();final Map<InetSocketAddress,PeerPath> paths=new HashMap<>();final Map<Long,Pending> pending=new HashMap<>();
-        InetSocketAddress address;
+        InetSocketAddress address,observedAddress;
     }
     private static final class Counters {long[] outgoing=new long[3];Replay[] replay={null,new Replay(),new Replay()};long ping;}
     private final Sender sender;private final Receiver receiver;private final Map<String,Peer> peers=new HashMap<>();
@@ -63,8 +67,9 @@ public final class PartyPeerClient implements AutoCloseable {
                 case SLOW->"Direct RTT exceeds quality limit";
                 case READY->"Probes work, but no fresh direct state";
             };
-            lines.add("Peer "+p.name+": "+reason+"; candidates="+p.candidates.size()+", remote receiving P2P="+p.remoteWant);
+            lines.add("Peer "+p.name+": "+reason+"; candidates="+p.candidates.size()+", learned endpoint="+(p.observedAddress!=null)+", remote receiving P2P="+p.remoteWant);
             lines.add("  Probes sent/replies/inbound="+p.probesSent+"/"+p.pongsReceived+"/"+p.probesReceived+", states="+p.statesReceived+", state age="+age(now,p.lastData));
+            lines.add("  Probe interval="+probeInterval(p,now)+"ms; retry in="+Math.max(0,p.nextProbe-now)+"ms");
             lines.add("  Direct RTT="+ms(path==null?-1:path.rtt)+", estimated relay RTT="+ms(relay)+", P2P limit="+ms(PeerPath.rttLimit(relay))+", probe loss estimate="+(path==null?"unknown":Math.round(path.loss*100)+"%"));
             lines.add("  Drops: invalid="+p.invalidPackets+", replay="+p.replays+", source="+p.blockedSources+", expired="+p.expiredStates+", send errors="+p.sendFailures+", budget="+p.budgetDrops);
         }
@@ -85,7 +90,10 @@ public final class PartyPeerClient implements AutoCloseable {
         long remaining=grant.get("expiresAt").getAsLong()-grant.get("serverTime").getAsLong();
         if(now>=permittedUntil||!permitted.contains(id)){reject("No current server authorization for this pair");return;}
         if(!key.matches("[a-f0-9]{64}")||epoch<1||scope<1||!name.matches("[A-Za-z0-9_]{3,16}")){reject("Invalid authenticated offer fields");return;}
-        if(uuid.equals(context.self())||!context.roster().contains(uuid,name)){reject("Peer is not in the local party roster");return;}
+        boolean party=context.partyConsent()&&context.roster().contains(uuid,name);
+        boolean sendPosition=(grant.has("sendPosition")?grant.get("sendPosition").getAsBoolean():party)&&context.audience().sendsTo(uuid,name,context.roster(),context.partyConsent());
+        boolean receivePosition=(grant.has("receivePosition")?grant.get("receivePosition").getAsBoolean():party)&&context.audience().accepts(uuid,name,context.roster(),context.partyConsent());
+        if(uuid.equals(context.self())||!sendPosition&&!receivePosition){reject("Peer has no permitted position sharing direction");return;}
         if(grant.get("selfEpoch").getAsLong()!=context.epoch()||grant.get("selfScope").getAsLong()!=context.scope()){reject("Offer belongs to another local session or scope");return;}
         if(!grant.get("world").getAsString().equals(context.world())){reject("Peer world does not match");return;}
         if(remaining<=0||remaining>10000){reject("Offer is expired or has an invalid lifetime");return;}
@@ -96,15 +104,21 @@ public final class PartyPeerClient implements AutoCloseable {
             candidates.add(new InetSocketAddress(address,port));
         }
         Peer peer=peers.get(id);
-        if(peer==null){if(peers.size()>=MAX_PEERS||!counters.containsKey(id)&&counters.size()>=4096){reject("Direct peer capacity reached");return;}peers.values().removeIf(p->p.uuid.equals(uuid));peer=new Peer();peer.id=id;peer.key=key;peer.uuid=uuid;peer.name=name;peer.epoch=epoch;peer.scope=scope;
+        if(peer==null){if(peers.size()>=MAX_PEERS||!counters.containsKey(id)&&counters.size()>=4096){reject("Direct peer capacity reached");return;}peers.values().removeIf(p->p.uuid.equals(uuid));peer=new Peer();peer.id=id;peer.key=key;peer.uuid=uuid;peer.name=name;peer.epoch=epoch;peer.scope=scope;peer.probingSince=now;
             peer.counters=counters.computeIfAbsent(id,ignored->new Counters());
             peer.cipher=new UdpPacket(HexFormat.of().parseHex(id),HexFormat.of().parseHex(key),context.self().toString().compareTo(uuid.toString())<0,4);peers.put(id,peer);
         }else if(!peer.key.equals(key)||peer.epoch!=epoch||peer.scope!=scope||!peer.uuid.equals(uuid)){reject("Conflicting pair session");return;}
         peer.deadline=now+remaining;peer.candidates=List.copyOf(candidates);peer.relayRtt=Math.clamp(grant.get("relayRttMs").getAsDouble(),0,10000);
+        peer.sendPosition=sendPosition;peer.receivePosition=receivePosition;
         peer.paths.keySet().removeIf(a->!allowed(candidates,a));
+        if(peer.observedAddress!=null&&!allowed(candidates,peer.observedAddress))peer.observedAddress=null;
         offersAccepted++;lastRejection="";
     }
     private static boolean allowed(List<InetSocketAddress> candidates,InetSocketAddress source){return candidates.stream().anyMatch(a->a.getAddress().equals(source.getAddress()));}
+    private static long probeInterval(Peer peer,long now){
+        long last=peer.probingSince;for(var path:peer.paths.values())last=Math.max(last,path.lastPong);
+        long idle=Math.max(0,now-last);return idle<5000?250:idle<30000?1000:3000;
+    }
     public void tick(long now,double relayRtt){
         if(now>=permittedUntil){permitted=Set.of();peers.clear();}
         peers.values().removeIf(p->p.deadline<=now);
@@ -118,8 +132,11 @@ public final class PartyPeerClient implements AutoCloseable {
             if(best!=null)p.address=best.getKey();
             p.want=best!=null&&now-p.lastData<=1000;
             if(p.want)next.add(p.uuid);
-            if(now>=p.nextProbe){p.nextProbe=now+250;
-                var addresses=new LinkedHashSet<>(p.candidates);if(p.address!=null&&allowed(p.candidates,p.address))addresses.add(p.address);
+            if(now>=p.nextProbe){p.nextProbe=now+probeInterval(p,now);
+                var addresses=new LinkedHashSet<InetSocketAddress>();
+                if(p.observedAddress!=null&&allowed(p.candidates,p.observedAddress))addresses.add(p.observedAddress);
+                if(p.address!=null&&allowed(p.candidates,p.address))addresses.add(p.address);
+                addresses.addAll(p.candidates);
                 for(var address:addresses){if(p.pending.size()>=16)break;long ping=++p.counters.ping;var m=new JsonObject();m.addProperty("type","probe");m.addProperty("ping",ping);m.addProperty("want",p.want);
                     if(send(p,2,m,address,now)){p.probesSent++;p.pending.put(ping,new Pending(now,address));}}
             }
@@ -128,6 +145,7 @@ public final class PartyPeerClient implements AutoCloseable {
     }
     public void publish(JsonObject state,long now){
         for(var p:peers.values()){
+            if("position".equals(state.get("channel").getAsString())&&!p.sendPosition)continue;
             if(p.deadline<=now||p.address==null||!allowed(p.candidates,p.address))continue;
             if(!p.remoteWant&&now<p.nextShadow)continue;
             p.nextShadow=now+500;var m=state.deepCopy();m.addProperty("sentAt",now);send(p,1,m,p.address,now);
@@ -148,7 +166,15 @@ public final class PartyPeerClient implements AutoCloseable {
             var m=JsonParser.parseString(new String(packet.body(),StandardCharsets.UTF_8)).getAsJsonObject();String type=m.get("type").getAsString();
             if(packet.flow()==2){
                 long ping=m.get("ping").getAsLong();boolean want=m.get("want").getAsBoolean();if(ping<1)return true;
-                if(type.equals("probe")){p.probesReceived++;var reply=new JsonObject();reply.addProperty("type","pong");reply.addProperty("ping",ping);reply.addProperty("clock",now);reply.addProperty("want",p.want);send(p,2,reply,source,now);}
+                if(type.equals("probe")){
+                    p.probesReceived++;
+                    // A symmetric NAT can use a different port for us than for the relay.
+                    // Learn only a fresh authenticated source on an authorized IP, then
+                    // prove its return path with our own probes before accepting state.
+                    var observed=p.candidates.contains(source)?null:source;
+                    if(!Objects.equals(p.observedAddress,observed)){p.observedAddress=observed;p.nextProbe=Math.min(p.nextProbe,now+250);}
+                    var reply=new JsonObject();reply.addProperty("type","pong");reply.addProperty("ping",ping);reply.addProperty("clock",now);reply.addProperty("want",p.want);send(p,2,reply,source,now);
+                }
                 else if(type.equals("pong")){
                     var pending=p.pending.remove(ping);if(pending==null||!pending.address().getAddress().equals(source.getAddress()))return true;
                     var path=p.paths.computeIfAbsent(source,ignored->new PeerPath());path.pong(now,pending.sent(),m.get("clock").getAsLong());
@@ -159,6 +185,7 @@ public final class PartyPeerClient implements AutoCloseable {
             }
             if(!type.equals("state")||m.get("scope").getAsLong()!=p.scope||!m.get("world").getAsString().equals(context.world()))return true;
             String channel=m.get("channel").getAsString();long ttl=channel.equals("position")?3000:channel.equals("blocking")?1250:0;
+            if(channel.equals("position")&&!p.receivePosition)return true;
             if(ttl==0||m.get("sequence").getAsLong()<1)return true;
             var path=p.paths.get(source);if(path==null||path.rtt<0)return true;
             long age=(long)Math.max(0,now-(m.get("sentAt").getAsLong()-path.offset));if(age>=ttl){p.expiredStates++;return true;}

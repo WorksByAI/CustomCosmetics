@@ -36,15 +36,16 @@ public final class StudioGameTest implements FabricClientGameTest {
             var closed=new AtomicInteger();
             context.runOnClient(client->{
                 RemoteAccess.channel(()->(AutoCloseable)closed::incrementAndGet);
-                ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SMOL));
-            });click(context,"Online",PinkUi.Action.class);
+                ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SIZE));
+            });click(context,"Settings",PinkUi.Action.class);click(context,"Mode: Online",PinkUi.Action.class);
             context.runOnClient(client->{
                 if(!ConfigManager.offlineMode||closed.get()!=1||PresenceSync.syncOnce()||!PresenceSync.remoteNicknames().isEmpty())
                     throw new AssertionError("Offline button did not cancel connections and suppress remote synchronization");
             });context.takeScreenshot("offline-mode-sidebar");
-            click(context,"Offline",PinkUi.Action.class);
+            click(context,"Mode: Offline",PinkUi.Action.class);
             context.runOnClient(client->{if(ConfigManager.offlineMode)throw new AssertionError("Online button did not restore the selected mode");ClientUiAccess.setScreen(client,null);});
             checkNetworkButtons(context);
+            SettingsGuiGameTest.check(context);
             System.out.println("BLOCKING_ADJUSTMENT_NATIVE_PREVIEW_AND_OFFLINE_BUTTON_OK");
         }catch(Exception error){throw new AssertionError(error);}
     }

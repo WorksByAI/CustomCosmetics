@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.0
+
+- GUI: Add compact layouts and reorganize settings.
+- Player Size: Include SmolPeople.
+- Sharing: Add public and selected-player location sharing.
+- Sharing: Add a nearby nametag hide distance.
+- Sync: Improve connection reliability.
+
 ## 1.3.1
 
 - Add a mod icon.

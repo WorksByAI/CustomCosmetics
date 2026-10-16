@@ -24,7 +24,7 @@ import static com.customcosmetics.gui.PinkUi.*;
 
 /** Independent pink cosmetics studio, with scrollable settings and keyboard focus. */
 public final class CosmeticsScreen extends Screen {
-    public enum Page { MAIN, SMOL, SIZE, NICK, COLOR, CHROMA, PRESETS, BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, ANIMATIONS, ITEMS, ACCESSORIES, PARTY, SYNC }
+    public enum Page { MAIN, SIZE, NICK, COLOR, CHROMA, PRESETS, BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, POSITION_RECIPIENTS, ANIMATIONS, ITEMS, ACCESSORIES, PARTY, SYNC }
     private static final ScreenSession SESSION = new ScreenSession();
     private final Screen parent;
     private Page page;
@@ -72,39 +72,34 @@ public final class CosmeticsScreen extends Screen {
         panelHeight = Math.min(436, height - 16);
         panelX = (width - panelWidth) / 2;
         panelY = (height - panelHeight) / 2;
-        sideWidth = panelWidth < 480 ? 96 : 122;
+        sideWidth = panelWidth < 360 ? 112 : 134;
         contentX = panelX + sideWidth + 18;
         contentWidth = panelWidth - sideWidth - 36;
         viewTop = panelY + 52;
         viewBottom = panelY + panelHeight - 18;
         rowY = viewTop;
 
-        Page[] pages = {Page.SMOL, Page.SIZE, Page.NICK, Page.ANIMATIONS, Page.ITEMS, Page.ACCESSORIES, Page.PARTY, Page.SYNC};
-        String[] names = {"SmolPeople", "Player Size", "NickTweaks", "Animations", "Item Cosmetics", "Accessories", "Party", "Sync"};
+        Page[] pages = {Page.ANIMATIONS, Page.ACCESSORIES, Page.ITEMS, Page.NICK, Page.SIZE, Page.PARTY};
+        String[] names = {"Animations", "Equipments (Beta)", "Item Customization", "NickTweaks", "Player Size", "Sharing"};
         int navTop = panelHeight < 220 ? 51 : 64;
         int navGap = Math.clamp((panelHeight - navTop - 52) / (pages.length+1), 14, 31);
         for (int i = 0; i < pages.length; i++) {
             Page target = pages[i];
-            int slot = i;
-            if (target == Page.SYNC) {
-                navigation.add(addWidget(new PinkUi.Action(panelX+10,panelY+navTop+slot*navGap,sideWidth-20,navGap-4,"Cape",false,
+            int slot = i < 1 ? i : i + 1;
+            if (i == 1) {
+                navigation.add(addWidget(new PinkUi.Action(panelX+10,panelY+navTop+navGap,sideWidth-20,navGap-4,"Cape",false,
                     ()->com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,new CapeScreen(this)))));
-                slot++;
             }
             PinkUi.Action action = new PinkUi.Action(panelX + 10, panelY + navTop + slot * navGap,
                 sideWidth - 20, navGap - 4, names[i], false, () -> open(target));
             action.selected(() -> target == page
                 || target == Page.ACCESSORIES && page == Page.BLOCKED_ACCESSORIES
+                || target == Page.PARTY && page == Page.POSITION_RECIPIENTS
                 || target == Page.NICK && (page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS || page == Page.BLOCKED_NICKS));
             navigation.add(addWidget(action));
         }
         navigation.add(addWidget(new RepositoryButton(panelX + 12, panelY + panelHeight - 42)));
-        var mode = new PinkUi.Action(panelX + 47, panelY + panelHeight - 42, sideWidth - 55, 30,
-            ConfigManager.offlineMode ? "Offline" : "Online", false, () -> {
-                com.customcosmetics.config.CosmeticsMode.setOffline(!ConfigManager.offlineMode); rebuildWidgets();
-            });
-        mode.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal("Offline: local cosmetics only. No remote connections.")));
-        navigation.add(addWidget(mode));
+        navigation.add(addWidget(new PinkUi.Action(panelX+47,panelY+panelHeight-42,sideWidth-55,30,"Settings",false,()->open(Page.SYNC)).selected(()->page==Page.SYNC)));
         navigation.add(addWidget(new PinkUi.Action(panelX + panelWidth - 32, panelY + 15, 20, 20, "×", false, this::onClose)));
         pinnedNickname = panelHeight >= 360 && (page == Page.NICK || page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS);
         pinnedSize = panelHeight >= 360 && page == Page.SIZE;
@@ -125,9 +120,7 @@ public final class CosmeticsScreen extends Screen {
             viewTop = rowY;
         }
         switch (page) {
-            case MAIN -> smol();
-            case SMOL -> smol();
-            case SIZE -> playerSize();
+            case MAIN, SIZE -> playerSize();
             case NICK -> nickname();
             case COLOR -> colors();
             case CHROMA -> chroma();
@@ -137,10 +130,10 @@ public final class CosmeticsScreen extends Screen {
             case ITEMS -> itemCosmetics();
             case ACCESSORIES -> accessories();
             case PARTY -> party();
+            case POSITION_RECIPIENTS -> positionRecipients();
             case SYNC -> sync();
         }
-        if (page == Page.SMOL || page == Page.NICK || page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS) credit();
-        if(page==Page.SIZE){label("Based on Odin / odtheking.",contentX,rowY+4,DIM,contentWidth);rowY+=24;}
+        if (page == Page.SIZE || page == Page.NICK || page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS) credit();
         contentBottom = rowY + 5;
         scroll = Math.clamp(scroll, 0, maxScroll());
         positionControls();
@@ -148,59 +141,111 @@ public final class CosmeticsScreen extends Screen {
 
     private String pageTitle() {
         return switch (page) {
-            case MAIN, SMOL -> "SmolPeople";
-            case SIZE -> "Player Size";
+            case MAIN, SIZE -> "Player Size";
             case NICK, COLOR, CHROMA, PRESETS, BLOCKED_NICKS -> "NickTweaks";
             case ANIMATIONS -> "Animations";
-            case ITEMS -> "Item Cosmetics";
-            case ACCESSORIES, BLOCKED_ACCESSORIES -> "Accessories";
-            case PARTY -> "Party";
-            case SYNC -> "Sync";
+            case ITEMS -> "Item Customization";
+            case ACCESSORIES, BLOCKED_ACCESSORIES -> "Equipments (Beta)";
+            case PARTY, POSITION_RECIPIENTS -> "Sharing";
+            case SYNC -> "Settings";
             case BLOCKED_CAPES -> "Cape";
         };
     }
 
     private void party(){
+        label("Party Sharing",contentX,rowY+2,PINK,contentWidth);rowY+=20;
         toggleRow("Party ESP","Highlight your teammates and share your position.",()->ConfigManager.partyEspEnabled,v->ConfigManager.partyEspEnabled=v);
         toggleRow("IRC For Party Members","Send messages to your connected party members.",()->ConfigManager.partyChatEnabled,v->ConfigManager.partyChatEnabled=v);
         toggleRow("Connection Notifications","Show connection results after joining a party.",()->ConfigManager.partyConnectionNotifications,v->ConfigManager.partyConnectionNotifications=v);
-        int prefixY=card(84);label("Chat Prefix",contentX+12,prefixY+10,TEXT,contentWidth-24);
-        var prefixField=input(contentX+12,prefixY+28,Math.min(160,contentWidth-24),"Chat Prefix",ConfigManager.partyChatPrefix,32,value->{});
+        var prefixField=fieldRow("Chat Prefix","Chat Prefix",ConfigManager.partyChatPrefix,32,"Empty: all chat to CC Party. Commands are unchanged.",140,value->{});
         prefixField.setResponder(value->{
             activity();boolean valid=value.equals(com.customcosmetics.features.party.PartyChatRules.prefix(value));prefixField.invalid(!valid);
             if(valid){ConfigManager.partyChatPrefix=value;changed();}
         });
-        label("Empty: send all chat to CC Party. Commands are unchanged.",contentX+12,prefixY+62,MUTED,contentWidth-24);
-        int distanceY=card(64);label("Max Display Distance (blocks)",contentX+12,distanceY+10,TEXT,contentWidth-24);
-        var distanceField=input(contentX+12,distanceY+28,100,"Max Display Distance",String.format(Locale.ROOT,"%.0f",ConfigManager.partyMaxDisplayDistance),8,value->{});
+        var distanceField=fieldRow("Max Display Distance (blocks)","Max Display Distance",String.format(Locale.ROOT,"%.0f",ConfigManager.partyMaxDisplayDistance),8,"0 = unlimited",100,value->{});
         distanceField.setResponder(value->{
             activity();boolean valid=value.matches("[0-9]{1,8}")&&Double.parseDouble(value)<=com.customcosmetics.features.party.PartyDisplayRange.MAX;distanceField.invalid(!valid);
             if(valid){ConfigManager.partyMaxDisplayDistance=Double.parseDouble(value);changed();}
         });
-        label("0 = unlimited",contentX+124,distanceY+38,MUTED,contentWidth-136);
         fullButton("ESP Style: "+switch(ConfigManager.partyEspStyle){case "none"->"None";case "fill"->"Fill";case "both"->"Fill + Outline";default->"Outline";},()->{
             ConfigManager.partyEspStyle=switch(ConfigManager.partyEspStyle){case "outline"->"fill";case "fill"->"both";case "both"->"none";default->"outline";};changed();rebuildWidgets();
         },false);
-        int y=card(64);label("ESP Color",contentX+12,y+10,TEXT,contentWidth-24);
-        var field=input(contentX+12,y+28,Math.min(120,contentWidth-24),"ESP Color",hex(ConfigManager.partyEspColor),7,value->{});
+        var field=fieldRow("ESP Color","ESP Color",hex(ConfigManager.partyEspColor),7,"",110,value->{});
         field.setResponder(value->{activity();boolean valid=value.matches("#?[0-9a-fA-F]{6}");field.invalid(!valid);if(valid){ConfigManager.partyEspColor=Integer.parseInt(value.replace("#",""),16);changed();}});
-        sliderRow("Fill Opacity","",()->ConfigManager.partyEspOpacity,.05,.75,.05,.2,v->ConfigManager.partyEspOpacity=v);
-        sliderRow("Outline Width","",()->ConfigManager.partyEspLineWidth,.5,4,.25,1.5,v->ConfigManager.partyEspLineWidth=v);
+        sliderGrid(List.of(
+            new NumericSetting("Fill Opacity",()->ConfigManager.partyEspOpacity,.05,.75,.05,.2,v->ConfigManager.partyEspOpacity=v),
+            new NumericSetting("Outline Width",()->ConfigManager.partyEspLineWidth,.5,4,.25,1.5,v->ConfigManager.partyEspLineWidth=v)));
         toggleRow("Tracers","Draw lines from the crosshair to your teammates.",()->ConfigManager.partyTracersEnabled,v->ConfigManager.partyTracersEnabled=v);
-        int tracerY=card(64);label("Tracer Color",contentX+12,tracerY+10,TEXT,contentWidth-24);
-        var tracerField=input(contentX+12,tracerY+28,Math.min(120,contentWidth-24),"Tracer Color",hex(ConfigManager.partyTracerColor),7,value->{});
+        var tracerField=fieldRow("Tracer Color","Tracer Color",hex(ConfigManager.partyTracerColor),7,"",110,value->{});
         tracerField.setResponder(value->{activity();boolean valid=value.matches("#?[0-9a-fA-F]{6}");tracerField.invalid(!valid);if(valid){ConfigManager.partyTracerColor=Integer.parseInt(value.replace("#",""),16);changed();}});
         toggleRow("Show Names","Show teammate names and distances.",()->ConfigManager.partyShowNames,v->ConfigManager.partyShowNames=v);
+        var namesDistance=fieldRow("Hide Names Within (blocks)","Hide Names Within",String.format(Locale.ROOT,"%.0f",ConfigManager.partyNametagHideDistance),8,"0 = disabled",100,value->{});
+        namesDistance.setResponder(value->{
+            activity();boolean valid=value.matches("[0-9]{1,8}")&&Double.parseDouble(value)<=com.customcosmetics.features.party.PartyDisplayRange.MAX;namesDistance.invalid(!valid);
+            if(valid){ConfigManager.partyNametagHideDistance=Double.parseDouble(value);changed();}
+        });
         fullButton("Nametag Scaling: "+("distance".equals(ConfigManager.partyNametagMode)?"Distance":"Fixed Screen Size"),()->{
             ConfigManager.partyNametagMode="distance".equals(ConfigManager.partyNametagMode)?"fixed":"distance";changed();rebuildWidgets();
         },false);
         sliderRow("Nametag Size","",()->ConfigManager.partyNametagSize,.5,3,.1,1,v->ConfigManager.partyNametagSize=v);
         toggleRow("Distant Markers","Requires Hypixel Mod API and both players sharing positions.",()->ConfigManager.partyFarMarkers,v->ConfigManager.partyFarMarkers=v);
         label("Without Mod API: /p list for nearby ESP and chat.",contentX,rowY+4,DIM,contentWidth);rowY+=24;
+        rowY+=12;label("Location Sharing",contentX,rowY+4,PINK,contentWidth);rowY+=26;
+        toggleRow("Share My Position","Hypixel only. Replaces the Party audience while enabled.",()->ConfigManager.positionSharingEnabled,v->ConfigManager.positionSharingEnabled=v);
+        fullButton("Audience: "+("public".equals(ConfigManager.positionSharingMode)?"Public · Same World":"Selected Players"),()->{
+            ConfigManager.positionSharingMode="public".equals(ConfigManager.positionSharingMode)?"selected":"public";changed();rebuildWidgets();
+        },false);
+        fullButton("Selected Players: "+ConfigManager.positionSharingTargets.size(),()->open(Page.POSITION_RECIPIENTS),false);
+        toggleRow("Show Shared Positions","Show names and distances shared by non-party players.",()->ConfigManager.positionSharingReceive,v->ConfigManager.positionSharingReceive=v);
+    }
+
+    private void positionRecipients(){
+        fullButton("Back to Sharing",()->open(Page.PARTY),false);
+        for(var line:font.split(Component.literal("Only selected players receive your position in Selected Players mode."),contentWidth)){
+            int y=rowY;art.add(g->g.text(font,line,contentX,y,MUTED,false));rowY+=12;
+        }rowY+=16;
+        var search=fieldRow("Search Nickname or Account","Search Nickname or Account",blockedPlayerSearch,64,"",220,value->{});
+        search.setResponder(value->{activity();blockedPlayerSearch=value;rebuildWidgets();
+            var replacement=controls.stream().map(Placement::widget).filter(widget->widget instanceof PinkUi.Field&&widget.getMessage().getString().equals("Search Nickname or Account")).findFirst().orElseThrow();
+            setFocused(replacement);((PinkUi.Field)replacement).moveCursorToEnd(false);
+        });
+        String query=blockedPlayerSearch.strip().toLowerCase(Locale.ROOT);
+        var matches=PresenceSync.syncedPlayers().stream().filter(p->!p.uuid().equals(minecraft.getUser().getProfileId()))
+            .filter(p->p.name().toLowerCase(Locale.ROOT).contains(query)||p.nickname().toLowerCase(Locale.ROOT).contains(query))
+            .sorted(java.util.Comparator.comparing(PresenceSync.SyncedPlayer::name,String.CASE_INSENSITIVE_ORDER)).toList();
+        for(var player:matches){
+            int row=card(50);label(player.nickname(),contentX+12,row+10,TEXT,contentWidth-116);label(player.name(),contentX+12,row+29,DIM,contentWidth-116);
+            boolean selected=PlayerBlocklist.contains(ConfigManager.positionSharingTargets,player.uuid(),player.name());
+            var action=add(new PinkUi.Action(contentX+contentWidth-92,row+12,80,26,selected?"Selected":"Select",false,()->selectPositionRecipient(new PlayerBlocklist.Entry(player.uuid(),player.name()))));
+            action.active=!selected&&ConfigManager.positionSharingTargets.size()<com.customcosmetics.features.party.PositionAudience.MAX_TARGETS;
+        }
+        label("Selected Players",contentX,rowY+4,PINK,contentWidth);rowY+=24;
+        if(ConfigManager.positionSharingTargets.isEmpty()){
+            for(var line:font.split(Component.literal("No selected players. Your position will not be shared in this mode."),contentWidth-24)){
+                int y=rowY+10;art.add(g->g.text(font,line,contentX+12,y,DIM,false));rowY+=12;
+            }rowY+=20;
+        }
+        for(var entry:ConfigManager.positionSharingTargets){int row=card(38);label(entry.account(),contentX+12,row+14,TEXT,contentWidth-116);
+            add(new PinkUi.Action(contentX+contentWidth-92,row+6,80,26,"Remove",false,()->{
+                ConfigManager.positionSharingTargets=ConfigManager.positionSharingTargets.stream().filter(e->!e.equals(entry)).toList();changed();rebuildWidgets();
+            }));
+        }
+        int y=card(68);label("Account Name",contentX+12,y+10,TEXT,contentWidth-24);
+        var field=input(contentX+12,y+28,contentWidth-126,"Recipient Account Name",blockedPlayerName,16,value->{});
+        var select=add(new PinkUi.Action(contentX+contentWidth-102,y+28,90,26,"Select",true,()->{
+            String name=blockedPlayerName.strip();if(!name.matches("[A-Za-z0-9_]{3,16}"))return;
+            var known=PresenceSync.syncedPlayers().stream().filter(p->p.name().equalsIgnoreCase(name)).findFirst();
+            blockedPlayerName="";selectPositionRecipient(new PlayerBlocklist.Entry(known.map(PresenceSync.SyncedPlayer::uuid).orElse(null),name));
+        }));select.active=blockedPlayerName.strip().matches("[A-Za-z0-9_]{3,16}")&&ConfigManager.positionSharingTargets.size()<com.customcosmetics.features.party.PositionAudience.MAX_TARGETS;
+        field.setResponder(value->{activity();blockedPlayerName=value;boolean valid=value.strip().matches("[A-Za-z0-9_]{3,16}");field.invalid(!value.isEmpty()&&!valid);select.active=valid&&ConfigManager.positionSharingTargets.size()<com.customcosmetics.features.party.PositionAudience.MAX_TARGETS;});
+    }
+
+    private void selectPositionRecipient(PlayerBlocklist.Entry entry){
+        var entries=new ArrayList<>(ConfigManager.positionSharingTargets);entries.removeIf(e->e.account().equalsIgnoreCase(entry.account()));entries.add(entry);
+        ConfigManager.positionSharingTargets=com.customcosmetics.features.party.PositionAudience.targets(entries);changed();rebuildWidgets();
     }
     private void smol() {
-        playerPreview();
-        toggleRow("Enabled", "", () -> ConfigManager.smolpeopleMode, v -> ConfigManager.smolpeopleMode = v);
+        toggleRow("SmolPeople", "Use the small player model alongside your size settings.", () -> ConfigManager.smolpeopleMode, v -> ConfigManager.smolpeopleMode = v);
         sliderRow("Limb Swing Speed", "", () -> ConfigManager.smolLimbSwingSpeed,
             0.5, 5, 0.1, 2.5, v -> ConfigManager.smolLimbSwingSpeed = v);
     }
@@ -208,10 +253,12 @@ public final class CosmeticsScreen extends Screen {
     private void playerSize(){
         if (!pinnedSize) playerPreview();
         toggleRow("Enabled","Share your proportions with other players.",()->ConfigManager.playerSizeEnabled,v->ConfigManager.playerSizeEnabled=v);
-        sliderRow("Size X","",()->ConfigManager.playerSizeX,.1,3,.05,1,v->ConfigManager.playerSizeX=v);
-        sliderRow("Size Y","",()->ConfigManager.playerSizeY,.1,3,.05,1,v->ConfigManager.playerSizeY=v);
-        sliderRow("Size Z","",()->ConfigManager.playerSizeZ,.1,3,.05,1,v->ConfigManager.playerSizeZ=v);
+        sliderGrid(List.of(
+            new NumericSetting("Size X",()->ConfigManager.playerSizeX,.1,3,.05,1,v->ConfigManager.playerSizeX=v),
+            new NumericSetting("Size Y",()->ConfigManager.playerSizeY,.1,3,.05,1,v->ConfigManager.playerSizeY=v),
+            new NumericSetting("Size Z",()->ConfigManager.playerSizeZ,.1,3,.05,1,v->ConfigManager.playerSizeZ=v)));
         fullButton("Reset Player Size",()->{ConfigManager.playerSizeX=ConfigManager.playerSizeY=ConfigManager.playerSizeZ=1;changed();rebuildWidgets();},false);
+        rowY+=6;smol();
     }
 
     private void playerPreview() {
@@ -256,10 +303,10 @@ public final class CosmeticsScreen extends Screen {
             CapePreview.drawAccessories(g,contentX+12+half,y+26-offset,half,130,false);g.pose().popMatrix();});
     }
     private void accessoryControls(){
-        fullButton("Blocked Accessories",()->open(Page.BLOCKED_ACCESSORIES),false);
+        fullButton("Blocked Equipments",()->open(Page.BLOCKED_ACCESSORIES),false);
         fullButton("Open Wardrobe",()->com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,new WardrobeScreen(this)),false);
-        label("Choose styles for each part, then adjust colors and size.",contentX,rowY,MUTED,contentWidth);rowY+=24;
-        label("Online outfits follow your normal sync interval.",contentX,rowY,MUTED,contentWidth);rowY+=24;
+        label("Choose styles for each part, then adjust colors and size.",contentX,rowY,MUTED,contentWidth);rowY+=16;
+        label("Online outfits follow your normal sync interval.",contentX,rowY,MUTED,contentWidth);rowY+=16;
         fullButton("Clear Outfit",()->{ConfigManager.accessories=com.customcosmetics.features.accessories.AccessoriesSettings.NONE;changed();rebuildWidgets();},false);
     }
 
@@ -269,8 +316,8 @@ public final class CosmeticsScreen extends Screen {
             value -> com.customcosmetics.features.items.ItemCosmetics.store().enabled(value));
         fullButton("Customize Items", () -> com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,
             new ItemAppearanceScreen(this)), false);
-        label("Select a specific SkyBlock item from your inventory.", contentX, rowY, MUTED, contentWidth);rowY += 22;
-        label("Models include vanilla and your enabled resource packs.", contentX, rowY, MUTED, contentWidth);rowY += 22;
+        label("Select a specific SkyBlock item from your inventory.", contentX, rowY, MUTED, contentWidth);rowY += 16;
+        label("Models include vanilla and your enabled resource packs.", contentX, rowY, MUTED, contentWidth);rowY += 16;
     }
 
     private void animations() {
@@ -302,11 +349,7 @@ public final class CosmeticsScreen extends Screen {
             new NumericSetting("Swing Z", () -> ConfigManager.animationSwingZ, 0, 2, 0.01, 1, v -> ConfigManager.animationSwingZ = v)));
         if (!ConfigManager.animationDisableSwing || ConfigManager.animationTerminatorOnly)
             numbers.add(new NumericSetting("Swing Speed", () -> ConfigManager.animationSwingSpeed, -2, 1, 0.05, 0, v -> ConfigManager.animationSwingSpeed = v));
-        int columns = contentWidth >= 300 ? 2 : 1, cellWidth = (contentWidth - (columns - 1) * 6) / columns;
-        for (int i = 0; i < numbers.size(); i++) {
-            sliderCell(numbers.get(i), contentX + (i % columns) * (cellWidth + 6), rowY, cellWidth);
-            if (i % columns == columns - 1 || i == numbers.size() - 1) rowY += 64;
-        }
+        sliderGrid(numbers);
         toggleRow("Disable Hand Movement", "", () -> ConfigManager.animationDisableHandMove, v -> ConfigManager.animationDisableHandMove = v);
         toggleRow("Disable Equip Animation", "", () -> ConfigManager.animationDisableEquip, v -> ConfigManager.animationDisableEquip = v);
         toggleRow("Disable Swing Animation", "", () -> ConfigManager.animationDisableSwing, v -> { ConfigManager.animationDisableSwing = v; rebuildWidgets(); });
@@ -327,24 +370,21 @@ public final class CosmeticsScreen extends Screen {
             Page target = pages[i];
             add(new PinkUi.Action(contentX + i * (w + 4), rowY, w, 25, labels[i], false, () -> open(target)).selected(() -> page == target));
         }
-        rowY += 35;
+        rowY += 31;
     }
 
     private void nickname() {
         if (!pinnedNickname) { previewCard(); tabs(); }
         toggleRow("Enabled", "", () -> ConfigManager.nickTweaksEnabled, v -> ConfigManager.nickTweaksEnabled = v);
-        int y = card(82);
-        label("Nick Changer", contentX + 12, y + 11, TEXT, contentWidth - 24);
         ConfigManager.nickTweaksNickChanger = com.customcosmetics.config.NicknameLimit.limit(ConfigManager.nickTweaksNickChanger);
-        var nickname = input(contentX + 12, y + 28, contentWidth - 24, "Nick Changer", ConfigManager.nickTweaksNickChanger,
-            com.customcosmetics.config.NicknameLimit.MAX_LENGTH, value -> {});
+        var nickname = fieldRow("Nick Changer","Nick Changer",ConfigManager.nickTweaksNickChanger,
+            com.customcosmetics.config.NicknameLimit.MAX_LENGTH,"Color codes: &0–&f, &r",220,value -> {});
         nickname.setHint(Component.literal("Account name (40 characters max)"));
         nickname.setResponder(value -> {
             String limited = com.customcosmetics.config.NicknameLimit.limit(value);
             if (!value.equals(limited)) { nickname.setValue(limited); return; }
             activity(); ConfigManager.nickTweaksNickChanger = limited; changed();
         });
-        label("Color codes: &0–&f, &r", contentX + 12, y + 65, MUTED, contentWidth - 24);
         toggleRow("Bold Self Nick", "", () -> ConfigManager.nickTweaksBoldSelf, v -> ConfigManager.nickTweaksBoldSelf = v);
         fullButton("Blocked Nicknames",()->open(Page.BLOCKED_NICKS),false);
     }
@@ -354,14 +394,13 @@ public final class CosmeticsScreen extends Screen {
     private void blockList(List<PlayerBlocklist.Entry> entries){com.customcosmetics.sync.PlayerBlocks.set(blockKind(),entries);}
     private void blockedPlayers(){
         boolean accessories=page==Page.BLOCKED_ACCESSORIES,capes=page==Page.BLOCKED_CAPES;
-        fullButton(capes?"Back to Cape":accessories?"Back to Accessories":"Back to NickTweaks",()->{if(capes)onClose();else open(accessories?Page.ACCESSORIES:Page.NICK);},false);
-        label(capes?"Blocked Capes":accessories?"Blocked Accessories":"Blocked Nicknames",contentX,rowY+4,PINK,contentWidth);rowY+=22;
+        fullButton(capes?"Back to Cape":accessories?"Back to Equipments":"Back to NickTweaks",()->{if(capes)onClose();else open(accessories?Page.ACCESSORIES:Page.NICK);},false);
+        label(capes?"Blocked Capes":accessories?"Blocked Equipments":"Blocked Nicknames",contentX,rowY+4,PINK,contentWidth);rowY+=22;
         for(var line:font.split(Component.literal(capes?"Hide these players' custom capes. Local only.":accessories?"Hide these players' accessories. Local only.":"Show these players' original account names. Local only."),contentWidth)){
             int y=rowY;art.add(g->g.text(font,line,contentX,y,MUTED,false));rowY+=12;
         }rowY+=10;
         rowY+=8;label("Synced Players",contentX,rowY+4,PINK,contentWidth);rowY+=24;
-        int searchY=card(64);label("Search Nickname or Account",contentX+12,searchY+10,TEXT,contentWidth-24);
-        var search=input(contentX+12,searchY+28,contentWidth-24,"Search Nickname or Account",blockedPlayerSearch,64,value->{});
+        var search=fieldRow("Search Nickname or Account","Search Nickname or Account",blockedPlayerSearch,64,"",220,value->{});
         search.setResponder(value->{activity();blockedPlayerSearch=value;rebuildWidgets();
             var replacement=controls.stream().map(Placement::widget).filter(widget->widget instanceof PinkUi.Field&&widget.getMessage().getString().equals("Search Nickname or Account")).findFirst().orElseThrow();
             setFocused(replacement);((PinkUi.Field)replacement).moveCursorToEnd(false);
@@ -430,9 +469,10 @@ public final class CosmeticsScreen extends Screen {
             changed(); rebuildWidgets();
         }, false);
         if (ConfigManager.nickTweaksGradientStyle.equals("shimmer")) {
-            sliderRow("Shimmer Size", "", () -> ConfigManager.nickTweaksShimmerSize, 0.02, 1, 0.01, 0.16, v -> ConfigManager.nickTweaksShimmerSize = v);
-            sliderRow("Shimmer Interval", "Seconds between sweeps.", () -> ConfigManager.nickTweaksShimmerInterval, 0, 30, 0.1, 2, v -> ConfigManager.nickTweaksShimmerInterval = v);
-            sliderRow("Shimmer Speed", "", () -> ConfigManager.nickTweaksShimmerSpeed, 0, 4, 0.1, 1, v -> ConfigManager.nickTweaksShimmerSpeed = v);
+            sliderGrid(List.of(
+                new NumericSetting("Shimmer Size", () -> ConfigManager.nickTweaksShimmerSize, 0.02, 1, 0.01, 0.16, v -> ConfigManager.nickTweaksShimmerSize = v),
+                new NumericSetting("Shimmer Interval", () -> ConfigManager.nickTweaksShimmerInterval, 0, 30, 0.1, 2, v -> ConfigManager.nickTweaksShimmerInterval = v,"Seconds between sweeps."),
+                new NumericSetting("Shimmer Speed", () -> ConfigManager.nickTweaksShimmerSpeed, 0, 4, 0.1, 1, v -> ConfigManager.nickTweaksShimmerSpeed = v)));
         }
         if (!ConfigManager.nickTweaksGradientStyle.equals("shimmer")) editingShimmerColors = false;
         if (ConfigManager.nickTweaksGradientStyle.equals("shimmer"))
@@ -491,9 +531,7 @@ public final class CosmeticsScreen extends Screen {
 
     private void presets() {
         if (!pinnedNickname) { previewCard(); tabs(); }
-        int y = card(80);
-        label("Save Current Colors", contentX + 12, y + 11, PINK, contentWidth - 24);
-        input(contentX + 12, y + 30, contentWidth - 24, "Preset Name", presetName, 40, value -> presetName = value);
+        fieldRow("Save Current Colors","Preset Name",presetName,40,"",220,value -> presetName = value);
         fullButton("Save / Update", () -> {
             try {
                 com.customcosmetics.features.nickname.NicknamePresets.store().put(presetName,
@@ -524,18 +562,20 @@ public final class CosmeticsScreen extends Screen {
     private void chroma() {
         if (!pinnedNickname) { previewCard(); tabs(); }
         toggleRow("Chroma", "Overrides custom nick color.", () -> ConfigManager.nickTweaksChromaEnabled, v -> ConfigManager.nickTweaksChromaEnabled = v);
-        sliderRow("Lightness", "", () -> ConfigManager.nickTweaksChromaLightness, 0.2, 1, 0.05, 0.8, v -> ConfigManager.nickTweaksChromaLightness = v);
-        sliderRow("Chroma", "", () -> ConfigManager.nickTweaksChromaChroma, 0, 0.4, 0.01, 0.2, v -> ConfigManager.nickTweaksChromaChroma = v);
-        sliderRow("Size", "", () -> ConfigManager.nickTweaksChromaSize, 0.5, 10, 0.1, 3.1, v -> ConfigManager.nickTweaksChromaSize = v);
-        sliderRow("Speed", "", () -> ConfigManager.nickTweaksChromaSpeed, 0.1, 8, 0.1, 1, v -> ConfigManager.nickTweaksChromaSpeed = v);
+        sliderGrid(List.of(
+            new NumericSetting("Lightness", () -> ConfigManager.nickTweaksChromaLightness, 0.2, 1, 0.05, 0.8, v -> ConfigManager.nickTweaksChromaLightness = v),
+            new NumericSetting("Chroma", () -> ConfigManager.nickTweaksChromaChroma, 0, 0.4, 0.01, 0.2, v -> ConfigManager.nickTweaksChromaChroma = v),
+            new NumericSetting("Size", () -> ConfigManager.nickTweaksChromaSize, 0.5, 10, 0.1, 3.1, v -> ConfigManager.nickTweaksChromaSize = v),
+            new NumericSetting("Speed", () -> ConfigManager.nickTweaksChromaSpeed, 0.1, 8, 0.1, 1, v -> ConfigManager.nickTweaksChromaSpeed = v)));
     }
 
     private void sync() {
+        fullButton("Mode: "+(ConfigManager.offlineMode?"Offline":"Online"),()->{
+            com.customcosmetics.config.CosmeticsMode.setOffline(!ConfigManager.offlineMode);activity();rebuildWidgets();
+        },false).setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal("Offline: local cosmetics only. No remote connections.")));
         toggleRow("Automatic Sync", "", () -> ConfigManager.syncEnabled, v -> ConfigManager.syncEnabled = v);
-        int intervalY = card(82);
-        label("Refresh Interval (seconds)", contentX + 12, intervalY + 11, TEXT, contentWidth - 24);
-        refreshIntervalField = input(contentX + 12, intervalY + 28, contentWidth - 24, "Refresh Interval",
-            Integer.toString(ConfigManager.getSyncRefreshIntervalSeconds()), 8, value -> {
+        refreshIntervalField = fieldRow("Refresh Interval (seconds)","Refresh Interval",
+            Integer.toString(ConfigManager.getSyncRefreshIntervalSeconds()),8,"30–7200 seconds (2 hours)",100,value -> {
                 try {
                     int seconds = Integer.parseInt(value.trim());
                     boolean valid = seconds >= 30 && seconds <= 7200;
@@ -543,7 +583,6 @@ public final class CosmeticsScreen extends Screen {
                     if (valid) { ConfigManager.syncRefreshIntervalSeconds = seconds; ConfigManager.requestSave(); }
                 } catch (NumberFormatException e) { refreshIntervalField.invalid(true); }
             });
-        label("30–7200 seconds (2 hours)", contentX + 12, intervalY + 65, MUTED, contentWidth - 24);
         toggleRow("Notifications", "Show sync results in chat.", () -> ConfigManager.syncNotifications, v -> ConfigManager.syncNotifications = v);
         syncNowButton = fullButton("Sync Now", () -> {
             if (minecraft.player == null) { toast("No active world"); return; }
@@ -552,16 +591,14 @@ public final class CosmeticsScreen extends Screen {
         }, true);
         updateSyncNowButton();
         rowY += 24;
-        label("DEV",contentX,rowY,PINK,contentWidth); rowY += 20;
-        toggleRow("Disable P2P Connections","If you don't know what this button does, leave it off.",()->!ConfigManager.partyP2pEnabled,v->ConfigManager.partyP2pEnabled=!v);
+        int devY=rowY,hintX=contentX+font.width("DEV")+12;
+        label("DEV",contentX,devY,PINK,font.width("DEV"));
+        var hintLines=font.split(Component.literal("If you don't know what these settings do, leave them blank."),Math.max(1,contentX+contentWidth-hintX));
+        for(int i=0;i<hintLines.size();i++){var line=hintLines.get(i);int lineY=devY+i*12;art.add(g->g.text(font,line,hintX,lineY,MUTED,false));}
+        rowY+=Math.max(20,hintLines.size()*12+8);
         connectionStatus();
-        var lines = font.split(Component.literal("If you don't know what these settings do, leave them blank."),contentWidth);
-        for (var line : lines) { int y = rowY; art.add(g -> g.text(font,line,contentX,y,MUTED,false)); rowY += 12; }
-        rowY += 8;
         proxyText("Proxy Host",ConfigManager.syncProxyHost,value -> ConfigManager.syncProxyHost = value);
-        int y = card(64);
-        label("Proxy Port",contentX + 12,y + 10,TEXT,contentWidth - 24);
-        var port = input(contentX + 12,y + 28,contentWidth - 24,"Proxy Port",ConfigManager.syncProxyPort == 0 ? "" : Integer.toString(ConfigManager.syncProxyPort),5,value -> {});
+        var port = fieldRow("Proxy Port","Proxy Port",ConfigManager.syncProxyPort == 0 ? "" : Integer.toString(ConfigManager.syncProxyPort),5,"",100,value -> {});
         port.setResponder(value -> {
             activity();
             try { int parsed = value.isBlank() ? 0 : Integer.parseInt(value); boolean valid = parsed >= 0 && parsed <= 65535;
@@ -570,6 +607,14 @@ public final class CosmeticsScreen extends Screen {
         });
         var auth = proxyText("Proxy Auth",ConfigManager.syncProxyAuth,value -> ConfigManager.syncProxyAuth = value);
         auth.secret(true);
+        toggleRow("Disable P2P Connections","",()->!ConfigManager.partyP2pEnabled,v->ConfigManager.partyP2pEnabled=!v);
+        var p2pPort=fieldRow("P2P UDP Port","P2P UDP Port",Integer.toString(ConfigManager.getSyncP2pPort()),5,"0 = automatic. Applied when this menu closes.",100,value->{});
+        p2pPort.setResponder(value->{
+            activity();
+            try{int parsed=value.isBlank()?0:Integer.parseInt(value);boolean valid=parsed>=0&&parsed<=65535;
+                p2pPort.invalid(!valid);if(valid){ConfigManager.syncP2pPort=parsed;changed();}
+            }catch(NumberFormatException error){p2pPort.invalid(true);}
+        });
         toggleRow("Fallback Direct","Retry without the proxy if it fails.",() -> ConfigManager.syncProxyFallbackDirect,
             value -> { ConfigManager.syncProxyFallbackDirect = value; proxyChanged(); });
         add(new PinkUi.Action(contentX,rowY,contentWidth,28,"Proxy Source: " + ConfigManager.syncProxySource,false,() -> {
@@ -591,8 +636,7 @@ public final class CosmeticsScreen extends Screen {
     }
 
     private PinkUi.Field proxyText(String title,String value,Consumer<String> setter) {
-        int y = card(64); label(title,contentX + 12,y + 10,TEXT,contentWidth - 24);
-        return input(contentX + 12,y + 28,contentWidth - 24,title,value,256,text -> { setter.accept(text.strip()); proxyChanged(); });
+        return fieldRow(title,title,value,256,"",220,text -> { setter.accept(text.strip()); proxyChanged(); });
     }
     private void proxyChanged() { changed(); com.customcosmetics.sync.PresenceProxyResolver.resetSession(); }
     private void credit() {
@@ -601,13 +645,22 @@ public final class CosmeticsScreen extends Screen {
             text(g,font,"Thanks to Baity / raueyhs.",0,0,DIM,(int)(contentWidth/.8f)); g.pose().popMatrix(); });
         rowY += 22;
     }
-    private record NumericSetting(String title,DoubleSupplier getter,double min,double max,double step,double defaultValue,DoubleConsumer setter) {}
+    private record NumericSetting(String title,DoubleSupplier getter,double min,double max,double step,double defaultValue,DoubleConsumer setter,String description) {
+        NumericSetting(String title,DoubleSupplier getter,double min,double max,double step,double defaultValue,DoubleConsumer setter){this(title,getter,min,max,step,defaultValue,setter,"");}
+    }
+    private void sliderGrid(List<NumericSetting> settings){
+        int columns=contentWidth>=360?2:1,cellWidth=(contentWidth-(columns-1)*6)/columns;
+        for(int i=0;i<settings.size();i++){
+            sliderCell(settings.get(i),contentX+(i%columns)*(cellWidth+6),rowY,cellWidth);
+            if(i%columns==columns-1||i==settings.size()-1)rowY+=56;
+        }
+    }
     private void sliderCell(NumericSetting setting,int x,int y,int width) {
-        art.add(g -> outline(g,x,y,width,58,6,BORDER,CARD));
+        art.add(g -> outline(g,x,y,width,50,6,BORDER,CARD));
         PinkUi.Field[] number = new PinkUi.Field[1];
         number[0] = add(new PinkUi.Field(font,x + width - 56,y + 4,48,setting.title() + " value",22));
         number[0].setMaxLength(7); number[0].setValue(String.format(Locale.ROOT,"%.2f",setting.getter().getAsDouble()));
-        var slider = add(new PinkUi.Slider(x + 8,y + 7,width - 16,setting.title(),setting.getter().getAsDouble(),setting.min(),setting.max(),setting.step(),value -> {
+        var slider = add(new PinkUi.Slider(x + 8,y + 5,width - 16,setting.title(),setting.getter().getAsDouble(),setting.min(),setting.max(),setting.step(),value -> {
             setting.setter().accept(value); changed();
             if (number[0] != null && !number[0].isFocused()) number[0].setValue(String.format(Locale.ROOT,"%.2f",value));
         }).labelSpace(54));
@@ -618,8 +671,9 @@ public final class CosmeticsScreen extends Screen {
             } catch (NumberFormatException error) { number[0].invalid(true); }
         });
         String hint = setting.title().equals("Swing Speed") ? "0 = Normal" : String.format(Locale.ROOT,"%.2f – %.2f",setting.min(),setting.max());
-        label(hint,x + 8,y + 42,DIM,width - 60);
-        add(new PinkUi.Action(x + width - 48,y + 36,40,18,"Reset",false,() -> { setting.setter().accept(setting.defaultValue()); changed(); rebuildWidgets(); }));
+        label(hint,x + 8,y + 38,DIM,width - 60);
+        if(!setting.description().isEmpty())slider.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(setting.description())));
+        add(new PinkUi.Action(x + width - 48,y + 33,40,16,"Reset",false,() -> { setting.setter().accept(setting.defaultValue()); changed(); rebuildWidgets(); }));
     }
 
     private void updateSyncNowButton() {
@@ -631,7 +685,7 @@ public final class CosmeticsScreen extends Screen {
     }
 
     private void previewCard() {
-        int y = card(68);
+        int y = card(58);
         label("Preview", contentX + 12, y + 12, PINK, contentWidth - 24);
         art.add(g -> {
             String playerName = minecraft.player == null ? "YourName" : minecraft.player.getName().getString();
@@ -648,53 +702,45 @@ public final class CosmeticsScreen extends Screen {
     private int card(int height) {
         int y = rowY;
         art.add(g -> outline(g, contentX, y, contentWidth, height, 8, BORDER, CARD));
-        rowY += height + 10;
+        rowY += height + 6;
         return y;
     }
     private void label(String label, int x, int y, int color, int width) { art.add(g -> text(g, font, label, x, y, color, width)); }
     private void toggleRow(String title, String description, BooleanSupplier getter, Consumer<Boolean> setter) {
         var lines = description.isEmpty() ? List.<net.minecraft.util.FormattedCharSequence>of() : font.split(Component.literal(description),contentWidth - 24);
-        int y = card(description.isEmpty() ? 38 : 34 + lines.size() * 12);
-        label(title, contentX + 12, y + (description.isEmpty() ? 15 : 11), TEXT, contentWidth - 68);
-        for (int i = 0; i < lines.size(); i++) { var line = lines.get(i); int ty = y + 31 + i * 12; art.add(g -> g.text(font,line,contentX + 12,ty,MUTED,false)); }
-        add(new PinkUi.Toggle(contentX + contentWidth - 46, y + (description.isEmpty() ? 10 : 8), title, getter, () -> { setter.accept(!getter.getAsBoolean()); changed(); }));
+        int y = card(description.isEmpty() ? 30 : 25 + lines.size() * 11);
+        label(title, contentX + 10, y + (description.isEmpty() ? 11 : 8), TEXT, contentWidth - 62);
+        for (int i = 0; i < lines.size(); i++) { var line = lines.get(i); int ty = y + 23 + i * 11; art.add(g -> g.text(font,line,contentX + 10,ty,MUTED,false)); }
+        add(new PinkUi.Toggle(contentX + contentWidth - 44, y + (description.isEmpty() ? 6 : 5), title, getter, () -> { setter.accept(!getter.getAsBoolean()); changed(); }));
     }
 
     private void sliderRow(String title, String description, DoubleSupplier getter, double min, double max, double step, double defaultValue, DoubleConsumer setter) {
-        int y = card(72);
-        PinkUi.Field[] number = new PinkUi.Field[1];
-        PinkUi.Slider slider = add(new PinkUi.Slider(contentX + 12, y + 12, contentWidth - 96, title, getter.getAsDouble(), min, max, step, value -> {
-            setter.accept(value); changed();
-            if (number[0] != null && !number[0].isFocused()) number[0].setValue(String.format(Locale.ROOT, "%.2f", value));
-        }));
-        number[0] = input(contentX + contentWidth - 72, y + 10, 60, title + " value", String.format(Locale.ROOT, "%.2f", getter.getAsDouble()), 7, value -> {
-            if (number[0] == null || !number[0].isFocused()) return;
-            try {
-                double parsed = Double.parseDouble(value);
-                boolean valid = Double.isFinite(parsed) && parsed >= min && parsed <= max;
-                number[0].invalid(!valid);
-                if (valid) slider.setActual(parsed);
-            } catch (NumberFormatException e) { number[0].invalid(true); }
-        });
-        
-        label(String.format(Locale.ROOT, "%.2f — %.2f", min, max), contentX + 12, y + 54, DIM, contentWidth - 90);
-        add(new PinkUi.Action(contentX + contentWidth - 64, y + 44, 52, 22, "Reset", false, () -> {
-            setter.accept(defaultValue); changed(); rebuildWidgets();
-        }));
+        sliderGrid(List.of(new NumericSetting(title,getter,min,max,step,defaultValue,setter,description)));
     }
 
+    private PinkUi.Field fieldRow(String title,String name,String value,int maximum,String hint,int preferredWidth,Consumer<String> setter){
+        boolean inline=contentWidth>=360;
+        int fieldWidth=inline?Math.min(preferredWidth,contentWidth/2):contentWidth-20;
+        int textWidth=inline?contentWidth-fieldWidth-30:contentWidth-20;
+        var lines=hint.isEmpty()?List.<net.minecraft.util.FormattedCharSequence>of():font.split(Component.literal(hint),textWidth);
+        int height=inline?Math.max(34,23+lines.size()*11):50+lines.size()*11;
+        int y=card(height);
+        label(title,contentX+10,y+(inline&&lines.isEmpty()?13:8),TEXT,textWidth);
+        for(int i=0;i<lines.size();i++){var line=lines.get(i);int lineY=y+(inline?23:49)+i*11;art.add(g->g.text(font,line,contentX+10,lineY,MUTED,false));}
+        return input(inline?contentX+contentWidth-fieldWidth-10:contentX+10,y+(inline?(height-22)/2:22),fieldWidth,name,value,maximum,setter);
+    }
     private PinkUi.Field input(int x, int y, int width, String name, String value, int maximum, Consumer<String> setter) {
-        PinkUi.Field field = new PinkUi.Field(font, x, y, width, name);
+        PinkUi.Field field = new PinkUi.Field(font, x, y, width, name,22);
         field.setMaxLength(maximum); field.setValue(value); field.setResponder(text -> { activity(); setter.accept(text); });
         return add(field);
     }
     private PinkUi.Action fullButton(String text, Runnable callback, boolean primary) {
-        PinkUi.Action button = add(new PinkUi.Action(contentX, rowY, contentWidth, 30, text, primary, callback));
-        rowY += 40;
+        PinkUi.Action button = add(new PinkUi.Action(contentX, rowY, contentWidth, 26, text, primary, callback));
+        rowY += 32;
         return button;
     }
     private <T extends AbstractWidget> T add(T widget) { controls.add(new Placement(widget, widget.getY())); return addWidget(widget); }
-    private void open(Page page) { this.page = page == Page.MAIN ? Page.SMOL : page; scroll = 0; activity(); setFocused(null); rebuildWidgets(); }
+    private void open(Page page) { this.page = page == Page.MAIN ? Page.SIZE : page; scroll = 0; activity(); setFocused(null); rebuildWidgets(); }
     private void selectEndpoint(int index) { selectedEndpoint = index; rebuildWidgets(); }
     private int color(int endpoint) {
         if (editingShimmerColors) return endpoint == 0 ? ConfigManager.nickTweaksShimmerColor : ConfigManager.nickTweaksShimmerHighlightColor;
@@ -731,7 +777,7 @@ public final class CosmeticsScreen extends Screen {
         if (blockingMode != null) blockingMode.closeMenu();
         if (blockingStyle != null) blockingStyle.closeMenu();
         if (mx < contentX || mx > contentX + contentWidth + 10 || my < viewTop || my > viewBottom) return super.mouseScrolled(mx, my, horizontal, vertical);
-        scroll = Math.clamp(scroll - vertical * 27, 0, maxScroll()); positionControls();
+        scroll = Math.clamp(scroll - vertical * 48, 0, maxScroll()); positionControls();
         if (getFocused() instanceof AbstractWidget widget && !widget.visible) setFocused(null);
         return true;
     }
@@ -840,6 +886,6 @@ public final class CosmeticsScreen extends Screen {
     }
 
     @Override public boolean isPauseScreen() { return false; }
-    @Override public void removed() { SESSION.remember(page.name(),scroll); ConfigManager.saveConfig(); PresenceSync.onClickGuiClosed(); }
+    @Override public void removed() { SESSION.remember(page.name(),scroll); ConfigManager.saveConfig(); com.customcosmetics.sync.RealtimeSync.onSettingsClosed(); PresenceSync.onClickGuiClosed(); }
     @Override public void onClose() { com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft, parent); }
 }

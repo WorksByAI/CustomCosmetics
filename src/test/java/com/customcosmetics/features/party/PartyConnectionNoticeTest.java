@@ -42,12 +42,32 @@ class PartyConnectionNoticeTest {
     }
 
     @Test void aFailedConnectionCanReportOnceOnlyInAPartyAndARecoveryCanReportSuccessOnce(){
-        var notice=new PartyConnectionNotice();assertFalse(notice.failed(true));
-        notice.membership(true);assertTrue(notice.failed(true));assertFalse(notice.failed(true));
+        var now=new java.util.concurrent.atomic.AtomicLong();
+        var notice=new PartyConnectionNotice(now::get);assertFalse(notice.failed(true));
+        notice.membership(true);assertFalse(notice.failed(true));
+        now.set(29_999);assertFalse(notice.failed(true));
+        now.set(30_000);assertTrue(notice.failed(true));assertFalse(notice.failed(true));
         assertTrue(notice.connected(true,true));assertFalse(notice.failed(true));assertFalse(notice.connected(true,true));
-        notice.membership(false);notice.membership(true);assertFalse(notice.failed(false));assertFalse(notice.failed(true));
+        notice.membership(false);notice.membership(true);assertFalse(notice.failed(false));
+        now.set(60_000);assertFalse(notice.failed(false));assertFalse(notice.failed(true));
         var message=PartyConnectionNotice.message(false);assertEquals("[CustomCosmetics] Could not connect to the Party sharing server. [Settings]",message.getString());
         assertEquals(new ClickEvent.RunCommand(PartyConnectionNotice.SETTINGS_COMMAND),message.getStyle().getClickEvent());
+    }
+
+    @Test void startupRecoveryDuringRetryGraceDoesNotShowAFailureBeforeSuccess(){
+        var now=new java.util.concurrent.atomic.AtomicLong(1000);
+        var notice=new PartyConnectionNotice(now::get);notice.membership(true);
+        assertFalse(notice.failed(true));
+        now.addAndGet(2000);assertTrue(notice.connected(true));
+        now.addAndGet(60_000);assertFalse(notice.failed(true));assertFalse(notice.connected(true));
+    }
+
+    @Test void leavingBeforeRetryCompletesCannotLeakTheOldFailureIntoTheNextParty(){
+        var now=new java.util.concurrent.atomic.AtomicLong();
+        var notice=new PartyConnectionNotice(now::get);notice.membership(true);assertFalse(notice.failed(true));
+        now.set(29_000);notice.membership(false);notice.membership(true);assertFalse(notice.failed(true));
+        now.set(30_000);assertFalse(notice.failed(true));
+        now.set(59_000);assertTrue(notice.failed(true));
     }
 
     @Test void otherMembersJoiningOrLeavingDoNotStartAnotherPartySession() {

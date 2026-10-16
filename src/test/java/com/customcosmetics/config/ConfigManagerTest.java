@@ -9,6 +9,35 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ConfigManagerTest {
+    @Test void nearbyNametagHidingDefaultsToEightAndPersistsIndependentlyOfOtherPartySettings()throws Exception{
+        assertEquals(8,ConfigManager.partyNametagHideDistance);var path=directory.resolve("nearby-nametags.json");
+        ConfigManager.partyNametagHideDistance=12;ConfigManager.save(path);ConfigManager.partyNametagHideDistance=0;ConfigManager.load(path);
+        assertEquals(12,ConfigManager.partyNametagHideDistance);assertTrue(ConfigManager.partyShowNames);assertTrue(ConfigManager.partyEspEnabled);assertEquals(0,ConfigManager.partyMaxDisplayDistance);
+        ConfigManager.partyNametagHideDistance=0;ConfigManager.save(path);ConfigManager.partyNametagHideDistance=8;ConfigManager.load(path);assertEquals(0,ConfigManager.partyNametagHideDistance);
+        Files.writeString(path,"{\"settings\":{\"partyNametagHideDistance\":-10}}");ConfigManager.load(path);assertEquals(0,ConfigManager.partyNametagHideDistance);
+        Files.writeString(path,"{\"settings\":{\"partyNametagHideDistance\":99999999}}");ConfigManager.load(path);assertEquals(30000000,ConfigManager.partyNametagHideDistance);
+    }
+    @Test void localP2pPortDefaultsToAutomaticPersistsAndRejectsOutOfRangeValues()throws Exception{
+        assertEquals(0,ConfigManager.getSyncP2pPort());var path=directory.resolve("p2p-port.json");
+        for(int port:new int[]{1,45566,65535,0}){
+            ConfigManager.syncP2pPort=port;ConfigManager.save(path);ConfigManager.syncP2pPort=12345;ConfigManager.load(path);
+            assertEquals(port,ConfigManager.getSyncP2pPort());
+        }
+        for(int port:new int[]{-1,65536,Integer.MAX_VALUE}){
+            Files.writeString(path,"{\"settings\":{\"syncP2pPort\":"+port+"}}");ConfigManager.load(path);assertEquals(0,ConfigManager.syncP2pPort);
+        }
+    }
+    @Test void locationSharingDefaultsOffAndSelectedRecipientsSurviveRestart() throws Exception {
+        assertFalse(ConfigManager.positionSharingEnabled);assertFalse(ConfigManager.positionSharingReceive);
+        var path=directory.resolve("location-sharing.json");var id=UUID.randomUUID();
+        ConfigManager.positionSharingEnabled=true;ConfigManager.positionSharingReceive=true;ConfigManager.positionSharingMode="selected";
+        ConfigManager.positionSharingTargets=List.of(new PlayerBlocklist.Entry(id,"Alice"),new PlayerBlocklist.Entry(null,"Bob"));ConfigManager.save(path);
+        ConfigManager.positionSharingEnabled=false;ConfigManager.positionSharingReceive=false;ConfigManager.positionSharingMode="public";ConfigManager.positionSharingTargets=List.of();
+        ConfigManager.load(path);assertTrue(ConfigManager.positionSharingEnabled);assertTrue(ConfigManager.positionSharingReceive);assertEquals("selected",ConfigManager.positionSharingMode);
+        assertEquals(id,ConfigManager.positionSharingTargets.getFirst().uuid());assertEquals("Bob",ConfigManager.positionSharingTargets.getLast().account());
+        Files.writeString(path,"{\"settings\":{\"positionSharingMode\":\"invalid\",\"positionSharingTargets\":[{\"account\":\"ab\"},{\"account\":\"bad name\"}]}}");
+        ConfigManager.load(path);assertEquals("selected",ConfigManager.positionSharingMode);assertTrue(ConfigManager.positionSharingTargets.isEmpty());
+    }
     @Test void nicknameBlocksRoundTripAsLocalAccountNamesAndStableIdentities() throws Exception {
         var path=directory.resolve("nickname-blocks.json");
         var uuid=UUID.fromString("12345678-1234-4234-8234-123456789abc");

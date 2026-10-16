@@ -5,6 +5,7 @@ import com.customcosmetics.utils.MessageUtils;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import java.util.function.LongSupplier;
 
 /** A roster refresh or a transport reconnect is not another party join. */
 public final class PartyConnectionNotice {
@@ -12,12 +13,20 @@ public final class PartyConnectionNotice {
     private boolean inParty;
     private boolean announced;
     private boolean failed;
+    private final LongSupplier clock;
+    private long firstFailure;
+    private boolean retrying;
+    private static final long RETRY_GRACE_MS = 30_000;
+
+    public PartyConnectionNotice() { this(() -> System.nanoTime() / 1_000_000); }
+    PartyConnectionNotice(LongSupplier clock) { this.clock = clock; }
 
     public void membership(boolean present) {
         if (!present) {
             inParty = false;
             announced = false;
             failed = false;
+            retrying = false;
         } else {
             inParty = true;
         }
@@ -35,6 +44,9 @@ public final class PartyConnectionNotice {
 
     public boolean failed(boolean enabled) {
         if(!inParty||announced||failed)return false;
+        long now=clock.getAsLong();
+        if(!retrying){retrying=true;firstFailure=now;}
+        if(now-firstFailure<RETRY_GRACE_MS)return false;
         failed=true;return enabled;
     }
 

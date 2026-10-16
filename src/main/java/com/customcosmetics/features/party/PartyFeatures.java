@@ -16,7 +16,7 @@ public final class PartyFeatures{
     private static final PartyConnectionNotice NOTICE=new PartyConnectionNotice();
     private PartyFeatures(){}
     public static boolean sharingPositions(){return ConfigManager.partyEspEnabled||ConfigManager.partyTracersEnabled;}
-    public static boolean enabled(){return sharingPositions()||ConfigManager.partyChatEnabled;}
+    public static boolean enabled(){return sharingPositions()||ConfigManager.partyChatEnabled||PositionSharing.enabled();}
     public static PartyRoster roster(){return roster;}
     public static void connected(boolean ready){
         NOTICE.membership(!roster.empty());
@@ -50,7 +50,10 @@ public final class PartyFeatures{
     }
     public static void tick(Minecraft client){
         init();boolean active=enabled()&&RemoteAccess.online()&&client.player!=null&&!client.hasSingleplayerServer()&&PresenceWorld.isHypixel(client);
-        if(connection!=client.getConnection()||!active){connection=client.getConnection();roster=PartyRoster.EMPTY;updated=nextRequest=0;PARSER.reset();NOTICE.membership(false);PartySync.disconnect();if(!active)return;}
+        // A brief configuration/loading phase during a transfer is not a new party join.
+        if(enabled()&&RemoteAccess.online()&&!client.hasSingleplayerServer()&&client.getCurrentServer()!=null&&(client.player==null||client.getConnection()==null)){PartySync.disconnect();return;}
+        Object session=client.getConnection()==null?null:client.getConnection().getConnection();
+        if(connection!=session||!active){connection=session;roster=PartyRoster.EMPTY;updated=nextRequest=0;PARSER.reset();NOTICE.membership(false);PartySync.disconnect();if(!active)return;}
         long now=System.currentTimeMillis();
         if(hasApi&&now>=nextRequest){nextRequest=now+15000;API.request();}
         if(hasApi&&roster.source().equals("Hypixel Mod API")&&now-updated>45000)roster=PartyRoster.EMPTY;

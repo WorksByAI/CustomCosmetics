@@ -13,7 +13,7 @@ public final class PartySync{
     private static volatile Map<UUID,PartyClient.Teammate> remote=Map.of();private static volatile String status="Disconnected";
     private PartySync(){}
     public static String status(){return status;}
-    public static Map<UUID,PartyClient.Teammate> teammates(){return RemoteAccess.online()&&PartyFeatures.sharingPositions()?(RealtimeSync.enabled()?RealtimeSync.teammates():remote):Map.of();}
+    public static Map<UUID,PartyClient.Teammate> teammates(){return RemoteAccess.online()&&(PartyFeatures.sharingPositions()||PositionSharing.receiving(Minecraft.getInstance()))?(RealtimeSync.enabled()?RealtimeSync.teammates():remote):Map.of();}
     public static void disconnect(){if(live==null&&endpoint.isEmpty()&&!authenticating)return;generation++;if(live!=null)live.close();live=null;endpoint="";identity=null;remote=Map.of();nextAttempt=0;authenticating=false;status="Disconnected";}
     public static void tick(Minecraft client){
         String base=PresenceSync.serviceBaseUrl();var auth=PresenceSync.actionSession();

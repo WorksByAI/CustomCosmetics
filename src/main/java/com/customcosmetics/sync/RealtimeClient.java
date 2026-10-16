@@ -3,6 +3,7 @@ package com.customcosmetics.sync;
 
 import com.customcosmetics.features.blocking.BlockHand;
 import com.customcosmetics.features.party.PartyRoster;
+import com.customcosmetics.features.party.PositionAudience;
 import com.google.gson.*;
 import java.net.*;
 import java.net.http.*;
@@ -14,7 +15,8 @@ import java.util.concurrent.*;
 /** Shared counters and world scope for primary UDP and home WSS; never touches game networking. */
 public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
     interface DatagramFactory {DatagramSocket open()throws SocketException;}
-    public record View(String world,Set<UUID> players,PartyRoster roster,int environment,boolean esp,boolean p2p){
+    public record View(String world,Set<UUID> players,PartyRoster roster,int environment,boolean esp,boolean p2p,PositionAudience audience){
+        public View(String world,Set<UUID> players,PartyRoster roster,int environment,boolean esp,boolean p2p){this(world,players,roster,environment,esp,p2p,PositionAudience.PARTY);}
         public View(String world,Set<UUID> players,PartyRoster roster,int environment,boolean esp){this(world,players,roster,environment,esp,false);}
     }
     private record Block(BlockHand hand,String itemId){}
@@ -23,7 +25,8 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
     private final HttpClient http=WebSocketPresenceClient.createHttpClient();
     private final RealtimeRoute route=new RealtimeRoute();private final boolean forceWss;
     private final UUID self;private final PartyPeerClient peers;private long epoch;private InetSocketAddress relayAddress;private JsonObject localCandidate;
-    private final DatagramFactory datagrams;
+    private final DatagramFactory datagrams;private final int requestedUdpPort;
+    private String udpFailure="";
     private final Map<String,JsonObject> pendingStates=new LinkedHashMap<>();private long nextRelayPosition;
     private volatile boolean closed,ready,udpSelected;private volatile View desired=new View("",Set.of(),PartyRoster.EMPTY,0,false);
     private volatile Block block=new Block(BlockHand.NONE,"");private volatile PartyClient.Position position;
@@ -39,11 +42,18 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
     private long udpProbesSent,udpReplies;private long lastUdpReply=-1;
     private String closeReason="Client disconnected";
     public RealtimeClient(String base,PresenceAuthClient.Session session,boolean forceWss){
-        this(base,session,forceWss,DatagramSocket::new);
+        this(base,session,forceWss,com.customcosmetics.config.ConfigManager.getSyncP2pPort());
+    }
+    RealtimeClient(String base,PresenceAuthClient.Session session,boolean forceWss,int port){
+        this(base,session,forceWss,()->new DatagramSocket(port),port);
     }
     RealtimeClient(String base,PresenceAuthClient.Session session,boolean forceWss,DatagramFactory datagrams){
+        this(base,session,forceWss,datagrams,0);
+    }
+    private RealtimeClient(String base,PresenceAuthClient.Session session,boolean forceWss,DatagramFactory datagrams,int requestedUdpPort){
+        if(requestedUdpPort<0||requestedUdpPort>65535)throw new IllegalArgumentException("Invalid local UDP port");
         if(session==null||!session.baseUrl().equals(base))throw new IllegalArgumentException("Realtime requires an authenticated service session");
-        this.forceWss=forceWss;this.datagrams=datagrams;token=session.token();self=session.uuid();
+        this.forceWss=forceWss;this.datagrams=datagrams;this.requestedUdpPort=requestedUdpPort;token=session.token();self=session.uuid();
         peers=new PartyPeerClient((bytes,address)->{if(udp==null)throw new java.io.IOException("UDP unavailable");udp.send(new DatagramPacket(bytes,bytes.length,address));},m->acceptRecord(m,0,RealtimeConnections.Path.P2P));
         connecting=http.newWebSocketBuilder().connectTimeout(Duration.ofSeconds(8)).subprotocols("customcosmetics.realtime.v1").buildAsync(endpoint(base),this);
         connecting.whenComplete((ws,error)->{if(error!=null)fail("WSS connection failed ("+error.getClass().getSimpleName()+")");else if(closed)ws.abort();});
@@ -56,7 +66,7 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
         else if(!view.players().equals(desired.players())){var kept=new HashMap<>(blocks);kept.keySet().retainAll(view.players());blocks=Map.copyOf(kept);connections.retainBlocking(view.players());}
         desired=view;block=new Block(hand,hand==BlockHand.NONE?"":itemId);this.position=position;
     }
-    static boolean sameScope(View a,View b){return a.world().equals(b.world())&&a.roster().equals(b.roster())&&a.environment()==b.environment()&&a.esp()==b.esp()&&a.p2p()==b.p2p();}
+    static boolean sameScope(View a,View b){return a.world().equals(b.world())&&a.roster().equals(b.roster())&&a.environment()==b.environment()&&a.esp()==b.esp()&&a.p2p()==b.p2p()&&a.audience().equals(b.audience());}
     static int positionInterval(boolean udp,int recommendation){return Math.clamp(recommendation,udp?50:100,1000);}
     public synchronized void block(BlockHand hand,String itemId){block=new Block(hand,hand==BlockHand.NONE?"":itemId);}
     public boolean closed(){return closed;}
@@ -64,12 +74,16 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
     public synchronized String status(){return connections.status(ready(),peers.direct(),clock());}
     synchronized boolean usingUdpRelay(){return udpSelected;}
     public synchronized Set<UUID> directPeers(){return peers.direct();}
+    public int requestedUdpPort(){return requestedUdpPort;}
     public synchronized List<String> diagnostics(){
         long now=clock();var lines=new ArrayList<String>();
         lines.add("Realtime: "+(closed?closeReason:ready()?"Connected":"Connecting; waiting for authentication or view acknowledgement"));
         lines.add("Relay: "+(udpSelected?"UDP":"TCP/WSS")+"; UDP RTT="+PartyPeerClient.ms(route.udpMs())+"; WSS RTT="+PartyPeerClient.ms(route.wssMs()));
         lines.add("UDP socket="+(udp!=null&&!udp.isClosed()?"open":"unavailable")+"; probes sent/replies="+udpProbesSent+"/"+udpReplies+"; last reply="+PartyPeerClient.age(now,lastUdpReply)+"; return-path cookie="+(!peerCookie.isEmpty()?"received (server verification not yet confirmed)":"not received"));
+        lines.add("Local UDP port="+(udp!=null&&!udp.isClosed()?udp.getLocalPort():"unbound")+"; configured="+(requestedUdpPort==0?"automatic":requestedUdpPort));
+        if(!udpFailure.isEmpty())lines.add(udpFailure+"; using WSS fallback.");
         lines.add("World="+(desired.world().isEmpty()?"unknown":desired.world().substring(0,Math.min(12,desired.world().length())))+"; environment="+desired.environment()+"; view acknowledged="+ready());
+        lines.add("Position audience="+desired.audience().mode()+"; selected recipients="+(desired.audience().members().size()+desired.audience().names().size())+"; receive shared positions="+desired.audience().receive());
         if(forceWss)lines.add("P2P: Disabled by forced WSS transport.");
         else if(!desired.p2p())lines.add("P2P: Disabled by local setting or missing party position sharing.");
         else if(desired.world().isEmpty())lines.add("P2P: Waiting for a valid world from Hypixel Mod API.");
@@ -96,7 +110,7 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
         if(now-lastWs>10000){fail("WSS control replies timed out");return;}
         boolean selected=!forceWss&&udp!=null&&route.select(now);udpSelected=selected;
         if(selected!=lastRoute){lastRoute=selected;pendingStates.clear();sentBlock=null;nextBlock=nextPosition=nextRelayPosition=nextProbe=nextUdpProbe=0;}
-        if(ready())peers.context(new PartyPeerClient.Context(self,epoch,scope,desired.world(),desired.roster(),desired.p2p()&&!forceWss&&udp!=null));
+        if(ready())peers.context(new PartyPeerClient.Context(self,epoch,scope,desired.world(),desired.roster(),desired.p2p()&&!forceWss&&udp!=null,desired.audience(),desired.esp()));
         peers.tick(now,selected?route.udpMs():route.wssMs());
         if(peers.changed())nextPosition=nextRelayPosition=nextUdpProbe=nextProbe=0;
         if(udp!=null&&now>=nextUdpProbe){nextUdpProbe=now+1000;var m=new JsonObject();m.addProperty("type","probe");m.addProperty("ping",now);m.addProperty("active",selected);
@@ -110,7 +124,7 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
             m.addProperty("p2p",sent.p2p()&&!forceWss);
             var players=new JsonArray();sent.players().stream().sorted().limit(2048).forEach(id->players.add(id.toString()));m.add("players",players);
             var roster=new JsonObject();var members=new JsonArray();sent.roster().members().stream().sorted().forEach(id->members.add(id.toString()));roster.add("members",members);
-            var names=new JsonArray();sent.roster().names().stream().sorted().forEach(names::add);roster.add("names",names);roster.addProperty("environment",sent.environment());roster.addProperty("esp",sent.esp());m.add("roster",roster);
+            var names=new JsonArray();sent.roster().names().stream().sorted().forEach(names::add);roster.add("names",names);roster.addProperty("environment",sent.environment());roster.addProperty("esp",sent.esp());roster.add("sharing",sent.audience().json());m.add("roster",roster);
             send(m);canSend=false;
         }
         if(canSend&&now>=nextProbe){nextProbe=now+1000;var m=new JsonObject();m.addProperty("type","ping");m.addProperty("ping",now);m.addProperty("fallback",!selected);direct(m);send(m);canSend=false;}
@@ -120,7 +134,7 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
             if(!value.equals(sentBlock))stopCopies=value.hand()==BlockHand.NONE&&(selected||peers.size()>0)?3:0;
             var m=new JsonObject();m.addProperty("hand",value.hand().wire);m.addProperty("itemId",value.itemId());state("blocking",++blockSequence,m);sentBlock=value;nextBlock=now+100;if(stopCopies>0)stopCopies--;
         }
-        var pos=position;if(sent.esp()&&!sent.roster().empty()&&pos!=null&&now>=nextPosition&&PartyClient.validPosition(pos)){
+        var pos=position;if(sent.audience().publishes(sent.roster(),sent.esp())&&!sent.world().isEmpty()&&pos!=null&&now>=nextPosition&&PartyClient.validPosition(pos)){
             nextPosition=now+(peers.sendingDirect()?50:positionInterval(selected,selected?udpPositionInterval:wssPositionInterval));var m=new JsonObject();m.addProperty("x",pos.x());m.addProperty("y",pos.y());m.addProperty("z",pos.z());m.addProperty("width",pos.width());m.addProperty("height",pos.height());state("position",++positionSequence,m);
         }
         if(canSend&&!selected&&!pendingStates.isEmpty()){String channel=pendingStates.containsKey("blocking")?"blocking":"position";send(pendingStates.remove(channel));}
@@ -144,13 +158,13 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
             peers.permit(m.getAsJsonArray("peerIds"),now);return;}
         if(type.equals("peer-list")&&datagram){if(ready()&&m.get("scope").getAsLong()==scope)peers.permit(m.getAsJsonArray("ids"),now);return;}
         if(type.equals("peer")&&datagram){try{peers.offer(m,now);}catch(Exception invalid){/* Keep relaying if a direct offer is unusable. */}return;}
-        if(type.equals("udp")&&!datagram){if(!forceWss)try{install(m.getAsJsonObject("grant"));}catch(java.io.IOException unavailable){if(udp!=null)udp.close();udp=null;}return;}
+        if(type.equals("udp")&&!datagram){if(!forceWss)try{install(m.getAsJsonObject("grant"));}catch(java.io.IOException unavailable){if(udp!=null)udp.close();udp=null;udpFailure="UDP setup failed"+(requestedUdpPort==0?"":" for local port "+requestedUdpPort)+" ("+unavailable.getClass().getSimpleName()+")";}return;}
         if(type.equals("record"))acceptRecord(m,Math.max(0,(datagram?route.udpMs():route.wssMs())/2),datagram?RealtimeConnections.Path.UDP:RealtimeConnections.Path.TCP);
     }
     private void acceptRecord(JsonObject m,double latency,RealtimeConnections.Path path)throws Exception{
         long now=clock();if(!ready()||m.get("scope").getAsLong()!=scope||!m.get("world").getAsString().equals(desired.world()))return;
         UUID id=UUID.fromString(m.get("uuid").getAsString());String channel=m.get("channel").getAsString(),name=m.get("name").getAsString();
-        if(!name.matches("[A-Za-z0-9_]{3,16}")||!(channel.equals("blocking")&&desired.players().contains(id)||channel.equals("position")&&desired.esp()&&desired.roster().contains(id,name)))return;
+        if(!name.matches("[A-Za-z0-9_]{3,16}")||!(channel.equals("blocking")&&desired.players().contains(id)||channel.equals("position")&&desired.audience().accepts(id,name,desired.roster(),desired.esp())))return;
         var stamp=new Stamp(m.get("epoch").getAsLong(),m.get("sequence").getAsLong());String key=channel+id;var previous=seen.get(key);
         if(stamp.epoch()<1||stamp.sequence()<1||previous!=null&&(stamp.epoch()<previous.epoch()||stamp.epoch()==previous.epoch()&&stamp.sequence()<=previous.sequence()))return;
         seen.put(key,stamp);if(seen.size()>4096){close();return;}
@@ -175,8 +189,12 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
         String id=grant.get("id").getAsString();if(id.equals(grantId))return;
         if(grant.get("version").getAsInt()!=3||!id.matches("[a-f0-9]{32}")||!grant.get("key").getAsString().matches("[a-f0-9]{64}"))throw new IllegalArgumentException("Invalid realtime grant");
         String host=SyncEndpoint.normalizeHost(grant.get("host").getAsString());int port=grant.get("port").getAsInt();if(host==null||host.isBlank()||port<1||port>65535)throw new IllegalArgumentException("Invalid realtime address");
-        peers.close();peerCookie="";if(udp!=null)udp.close();var socket=datagrams.open();relayAddress=new InetSocketAddress(InetAddress.getByName(host),port);socket.connect(relayAddress);socket.setSoTimeout(1000);
-        localCandidate=new JsonObject();localCandidate.addProperty("host",socket.getLocalAddress().getHostAddress());localCandidate.addProperty("port",socket.getLocalPort());socket.disconnect();
+        peers.close();peerCookie="";if(udp!=null)udp.close();relayAddress=new InetSocketAddress(InetAddress.getByName(host),port);var socket=datagrams.open();
+        try{
+            socket.connect(relayAddress);socket.setSoTimeout(1000);
+            localCandidate=new JsonObject();localCandidate.addProperty("host",socket.getLocalAddress().getHostAddress());localCandidate.addProperty("port",socket.getLocalPort());socket.disconnect();
+        }catch(Exception failure){socket.close();throw failure;}
+        udpFailure="";
         cipher=new UdpPacket(HexFormat.of().parseHex(id),HexFormat.of().parseHex(grant.get("key").getAsString()),true,3);grantId=id;outgoing=new long[3];incoming=new long[3];udp=socket;nextUdpProbe=0;
         var reader=new Thread(()->readUdp(socket),"CustomCosmetics-Realtime-UDP");reader.setDaemon(true);reader.start();
     }

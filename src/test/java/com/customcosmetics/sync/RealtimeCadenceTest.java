@@ -18,5 +18,7 @@ class RealtimeCadenceTest {
         assertFalse(RealtimeClient.sameScope(a,new RealtimeClient.View(a.world(),a.players(),PartyRoster.EMPTY,0,true)));
         assertFalse(RealtimeClient.sameScope(a,new RealtimeClient.View(a.world(),a.players(),roster,1,true)));
         assertFalse(RealtimeClient.sameScope(a,new RealtimeClient.View(a.world(),a.players(),roster,0,false)));
+        var shared=new com.customcosmetics.features.party.PositionAudience("public",Set.of(),Set.of(),true);
+        assertFalse(RealtimeClient.sameScope(a,new RealtimeClient.View(a.world(),a.players(),roster,0,true,false,shared)));
     }
 }

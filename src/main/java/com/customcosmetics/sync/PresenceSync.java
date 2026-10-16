@@ -72,7 +72,7 @@ public final class PresenceSync {
     private static volatile long nextReportAllowedAt = 0L;
     private static volatile String lastReportedSignature = "";
     private static volatile UUID lastSeenLocalPlayerUuid = null;
-    private static volatile PresenceAuthClient.Session authSession;
+    private static final SharedAuthSession SESSIONS = new SharedAuthSession();
     private static final PresenceAuthClient AUTH = new PresenceAuthClient(url -> openHttpConnection(url, 0));
     private static final AtomicLong LAST_FETCH_EXCEPTION_WARN_AT = new AtomicLong(0L);
     private static final AtomicLong LAST_REPORT_EXCEPTION_WARN_AT = new AtomicLong(0L);
@@ -146,21 +146,19 @@ public final class PresenceSync {
     static PresenceAuthClient.Session actionSession() {
         var client = Minecraft.getInstance();
         var account = client.getUser();
-        var session = authSession;
+        var session = SESSIONS.current(serviceBaseUrl(), account.getProfileId(), account.getName());
         return client.player != null && session != null && session.uuid().equals(client.player.getUUID())
             && session.validFor(serviceBaseUrl(), account.getProfileId(), account.getName()) ? session : null;
     }
 
     /** Explicit cape submission may authenticate immediately; ordinary settings never call this. */
     public static CompletableFuture<PresenceAuthClient.Session> authenticatedSession(){
+        if(!RemoteAccess.online())return CompletableFuture.failedFuture(new java.io.IOException("Offline mode is enabled."));
         var account=Minecraft.getInstance().getUser();String base=serviceBaseUrl();long generation=RemoteAccess.generation();
-        return CompletableFuture.supplyAsync(()->{
-            try{
-                RemoteAccess.requireOnline();var session=authSession;
-                if(session==null||!session.validFor(base,account.getProfileId(),account.getName()))session=AUTH.authenticate(base,account.getProfileId(),account.getName(),hash->PresenceAuthClient.joinMojang(account.getProfileId(),account.getAccessToken(),hash));
+        return SESSIONS.get(base,account.getProfileId(),account.getName(),()->{
+                RemoteAccess.requireOnline();var session=AUTH.authenticate(base,account.getProfileId(),account.getName(),hash->PresenceAuthClient.joinMojang(account.getProfileId(),account.getAccessToken(),hash));
                 if(!RemoteAccess.current(generation)||!serviceBaseUrl().equals(base)||!Minecraft.getInstance().getUser().getProfileId().equals(account.getProfileId()))throw new java.io.IOException("Remote request cancelled.");
-                authSession=session;return session;
-            }catch(Exception error){throw new java.util.concurrent.CompletionException(error);}
+                return session;
         });
     }
 
@@ -194,7 +192,7 @@ public final class PresenceSync {
         ENDPOINT_VERSION.incrementAndGet();
         MANUAL_RESULT.cancel();
         PresenceProxyResolver.resetSession();
-        authSession = null;
+        SESSIONS.reset();
         lastReportedSignature = "";
         nextReportAllowedAt = 0;
         remoteSnapshot = new RemoteSnapshot(Map.of(), Map.of(), List.of(), false);
@@ -227,6 +225,7 @@ public final class PresenceSync {
         long endpointVersion = ENDPOINT_VERSION.get();
         // Capture account credentials once. They are used only by the fixed Mojang HTTPS join endpoint.
         var account = Minecraft.getInstance().getUser();
+        var authentication = authenticatedSession();
         StartupSyncNotice.Ticket startupTicket = forceRemoteSync ? null
             : STARTUP_NOTICE.beginAutomatic(StartupSyncNotice.Operation.WRITE);
         CompletableFuture.runAsync(() -> {
@@ -234,14 +233,9 @@ public final class PresenceSync {
             boolean cancelled = false;
             SyncFailure failure = SyncFailure.of(SyncFailure.Reason.UNKNOWN, SyncFailure.Stage.UPLOAD);
             try {
-                PresenceAuthClient.Session session = authSession;
-                if (session == null || !session.validFor(base, account.getProfileId(), account.getName())) {
-                    session = AUTH.authenticate(base, account.getProfileId(), account.getName(),
-                        hash -> PresenceAuthClient.joinMojang(account.getProfileId(), account.getAccessToken(), hash));
-                }
+                PresenceAuthClient.Session session = authentication.join();
                 if (endpointVersion != ENDPOINT_VERSION.get() || !serviceBaseUrl().equals(base) || !Minecraft.getInstance().getUser().getProfileId().equals(account.getProfileId())
                     || (!forceRemoteSync && !ConfigManager.syncEnabled)) { cancelled = true; return; }
-                authSession = session;
                 success = reportLocalState(base + "/report", state, forceRemoteSync, session);
                 if (success) {
                     Minecraft.getInstance().submit(() -> {
@@ -380,7 +374,8 @@ public final class PresenceSync {
         Minecraft client = Minecraft.getInstance();
         LocalPlayer player = client.player;
         boolean inWorld = client.level != null && player != null;
-        Object connection = client.getConnection();
+        // Hypixel transfers replace the packet listener while retaining the same login connection.
+        Object connection = client.getConnection() == null ? null : client.getConnection().getConnection();
         if (inWorld && connection != activeWorldConnection) {
             activeWorldConnection = connection;
             STARTUP_NOTICE.enterWorld();
@@ -388,7 +383,7 @@ public final class PresenceSync {
             MANUAL_RESULT.cancel();
             CADENCE.reset();
             nextReportAllowedAt = 0;
-        } else if (connection == null && activeWorldConnection != null) {
+        } else if (connection == null && activeWorldConnection != null && client.getCurrentServer() == null) {
             activeWorldConnection = null;
             STARTUP_NOTICE.leaveWorld();
             ENDPOINT_VERSION.incrementAndGet();
@@ -402,7 +397,7 @@ public final class PresenceSync {
                 nextReportAllowedAt = 0L;
                 if (switchedAccount) {
                     lastReportedSignature = "";
-                    authSession = null;
+                    SESSIONS.reset();
                     CADENCE.reset();
                 }
             }
@@ -537,8 +532,8 @@ public final class PresenceSync {
                 connection.setReadTimeout(FETCH_READ_TIMEOUT_MS);
                 connection.setUseCaches(false);
                 connection.setRequestProperty("Accept", "application/json");
-                var identity = authSession;
                 var account = Minecraft.getInstance().getUser();
+                var identity = SESSIONS.current(serviceBaseUrl(), account.getProfileId(), account.getName());
                 if (identity != null && identity.validFor(serviceBaseUrl(), account.getProfileId(), account.getName()))
                     connection.setRequestProperty("Authorization", "Bearer " + identity.token());
                 LocalPlayer player = Minecraft.getInstance().player;
@@ -731,7 +726,7 @@ public final class PresenceSync {
                 }
                 LOGGER.warn("[PresenceSync] report failed, code={}, uuid={}, attempt={}", code, state.uuid(), attempt + 1);
                 if (code == 401 || code == 403) {
-                    if (authSession == session) authSession = null;
+                    SESSIONS.invalidate(session);
                     ConfigManager.requestSave();
                     throw new SyncRequestException(SyncFailure.fromResponse(connection, SyncFailure.Stage.UPLOAD, code));
                 }

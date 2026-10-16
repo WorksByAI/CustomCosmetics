@@ -27,7 +27,7 @@ final class SettingsGuiGameTest {
             ConfigManager.nickTweaksEnabled = true; ConfigManager.nickTweaksNickChanger = "LongNicknamePreviewABCDEFGHIJKLMNOPQRSTUVWXYZ";
             ConfigManager.smolpeopleMode = true;
         });
-        context.runOnClient(client -> ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SMOL)));
+        context.runOnClient(client -> ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SIZE)));
         context.waitTicks(3);
         context.runOnClient(client -> {
             if ((Integer)read(ClientUiAccess.screen(client),"panelWidth") != 740) throw new AssertionError("Preview panel was not widened");
@@ -99,10 +99,10 @@ final class SettingsGuiGameTest {
         context.runOnClient(client -> {
             ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.MAIN));
             var screen = ClientUiAccess.screen(client);
-            if (read(screen,"page") != CosmeticsScreen.Page.SMOL || (Double) read(screen,"scroll") != 0)
+            if (read(screen,"page") != CosmeticsScreen.Page.SIZE || (Double) read(screen,"scroll") != 0)
                 throw new AssertionError("One minute of inactivity does not reset the GUI");
         });
-        click(context,"Sync",PinkUi.Action.class);
+        click(context,"Settings",PinkUi.Action.class);
         type(context,"Proxy Host","127.0.0.1"); type(context,"Proxy Port","7890"); type(context,"Proxy Auth","fixture:secret");
         click(context,"Proxy Source:",PinkUi.Action.class);
         context.runOnClient(client -> {

@@ -20,15 +20,16 @@ class PartyPeerClientTest {
         var p=new JsonObject();p.addProperty("x",1000+seq);p.addProperty("y",80);p.addProperty("z",10000);p.addProperty("width",.6);p.addProperty("height",1.8);m.add("value",p);return m;}
     private record Packet(boolean fromA,byte[] bytes,InetSocketAddress destination){}
     private static final class Arena {
-        final InetSocketAddress aa=new InetSocketAddress("127.0.0.1",30001),ba=new InetSocketAddress("127.0.0.1",30002);
+        final InetSocketAddress aa=new InetSocketAddress("127.0.0.1",30001),ba;
         final ArrayDeque<Packet> wire=new ArrayDeque<>();final List<JsonObject> ar=new ArrayList<>(),br=new ArrayList<>();final List<Packet> sent=new ArrayList<>();
         final PartyPeerClient a=new PartyPeerClient((bytes,to)->wire.add(new Packet(true,bytes,to)),ar::add),b=new PartyPeerClient((bytes,to)->wire.add(new Packet(false,bytes,to)),br::add);
         long now=10000,seq;final long offset;
-        Arena(long offset)throws Exception {this.offset=offset;a.context(new PartyPeerClient.Context(A,101,1,WORLD,ROSTER,true));b.context(new PartyPeerClient.Context(B,102,1,WORLD,ROSTER,true));
+        Arena(long offset)throws Exception {this(offset,false);}
+        Arena(long offset,boolean destinationDependentMapping)throws Exception {this.offset=offset;ba=new InetSocketAddress("127.0.0.1",destinationDependentMapping?40002:30002);a.context(new PartyPeerClient.Context(A,101,1,WORLD,ROSTER,true));b.context(new PartyPeerClient.Context(B,102,1,WORLD,ROSTER,true));
             a.permit(ids(),now);b.permit(ids(),now+offset);a.offer(offer(true),now);b.offer(offer(false),now+offset);}
         void step(boolean deliver){now+=20;a.tick(now,20);b.tick(now+offset,20);a.publish(position(++seq,now),now);b.publish(position(seq,now+offset),now+offset);
             int count=0;while(!wire.isEmpty()){var p=wire.remove();sent.add(p);assertTrue(++count<100,"Probe reply loop");
-                if(deliver){if(p.fromA)b.receive(p.bytes,aa,now+offset);else a.receive(p.bytes,ba,now);}}
+                if(deliver){if(p.fromA&&p.destination.equals(ba))b.receive(p.bytes,aa,now+offset);else if(!p.fromA&&p.destination.equals(aa))a.receive(p.bytes,ba,now);}}
         }
         void run(int milliseconds,boolean deliver){for(int i=0;i<milliseconds;i+=20)step(deliver);}
     }
@@ -38,6 +39,74 @@ class PartyPeerClientTest {
         var record=arena.ar.getLast();assertEquals(B.toString(),record.get("uuid").getAsString());assertEquals(102,record.get("epoch").getAsLong());
         assertTrue(record.get("sampleTime").getAsLong()>60000);assertTrue(record.get("expiresAt").getAsLong()<=3000);
         for(var packet:arena.sent)assertEquals('4',packet.bytes[3]);
+    }
+    @Test void authenticatedInboundProbeTeachesTheDestinationDependentPortAndEstablishesBothDirections()throws Exception{
+        var arena=new Arena(60000,true);arena.run(1800,true);
+        assertEquals(Set.of(B),arena.a.direct(),"The publicly reachable peer must probe the authenticated source port, not only the relay-observed port");
+        assertEquals(Set.of(A),arena.b.direct());assertFalse(arena.ar.isEmpty());assertFalse(arena.br.isEmpty());
+        assertTrue(arena.sent.stream().anyMatch(p->p.fromA&&p.bytes[4]==2&&p.destination.equals(arena.ba)));
+        arena.a.offer(offer(true),arena.now);arena.b.offer(offer(false),arena.now+arena.offset);arena.run(1000,true);
+        assertEquals(Set.of(B),arena.a.direct(),"Refreshing the relay candidate must preserve the learned endpoint");
+    }
+    @Test void tamperedOrReplayedProbesCannotTeachAnotherEndpoint()throws Exception{
+        var arena=new Arena(0,true);arena.step(false);
+        var packet=arena.sent.stream().filter(p->!p.fromA&&p.bytes[4]==2).findFirst().orElseThrow();
+        var tampered=packet.bytes.clone();tampered[tampered.length-1]^=1;
+        var unrelated=new InetSocketAddress("127.0.0.2",45000);var spoofed=new InetSocketAddress("127.0.0.1",45000);
+        arena.a.receive(tampered,spoofed,arena.now);arena.a.receive(packet.bytes,unrelated,arena.now);
+        assertTrue(String.join("\n",arena.a.diagnostics(arena.now,20)).contains("learned endpoint=false"));
+        arena.a.receive(packet.bytes,arena.ba,arena.now);arena.a.receive(packet.bytes,spoofed,arena.now);
+        assertTrue(arena.a.direct().isEmpty(),"An inbound probe alone cannot suppress the relay");
+        arena.sent.clear();arena.run(300,false);
+        assertTrue(arena.sent.stream().anyMatch(p->p.fromA&&p.destination.equals(arena.ba)));
+        assertFalse(arena.sent.stream().anyMatch(p->p.fromA&&p.destination.equals(spoofed)));
+    }
+    @Test void realUdpEndpointsExchangePositionWhenTheRelayAdvertisesAnotherPort()throws Exception{
+        try(var as=new DatagramSocket(new InetSocketAddress("127.0.0.1",0));var bs=new DatagramSocket(new InetSocketAddress("127.0.0.1",0));var relayMapping=new DatagramSocket(new InetSocketAddress("127.0.0.1",0))){
+            as.setSoTimeout(1);bs.setSoTimeout(1);var ar=new ArrayList<JsonObject>();var br=new ArrayList<JsonObject>();
+            try(var a=new PartyPeerClient((bytes,to)->as.send(new DatagramPacket(bytes,bytes.length,to)),ar::add);var b=new PartyPeerClient((bytes,to)->bs.send(new DatagramPacket(bytes,bytes.length,to)),br::add)){
+                a.context(new PartyPeerClient.Context(A,101,1,WORLD,ROSTER,true));b.context(new PartyPeerClient.Context(B,102,1,WORLD,ROSTER,true));
+                var ao=offer(true);ao.getAsJsonArray("candidates").get(0).getAsJsonObject().addProperty("port",relayMapping.getLocalPort());
+                var bo=offer(false);bo.getAsJsonArray("candidates").get(0).getAsJsonObject().addProperty("port",as.getLocalPort());
+                a.permit(ids(),10000);b.permit(ids(),10000);a.offer(ao,10000);b.offer(bo,10000);
+                long start=System.nanoTime(),sequence=0;
+                while(System.nanoTime()-start<java.util.concurrent.TimeUnit.SECONDS.toNanos(3)&&(a.direct().isEmpty()||b.direct().isEmpty())){
+                    long now=10000+java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-start);
+                    a.tick(now,20);b.tick(now,20);a.publish(position(++sequence,now),now);b.publish(position(sequence,now),now);
+                    drain(as,a,now);drain(bs,b,now);Thread.sleep(10);
+                }
+                assertEquals(Set.of(B),a.direct());assertEquals(Set.of(A),b.direct());assertFalse(ar.isEmpty());assertFalse(br.isEmpty());
+            }
+        }
+    }
+    private static void drain(DatagramSocket socket,PartyPeerClient peer,long now)throws Exception{
+        for(int i=0;i<64;i++)try{var packet=new DatagramPacket(new byte[1200],1200);socket.receive(packet);
+            assertTrue(peer.receive(Arrays.copyOf(packet.getData(),packet.getLength()),(InetSocketAddress)packet.getSocketAddress(),now));
+        }catch(SocketTimeoutException done){return;}
+    }
+    @Test void prolongedFailureBacksOffAndManualReauthorizationRestartsFastProbing()throws Exception{
+        var arena=new Arena(0);
+        for(int i=0;i<40000;i+=20){if(i%1000==0){arena.a.permit(ids(),arena.now);arena.b.permit(ids(),arena.now);arena.a.offer(offer(true),arena.now);arena.b.offer(offer(false),arena.now);}arena.step(false);}
+        assertTrue(String.join("\n",arena.a.diagnostics(arena.now,20)).contains("Probe interval=3000ms"));
+        long before=arena.sent.stream().filter(p->p.fromA).count();arena.run(1000,false);
+        assertTrue(arena.sent.stream().filter(p->p.fromA).count()-before<=1);
+        arena.a.context(new PartyPeerClient.Context(A,101,2,WORLD,ROSTER,false));
+        arena.a.context(new PartyPeerClient.Context(A,101,1,WORLD,ROSTER,true));arena.a.permit(ids(),arena.now);arena.a.offer(offer(true),arena.now);
+        assertTrue(String.join("\n",arena.a.diagnostics(arena.now,20)).contains("Probe interval=250ms"));
+    }
+    @Test void oneWayPositionPermissionsAreEnforcedEvenThoughBothPeersHaveThePairKey()throws Exception{
+        var arena=new Arena(0);arena.a.close();arena.b.close();
+        var publicAudience=new com.customcosmetics.features.party.PositionAudience("public",Set.of(),Set.of(),false);
+        var receiveAudience=new com.customcosmetics.features.party.PositionAudience("party",Set.of(),Set.of(),true);
+        arena.a.context(new PartyPeerClient.Context(A,101,1,WORLD,PartyRoster.EMPTY,true,publicAudience,false));
+        arena.b.context(new PartyPeerClient.Context(B,102,1,WORLD,PartyRoster.EMPTY,true,receiveAudience,false));
+        arena.a.permit(ids(),arena.now);arena.b.permit(ids(),arena.now);
+        var outgoing=offer(true);outgoing.addProperty("sendPosition",true);outgoing.addProperty("receivePosition",false);
+        var incoming=offer(false);incoming.addProperty("sendPosition",false);incoming.addProperty("receivePosition",true);
+        arena.a.offer(outgoing,arena.now);arena.b.offer(incoming,arena.now);arena.run(1800,true);
+        assertTrue(arena.ar.isEmpty());assertFalse(arena.br.isEmpty());assertTrue(arena.b.direct().contains(A));assertTrue(arena.a.sendingDirect());
+        arena.a.context(new PartyPeerClient.Context(A,101,2,WORLD,PartyRoster.EMPTY,true,com.customcosmetics.features.party.PositionAudience.PARTY,false));
+        assertEquals(0,arena.a.size());assertTrue(arena.a.direct().isEmpty());
     }
     @Test void lostDirectPathReturnsToRelayAndSwitchingOffDestroysAllPairState()throws Exception {
         var arena=new Arena(0);arena.run(1800,true);assertFalse(arena.a.direct().isEmpty());arena.run(1600,false);

@@ -124,7 +124,7 @@ if (providers.gradleProperty('cape_game_only').getOrElse('false').toBoolean()) {
     }
 }
 if (providers.gradleProperty('studio_game_only').getOrElse('false').toBoolean()) {
-    sourceSets.gametest.java.include '**/StudioGameTest.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
+    sourceSets.gametest.java.include '**/StudioGameTest.java', '**/SettingsGuiGameTest.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
     tasks.named('processGametestResources') {
         inputs.property 'studio_game_only', true
         filesMatching('fabric.mod.json') {
@@ -144,7 +144,7 @@ if (providers.gradleProperty('party_game_only').getOrElse('false').toBoolean()) 
             filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.PartyGameTest') }
         }
         filesMatching('customcosmetics-test.mixins.json') {
-            filter { line -> line.contains('"client":') ? '  "client": ["PartyProbeMixin$Features", "PartyProbeMixin$Sync", "PartyProbeMixin$Realtime", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line }
+            filter { line -> line.contains('"client":') ? '  "client": ["PartyProbeMixin$Features", "PartyProbeMixin$Sync", "PartyProbeMixin$Realtime", "PartyProbeMixin$Locations", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line }
         }
     }
 }
@@ -238,7 +238,7 @@ tasks.register('fullSourceZip', Zip) {
             include 'LICENSE', 'NOTICE', 'LICENSES/**', 'README.md', 'CHANGELOG.md'
             include '.gitignore', '.gitattributes', 'build.gradle', 'settings.gradle', 'gradle.properties'
             include 'gradlew', 'gradlew.bat', 'gradle/wrapper/gradle-wrapper.jar', 'gradle/wrapper/gradle-wrapper.properties'
-            include 'src/main/**', 'src/test/**', 'src/gametest/**'
+            include 'src/main/**', 'src/test/**', 'src/gametest/**', 'docs/features.md'
             include 'tools/*.py'
         }
     }
