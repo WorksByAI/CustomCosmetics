@@ -125,12 +125,12 @@ public final class PartyPeerClient implements AutoCloseable {
         var next=new HashSet<UUID>();
         for(var p:peers.values()){
             if(p.remoteWant&&now>=p.remoteWantUntil){p.remoteWant=false;changed=true;}
-            for(var iterator=p.pending.entrySet().iterator();iterator.hasNext();){var pending=iterator.next().getValue();if(now-pending.sent()>1000){p.paths.computeIfAbsent(pending.address(),ignored->new PeerPath()).lost(now);iterator.remove();}}
+            for(var iterator=p.pending.entrySet().iterator();iterator.hasNext();){var pending=iterator.next().getValue();var path=p.paths.computeIfAbsent(pending.address(),ignored->new PeerPath());if(now-pending.sent()>path.probeTimeout()){path.lost(now);iterator.remove();}}
             double relay=(relayRtt>=0?relayRtt:500)+p.relayRtt;
             var best=p.paths.entrySet().stream().filter(e->e.getValue().viable(now,relay)).min(Comparator.comparingDouble(e->e.getValue().rtt)).orElse(null);
             // Warm the recovered path before requiring fresh direct state to suppress the relay.
             if(best!=null)p.address=best.getKey();
-            p.want=best!=null&&now-p.lastData<=1000;
+            p.want=best!=null&&now-p.lastData<=Math.max(1200,best.getValue().freshness());
             if(p.want)next.add(p.uuid);
             if(now>=p.nextProbe){p.nextProbe=now+probeInterval(p,now);
                 var addresses=new LinkedHashSet<InetSocketAddress>();
@@ -141,7 +141,7 @@ public final class PartyPeerClient implements AutoCloseable {
                     if(send(p,2,m,address,now)){p.probesSent++;p.pending.put(ping,new Pending(now,address));}}
             }
         }
-        var result=Set.copyOf(next);if(!result.equals(selected)){selected=result;changed=true;for(var p:peers.values())p.nextProbe=0;}
+        var result=Set.copyOf(next);if(!result.equals(selected)){for(var p:peers.values())if(result.contains(p.uuid)!=selected.contains(p.uuid))p.nextProbe=0;selected=result;changed=true;}
     }
     public void publish(JsonObject state,long now){
         for(var p:peers.values()){

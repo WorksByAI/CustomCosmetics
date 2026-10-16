@@ -10,6 +10,8 @@ final class SharingModelFixture {
         var player=new RemotePlayer(client.level,new GameProfile(uuid,name)){
             @Override public net.minecraft.world.entity.player.PlayerSkin getSkin(){return skin;}
             @Override public boolean isModelPartShown(net.minecraft.world.entity.player.PlayerModelPart part){return true;}
+            @Override public boolean isCurrentlyGlowing(){return hasGlowingTag()||super.isCurrentlyGlowing();}
+            @Override public int getTeamColor(){return hasGlowingTag()?0x33FFFF:super.getTeamColor();}
         };
         var helmet=new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_HELMET);
         var sword=new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_SWORD);

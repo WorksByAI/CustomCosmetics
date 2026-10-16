@@ -6,6 +6,22 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ChamsRenderAccessTest {
+    public interface Appearance {
+        void submitModel(Object model,Object state,Object pose,Object type,int light,int overlay,int tint,Object texture,int outline,Object crumbling);
+        void submitModelPart(Object model,Object pose,Object type,int light,int overlay,Object texture,int outline,Object crumbling,int tint);
+        void submitItem(Object pose,Object context,int light,int overlay,int outline,int[] tint,Object quads,Object foil);
+        void submitBlockModel(Object pose,Object type,Object parts,int[] tint,int light,int overlay,int outline);
+    }
+    @Test void replayOmitsGlowMasksWithoutChangingOriginalTexturesLightingOrTint()throws Exception{
+        for(var method:Appearance.class.getMethods()){
+            var args=new Object[method.getParameterCount()];
+            for(int i=0;i<args.length;i++)args[i]=method.getParameterTypes()[i]==int.class?0x12345678:new Object();
+            var original=args.clone();var replay=ChamsRenderAccess.appearanceArguments(method,args);
+            int outline=switch(method.getName()){case "submitModel"->8;case "submitModelPart"->6;case "submitItem"->4;default->6;};
+            assertArrayEquals(original,args,"Vanilla submissions must keep their glow masks");
+            for(int i=0;i<args.length;i++)assertEquals(i==outline?0:args[i],replay[i],method.getName()+" argument "+i);
+        }
+    }
     public interface Commands {
         Commands order(int value);
         void submitModel(Object pose,int light);

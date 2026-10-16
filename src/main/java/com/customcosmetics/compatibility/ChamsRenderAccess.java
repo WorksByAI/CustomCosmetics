@@ -34,10 +34,23 @@ public final class ChamsRenderAccess {
             Object result=invoke(method,original,args);
             if(method.getName().equals("order"))return collector(result,invoke(method,extra,args),method.getReturnType());
             if(geometry(method.getName())){
-                invoke(method,extra,args);hasGeometry=true;
+                invoke(method,extra,appearanceArguments(method,args));hasGeometry=true;
             }
             return result;
         });
+    }
+    /** Glow masks belong to vanilla's outline target, never to the textured appearance replay. */
+    static Object[] appearanceArguments(Method method,Object[] args){
+        int count=method.getParameterCount();
+        int outline=switch(method.getName()){
+            case "submitModel"->count==9||count==10?8:count==7||count==8?6:-1;
+            case "submitModelPart"->count>=7?6:-1;
+            case "submitItem"->count==8?4:-1;
+            case "submitBlockModel"->count==7?6:-1;
+            default->-1;
+        };
+        if(outline<0||method.getParameterTypes()[outline]!=int.class)return args;
+        var appearance=args.clone();appearance[outline]=0;return appearance;
     }
     private static boolean geometry(String method){return switch(method){
         case "submitModel","submitModelPart","submitItem","submitBlockModel","submitCustomGeometry"->true;

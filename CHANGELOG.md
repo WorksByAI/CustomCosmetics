@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.2
+
+- Sharing: Fix chams textures when players have glowing outlines.
+- Sync: Improve direct connection stability during brief packet loss.
+
 ## 1.4.1
 
 - Damage Splash: Add customizable damage numbers, inspired by Baity.
