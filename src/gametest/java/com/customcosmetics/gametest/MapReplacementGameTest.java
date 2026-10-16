@@ -44,6 +44,16 @@ public final class MapReplacementGameTest implements FabricClientGameTest {
             context.runOnClient(client->{var state=client.level.getBlockState(STAIR);check(state.is(Blocks.QUARTZ_STAIRS)&&state.getValue(net.minecraft.world.level.block.StairBlock.HALF)==net.minecraft.world.level.block.state.properties.Half.TOP,"Replacing stair material changed its real shape/state");check(MapEditor.DATA.snapshot().get(MapEditor.position(STAIR)).material().equals("minecraft:dark_oak_planks"),"Stair material was not replaced");var snapshot=MapEditor.DATA.snapshot();MaterialReplacement.start("minecraft:quartz_block","minecraft:emerald_block",MaterialReplacement.Scope.ROOM);MapEditor.put(new BlockPos(10,66,0),"minecraft:gold_block");before=MapEditor.DATA.snapshot();check(before.size()==snapshot.size()+1,"Interference fixture failed");});context.waitTicks(5);
             context.runOnClient(client->{check(!MaterialReplacement.busy()&&MaterialReplacement.status().contains("edits changed"),"Concurrent edits did not cancel batch");check(MapEditor.DATA.snapshot().equals(before),"Cancelled batch partially changed editor data");MaterialReplacement.start("minecraft:quartz_block","minecraft:emerald_block",MaterialReplacement.Scope.ROOM);MaterialReplacement.cancel();check(MapEditor.DATA.snapshot().equals(before),"Explicit cancel changed data");MapEditor.clear();MapEditor.enabled=false;MapEditor.dungeonOnly=true;});
             world.getServer().runOnServer(server->check(server.getLevel(Level.OVERWORLD).getBlockState(FAR).is(Blocks.QUARTZ_BLOCK),"Server received a replacement block"));
+            world.getServer().runCommand("fill 0 90 0 31 105 31 minecraft:quartz_block");context.waitTicks(15);
+            context.runOnClient(client->{MapEditor.enabled=true;MapEditor.clear();MaterialReplacement.start("minecraft:quartz_block","minecraft:dark_oak_planks",MaterialReplacement.Scope.ROOM);});finished(context);
+            context.runOnClient(client->{
+                int count=MapEditor.DATA.snapshot().size();check(count>=16384,"Large replacement stopped at the former active edit cap: "+count);
+                check(MapEditor.DATA.snapshot().get(new MapEdits.Position(31,105,31)).material().equals("minecraft:dark_oak_planks"),"Large replacement missed its last section");
+                try{var saved=new RoomLayouts();saved.load(com.customcosmetics.config.CosmeticsConfigDir.getCosmeticsConfigDir().resolve("map-rooms.json"));check(saved.edits("floor:F7").size()>=16384,"Large batch was not saved completely");}catch(java.io.IOException e){throw new AssertionError(e);}
+                MapEditor.undo();check(MapEditor.DATA.snapshot().isEmpty(),"Large replacement did not undo atomically");MapEditor.enabled=false;
+            });
+            world.getServer().runOnServer(server->check(server.getLevel(Level.OVERWORLD).getBlockState(new BlockPos(31,105,31)).is(Blocks.QUARTZ_BLOCK),"Large replacement changed authoritative blocks"));
+            System.out.println("MAP_REPLACEMENT_16384_PLUS_BLOCKS_SAVE_UNDO_SERVER_UNCHANGED_OK");
         }
         System.out.println("MAP_REPLACEMENT_CHAT_GUI_PICKERS_ROOM_SELECTION_ATOMIC_UNDO_PERSISTENCE_RESTORE_ORIENTATIONS_CANCEL_NO_PACKETS_OK");
     }

@@ -15,10 +15,15 @@ class MaterialReplacementPlanTest {
         var data=new MapEdits();data.put(new MapEdits.Edit(p(0),"minecraft:gold_block",false));var before=data.snapshot();var plan=new MaterialReplacementPlan(before,"minecraft:quartz_block","minecraft:dark_oak_planks");for(int x=0;x<40;x++)plan.accept(p(x),"minecraft:quartz_block");data.replace(plan.result());assertEquals(40,data.snapshot().size());data.undo();assertEquals(before,data.snapshot());
         var same=new MaterialReplacementPlan(Map.of(p(0),new MapEdits.Edit(p(0),"minecraft:dark_oak_planks",true)),"minecraft:quartz_block","minecraft:dark_oak_planks");same.accept(p(0),"minecraft:quartz_block");assertEquals(0,same.changed());assertTrue(same.result().get(p(0)).originallyAir());
     }
-    @Test void oversizedReplacementCannotAlterExistingDataOrUndo(){
-        var data=new MapEdits();var before=data.snapshot();var plan=new MaterialReplacementPlan(before,"minecraft:quartz_block","minecraft:dark_oak_planks");for(int x=0;x<MapEdits.LIMIT;x++)plan.accept(p(x),"minecraft:quartz_block");assertThrows(IllegalArgumentException.class,()->plan.accept(p(MapEdits.LIMIT),"minecraft:quartz_block"));assertEquals(before,data.snapshot());assertFalse(data.undo());
+    @Test void replacementBeyondBothOldBlockLimitsCommitsAndUndoesAsOneBatch(){
+        int count=70000;var data=new MapEdits();data.put(new MapEdits.Edit(p(-1),"minecraft:gold_block",false));var before=data.snapshot();var plan=new MaterialReplacementPlan(before,"minecraft:quartz_block","minecraft:dark_oak_planks");
+        for(int x=0;x<count;x++)plan.accept(p(x),"minecraft:quartz_block");
+        assertEquals(count,plan.changed());assertEquals(1,before.size());assertEquals(before,data.snapshot());
+        data.replace(plan.result());assertEquals(count+1,data.snapshot().size());assertEquals("minecraft:dark_oak_planks",data.snapshot().get(p(count-1)).material());
+        var preset=data.preset("Large room",p(0),"");assertEquals(count+1,preset.edits().size());assertEquals(count+1,preset.place(p(0),0).size());
+        assertTrue(data.undo());assertEquals(before,data.snapshot());
     }
-    @Test void identicalSourceAndTargetDoNotFillTheEditLimit(){var plan=new MaterialReplacementPlan(Map.of(),"minecraft:stone","minecraft:stone");for(int x=0;x<MapEdits.LIMIT+100;x++)plan.accept(p(x),"minecraft:stone");assertEquals(0,plan.changed());assertTrue(plan.result().isEmpty());assertEquals(MapEdits.LIMIT+100,plan.matched());}
+    @Test void identicalSourceAndTargetDoNotCreateStoredPositions(){int count=70000;var plan=new MaterialReplacementPlan(Map.of(),"minecraft:stone","minecraft:stone");for(int x=0;x<count;x++)plan.accept(p(x),"minecraft:stone");assertEquals(0,plan.changed());assertTrue(plan.result().isEmpty());assertEquals(count,plan.matched());}
     @Test void airCannotBeTheSourceAndSelectionCornersAreInclusive(){
         assertThrows(IllegalArgumentException.class,()->new MaterialReplacementPlan(Map.of(),"minecraft:air","minecraft:stone"));assertThrows(IllegalArgumentException.class,()->new MaterialReplacementPlan(Map.of(),"minecraft:quartz_pillar[axis=x]","minecraft:stone"));
         var box=MaterialReplacementPlan.Bounds.between(new MapEdits.Position(2,70,3),new MapEdits.Position(-2,60,-3));assertEquals(new MapEdits.Position(-2,60,-3),box.min());assertTrue(box.column(2,-3));assertTrue(box.column(-2,3));assertFalse(box.column(3,0));

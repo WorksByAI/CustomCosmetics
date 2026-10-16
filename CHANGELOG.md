@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.5.0
+
+- Equipments: Add seated Mini-Me pets, shoulder selection and synced position adjustments.
+- Skins: Add local PNG imports and optional direct sharing.
+- Map Editor: Add bulk material replacement, FME imports, room saves and Freecam.
+- Map Editor: Remove edit limits and fix freezes with large, dense replacements.
+- Map Editor: Improve dungeon detection, special block support and glass rendering.
+- GUI: Improve block palette performance.
+
+## 1.4.3-beta.9 (test build)
+
+- Map Editor: Remove block-count limits for replacements, room saves and presets.
+- Map Editor: Stream large room saves and batch restored block origins.
+- GUI: Reduce block palette draw calls and batch cell backgrounds before item icons.
+
 ## 1.4.3-beta.8 (test build)
 
 - Map Editor: Add one-click material replacement for the current room or a selected region.

@@ -118,7 +118,7 @@
 - **Freecam（灵魂出窍）**：Map Editor 内开关，或 `/customcosmetics map freecam [on/off]`。可在原版「控制 → 按键绑定 → CustomCosmetics: Map Editor」绑定快捷键，默认未绑定，避免冲突。WASD 飞行，随视线前进，跳跃上升、潜行下降、疾跑加速；速度可调 1–40 格/秒。人物留在原地，鼠标只转动游离视角；改图取点跟随视角。关闭后回到人物，换世界、断线、死亡或上载具时自动退出。只能查看已经加载的区块。游离视角不发送移动、视角或编辑交互包；连接保活、聊天及服务器传送确认继续正常处理。Freecam 开关每次进入世界均为关闭，不会重启自动开启。
 
 - **纯视觉改图**：只替换原模型的材质与 UV，半砖、楼梯等保持原来的模型形状、碰撞、挖掘目标和交互。真实方块被服务器挖掉后不再绘制；已知的“原本有方块”属性会随房间配置保存，重新加载时不会把已挖掉的位置当作新增方块。原本为空气的新增方块只绘制外观，没有碰撞，也不修改世界数据。玻璃与隐藏方块会在渲染时露出相邻表面，避免裁面造成透视空洞，兼容原版、Indigo 与 Sodium。已删除所有改写客户端方块和碰撞的模式。
-- **批量替换材质**：Map Editor → Replace Materials，分别选择原方块和目标材质，再点 Replace。默认仅匹配当前房间已加载的原方块类型（忽略朝向等状态）；不同 ID 的半砖、楼梯需分别选择。可以改为 Selected Region，使用 `/customcosmetics map pos1`、`pos2` 设置范围。整批可一次撤销，并自动保存到已识别房间；临时挖掉和服务器恢复继续沿用原有纯视觉行为。最多保留 8192 个活跃位置修改，超限整批不应用。扫描分帧进行，不请求服务器加载区块。命令示例：`/customcosmetics map replace minecraft:quartz_block minecraft:dark_oak_planks`；末尾加 `selection` 则只替换框选范围。不在可识别房间时请使用框选；未识别区域可用手动 Preset 保存。这是一次性替换，不会自动处理随后新加载的方块。
+- **批量替换材质**：Map Editor → Replace Materials，分别选择原方块和目标材质，再点 Replace。默认仅匹配当前房间已加载的原方块类型（忽略朝向等状态）；不同 ID 的半砖、楼梯需分别选择。可以改为 Selected Region，使用 `/customcosmetics map pos1`、`pos2` 设置范围。整批可一次撤销，并自动保存到已识别房间；临时挖掉和服务器恢复继续沿用原有纯视觉行为。修复大面积密集方块替换时卡死，整批仍可撤销。不再限制活跃编辑或单个房间的方块数量；大房间保存也不受旧版 65536 格总数和 8 MiB 文件限制。扫描分帧进行，不请求服务器加载区块。命令示例：`/customcosmetics map replace minecraft:quartz_block minecraft:dark_oak_planks`；末尾加 `selection` 则只替换框选范围。不在可识别房间时请使用框选；未识别区域可用手动 Preset 保存。这是一次性替换，不会自动处理随后新加载的方块。
 
 - Dungeon Only 根据正在显示的 Catacombs 侧边栏识别地牢，支持队伍颜色专用侧边栏、文字格式码与自定义代理连接地址，不依赖官方域名或 Mod API 握手。未识别到地牢时会提示原因，编辑点击仍留在本地。`/customcosmetics map status` 显示识别、编辑开关和瞄准目标的状态。
 
@@ -130,7 +130,7 @@
 - **Editor HUD** 显示房间、上次编辑房间、模式、所选方块和操作提示，可单独关闭。`/customcosmetics map guide` 查看指南。
 - **Import FME Config**：设置页入口或 `/customcosmetics map import`。选择旧版 `extrasConfig.json`、`floorsConfig.json`、`favBlocks.json` 任一个，会读取同文件夹中的三种配置；也支持粘贴目录或拖入文件。先预览，再导入；默认保留已有房间，Replace Existing Room Layouts 开启后才替换。
 - 导入保留房间旋转参照、相对坐标及可转换的旧方块属性，包括彩色羊毛、玻璃和石头变种。旧数字楼层同时适用于普通和大师同层，0 对应 Entrance。未知材质、失效属性、方块实体和液体会列在预览中并跳过。原房间结构无法匹配时不盲目套用。导入前在 `map-import-backups` 备份当前配置，旧 FME 文件始终只读。单个输入文件上限 8 MiB。
-- 支持现代方块 ID 和属性，如 `minecraft:gold_block`、`minecraft:oak_stairs[facing=east]`；`minecraft:air` 在 Legit 下只隐藏外观，碰撞仍存在。最多同时编辑 8192 格，支持 32 次撤销；房间库最多 512 个布局、65536 格。
+- 支持现代方块 ID 和属性，如 `minecraft:gold_block`、`minecraft:oak_stairs[facing=east]`；`minecraft:air` 在 Legit 下只隐藏外观，碰撞仍存在。不再限制活跃编辑、预设或房间库的方块数量；支持 32 次撤销，房间库最多 512 个布局。
 - 保留高级手动预设（`map-editor.json`）和区域工具：`pos1`、`pos2`、`fill`、`undo`、`clear`、`anchor`、`save <name>`、`load <name>`。旧手动预设不丢失。此功能不包含 FunnyMap 小地图，也不加载旧 JAR。
 
 ### 饰品位置微调

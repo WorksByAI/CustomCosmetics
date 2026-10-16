@@ -128,10 +128,20 @@ public final class MapEditor {
     public static void put(BlockPos p,String id){var client=Minecraft.getInstance();validateMaterial(id);var old=DATA.snapshot().get(position(p));DATA.put(new MapEdits.Edit(position(p),id,old==null?client.level.getBlockState(p).isAir():old.originallyAir()));}
     static void applyBatch(Map<MapEdits.Position,MapEdits.Edit> before,Map<MapEdits.Position,MapEdits.Edit> next){
         if(DATA.snapshot()!=before)throw new IllegalStateException("Edits changed while scanning. No batch changes were applied.");
-        var grouped=new LinkedHashMap<RoomLayouts.Frame,Map<MapEdits.Position,Optional<String>>>();var origins=new HashMap<MapEdits.Position,Boolean>();
-        next.forEach((p,edit)->{if(!edit.equals(before.get(p))){var frame=DungeonRooms.at(p);if(frame!=null)grouped.computeIfAbsent(frame,f->new LinkedHashMap<>()).put(p,Optional.of(rotateMaterial(edit.material(),-frame.turns())));origins.put(p,edit.originallyAir());}});
+        var grouped=new LinkedHashMap<RoomLayouts.Frame,Map<MapEdits.Position,Optional<String>>>();
+        var origins=new HashMap<MapEdits.Position,Boolean>();var rotations=new HashMap<String,String>();
+        var unknown=new LinkedHashMap<MapEdits.Position,Optional<String>>();boolean dungeon=inDungeon(Minecraft.getInstance());
+        next.forEach((p,edit)->{if(!edit.equals(before.get(p))){
+            var frame=DungeonRooms.at(p);
+            if(frame!=null)grouped.computeIfAbsent(frame,f->new LinkedHashMap<>()).put(p,Optional.of(rotations.computeIfAbsent(frame.turns()+":"+edit.material(),key->rotateMaterial(edit.material(),-frame.turns()))));
+            else if(dungeon)unknown.put(p,Optional.of(edit.material()));
+            origins.put(p,edit.originallyAir());
+        }});
         var candidate=ROOMS.copy();grouped.forEach((frame,changes)->candidate.changeAll(frame,changes,origins));
-        DATA.replace(next);remember(before);dirty(before.keySet());enabled=true;refresh();flushRooms();
+        // Adopt the preflight result once instead of rebuilding every room a second time.
+        DATA.replace(next);ROOMS.adopt(candidate);pendingSaves.putAll(unknown);
+        grouped.forEach((frame,changes)->{changes.keySet().forEach(pendingSaves::remove);lastRoom=frame.label();});
+        dirty(before.keySet());enabled=true;refresh();flushRooms();
     }
     public static MaterialReplacementPlan.Bounds selection(){return first==null||second==null?null:MaterialReplacementPlan.Bounds.between(position(first),position(second));}
     private static void remember(Map<MapEdits.Position,MapEdits.Edit> before){
@@ -148,11 +158,10 @@ public final class MapEditor {
     public static String roomLabel(){var frame=currentRoom();return frame==null?(inDungeon(Minecraft.getInstance())?"Scanning / unrecognized room (session edits)":"Outside dungeon (session edits)"):frame.label();}
     private static void applyRooms(){
         var frames=new HashSet<>(DungeonRooms.frames());var current=currentRoom();if(current!=null)frames.add(current);var copy=new LinkedHashMap<>(DATA.snapshot());boolean changed=false;
-        for(var frame:frames){String id=frame.key()+"@"+frame.origin();var edits=ROOMS.edits(frame.key());if(edits.isEmpty()||appliedLayouts.contains(id))continue;boolean complete=true;
+        for(var frame:frames){String id=frame.key()+"@"+frame.origin();var edits=ROOMS.edits(frame.key());if(edits.isEmpty()||appliedLayouts.contains(id))continue;boolean complete=true;var origins=new HashMap<MapEdits.Position,Boolean>();
             for(var e:edits.entrySet()){var p=frame.world(e.getKey());if(copy.containsKey(p))continue;if(!level.hasChunkAt(blockPos(p))){complete=false;continue;}
-                if(copy.size()>=MapEdits.LIMIT){complete=false;if(System.currentTimeMillis()>=nextRestrictionNotice){nextRestrictionNotice=System.currentTimeMillis()+10000;notice("Map Editor: active edit limit reached ("+MapEdits.LIMIT+"). Clear unused edits to load more rooms.");}break;}
-                var real=realState(blockPos(p));if(state(e.getValue())!=null){Boolean air=ROOMS.originallyAir(frame.key(),e.getKey());if(air==null){air=real.isAir();ROOMS.rememberOrigin(frame.key(),e.getKey(),air);}copy.put(p,new MapEdits.Edit(p,rotateMaterial(e.getValue(),frame.turns()),air));changed=true;}
-            }if(complete)appliedLayouts.add(id);
+                var real=realState(blockPos(p));if(state(e.getValue())!=null){Boolean air=ROOMS.originallyAir(frame.key(),e.getKey());if(air==null){air=real.isAir();origins.put(e.getKey(),air);}copy.put(p,new MapEdits.Edit(p,rotateMaterial(e.getValue(),frame.turns()),air));changed=true;}
+            }if(!origins.isEmpty())ROOMS.rememberOrigins(frame.key(),origins);if(complete)appliedLayouts.add(id);
         }if(changed){DATA.replace(copy);refresh();}
     }
     public static void undo(){var before=DATA.snapshot();DATA.undo();remember(before);dirty(before.keySet());refresh();}
@@ -174,15 +183,13 @@ public final class MapEditor {
             var origin=new MapEdits.Position(x,0,z);String key=x+":"+z;if(appliedRooms.contains(key))continue;
             for(int turns=0;turns<4;turns++){String hash=fingerprint(origin,turns);if(hash.isEmpty())break;
                 var preset=PRESETS.values().stream().filter(p->!p.fingerprint().isEmpty()&&p.fingerprint().equals(hash)).findFirst();if(preset.isEmpty())continue;
-                var copy=new LinkedHashMap<>(DATA.snapshot());copy.putAll(preset.get().place(origin,turns));if(copy.size()<=MapEdits.LIMIT){DATA.replace(copy);appliedRooms.add(key);refresh();}break;
+                var copy=new LinkedHashMap<>(DATA.snapshot());copy.putAll(preset.get().place(origin,turns));DATA.replace(copy);appliedRooms.add(key);refresh();break;
             }
         }
     }
     public static void mark(boolean end){var hit=target();if(hit==null)throw new IllegalStateException("Look at a block");if(end)second=hit.getBlockPos();else first=hit.getBlockPos();notice((end?"Second":"First")+" corner: "+hit.getBlockPos().toShortString());}
     public static void fill(){
         if(first==null||second==null)throw new IllegalStateException("Set pos1 and pos2 first");validateMaterial(material);
-        long count=(long)(Math.abs(first.getX()-second.getX())+1)*(Math.abs(first.getY()-second.getY())+1)*(Math.abs(first.getZ()-second.getZ())+1);
-        if(count>MapEdits.LIMIT)throw new IllegalArgumentException("Selection exceeds "+MapEdits.LIMIT+" blocks");
         var copy=new LinkedHashMap<>(DATA.snapshot());var client=Minecraft.getInstance();
         for(var p:BlockPos.betweenClosed(first,second)){
             var state=client.level.getBlockState(p);var old=copy.get(position(p));

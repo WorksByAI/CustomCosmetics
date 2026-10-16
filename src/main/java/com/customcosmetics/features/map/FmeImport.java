@@ -9,12 +9,12 @@ import java.util.function.Function;
 
 /** Read-only parser for the legacy Extras JSON format; parsing never changes the live configuration. */
 public final class FmeImport {
-    public record Layout(Map<MapEdits.Position,String> edits,RoomLayouts.LegacyAnchor anchor){public Layout{edits=Map.copyOf(edits);}}
+    public record Layout(Map<MapEdits.Position,String> edits,RoomLayouts.LegacyAnchor anchor){public Layout{edits=MapEdits.immutable(edits);}}
     public record Plan(Map<String,Layout> layouts,Set<String> favorites,List<String> warnings,int skipped){
         public Plan{layouts=Map.copyOf(layouts);favorites=Set.copyOf(favorites);warnings=List.copyOf(warnings);}
         public int blocks(){return layouts.values().stream().mapToInt(l->l.edits.size()).sum();}
     }
-    private final Map<String,Layout> layouts=new LinkedHashMap<>();private final Set<String> favorites=new LinkedHashSet<>();private final List<String> warnings=new ArrayList<>();private int skipped,total;
+    private final Map<String,Layout> layouts=new LinkedHashMap<>();private final Set<String> favorites=new LinkedHashSet<>();private final List<String> warnings=new ArrayList<>();private int skipped;
     private FmeImport(){}
     public static Plan read(Path selected,Function<String,String> material,Function<String,String> favorite)throws IOException{
         var parser=new FmeImport();Path folder=Files.isDirectory(selected)?selected:selected.toAbsolutePath().getParent();boolean standard=Files.isDirectory(selected)||Set.of("extrasConfig.json","floorsConfig.json","favBlocks.json").contains(selected.getFileName().toString());
@@ -35,7 +35,7 @@ public final class FmeImport {
             if(filename.equals("extrasConfig.json")){blocks=room.getAsJsonObject("preBlocks");if(blocks==null||blocks.isEmpty())continue;anchor=new RoomLayouts.LegacyAnchor(room.get("baseCore").getAsInt(),room.get("rotationCore").getAsInt(),room.has("coreDistance")?room.get("coreDistance").getAsInt():2);}
             var edits=new LinkedHashMap<MapEdits.Position,String>();for(var block:blocks.entrySet()){
                 String converted;try{converted=material.apply(block.getKey());if(converted==null)throw new IllegalArgumentException();new MapEdits.Edit(new MapEdits.Position(0,0,0),converted,false);}catch(RuntimeException error){skipped+=block.getValue().getAsJsonArray().size();warn("Unsupported block: "+block.getKey());continue;}
-                for(var point:block.getValue().getAsJsonArray()){if(++total>65536||edits.size()>=MapEdits.LIMIT)throw new IllegalArgumentException("Too many imported blocks");var pos=position(point);if(edits.putIfAbsent(pos,converted)!=null)throw new IllegalArgumentException("Duplicate block coordinate in "+entry.getKey());}
+                for(var point:block.getValue().getAsJsonArray()){var pos=position(point);if(edits.putIfAbsent(pos,converted)!=null)throw new IllegalArgumentException("Duplicate block coordinate in "+entry.getKey());}
             }
             if(edits.isEmpty())continue;if(anchor!=null)layouts.put("room:"+entry.getKey(),new Layout(edits,anchor));else{
                 String floor=entry.getKey().toUpperCase(Locale.ROOT);if(floor.equals("0"))layouts.put("floor:E",new Layout(edits,null));else if(floor.matches("[1-7]")){layouts.put("floor:F"+floor,new Layout(edits,null));layouts.put("floor:M"+floor,new Layout(edits,null));}else if(floor.matches("[FM][1-7]|E"))layouts.put("floor:"+floor,new Layout(edits,null));else throw new IllegalArgumentException("Invalid floor: "+floor);

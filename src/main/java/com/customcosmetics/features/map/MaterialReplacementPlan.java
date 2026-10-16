@@ -15,7 +15,7 @@ public final class MaterialReplacementPlan {
     private final String source,target;
     private int changed,matchedCount;
     public MaterialReplacementPlan(Map<MapEdits.Position,MapEdits.Edit> before,String source,String target){
-        this.before=Map.copyOf(before);next=new LinkedHashMap<>(before);this.source=source;this.target=target;
+        this.before=MapEdits.immutable(before);next=new LinkedHashMap<>(before);this.source=source;this.target=target;
         new MapEdits.Edit(new MapEdits.Position(0,0,0),source,false);new MapEdits.Edit(new MapEdits.Position(0,0,0),target,false);
         if(source.contains("[")||Set.of("minecraft:air","minecraft:cave_air","minecraft:void_air").contains(source))throw new IllegalArgumentException("Choose a non-air source block type");
     }
@@ -25,10 +25,9 @@ public final class MaterialReplacementPlan {
         if(old==null&&source.equals(target)){matchedCount++;return;}
         if(!matched.add(p))return;matchedCount++;
         var edit=new MapEdits.Edit(p,target,old!=null&&old.originallyAir());if(edit.equals(old))return;
-        if(old==null&&next.size()>=MapEdits.LIMIT)throw new IllegalArgumentException("Replacement exceeds the "+MapEdits.LIMIT+" active edit limit. Select a smaller area; no changes were applied.");
         next.put(p,edit);changed++;
     }
     public int matched(){return matchedCount;}
     public int changed(){return changed;}
-    public Map<MapEdits.Position,MapEdits.Edit> result(){return Map.copyOf(next);}
+    public Map<MapEdits.Position,MapEdits.Edit> result(){return MapEdits.immutable(next);}
 }

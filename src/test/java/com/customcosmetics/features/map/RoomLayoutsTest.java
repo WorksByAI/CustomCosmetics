@@ -28,10 +28,18 @@ class RoomLayoutsTest {
         Files.writeString(path,"{\"version\":1,\"rooms\":{\"A\":["+row+","+row+"]}}");assertThrows(java.io.IOException.class,()->store.load(path));
         Files.writeString(path,"{\"version\":2,\"rooms\":{}}");assertThrows(java.io.IOException.class,()->store.load(path));
     }
-    @Test void bulkRoomChangesAreAtomicAtTheBlockLimit(){
-        var store=new RoomLayouts();var frame=new RoomLayouts.Frame("room:Large","Large",new MapEdits.Position(0,0,0),1);var changes=new java.util.LinkedHashMap<MapEdits.Position,java.util.Optional<String>>();
-        for(int i=0;i<MapEdits.LIMIT;i++)changes.put(new MapEdits.Position(i,70,0),java.util.Optional.of("minecraft:stone"));store.changeAll(frame,changes);assertEquals(MapEdits.LIMIT,store.edits(frame.key()).size());
-        changes.put(new MapEdits.Position(99999,70,0),java.util.Optional.of("minecraft:gold_block"));assertThrows(IllegalArgumentException.class,()->store.changeAll(frame,changes));assertEquals(MapEdits.LIMIT,store.edits(frame.key()).size());
+    @Test void largeRoomLibrarySavesReloadsAndKeepsOriginsBeyondOldCountAndFileLimits()throws Exception{
+        int count=90000;var store=new RoomLayouts();var frame=new RoomLayouts.Frame("room:Large","Large",new MapEdits.Position(0,0,0),1);var changes=new java.util.LinkedHashMap<MapEdits.Position,java.util.Optional<String>>();
+        for(int i=0;i<count;i++)changes.put(new MapEdits.Position(i%300,70,i/300),java.util.Optional.of("minecraft:dark_oak_planks"));
+        var p=new MapEdits.Position(0,70,0);store.changeAll(frame,changes,java.util.Map.of(p,false));
+        var path=temp.resolve("large.json");store.save(path);assertTrue(Files.size(path)>8L*1024*1024,"Fixture must exceed the former file-size cap");
+        var reopened=new RoomLayouts();reopened.load(path);assertEquals(count,reopened.edits(frame.key()).size());assertEquals(Boolean.FALSE,reopened.originallyAir(frame.key(),frame.relative(p)));
+        var copied=reopened.copy();copied.change(frame,new MapEdits.Position(99999,70,0),"minecraft:gold_block");assertEquals(count,reopened.edits(frame.key()).size());assertEquals(count+1,copied.edits(frame.key()).size());
+    }
+    @Test void largeSharedBossLayoutsAndImportedLibrariesHaveNoBlockCountCap(){
+        var edits=new java.util.LinkedHashMap<MapEdits.Position,String>();for(int i=0;i<70000;i++)edits.put(new MapEdits.Position(i,70,0),"minecraft:stone");
+        var store=new RoomLayouts();store.importLayouts(java.util.Map.of("floor:M7",new FmeImport.Layout(edits,null)),true);assertEquals(70000,store.edits("floor:F7").size());
+        var flags=new java.util.HashMap<MapEdits.Position,Boolean>();edits.keySet().forEach(p->flags.put(p,false));store.rememberOrigins("floor:F7",flags);assertEquals(Boolean.FALSE,store.originallyAir("floor:M7",new MapEdits.Position(69999,70,0)));
     }
     @Test void clearingAndEditingAnImportedRoomKeepsItsRotationReference()throws Exception{
         var store=new RoomLayouts();var anchor=new RoomLayouts.LegacyAnchor(100,200,3);var point=new MapEdits.Position(1,70,2);store.importLayouts(java.util.Map.of("room:A",new FmeImport.Layout(java.util.Map.of(point,"minecraft:stone"),anchor)),true);

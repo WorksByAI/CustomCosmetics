@@ -28,6 +28,7 @@ class LicensePackagingTest {
             String prefix = "CustomCosmetics-" + System.getProperty("customcosmetics.version") + "/";
             for (String name : new String[]{
                     "src/main/java/com/customcosmetics/features/map/MaterialReplacement.java",
+                    "src/test/java/com/customcosmetics/features/map/DenseReplacementTest.java",
                     "src/main/java/com/customcosmetics/features/map/MaterialReplacementPlan.java",
                     "src/main/java/com/customcosmetics/features/map/Freecam.java",
                     "src/main/java/com/customcosmetics/features/map/FmeImport.java",
