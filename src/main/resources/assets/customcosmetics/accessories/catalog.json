@@ -1062,6 +1062,15 @@
           "collection": "pixel"
         },
         {
+          "id": "mini_me",
+          "label": "Mini-Me",
+          "kind": "mini_me",
+          "variant": 0,
+          "color": "#FFFFFF",
+          "accent": "#FFFFFF",
+          "collection": "pixel"
+        },
+        {
           "id": "mooncat",
           "label": "Moon Cat",
           "kind": "detailed_pet",

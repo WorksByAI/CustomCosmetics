@@ -208,6 +208,20 @@ if (providers.gradleProperty('nickname_game_only').getOrElse('false').toBoolean(
     }
 }
 
+if (providers.gradleProperty('mini_me_game_only').getOrElse('false').toBoolean()) {
+    sourceSets.gametest.java.include '**/MiniMeGameTest.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
+    tasks.named('processGametestResources') {
+        inputs.property 'mini_me_game_only', true
+        inputs.file('build.gradle')
+        filesMatching('fabric.mod.json') {
+            filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.MiniMeGameTest') }
+        }
+        filesMatching('customcosmetics-test.mixins.json') {
+            filter { line -> line.contains('"client":') ? '  "client": ["UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line }
+        }
+    }
+}
+
 if (providers.gradleProperty('accessories_game_only').getOrElse('false').toBoolean()) {
     sourceSets.gametest.java.include '**/AccessoriesGameTest.java', '**/NicknamePresetGameTest.java',
         '**/mixin/AccessoriesProbeMixin.java', '**/mixin/AccessoryMotionPreviewMixin.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'

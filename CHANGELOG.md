@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.3-beta.1
+
+- Equipments: Add Mini-Me, a seated companion wearing your skin.
+- Pets: Choose the left or right shoulder.
+- Sharing: Preserve accessory colors in chams.
+
 ## 1.4.2
 
 - Sharing: Fix chams textures when players have glowing outlines.

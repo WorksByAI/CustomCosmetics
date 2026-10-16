@@ -33,17 +33,18 @@ public final class WardrobeScreen extends Screen {
         button(contentX,optionsTop,cell,23,"None",()->{update(p->p.enabled(false));rebuildWidgets();}).selected(()->!ConfigManager.accessories.part(slot).enabled());
         for(int i=0;i<perPage;i++){int index=page*perPage+i;if(index>=styles.size())break;var style=styles.get(index);int cellIndex=i+1;
             button(contentX+(cellIndex%columns)*(cell+6),optionsTop+(cellIndex/columns)*27,cell,23,style.label(),()->{
-                var latest=ConfigManager.accessories.part(slot);ConfigManager.accessories=ConfigManager.accessories.with(slot,new AccessoriesSettings.Part(true,latest.scale(),style.color(),style.accent(),latest.speed(),style.id()));changed();rebuildWidgets();
+                var latest=ConfigManager.accessories.part(slot);ConfigManager.accessories=ConfigManager.accessories.with(slot,new AccessoriesSettings.Part(true,latest.scale(),style.color(),style.accent(),latest.speed(),style.id(),latest.side()));changed();rebuildWidgets();
             }).selected(()->{var p=ConfigManager.accessories.part(slot);return p.enabled()&&p.style().equals(style.id());});
         }
         int navigationY=optionsTop+rows*27;styleFooterY=navigationY;button(contentX,navigationY,32,20,"‹",()->{page--;rebuildWidgets();}).active=page>0;
         button(contentX+contentW-32,navigationY,32,20,"›",()->{page++;rebuildWidgets();}).active=(page+1)*perPage<styles.size();
         colorsY=navigationY+26;int fieldW=(contentW-12)/2;
-        colorField(contentX,colorsY,fieldW,"Color",false);colorField(contentX+fieldW+12,colorsY,fieldW,"Accent",true);
+        if(!MiniMePet.selected(AccessoryCatalog.style(slot,current.style()))){colorField(contentX,colorsY,fieldW,"Color",false);colorField(contentX+fieldW+12,colorsY,fieldW,"Accent",true);}
         int controlsY=colorsY+38;
         boolean garment=Set.of("outfit","arms","pants","feet").contains(slot);
         slider(contentX,controlsY,fieldW,garment?"Fit":"Size",Math.max(AccessoryPlacement.fitted(slot)?1:.5,current.scale()),AccessoryPlacement.fitted(slot)?1:.5,2,.05,v->update(p->p.scale(v)));
         if(slot.equals("wings"))slider(contentX+fieldW+12,controlsY,fieldW,"Flap Speed",current.speed(),0,3,.1,v->update(p->p.speed(v)));
+        else if(slot.equals("pet"))button(contentX+fieldW+12,controlsY,fieldW,22,current.side().equals("left")?"Left Shoulder":"Right Shoulder",()->{update(p->p.side(p.side().equals("left")?"right":"left"));rebuildWidgets();});
         else button(contentX+fieldW+12,controlsY,fieldW,22,current.enabled()?"Disable Part":"Enable Part",()->{update(p->p.enabled(!p.enabled()));rebuildWidgets();});
         button(x+10,y+h-31,side-8,22,"Clear Outfit",()->{ConfigManager.accessories=AccessoriesSettings.NONE;changed();rebuildWidgets();});
         button(x+w-88,y+h-31,76,22,"Done",this::onClose);
@@ -66,7 +67,8 @@ public final class WardrobeScreen extends Screen {
             int half=contentW/2;CapePreview.drawAccessories(g,contentX,y+44,half,previewH-12,true,camera);CapePreview.drawAccessories(g,contentX+half,y+44,half,previewH-12,false,camera);text(g,font,"Drag to rotate · Scroll to zoom",contentX+10,y+43+previewH-9,MUTED,contentW-20);}
         else{int side=contentX-x-20;rounded(g,x+10,y+122,side-8,h-161,6,CARD);CapePreview.drawAccessories(g,x+10,y+124,side-8,h-165,true,camera);}
         text(g,font,AccessoryCatalog.slot(slot).label()+" · "+(page+1)+" / "+((AccessoryCatalog.styles(slot,collection).size()+perPage-1)/perPage),contentX+40,styleFooterY+5,PINK,contentW-80);
-        text(g,font,"Color",contentX,colorsY+9,TEXT,52);text(g,font,"Accent",contentX+(contentW-12)/2+12,colorsY+9,TEXT,52);
+        if(MiniMePet.selected(AccessoryCatalog.style(slot,ConfigManager.accessories.part(slot).style())))text(g,font,"Uses the wearer's skin, including outer layers.",contentX,colorsY+9,MUTED,contentW);
+        else{text(g,font,"Color",contentX,colorsY+9,TEXT,52);text(g,font,"Accent",contentX+(contentW-12)/2+12,colorsY+9,TEXT,52);}
         String status=AccessoryPlacement.covered(slot,ConfigManager.accessories)?"Covered by your Head accessory. Selection is kept.":ConfigManager.offlineMode?"Offline · Only you can see this outfit.":"Online · Shared on your normal sync interval.";
         text(g,font,status,contentX,y+h-25,MUTED,contentW-94);
         for(var widget:widgets)widget.extractRenderState(g,mx,my,dt);

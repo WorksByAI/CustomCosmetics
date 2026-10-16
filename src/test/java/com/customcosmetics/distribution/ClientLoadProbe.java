@@ -14,7 +14,7 @@ public final class ClientLoadProbe {
             "com.customcosmetics.features.damage.DamageSplash", "com.customcosmetics.features.damage.DamageText", "com.customcosmetics.features.damage.DamageAnimation",
             "com.customcosmetics.gui.SettingsSearch", "net.minecraft.client.multiplayer.ClientPacketListener", "net.minecraft.client.renderer.entity.state.EntityRenderState",
             "com.customcosmetics.features.accessories.AccessoryLayer", "com.customcosmetics.features.accessories.AccessoryRenderState", "net.minecraft.client.renderer.entity.state.AvatarRenderState", "net.minecraft.client.renderer.entity.EntityRenderer",
-            "com.customcosmetics.features.accessories.AccessoryMeshes", "com.customcosmetics.features.accessories.DetailedAccessoryMeshes", "com.customcosmetics.gui.WardrobeScreen", "net.minecraft.client.renderer.entity.LivingEntityRenderer",
+            "com.customcosmetics.features.accessories.AccessoryMeshes", "com.customcosmetics.features.accessories.DetailedAccessoryMeshes", "com.customcosmetics.features.accessories.MiniMePet", "com.customcosmetics.compatibility.MiniMeRenderAccess", "com.customcosmetics.gui.WardrobeScreen", "net.minecraft.client.renderer.entity.LivingEntityRenderer",
             "net.minecraft.client.Minecraft", firstPersonRenderer, "net.minecraft.client.gui.Font",
             "net.minecraft.client.gui.Font$PreparedTextBuilder", "net.minecraft.network.chat.Style",
             "com.customcosmetics.features.nickname.GradientGlyph", "com.customcosmetics.features.nickname.NicknameGlyphEffect",

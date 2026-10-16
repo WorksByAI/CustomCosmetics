@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class AccessoriesSettingsTest {
     @Test void everyOriginalStyleRoundTripsAndUnknownModelOrSlotCannotReachTheRenderer(){
-        assertEquals(17,AccessoryCatalog.slots().size());assertEquals(122,AccessoryCatalog.count());
+        assertEquals(17,AccessoryCatalog.slots().size());assertEquals(123,AccessoryCatalog.count());
         var keys=new java.util.HashSet<String>();
         for(var slot:AccessoryCatalog.slots())for(var style:slot.styles()){
             assertTrue(keys.add(slot.id()+":"+style.id()));

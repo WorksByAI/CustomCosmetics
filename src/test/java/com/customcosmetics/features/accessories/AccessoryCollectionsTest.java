@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 class AccessoryCollectionsTest {
     @Test void bothCollectionsAreDisjointAndTogetherCoverTheEntireCatalog(){
-        assertEquals(96,AccessoryCatalog.count(AccessoryCatalog.Collection.PIXEL));assertEquals(26,AccessoryCatalog.count(AccessoryCatalog.Collection.DETAILED));
+        assertEquals(97,AccessoryCatalog.count(AccessoryCatalog.Collection.PIXEL));assertEquals(26,AccessoryCatalog.count(AccessoryCatalog.Collection.DETAILED));
         assertEquals(17,AccessoryCatalog.slots(AccessoryCatalog.Collection.PIXEL).size());assertEquals(10,AccessoryCatalog.slots(AccessoryCatalog.Collection.DETAILED).size());
         for(var collection:AccessoryCatalog.Collection.values())for(var slot:AccessoryCatalog.slots(collection)){assertFalse(slot.styles().isEmpty());for(var style:slot.styles())assertEquals(collection,style.collection());}
     }

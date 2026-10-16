@@ -84,7 +84,7 @@ public final class AccessoriesGameTest implements FabricClientGameTest {
             for(var style:slot.styles()){
                 context.runOnClient(client->checkSculpture(slot,style));
                 context.runOnClient(client->{ConfigManager.accessories=AccessoriesSettings.NONE.with(slot.id(),AccessoriesSettings.NONE.part(slot.id()).enabled(true).style(style.id()).color(style.color()).accent(style.accent()));ClientUiAccess.setScreen(client,new WardrobeScreen(null,slot.id(),style.collection()));});context.waitTicks(2);
-                check(self,switch(slot.id()){case "wings","ears","arms","feet","pants","head","pet","shoulder"->4;case "particles"->12;case "outfit"->style.collection()==AccessoryCatalog.Collection.DETAILED||style.variant()==2?10:style.variant()==1?6:2;case "hat"->style.collection()==AccessoryCatalog.Collection.DETAILED&&style.variant()==3?3:2;default->2;});
+                check(self,MiniMePet.selected(style)?0:switch(slot.id()){case "wings","ears","arms","feet","pants","head","pet","shoulder"->4;case "particles"->12;case "outfit"->style.collection()==AccessoryCatalog.Collection.DETAILED||style.variant()==2?10:style.variant()==1?6:2;case "hat"->style.collection()==AccessoryCatalog.Collection.DETAILED&&style.variant()==3?3:2;default->2;});
                 context.takeScreenshot("wardrobe-"+slot.id()+"-"+style.id());
             }
         }
@@ -113,6 +113,7 @@ public final class AccessoriesGameTest implements FabricClientGameTest {
         System.out.println("WARDROBE_"+AccessoryCatalog.count()+"_ORIGINAL_STYLES_NATIVE_MESHES_AND_COMPACT_GUI_OK");
     }
     private static void checkSculpture(AccessoryCatalog.Slot slot,AccessoryCatalog.Style style){
+        if(MiniMePet.selected(style))return; // Vanilla skin model is covered by MiniMeGameTest.
         var mesh=AccessoryMeshes.get(style);if(mesh!=AccessoryMeshes.get(style))throw new AssertionError("Models are rebuilt per frame");var min=new float[]{Float.MAX_VALUE,Float.MAX_VALUE,Float.MAX_VALUE};var max=new float[]{-Float.MAX_VALUE,-Float.MAX_VALUE,-Float.MAX_VALUE};var count=new int[1];
         var texture="customcosmetics:textures/accessories/"+(style.collection()==AccessoryCatalog.Collection.DETAILED?"detailed-materials.png":"materials.png");for(var part:new net.minecraft.client.model.geom.ModelPart[]{mesh.primary(),mesh.accent(),mesh.details(),mesh.highlights(),mesh.sleeves(),mesh.cuffs(),mesh.skirt(),mesh.hem()})if(part!=null)expectedTextures.put(part,texture);
         for(var model:List.of(mesh.primary(),mesh.accent()))model.visit(new com.mojang.blaze3d.vertex.PoseStack(),(pose,path,index,cube)->{for(var face:cube.polygons){if(!Float.isFinite(face.normal().x())||Math.abs(face.normal().length()-1)>.01)throw new AssertionError("Invalid sculpted face normal: "+style.id());for(var vertex:face.vertices()){float[] coords={vertex.x(),vertex.y(),vertex.z()};for(int i=0;i<3;i++){if(!Float.isFinite(coords[i]))throw new AssertionError("Invalid mesh vertex");min[i]=Math.min(min[i],coords[i]);max[i]=Math.max(max[i],coords[i]);}if(vertex.u()<0||vertex.v()<0||vertex.u()>1||vertex.v()>1)throw new AssertionError("Material UV escaped the bundled atlas");count[0]++;}}});

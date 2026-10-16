@@ -21,7 +21,9 @@ public final class AccessoryLayer extends RenderLayer<AvatarRenderState,PlayerMo
         var snapshot=(AccessoryRenderState)state;if(snapshot.customcosmetics$hideAccessories()||state.isInvisible)return;
         var settings=snapshot.customcosmetics$accessories();if(!settings.any())return;
         for(var slot:AccessoryCatalog.slots()){
-            var p=settings.part(slot.id());if(!p.enabled()||AccessoryPlacement.covered(slot.id(),settings))continue;var style=AccessoryCatalog.style(slot.id(),p.style());var mesh=AccessoryMeshes.get(style);
+            var p=settings.part(slot.id());if(!p.enabled()||AccessoryPlacement.covered(slot.id(),settings))continue;var style=AccessoryCatalog.style(slot.id(),p.style());
+            if(MiniMePet.selected(style)){MiniMePet.submit(queue,pose,light,state,p);continue;}
+            var mesh=AccessoryMeshes.get(style);
             var texture=style.collection()==AccessoryCatalog.Collection.DETAILED?DETAILED:WHITE;
             int copies=switch(slot.id()){case "wings","ears","arms","feet","pants"->2;case "particles"->6;default->1;};
             if(slot.id().equals("wings")&&settings.part("tail").enabled())for(int side:new int[]{-1,1}){
@@ -55,7 +57,7 @@ public final class AccessoryLayer extends RenderLayer<AvatarRenderState,PlayerMo
             case "arms"->{AccessoryModelFit.garment(pose,side<0?model.rightArm:model.leftArm,size,state.chestEquipment.isEmpty()?0:1.1,4.8,12.8,4.8,4);scaled=true;}
             case "feet","pants"->{AccessoryModelFit.garment(pose,side<0?model.rightLeg:model.leftLeg,size,(slot.equals("feet")?state.feetEquipment:state.legsEquipment).isEmpty()?0:.5,4.8,12.8,4.8,6);scaled=true;}
             case "shoulder"->{model.body.translateAndRotate(pose);double s=size*.8;pose.translate(-.43+Math.min(0,bounds.minX()*s/16),-bounds.maxY()*s/16-AccessoryPlacement.GAP,0);scale(pose,.8);}
-            case "pet"->{model.body.translateAndRotate(pose);pose.translate(Math.max(.95,.52-bounds.minX()*size/16),.24+Math.sin(state.ageInTicks*.07)*.04,-.38);rotate(pose,0,(float)Math.sin(state.ageInTicks*.04)*.15f,0);}
+            case "pet"->{model.body.translateAndRotate(pose);double x=part.side().equals("left")?Math.max(.8,.6-bounds.minX()*size/16):Math.min(-.8,-.6-bounds.maxX()*size/16);pose.translate(x,.05-bounds.maxY()*size/16+Math.sin(state.ageInTicks*.07)*.025,-.38);rotate(pose,0,(float)Math.sin(state.ageInTicks*.04)*.15f,0);}
             case "particles"->{model.body.translateAndRotate(pose);double angle=state.ageInTicks*.02+index*Math.PI/3;pose.translate(Math.cos(angle)*1.15,1.35+Math.sin(angle*2)*.12,Math.sin(angle)*1.15);rotate(pose,0,-(float)angle,(float)Math.sin(angle)*.2f);}
             case "tail"->{model.body.translateAndRotate(pose);float angle=(float)Math.sin(state.ageInTicks*.07)*.13f;var turned=AccessoryPlacement.rotated(bounds,0,angle,0);pose.translate(0,0,AccessoryPlacement.backOffset(turned,size,AccessoryPlacement.wingRear(settings,skinRear,geometry)));rotate(pose,0,angle,0);}
             case "back"->{model.body.translateAndRotate(pose);pose.translate(0,0,AccessoryPlacement.backOffset(bounds,size,rear));}

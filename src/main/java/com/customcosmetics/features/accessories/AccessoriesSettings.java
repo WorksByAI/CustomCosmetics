@@ -15,16 +15,18 @@ public record AccessoriesSettings(Part wings, Part halo, Part ears, Map<String,P
         wings=normalize("wings",wings);halo=normalize("halo",halo);ears=normalize("ears",ears);
         var known=new TreeMap<String,Part>();for(var slot:AccessoryCatalog.slots())if(!Set.of("wings","halo","ears").contains(slot.id()))known.put(slot.id(),normalize(slot.id(),extra==null?null:extra.get(slot.id())));extra=Collections.unmodifiableMap(known);
     }
-    private static Part normalize(String key,Part part){var style=AccessoryCatalog.style(key,part==null?null:part.style());return part==null?new Part(false,1,style.color(),style.accent(),key.equals("wings")?1:0,style.id()):part.style(style.id());}
-    public record Part(boolean enabled,double scale,int color,int accent,double speed,String style) {
-        public Part(boolean enabled,double scale,int color,int accent,double speed){this(enabled,scale,color,accent,speed,null);}
-        public Part { scale=Double.isFinite(scale)?Math.clamp(scale,.5,2):1;speed=Double.isFinite(speed)?Math.clamp(speed,0,3):1;color&=0xFFFFFF;accent&=0xFFFFFF; }
-        public Part enabled(boolean value){return new Part(value,scale,color,accent,speed,style);}
-        public Part scale(double value){return new Part(enabled,value,color,accent,speed,style);}
-        public Part color(int value){return new Part(enabled,scale,value,accent,speed,style);}
-        public Part accent(int value){return new Part(enabled,scale,color,value,speed,style);}
-        public Part speed(double value){return new Part(enabled,scale,color,accent,value,style);}
-        public Part style(String value){return new Part(enabled,scale,color,accent,speed,value);}
+    private static Part normalize(String key,Part part){var style=AccessoryCatalog.style(key,part==null?null:part.style());return part==null?new Part(false,1,style.color(),style.accent(),key.equals("wings")?1:0,style.id()):part.style(style.id()).side(key.equals("pet")?part.side():"right");}
+    public record Part(boolean enabled,double scale,int color,int accent,double speed,String style,String side) {
+        public Part(boolean enabled,double scale,int color,int accent,double speed){this(enabled,scale,color,accent,speed,null,"right");}
+        public Part(boolean enabled,double scale,int color,int accent,double speed,String style){this(enabled,scale,color,accent,speed,style,"right");}
+        public Part { scale=Double.isFinite(scale)?Math.clamp(scale,.5,2):1;speed=Double.isFinite(speed)?Math.clamp(speed,0,3):1;color&=0xFFFFFF;accent&=0xFFFFFF;side="left".equals(side)?"left":"right"; }
+        public Part enabled(boolean value){return new Part(value,scale,color,accent,speed,style,side);}
+        public Part scale(double value){return new Part(enabled,value,color,accent,speed,style,side);}
+        public Part color(int value){return new Part(enabled,scale,value,accent,speed,style,side);}
+        public Part accent(int value){return new Part(enabled,scale,color,value,speed,style,side);}
+        public Part speed(double value){return new Part(enabled,scale,color,accent,value,style,side);}
+        public Part style(String value){return new Part(enabled,scale,color,accent,speed,value,side);}
+        public Part side(String value){return new Part(enabled,scale,color,accent,speed,style,value);}
         JsonObject json(){var j=new JsonObject();j.addProperty("enabled",enabled);j.addProperty("scale",scale);j.addProperty("color",hex(color));j.addProperty("accent",hex(accent));j.addProperty("speed",speed);j.addProperty("style",style);return j;}
     }
     public Part part(String key){return switch(key){case "wings"->wings;case "halo"->halo;case "ears"->ears;default->{if(!AccessoryCatalog.known(key))throw new IllegalArgumentException(key);yield extra.get(key);}};}
@@ -38,7 +40,7 @@ public record AccessoriesSettings(Part wings, Part halo, Part ears, Map<String,P
     public static AccessoriesSettings choose(UUID self,UUID target,boolean offline,AccessoriesSettings local,AccessoriesSettings remote){
         if(target==null)return NONE;if(target.equals(self))return local==null?NONE:local.active();return offline||remote==null?NONE:remote.active();
     }
-    public JsonObject json(){var active=active();var j=new JsonObject();for(var slot:AccessoryCatalog.slots())j.add(slot.id(),active.part(slot.id()).json());return j;}
+    public JsonObject json(){var active=active();var j=new JsonObject();for(var slot:AccessoryCatalog.slots()){var part=active.part(slot.id());var value=part.json();if(slot.id().equals("pet"))value.addProperty("side",part.side());j.add(slot.id(),value);}return j;}
     public static AccessoriesSettings parse(JsonElement value){
         if(value==null||!value.isJsonObject())return NONE;var j=value.getAsJsonObject();var parsed=NONE;for(var slot:AccessoryCatalog.slots())parsed=parsed.with(slot.id(),parse(j.get(slot.id()),normalize(slot.id(),null)));return parsed.active();
     }
@@ -46,7 +48,8 @@ public record AccessoriesSettings(Part wings, Part halo, Part ears, Map<String,P
         if(value==null||!value.isJsonObject())return fallback;var j=value.getAsJsonObject();var enabled=j.get("enabled");
         if(enabled==null||!enabled.isJsonPrimitive()||!enabled.getAsJsonPrimitive().isBoolean()||!enabled.getAsBoolean())return fallback;
         String style=null;try{var raw=j.getAsJsonPrimitive("style");if(raw!=null&&raw.isString())style=raw.getAsString();}catch(RuntimeException ignored){}
-        return new Part(true,number(j,"scale",1),color(j,"color",fallback.color),color(j,"accent",fallback.accent),number(j,"speed",fallback.speed),style);
+        String side="right";try{if(j.getAsJsonPrimitive("side").isString())side=j.get("side").getAsString();}catch(RuntimeException ignored){}
+        return new Part(true,number(j,"scale",1),color(j,"color",fallback.color),color(j,"accent",fallback.accent),number(j,"speed",fallback.speed),style,side);
     }
     private static double number(JsonObject j,String key,double fallback){try{var v=j.getAsJsonPrimitive(key);return v.isNumber()&&Double.isFinite(v.getAsDouble())?v.getAsDouble():fallback;}catch(RuntimeException invalid){return fallback;}}
     private static int color(JsonObject j,String key,int fallback){try{var v=j.getAsJsonPrimitive(key);return v.isString()&&v.getAsString().matches("#[0-9a-fA-F]{6}")?Integer.parseInt(v.getAsString().substring(1),16):fallback;}catch(RuntimeException invalid){return fallback;}}

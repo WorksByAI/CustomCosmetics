@@ -44,7 +44,7 @@ public final class ChamsRenderAccess {
         int count=method.getParameterCount();
         int outline=switch(method.getName()){
             case "submitModel"->count==9||count==10?8:count==7||count==8?6:-1;
-            case "submitModelPart"->count>=7?6:-1;
+            case "submitModelPart"->count>=8&&method.getParameterTypes()[count-1]==int.class?count-1:-1;
             case "submitItem"->count==8?4:-1;
             case "submitBlockModel"->count==7?6:-1;
             default->-1;

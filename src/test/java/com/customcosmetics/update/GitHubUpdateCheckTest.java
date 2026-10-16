@@ -14,6 +14,12 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static org.junit.jupiter.api.Assertions.*;
 
 class GitHubUpdateCheckTest {
+    @Test void miniMeBetaDoesNotNotifyStableUsersButCanUpgradeToTheNextStableRelease() {
+        String beta="{\"draft\":false,\"prerelease\":true,\"tag_name\":\"v1.4.3b1\"}";
+        assertTrue(GitHubUpdateCheck.newerRelease(beta,"1.4.2").isEmpty());
+        assertTrue(GitHubUpdateCheck.newerRelease(release("v1.4.2"),"1.4.3-beta.1").isEmpty());
+        assertEquals(Optional.of("1.4.3"),GitHubUpdateCheck.newerRelease(release("v1.4.3"),"1.4.3-beta.1"));
+    }
     @Test void release142NotifiesPriorStableAndTestClientsAndStaysSilentOn142() {
         for(String installed:new String[]{"1.4.0","1.4.1","1.4.1-dev.1","1.4.2-dev.1"})
             assertEquals(Optional.of("1.4.2"),GitHubUpdateCheck.newerRelease(release("v1.4.2"),installed));
