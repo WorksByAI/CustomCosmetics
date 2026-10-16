@@ -33,7 +33,7 @@ public final class WardrobeScreen extends Screen {
         button(contentX,optionsTop,cell,23,"None",()->{update(p->p.enabled(false));rebuildWidgets();}).selected(()->!ConfigManager.accessories.part(slot).enabled());
         for(int i=0;i<perPage;i++){int index=page*perPage+i;if(index>=styles.size())break;var style=styles.get(index);int cellIndex=i+1;
             button(contentX+(cellIndex%columns)*(cell+6),optionsTop+(cellIndex/columns)*27,cell,23,style.label(),()->{
-                var latest=ConfigManager.accessories.part(slot);ConfigManager.accessories=ConfigManager.accessories.with(slot,new AccessoriesSettings.Part(true,latest.scale(),style.color(),style.accent(),latest.speed(),style.id(),latest.side()));changed();rebuildWidgets();
+                var latest=ConfigManager.accessories.part(slot);ConfigManager.accessories=ConfigManager.accessories.with(slot,new AccessoriesSettings.Part(true,latest.scale(),style.color(),style.accent(),latest.speed(),style.id(),latest.side(),latest.offset()));changed();rebuildWidgets();
             }).selected(()->{var p=ConfigManager.accessories.part(slot);return p.enabled()&&p.style().equals(style.id());});
         }
         int navigationY=optionsTop+rows*27;styleFooterY=navigationY;button(contentX,navigationY,32,20,"‹",()->{page--;rebuildWidgets();}).active=page>0;
@@ -48,6 +48,7 @@ public final class WardrobeScreen extends Screen {
         else button(contentX+fieldW+12,controlsY,fieldW,22,current.enabled()?"Disable Part":"Enable Part",()->{update(p->p.enabled(!p.enabled()));rebuildWidgets();});
         button(x+10,y+h-31,side-8,22,"Clear Outfit",()->{ConfigManager.accessories=AccessoriesSettings.NONE;changed();rebuildWidgets();});
         button(x+w-88,y+h-31,76,22,"Done",this::onClose);
+        button(x+w-216,y+h-31,118,22,"Adjust Position",()->ClientUiAccess.setScreen(minecraft,new AccessoryAdjustmentScreen(this,slot)));
     }
     private void cycle(int direction){var slots=AccessoryCatalog.slots(collection);int index=0;for(int i=0;i<slots.size();i++)if(slots.get(i).id().equals(slot))index=i;slot=slots.get(Math.floorMod(index+direction,slots.size())).id();page=0;rebuildWidgets();}
     private PinkUi.Action button(int x,int y,int w,int h,String label,Runnable action){var button=new PinkUi.Action(x,y,w,h,label,false,()->{CosmeticsScreen.childInteraction();action.run();});button.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(label)));widgets.add(addWidget(button));return button;}
@@ -70,7 +71,7 @@ public final class WardrobeScreen extends Screen {
         if(MiniMePet.selected(AccessoryCatalog.style(slot,ConfigManager.accessories.part(slot).style())))text(g,font,"Uses the wearer's skin, including outer layers.",contentX,colorsY+9,MUTED,contentW);
         else{text(g,font,"Color",contentX,colorsY+9,TEXT,52);text(g,font,"Accent",contentX+(contentW-12)/2+12,colorsY+9,TEXT,52);}
         String status=AccessoryPlacement.covered(slot,ConfigManager.accessories)?"Covered by your Head accessory. Selection is kept.":ConfigManager.offlineMode?"Offline · Only you can see this outfit.":"Online · Shared on your normal sync interval.";
-        text(g,font,status,contentX,y+h-25,MUTED,contentW-94);
+        text(g,font,status,contentX,y+h-25,MUTED,Math.max(0,contentW-224));
         for(var widget:widgets)widget.extractRenderState(g,mx,my,dt);
     }
     @Override public boolean isPauseScreen(){return false;}

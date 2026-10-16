@@ -12,8 +12,10 @@ import org.lwjgl.system.*;
 
 /** Uses the native libraries supplied by Minecraft; selecting files never performs network I/O. */
 public final class NativeFileDialogs {
-    public record Request(boolean atlas,Path directory,boolean sdl,long window) {
-        public String title(){return atlas?"Choose Cape + Elytra":"Choose Image to Crop";}
+    public record Request(boolean atlas,Path directory,boolean sdl,long window,String purpose) {
+        public Request(boolean atlas,Path directory,boolean sdl,long window){this(atlas,directory,sdl,window,"");}
+        public String title(){return "skin".equals(purpose)?"Choose Local Skin":atlas?"Choose Cape + Elytra":"Choose Image to Crop";}
+        public String description(){return "skin".equals(purpose)?"Skin PNG":atlas?"Cape PNG (*.png)":"Image files";}
         public String[] extensions(){return atlas?new String[]{"png"}:new String[]{"png","jpg","jpeg","bmp","gif"};}
     }
     public record Result(Path path,String error,boolean unavailable) {
@@ -54,7 +56,7 @@ public final class NativeFileDialogs {
             String[] extensions=request.extensions();var filters=stack.mallocPointer(extensions.length*2);
             for(String extension:extensions){filters.put(stack.UTF8("*."+extension));filters.put(stack.UTF8("*."+extension.toUpperCase(java.util.Locale.ROOT)));}filters.flip();
             String selected=(String)tiny.getMethod("tinyfd_openFileDialog",CharSequence.class,CharSequence.class,PointerBuffer.class,CharSequence.class,boolean.class)
-                .invoke(null,request.title(),request.directory.toString()+java.io.File.separator,filters,request.atlas?"Cape PNG (*.png)":"Image files",false);
+                .invoke(null,request.title(),request.directory.toString()+java.io.File.separator,filters,request.description(),false);
             return Result.selected(selected);
         }
     }
@@ -73,7 +75,7 @@ public final class NativeFileDialogs {
     private static void openSdl(Request request,Consumer<Result> callback)throws ReflectiveOperationException{
         Class<?> filterClass=Class.forName("org.lwjgl.sdl.SDL_DialogFileFilter"),callbackInterface=Class.forName("org.lwjgl.sdl.SDL_DialogFileCallbackI"),bufferClass=Class.forName("org.lwjgl.sdl.SDL_DialogFileFilter$Buffer");
         Object nativeCallback=sdlCallback(callbackInterface),filters=filterClass.getMethod("malloc",int.class).invoke(null,1);
-        ByteBuffer name=MemoryUtil.memUTF8(request.atlas?"Cape PNG":"Image files"),patterns=MemoryUtil.memUTF8(String.join(";",request.extensions()));
+        ByteBuffer name=MemoryUtil.memUTF8(request.description()),patterns=MemoryUtil.memUTF8(String.join(";",request.extensions()));
         var pending=new SdlRequest(filters,name,patterns,callback,new AtomicBoolean());
         try{
             Object filter=bufferClass.getMethod("get",int.class).invoke(filters,0);filterClass.getMethod("name",ByteBuffer.class).invoke(filter,name);filterClass.getMethod("pattern",ByteBuffer.class).invoke(filter,patterns);

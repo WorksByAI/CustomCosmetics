@@ -4,6 +4,11 @@
   "plugin": "com.customcosmetics.mixin.CosmeticsMixinPlugin",
   "compatibilityLevel": "JAVA_25",
   "client": [
+    "MapEditorMixin$Vanilla",
+    "MapEditorMixin$Indigo",
+    "MapEditorMixin$Sodium",
+    "MapEditorMixin$Updates",
+    "MapEditorMixin$Input",
     "ChamsMixin$Players",
     "ChamsMixin$World",
     "ChamsMixin$Targets",

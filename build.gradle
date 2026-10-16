@@ -90,6 +90,28 @@ if(providers.gradleProperty('sodium_test_jar').isPresent()&&providers.gradleProp
 
 tasks.named('runClientGameTest') { dependsOn 'test' }
 
+if (providers.gradleProperty('map_game_only').getOrElse('false').toBoolean()) {
+    sourceSets.gametest.java.include '**/MapEditorGameTest.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
+    tasks.named('processGametestResources') {
+        inputs.property 'map_game_only', true
+        inputs.file('build.gradle')
+        filesMatching('fabric.mod.json') { filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.MapEditorGameTest') } }
+        filesMatching('customcosmetics-test.mixins.json') { filter { line -> line.contains('"client":') ? '  "client": ["UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line } }
+    }
+}
+
+
+if (providers.gradleProperty('skin_game_only').getOrElse('false').toBoolean()) {
+    sourceSets.gametest.java.include '**/SkinGameTest.java', '**/mixin/SkinPeerFixtureMixin.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
+    tasks.named('processGametestResources') {
+        inputs.property 'skin_game_only', true
+        inputs.file('build.gradle')
+        filesMatching('fabric.mod.json') { filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.SkinGameTest') } }
+        filesMatching('customcosmetics-test.mixins.json') { filter { line -> line.contains('"client":') ? '  "client": ["SkinPeerFixtureMixin", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line } }
+    }
+}
+
+
 tasks.named('processGametestResources') {
     def catharsisFixture = providers.gradleProperty('appearance_catharsis_test').getOrElse('false').toBoolean()
     inputs.property 'appearance_catharsis_test', catharsisFixture

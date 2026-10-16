@@ -21,6 +21,7 @@ public final class RealtimeSync {
     public static BlockingTransport.Pose pose(UUID id){if(!RemoteAccess.online()||live==null)return null;var pose=live.blocks().get(id);return pose!=null&&pose.expiresAt()>System.nanoTime()/1000000?pose:null;}
     public static Map<UUID,PartyClient.Teammate> teammates(){return RemoteAccess.online()&&live!=null?live.teammates():Map.of();}
     public static String status(){return live==null?"Disconnected":live.status();}
+    public static Set<UUID> directPeers(){return !RemoteAccess.online()||live==null||live.closed()?Set.of():live.directPeers();}
     public static String connectionStatus(){return live==null||live.closed()?PartySync.status():live.status();}
     public static List<String> diagnostics(){
         if(!RemoteAccess.online())return List.of("Realtime: Offline mode; remote connections are closed.");

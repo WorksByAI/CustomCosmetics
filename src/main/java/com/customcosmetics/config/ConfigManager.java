@@ -62,6 +62,7 @@ public final class ConfigManager {
     public static double nickTweaksShimmerInterval = 2;
     public static volatile boolean offlineMode = false;
     public static boolean capeEnabled = true;
+    public static boolean localSkinEnabled=true,localSkinSlim=false,skinP2pSharing=false,skinP2pReceiving=true;
     public static java.util.List<PlayerBlocklist.Entry> capeBlockedPlayers = java.util.List.of();
     public static boolean partyEspEnabled=true,partyChatEnabled=true;
     public static boolean partyConnectionNotifications=true;

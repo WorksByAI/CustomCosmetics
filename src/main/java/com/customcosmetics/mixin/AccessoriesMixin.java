@@ -57,7 +57,8 @@ public final class AccessoriesMixin {
             if(!(entity instanceof net.minecraft.world.entity.player.Player)||entity.isInvisible())return;
             var self=Minecraft.getInstance().player;var settings=AccessoriesSettings.choose(self==null?null:self.getUUID(),entity.getUUID(),ConfigManager.offlineMode,ConfigManager.accessories,PresenceSync.getRemoteAccessories(entity.getUUID()));
             if(!settings.any())return;double size=1;for(var slot:AccessoryCatalog.slots())if(settings.part(slot.id()).enabled())size=Math.max(size,settings.part(slot.id()).scale());
-            var proportions=com.customcosmetics.features.playersize.PlayerSize.settings(entity.getId());double radius=Math.min(8,2*size*Math.max(1,Math.max(proportions.x(),Math.max(proportions.y(),proportions.z()))));
+            double offset=0;for(var slot:AccessoryCatalog.slots())if(settings.part(slot.id()).enabled()){var o=settings.part(slot.id()).offset();offset=Math.max(offset,Math.max(Math.abs(o.x()),Math.max(Math.abs(o.y()),Math.abs(o.z()))));}
+            var proportions=com.customcosmetics.features.playersize.PlayerSize.settings(entity.getId());double radius=Math.min(8,(2*size+offset)*Math.max(1,Math.max(proportions.x(),Math.max(proportions.y(),proportions.z()))));
             // This is only the renderer's temporary frustum box, never the entity's hitbox.
             ci.setReturnValue(ci.getReturnValue().inflate(radius));
         }

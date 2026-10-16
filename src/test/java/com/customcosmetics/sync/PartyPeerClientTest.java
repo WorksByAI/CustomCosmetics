@@ -8,6 +8,14 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class PartyPeerClientTest {
+    @Test void skinsOnlyTravelAfterAuthenticatedDirectSelectionAndStopWhenItFails()throws Exception{
+        var arena=new Arena(0);byte[] bytes=new byte[7000];new Random(765).nextBytes(bytes);var document=new com.customcosmetics.features.skins.SkinTransfer.Document(bytes,true);var received=new ArrayList<com.customcosmetics.features.skins.SkinTransfer.Document>();
+        arena.a.skins(new com.customcosmetics.features.skins.SkinTransfer.Source(){public com.customcosmetics.features.skins.SkinTransfer.Document local(){return document;}public boolean receiving(){return false;}public void received(UUID id,com.customcosmetics.features.skins.SkinTransfer.Document skin){}});
+        arena.b.skins(new com.customcosmetics.features.skins.SkinTransfer.Source(){public com.customcosmetics.features.skins.SkinTransfer.Document local(){return null;}public boolean receiving(){return true;}public void received(UUID id,com.customcosmetics.features.skins.SkinTransfer.Document skin){assertEquals(A,id);if(skin!=null)received.add(skin);}});
+        arena.run(500,false);assertTrue(received.isEmpty());assertTrue(arena.sent.stream().noneMatch(p->p.bytes[4]==1));
+        for(int i=0;i<210;i++){if(i%100==0){arena.a.permit(ids(),arena.now);arena.b.permit(ids(),arena.now);}arena.step(true);}assertEquals(Set.of(B),arena.a.direct());assertFalse(received.isEmpty());assertArrayEquals(bytes,received.getLast().bytes());assertTrue(received.getLast().slim());assertTrue(arena.sent.stream().allMatch(p->p.bytes.length<=1200));
+        arena.run(3200,false);assertTrue(arena.a.direct().isEmpty());int count=received.size();arena.run(500,false);assertEquals(count,received.size());
+    }
     private static final UUID A=UUID.fromString("12345678-1234-4234-8234-123456789abc"),B=UUID.fromString("82345678-1234-4234-8234-123456789abc");
     private static final String ID="1".repeat(32),WORLD="a".repeat(64),KEY="2".repeat(64);
     private static final PartyRoster ROSTER=new PartyRoster(Set.of(A,B),Set.of(),"fixture");
@@ -61,23 +69,32 @@ class PartyPeerClientTest {
         assertTrue(arena.sent.stream().anyMatch(p->p.fromA&&p.destination.equals(arena.ba)));
         assertFalse(arena.sent.stream().anyMatch(p->p.fromA&&p.destination.equals(spoofed)));
     }
-    @Test void realUdpEndpointsExchangePositionWhenTheRelayAdvertisesAnotherPort()throws Exception{
+    @Test void realUdpEndpointsExchangePositionsAndSkinWhenTheRelayAdvertisesAnotherPort()throws Exception{
         try(var as=new DatagramSocket(new InetSocketAddress("127.0.0.1",0));var bs=new DatagramSocket(new InetSocketAddress("127.0.0.1",0));var relayMapping=new DatagramSocket(new InetSocketAddress("127.0.0.1",0))){
             as.setSoTimeout(1);bs.setSoTimeout(1);var ar=new ArrayList<JsonObject>();var br=new ArrayList<JsonObject>();
             try(var a=new PartyPeerClient((bytes,to)->as.send(new DatagramPacket(bytes,bytes.length,to)),ar::add);var b=new PartyPeerClient((bytes,to)->bs.send(new DatagramPacket(bytes,bytes.length,to)),br::add)){
+                var skin=new com.customcosmetics.features.skins.SkinTransfer.Document(new byte[4096],true);var received=new ArrayList<com.customcosmetics.features.skins.SkinTransfer.Document>();a.skins(skinSource(skin,null));b.skins(skinSource(null,received));
                 a.context(new PartyPeerClient.Context(A,101,1,WORLD,ROSTER,true));b.context(new PartyPeerClient.Context(B,102,1,WORLD,ROSTER,true));
                 var ao=offer(true);ao.getAsJsonArray("candidates").get(0).getAsJsonObject().addProperty("port",relayMapping.getLocalPort());
                 var bo=offer(false);bo.getAsJsonArray("candidates").get(0).getAsJsonObject().addProperty("port",as.getLocalPort());
                 a.permit(ids(),10000);b.permit(ids(),10000);a.offer(ao,10000);b.offer(bo,10000);
-                long start=System.nanoTime(),sequence=0;
-                while(System.nanoTime()-start<java.util.concurrent.TimeUnit.SECONDS.toNanos(3)&&(a.direct().isEmpty()||b.direct().isEmpty())){
+                long start=System.nanoTime(),sequence=0,nextState=0;
+                while(System.nanoTime()-start<java.util.concurrent.TimeUnit.SECONDS.toNanos(3)&&(a.direct().isEmpty()||b.direct().isEmpty()||received.isEmpty())){
                     long now=10000+java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-start);
-                    a.tick(now,20);b.tick(now,20);a.publish(position(++sequence,now),now);b.publish(position(sequence,now),now);
+                    a.tick(now,20);b.tick(now,20);if(now>=nextState){nextState=now+200;a.publish(position(++sequence,now),now);b.publish(position(sequence,now),now);}
                     drain(as,a,now);drain(bs,b,now);Thread.sleep(10);
                 }
                 assertEquals(Set.of(B),a.direct());assertEquals(Set.of(A),b.direct());assertFalse(ar.isEmpty());assertFalse(br.isEmpty());
+                assertFalse(received.isEmpty(),a.diagnostics(12000,20)+" / "+b.diagnostics(12000,20));assertArrayEquals(skin.bytes(),received.getLast().bytes());
             }
         }
+    }
+    private static com.customcosmetics.features.skins.SkinTransfer.Source skinSource(com.customcosmetics.features.skins.SkinTransfer.Document document,List<com.customcosmetics.features.skins.SkinTransfer.Document> received){return new com.customcosmetics.features.skins.SkinTransfer.Source(){public com.customcosmetics.features.skins.SkinTransfer.Document local(){return document;}public boolean receiving(){return received!=null;}public void received(UUID id,com.customcosmetics.features.skins.SkinTransfer.Document skin){if(received!=null&&skin!=null)received.add(skin);}};}
+    @Test void skinTrafficSharesABoundedBudgetWithoutReplacingPositionTraffic()throws Exception{
+        var arena=new Arena(0);arena.a.skins(skinSource(new com.customcosmetics.features.skins.SkinTransfer.Document(new byte[128*1024],false),null));arena.b.skins(skinSource(null,new ArrayList<>()));arena.run(3200,true);
+        var cipher=new UdpPacket(HexFormat.of().parseHex(ID),HexFormat.of().parseHex(KEY),false,4);long bytes=0;
+        for(var packet:arena.sent)if(packet.fromA&&packet.bytes[4]==1){var message=JsonParser.parseString(new String(cipher.decode(packet.bytes).body(),java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();if(message.get("type").getAsString().equals("skin"))bytes+=packet.bytes.length+28;}
+        assertTrue(bytes>4096);assertTrue(bytes<=4096+Math.ceil(3200*16*1024/1000.0));assertFalse(arena.br.isEmpty());assertEquals(Set.of(B),arena.a.direct());
     }
     private static void drain(DatagramSocket socket,PartyPeerClient peer,long now)throws Exception{
         for(int i=0;i<64;i++)try{var packet=new DatagramPacket(new byte[1200],1200);socket.receive(packet);

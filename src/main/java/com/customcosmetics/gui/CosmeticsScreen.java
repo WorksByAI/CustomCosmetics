@@ -24,7 +24,7 @@ import static com.customcosmetics.gui.PinkUi.*;
 
 /** Independent pink cosmetics studio, with scrollable settings and keyboard focus. */
 public final class CosmeticsScreen extends Screen {
-    public enum Page { MAIN, SIZE, NICK, COLOR, CHROMA, PRESETS, BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, POSITION_RECIPIENTS, ANIMATIONS, DAMAGE, ITEMS, ACCESSORIES, PARTY, SYNC, SEARCH }
+    public enum Page { MAIN, SIZE, NICK, COLOR, CHROMA, PRESETS, BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, POSITION_RECIPIENTS, ANIMATIONS, DAMAGE, ITEMS, ACCESSORIES, MAP, PARTY, SKINS, SYNC, SEARCH }
     private static final ScreenSession SESSION = new ScreenSession();
     private final Screen parent;
     private Page page;
@@ -86,10 +86,10 @@ public final class CosmeticsScreen extends Screen {
         viewBottom = panelY + panelHeight - 18;
         rowY = viewTop;
 
-        Page[] pages = {Page.ANIMATIONS, Page.DAMAGE, Page.ACCESSORIES, Page.ITEMS, Page.NICK, Page.SIZE, Page.PARTY};
-        String[] names = {"Animations", "Damage Splash", "Equipments (Beta)", "Item Customization", "NickTweaks", "Player Size", "Sharing"};
+        Page[] pages = {Page.ANIMATIONS, Page.DAMAGE, Page.ACCESSORIES, Page.ITEMS, Page.MAP, Page.NICK, Page.SIZE, Page.PARTY, Page.SKINS};
+        String[] names = {"Animations", "Damage Splash", "Equipments (Beta)", "Item Customization", "Map Editor", "NickTweaks", "Player Size", "Sharing", "Skins"};
         int navTop = panelHeight < 300 ? 52 : 64;
-        int navGap = Math.clamp((panelHeight - navTop - 52) / (pages.length+1), 16, 31);
+        int navGap = Math.clamp((panelHeight - navTop - 52) / (pages.length+1), 12, 31);
         for (int i = 0; i < pages.length; i++) {
             Page target = pages[i];
             int slot = i < 1 ? i : i + 1;
@@ -145,6 +145,8 @@ public final class CosmeticsScreen extends Screen {
             case ANIMATIONS -> animations();
             case DAMAGE -> damageSplash();
             case ITEMS -> itemCosmetics();
+            case MAP -> mapEditor();
+            case SKINS -> skins();
             case ACCESSORIES -> accessories();
             case PARTY -> party();
             case POSITION_RECIPIENTS -> positionRecipients();
@@ -164,6 +166,8 @@ public final class CosmeticsScreen extends Screen {
             case ANIMATIONS -> "Animations";
             case DAMAGE -> "Damage Splash";
             case ITEMS -> "Item Customization";
+            case MAP -> "Map Editor";
+            case SKINS -> "Skins";
             case ACCESSORIES, BLOCKED_ACCESSORIES -> "Equipments (Beta)";
             case PARTY, POSITION_RECIPIENTS -> "Sharing";
             case SYNC -> "Settings";
@@ -174,7 +178,7 @@ public final class CosmeticsScreen extends Screen {
 
     private List<SettingsSearch.Entry> buildSearchIndex(){
         var entries=new ArrayList<SettingsSearch.Entry>();
-        for(var target:List.of(Page.SIZE,Page.NICK,Page.COLOR,Page.CHROMA,Page.PRESETS,Page.ANIMATIONS,Page.DAMAGE,Page.ITEMS,Page.ACCESSORIES,Page.PARTY,Page.SYNC)){
+        for(var target:List.of(Page.SIZE,Page.NICK,Page.COLOR,Page.CHROMA,Page.PRESETS,Page.ANIMATIONS,Page.DAMAGE,Page.ITEMS,Page.MAP,Page.ACCESSORIES,Page.PARTY,Page.SKINS,Page.SYNC)){
             var screen=new CosmeticsScreen(null,target);screen.width=width;screen.height=height;screen.init();entries.addAll(screen.searchOptions);
         }
         entries.add(new SettingsSearch.Entry("Cape","Show Custom Capes","Cape visibility 披风", "CAPE",0));
@@ -744,6 +748,43 @@ public final class CosmeticsScreen extends Screen {
             ConfigManager.syncProxySource = sources.get((sources.indexOf(ConfigManager.syncProxySource) + 1) % sources.size());
             proxyChanged(); rebuildWidgets();
         })); rowY += 36;
+    }
+
+    private PinkUi.Action fullButton(String title,Runnable action){return fullButton(title,action,false);}
+    private void skins(){
+        fullButton("Import Local Skin",()->com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,new SkinImportScreen(this)));
+        if(minecraft.player!=null&&com.customcosmetics.features.skins.LocalSkins.hasLocal()){int height=panelHeight<300?76:142;int y=card(height),half=contentWidth/2;art.add(g->{CapePreview.drawAccessories(g,contentX,y+4,half,height-8,true,WardrobeCamera.DEFAULT);CapePreview.drawAccessories(g,contentX+half,y+4,half,height-8,false,WardrobeCamera.DEFAULT);});}
+        toggleRow("Show My Local Skin","Your local import works without a server connection.",()->ConfigManager.localSkinEnabled,v->ConfigManager.localSkinEnabled=v);
+        fullButton("Remove Local Skin",()->{try{com.customcosmetics.features.skins.LocalSkins.clear();}catch(java.io.IOException error){com.customcosmetics.features.cape.CapeCosmetics.notice(error.getMessage());}});
+        fullButton("Skin Model: "+(ConfigManager.localSkinSlim?"Slim (Alex)":"Wide (Steve)"),()->{com.customcosmetics.features.skins.LocalSkins.slim(!ConfigManager.localSkinSlim);rebuildWidgets();});
+        toggleRow("Share Skin via P2P","Only established Sharing direct connections. No relay or server upload.",()->ConfigManager.skinP2pSharing,v->ConfigManager.skinP2pSharing=v);
+        toggleRow("Receive P2P Skins","Restore the original skin when the direct connection ends.",()->ConfigManager.skinP2pReceiving,v->ConfigManager.skinP2pReceiving=v);
+        label("Established P2P peers: "+com.customcosmetics.features.skins.LocalSkins.directCount(),contentX,rowY+5,MUTED,contentWidth);rowY+=24;
+        for(var line:font.split(Component.literal("PNG up to 2 MiB. Model pixels are preserved. Transfers are limited to 16 KiB/s total, with missing-chunk retries."),contentWidth-16)){int y=rowY;art.add(g->g.text(font,line,contentX+8,y,MUTED,false));rowY+=12;}
+    }
+    private void mapEditor(){
+        toggleRow("Map Editor","Local edits. Other players keep the original map.",()->com.customcosmetics.features.map.MapEditor.enabled,v->{com.customcosmetics.features.map.MapEditor.enabled=v;com.customcosmetics.features.map.MapEditor.refresh();});
+        fullButton("Mode: "+(com.customcosmetics.features.map.MapEditor.mode==com.customcosmetics.features.map.MapEdits.Mode.LEGIT?"Legit":"Cheating"),()->{
+            com.customcosmetics.features.map.MapEditor.mode=com.customcosmetics.features.map.MapEditor.mode==com.customcosmetics.features.map.MapEdits.Mode.LEGIT?com.customcosmetics.features.map.MapEdits.Mode.CHEATING:com.customcosmetics.features.map.MapEdits.Mode.LEGIT;com.customcosmetics.features.map.MapEditor.refresh();rebuildWidgets();
+        });
+        String explanation=com.customcosmetics.features.map.MapEditor.mode==com.customcosmetics.features.map.MapEdits.Mode.LEGIT?"Legit: keeps real collision and mining. Air additions are visual only.":"Cheating: changes client blocks and collision. The server may reject movement.";
+        for(var line:font.split(Component.literal(explanation),contentWidth-16)){int y=rowY;art.add(g->g.text(font,line,contentX+8,y,MUTED,false));rowY+=12;}rowY+=6;
+        toggleRow("Dungeon Only","Also available in local single-player worlds.",()->com.customcosmetics.features.map.MapEditor.dungeonOnly,v->{com.customcosmetics.features.map.MapEditor.dungeonOnly=v;com.customcosmetics.features.map.MapEditor.refresh();});
+        toggleRow("Edit Mode","Right: paint. Shift+right: place. Left: remove edit. Middle: pick material.",()->com.customcosmetics.features.map.MapEditor.editing,v->{com.customcosmetics.features.map.MapEditor.editing=v;if(v)com.customcosmetics.features.map.MapEditor.enabled=true;com.customcosmetics.features.map.MapEditor.refresh();});
+        fieldRow("Block Material","Block Material",com.customcosmetics.features.map.MapEditor.material,128,"Example: minecraft:gold_block. Air hides a real block visually in Legit mode.",220,v->{if(com.customcosmetics.features.map.MapEditor.state(v)!=null)com.customcosmetics.features.map.MapEditor.material=v;});
+        fullButton("Undo",()->com.customcosmetics.features.map.MapEditor.undo());
+        fullButton("Clear Current Edits",()->com.customcosmetics.features.map.MapEditor.clear());
+        label("Room Presets",contentX,rowY+5,PINK,contentWidth);rowY+=26;
+        toggleRow("Recognize Dungeon Rooms","Matches saved ceiling fingerprints and four rotations. No minimap.",()->com.customcosmetics.features.map.MapEditor.autoRooms,v->{com.customcosmetics.features.map.MapEditor.autoRooms=v;com.customcosmetics.features.map.MapEditor.save();});
+        fieldRow("Preset Name","Preset Name",com.customcosmetics.features.map.MapEditor.presetName,48,"Saved locally. Room centers are automatic; use /customcosmetics map anchor for a manual anchor.",200,v->com.customcosmetics.features.map.MapEditor.presetName=v);
+        fullButton("Save Current Preset",()->com.customcosmetics.features.map.MapCommands.run(com.customcosmetics.features.map.MapEditor::savePreset));
+        var names=com.customcosmetics.features.map.MapEditor.presets();if(!names.isEmpty())fullButton("Select Saved Preset: "+com.customcosmetics.features.map.MapEditor.presetName,()->{int i=names.indexOf(com.customcosmetics.features.map.MapEditor.presetName);com.customcosmetics.features.map.MapEditor.presetName=names.get((i+1)%names.size());rebuildWidgets();});
+        fullButton("Load Preset",()->com.customcosmetics.features.map.MapCommands.run(()->com.customcosmetics.features.map.MapEditor.loadPreset(0)));
+        fullButton("Load Rotated 90°",()->com.customcosmetics.features.map.MapCommands.run(()->com.customcosmetics.features.map.MapEditor.loadPreset(1)));
+        fullButton("Load Rotated 180°",()->com.customcosmetics.features.map.MapCommands.run(()->com.customcosmetics.features.map.MapEditor.loadPreset(2)));
+        fullButton("Load Rotated 270°",()->com.customcosmetics.features.map.MapCommands.run(()->com.customcosmetics.features.map.MapEditor.loadPreset(3)));
+        fullButton("Delete Saved Preset",()->{com.customcosmetics.features.map.MapEditor.deletePreset();rebuildWidgets();});
+        label("Region: /customcosmetics map pos1, pos2, fill",contentX,rowY+5,MUTED,contentWidth);rowY+=24;
     }
 
     private void connectionStatus(){

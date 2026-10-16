@@ -13,6 +13,6 @@ public abstract class CapeSkinMixin {
     @Inject(method="getSkin",at=@At("RETURN"),cancellable=true)
     private void customcosmetics$cape(CallbackInfoReturnable<PlayerSkin> callback){
         var player=(AbstractClientPlayer)(Object)this;
-        callback.setReturnValue(CapeCosmetics.skin(player.getUUID(),callback.getReturnValue()));
+        callback.setReturnValue(com.customcosmetics.features.skins.LocalSkins.skin(player.getUUID(),CapeCosmetics.skin(player.getUUID(),callback.getReturnValue())));
     }
 }

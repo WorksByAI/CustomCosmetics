@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class NativeFileDialogsTest {
+    @Test void skinPickerUsesItsOwnTitleAndPngFilter(){var request=new NativeFileDialogs.Request(true,Path.of("."),false,0,"skin");assertEquals("Choose Local Skin",request.title());assertEquals("Skin PNG",request.description());assertArrayEquals(new String[]{"png"},request.extensions());}
     private static final NativeFileDialogs.Request REQUEST=new NativeFileDialogs.Request(false,Path.of("."),false,0);
     @Test void onlyOneDialogOpensAndResultsWaitForTheUiQueue(){
         var pending=new AtomicReference<Consumer<NativeFileDialogs.Result>>();var opens=new AtomicInteger();var queue=new ArrayList<Runnable>();var results=new ArrayList<NativeFileDialogs.Result>();

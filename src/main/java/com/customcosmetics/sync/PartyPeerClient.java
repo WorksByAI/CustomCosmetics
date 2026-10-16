@@ -4,6 +4,7 @@ package com.customcosmetics.sync;
 import com.customcosmetics.features.party.PartyRoster;
 import com.customcosmetics.features.party.PositionAudience;
 import com.google.gson.*;
+import com.customcosmetics.features.skins.SkinTransfer;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -30,6 +31,7 @@ public final class PartyPeerClient implements AutoCloseable {
         long probesSent,probesReceived,pongsReceived,statesReceived,replays,invalidPackets,blockedSources,expiredStates,sendFailures,budgetDrops;
         List<InetSocketAddress> candidates=List.of();final Map<InetSocketAddress,PeerPath> paths=new HashMap<>();final Map<Long,Pending> pending=new HashMap<>();
         InetSocketAddress address,observedAddress;
+        SkinTransfer skin;
     }
     private static final class Counters {long[] outgoing=new long[3];Replay[] replay={null,new Replay(),new Replay()};long ping;}
     private final Sender sender;private final Receiver receiver;private final Map<String,Peer> peers=new HashMap<>();
@@ -40,7 +42,9 @@ public final class PartyPeerClient implements AutoCloseable {
     private long permittedUntil;
     private double tokens=25000;private long budgetTime;
     private long offersReceived,offersAccepted,offersRejected;private String lastRejection="";
+    private SkinTransfer.Source skinSource=SkinTransfer.Source.NONE;private double skinTokens=4096;private long skinBudgetTime;private int skinRoundRobin;
     public PartyPeerClient(Sender sender,Receiver receiver){this.sender=sender;this.receiver=receiver;}
+    public void skins(SkinTransfer.Source source){skinSource=Objects.requireNonNull(source);}
     public void context(Context next){
         if(!Objects.equals(context,next)){close();context=next;}
     }
@@ -106,6 +110,7 @@ public final class PartyPeerClient implements AutoCloseable {
         Peer peer=peers.get(id);
         if(peer==null){if(peers.size()>=MAX_PEERS||!counters.containsKey(id)&&counters.size()>=4096){reject("Direct peer capacity reached");return;}peers.values().removeIf(p->p.uuid.equals(uuid));peer=new Peer();peer.id=id;peer.key=key;peer.uuid=uuid;peer.name=name;peer.epoch=epoch;peer.scope=scope;peer.probingSince=now;
             peer.counters=counters.computeIfAbsent(id,ignored->new Counters());
+            peer.skin=new SkinTransfer(document->skinSource.received(uuid,document));
             peer.cipher=new UdpPacket(HexFormat.of().parseHex(id),HexFormat.of().parseHex(key),context.self().toString().compareTo(uuid.toString())<0,4);peers.put(id,peer);
         }else if(!peer.key.equals(key)||peer.epoch!=epoch||peer.scope!=scope||!peer.uuid.equals(uuid)){reject("Conflicting pair session");return;}
         peer.deadline=now+remaining;peer.candidates=List.copyOf(candidates);peer.relayRtt=Math.clamp(grant.get("relayRttMs").getAsDouble(),0,10000);
@@ -142,6 +147,16 @@ public final class PartyPeerClient implements AutoCloseable {
             }
         }
         var result=Set.copyOf(next);if(!result.equals(selected)){for(var p:peers.values())if(result.contains(p.uuid)!=selected.contains(p.uuid))p.nextProbe=0;selected=result;changed=true;}
+        if(skinSource!=SkinTransfer.Source.NONE&&!peers.isEmpty()){
+            var local=skinSource.local();boolean receive=skinSource.receiving();var ordered=new ArrayList<>(peers.values());int first=Math.floorMod(skinRoundRobin++,ordered.size());
+            for(int i=0;i<ordered.size();i++){var p=ordered.get((first+i)%ordered.size());if(p.want&&p.remoteWant&&p.address!=null)p.skin.tick(now,local,receive,m->sendSkin(p,m,now));else p.skin.suspend();}
+        }
+    }
+    private boolean sendSkin(Peer peer,JsonObject message,long now){
+        message.addProperty("type","skin");message.addProperty("scope",context.scope());message.addProperty("world",context.world());
+        int size=message.toString().getBytes(StandardCharsets.UTF_8).length+UdpPacket.HEADER+16+28;
+        skinTokens=Math.min(4096,skinTokens+Math.max(0,now-skinBudgetTime)*(16*1024/1000.0));skinBudgetTime=now;if(skinTokens<size)return false;
+        if(send(peer,1,message,peer.address,now)){skinTokens-=size;return true;}return false;
     }
     public void publish(JsonObject state,long now){
         for(var p:peers.values()){
@@ -182,6 +197,11 @@ public final class PartyPeerClient implements AutoCloseable {
                     if(p.address==null||!p.paths.containsKey(p.address)||path.rtt<p.paths.get(p.address).rtt)p.address=source;
                 }else return true;
                 p.remoteWantUntil=now+1000;if(p.remoteWant!=want){p.remoteWant=want;changed=true;}return true;
+            }
+            if(type.equals("skin")){
+                if(skinSource==SkinTransfer.Source.NONE||!selected.contains(p.uuid)||!p.remoteWant||m.get("scope").getAsLong()!=p.scope||!m.get("world").getAsString().equals(context.world()))return true;
+                var path=p.paths.get(source);if(path==null||path.good<3||now-path.lastPong>path.freshness())return true;
+                p.skin.receive(m,now,skinSource.local(),skinSource.receiving());return true;
             }
             if(!type.equals("state")||m.get("scope").getAsLong()!=p.scope||!m.get("world").getAsString().equals(context.world()))return true;
             String channel=m.get("channel").getAsString();long ttl=channel.equals("position")?3000:channel.equals("blocking")?1250:0;

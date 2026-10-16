@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.4.3-beta.2
+
+- Map Editor: Add material-only Legit edits, visual air blocks and optional client-collision Cheating mode.
+- Map Editor: Add region editing, undo and rotated room presets.
+- Equipments: Add synchronized position adjustments for each part.
+- Skins: Add local PNG imports and optional direct P2P sharing, with bounded transfers and disconnect fallback.
+
 ## 1.4.3-beta.1
 
 - Equipments: Add Mini-Me, a seated companion wearing your skin.

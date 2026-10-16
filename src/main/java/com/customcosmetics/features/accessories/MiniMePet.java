@@ -43,6 +43,7 @@ public final class MiniMePet {
         var mini=snapshot(owner);var mount=mount(part.scale(),owner.ageInTicks,part.side());
         pose.pushPose();
         try{
+            AccessoryLayer.offset(pose,part);
             pose.translate(mount.x(),mount.y(),mount.z());float scale=(float)mount.scale();pose.scale(scale,scale,scale);
             MiniMeRenderAccess.submit(queue,model(owner.skin.model()==PlayerModelType.SLIM),mini,pose,owner.skin.body().texturePath(),light,OverlayTexture.NO_OVERLAY);
         }finally{pose.popPose();}

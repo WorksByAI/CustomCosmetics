@@ -27,6 +27,8 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
         com.customcosmetics.features.cape.CapeCosmetics.init();
         com.customcosmetics.features.nickname.NicknamePresets.init();
         com.customcosmetics.features.items.ItemCosmetics.init();
+        com.customcosmetics.features.map.MapEditor.init();
+        com.customcosmetics.features.skins.LocalSkins.init();
         PresenceSync.init();
         com.customcosmetics.features.party.PartyFeatures.init();
         com.customcosmetics.features.damage.DamageSplash.init();
@@ -35,6 +37,7 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (com.customcosmetics.sync.RemoteAccess.online()) com.customcosmetics.features.animations.PresenceWorld.init();
             ConfigManager.flushPendingSave();
+            com.customcosmetics.features.map.MapEditor.tick(client);
             com.customcosmetics.features.damage.DamageSplash.tick(client);
             com.customcosmetics.features.cape.CapeCosmetics.tick();
             com.customcosmetics.features.items.ItemCosmetics.tick();
@@ -43,6 +46,7 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
             com.customcosmetics.update.UpdateChecker.tick(client);
             SwordBlocking.tick(client);
             com.customcosmetics.sync.RealtimeSync.tick(client);
+            com.customcosmetics.features.skins.LocalSkins.tick();
             com.customcosmetics.sync.SyncDebug.tick();
             com.customcosmetics.features.animations.ViewModelAnimations.tick(client);
             com.customcosmetics.features.blocking.VisualBlockhit.tick(client);
@@ -54,6 +58,7 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
         });
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
             com.customcosmetics.features.cape.CapeCosmetics.close();
+            com.customcosmetics.features.skins.LocalSkins.close();
             com.customcosmetics.gui.BlockingPreview.close();
             com.customcosmetics.sync.BlockingSync.disconnect();
             com.customcosmetics.sync.PartySync.disconnect();

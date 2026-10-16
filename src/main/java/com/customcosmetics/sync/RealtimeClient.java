@@ -55,6 +55,7 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
         if(session==null||!session.baseUrl().equals(base))throw new IllegalArgumentException("Realtime requires an authenticated service session");
         this.forceWss=forceWss;this.datagrams=datagrams;this.requestedUdpPort=requestedUdpPort;token=session.token();self=session.uuid();
         peers=new PartyPeerClient((bytes,address)->{if(udp==null)throw new java.io.IOException("UDP unavailable");udp.send(new DatagramPacket(bytes,bytes.length,address));},m->acceptRecord(m,0,RealtimeConnections.Path.P2P));
+        peers.skins(com.customcosmetics.features.skins.LocalSkins.exchange());
         connecting=http.newWebSocketBuilder().connectTimeout(Duration.ofSeconds(8)).subprotocols("customcosmetics.realtime.v1").buildAsync(endpoint(base),this);
         connecting.whenComplete((ws,error)->{if(error!=null)fail("WSS connection failed ("+error.getClass().getSimpleName()+")");else if(closed)ws.abort();});
         worker.scheduleWithFixedDelay(()->{try{pump();}catch(Exception invalid){fail("Realtime worker failed ("+invalid.getClass().getSimpleName()+")");}},0,10,TimeUnit.MILLISECONDS);

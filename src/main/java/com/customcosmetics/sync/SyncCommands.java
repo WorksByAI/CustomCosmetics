@@ -57,6 +57,7 @@ public final class SyncCommands {
             .then(ClientCommands.literal("off").executes(context->SyncDebug.setEnabled(false)))
             .then(ClientCommands.literal("status").executes(context->SyncDebug.status())));
         root.then(PlayerBlockCommands.command());
+        root.then(com.customcosmetics.features.map.MapCommands.command());
         dispatcher.register(root);
     }
 
