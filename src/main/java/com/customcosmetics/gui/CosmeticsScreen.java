@@ -24,7 +24,7 @@ import static com.customcosmetics.gui.PinkUi.*;
 
 /** Independent pink cosmetics studio, with scrollable settings and keyboard focus. */
 public final class CosmeticsScreen extends Screen {
-    public enum Page { MAIN, SIZE, NICK, COLOR, CHROMA, PRESETS, BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, POSITION_RECIPIENTS, ANIMATIONS, ITEMS, ACCESSORIES, PARTY, SYNC }
+    public enum Page { MAIN, SIZE, NICK, COLOR, CHROMA, PRESETS, BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, POSITION_RECIPIENTS, ANIMATIONS, DAMAGE, ITEMS, ACCESSORIES, PARTY, SYNC, SEARCH }
     private static final ScreenSession SESSION = new ScreenSession();
     private final Screen parent;
     private Page page;
@@ -51,6 +51,11 @@ public final class CosmeticsScreen extends Screen {
     private String blockedPlayerName = "";
     private String blockedPlayerSearch = "";
     private boolean pinnedNickname, pinnedSize, pinnedAccessories, draggingScroll;
+    private final List<SettingsSearch.Entry> searchOptions=new ArrayList<>();
+    private List<SettingsSearch.Entry> searchIndex;
+    private String searchQuery="";
+    private PinkUi.Field searchField;
+    private int searchIndexWidth,searchIndexHeight;
     private record Placement(AbstractWidget widget, int y) {}
 
     public CosmeticsScreen(Screen parent, Page page) {
@@ -64,6 +69,8 @@ public final class CosmeticsScreen extends Screen {
 
     @Override protected void init() {
         navigation.clear(); controls.clear(); art.clear(); pinnedArt.clear();
+        searchOptions.clear();
+        if(searchIndexWidth!=width||searchIndexHeight!=height){searchIndex=null;searchIndexWidth=width;searchIndexHeight=height;}
         hexField = null; picker = null;
         refreshIntervalField = null; syncNowButton = null;
         blockingMode = null;
@@ -79,10 +86,10 @@ public final class CosmeticsScreen extends Screen {
         viewBottom = panelY + panelHeight - 18;
         rowY = viewTop;
 
-        Page[] pages = {Page.ANIMATIONS, Page.ACCESSORIES, Page.ITEMS, Page.NICK, Page.SIZE, Page.PARTY};
-        String[] names = {"Animations", "Equipments (Beta)", "Item Customization", "NickTweaks", "Player Size", "Sharing"};
-        int navTop = panelHeight < 220 ? 51 : 64;
-        int navGap = Math.clamp((panelHeight - navTop - 52) / (pages.length+1), 14, 31);
+        Page[] pages = {Page.ANIMATIONS, Page.DAMAGE, Page.ACCESSORIES, Page.ITEMS, Page.NICK, Page.SIZE, Page.PARTY};
+        String[] names = {"Animations", "Damage Splash", "Equipments (Beta)", "Item Customization", "NickTweaks", "Player Size", "Sharing"};
+        int navTop = panelHeight < 300 ? 52 : 64;
+        int navGap = Math.clamp((panelHeight - navTop - 52) / (pages.length+1), 16, 31);
         for (int i = 0; i < pages.length; i++) {
             Page target = pages[i];
             int slot = i < 1 ? i : i + 1;
@@ -101,6 +108,15 @@ public final class CosmeticsScreen extends Screen {
         navigation.add(addWidget(new RepositoryButton(panelX + 12, panelY + panelHeight - 42)));
         navigation.add(addWidget(new PinkUi.Action(panelX+47,panelY+panelHeight-42,sideWidth-55,30,"Settings",false,()->open(Page.SYNC)).selected(()->page==Page.SYNC)));
         navigation.add(addWidget(new PinkUi.Action(panelX + panelWidth - 32, panelY + 15, 20, 20, "×", false, this::onClose)));
+        int searchWidth=Math.min(170,contentWidth/2);
+        searchField=new PinkUi.Field(font,contentX+contentWidth-searchWidth-24,panelY+16,searchWidth,"Search Settings",22);
+        searchField.setMaxLength(128);searchField.setHint(Component.literal("Search settings..."));searchField.setValue(searchQuery);
+        searchField.setResponder(value->{
+            searchQuery=value;scroll=0;activity();
+            if(searchIndex==null)searchIndex=buildSearchIndex();
+            page=Page.SEARCH;rebuildWidgets();setFocused(searchField);searchField.moveCursorToEnd(false);
+        });
+        navigation.add(addWidget(searchField));
         pinnedNickname = panelHeight >= 360 && (page == Page.NICK || page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS);
         pinnedSize = panelHeight >= 360 && page == Page.SIZE;
         pinnedAccessories = panelHeight >= 360 && page == Page.ACCESSORIES;
@@ -127,13 +143,15 @@ public final class CosmeticsScreen extends Screen {
             case PRESETS -> presets();
             case BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES -> blockedPlayers();
             case ANIMATIONS -> animations();
+            case DAMAGE -> damageSplash();
             case ITEMS -> itemCosmetics();
             case ACCESSORIES -> accessories();
             case PARTY -> party();
             case POSITION_RECIPIENTS -> positionRecipients();
             case SYNC -> sync();
+            case SEARCH -> searchResults();
         }
-        if (page == Page.SIZE || page == Page.NICK || page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS) credit();
+        if (page == Page.SIZE || page == Page.NICK || page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS || page == Page.DAMAGE) credit();
         contentBottom = rowY + 5;
         scroll = Math.clamp(scroll, 0, maxScroll());
         positionControls();
@@ -144,17 +162,109 @@ public final class CosmeticsScreen extends Screen {
             case MAIN, SIZE -> "Player Size";
             case NICK, COLOR, CHROMA, PRESETS, BLOCKED_NICKS -> "NickTweaks";
             case ANIMATIONS -> "Animations";
+            case DAMAGE -> "Damage Splash";
             case ITEMS -> "Item Customization";
             case ACCESSORIES, BLOCKED_ACCESSORIES -> "Equipments (Beta)";
             case PARTY, POSITION_RECIPIENTS -> "Sharing";
             case SYNC -> "Settings";
             case BLOCKED_CAPES -> "Cape";
+            case SEARCH -> "Search";
         };
+    }
+
+    private List<SettingsSearch.Entry> buildSearchIndex(){
+        var entries=new ArrayList<SettingsSearch.Entry>();
+        for(var target:List.of(Page.SIZE,Page.NICK,Page.COLOR,Page.CHROMA,Page.PRESETS,Page.ANIMATIONS,Page.DAMAGE,Page.ITEMS,Page.ACCESSORIES,Page.PARTY,Page.SYNC)){
+            var screen=new CosmeticsScreen(null,target);screen.width=width;screen.height=height;screen.init();entries.addAll(screen.searchOptions);
+        }
+        entries.add(new SettingsSearch.Entry("Cape","Show Custom Capes","Cape visibility 披风", "CAPE",0));
+        entries.add(new SettingsSearch.Entry("Cape","Choose Image & Crop","Import local cape image", "CAPE",0));
+        entries.add(new SettingsSearch.Entry("Cape","Choose Cape + Elytra","Import cape texture", "CAPE",0));
+        entries.add(new SettingsSearch.Entry("Cape","Submit for Review","Upload cape for approval", "CAPE",0));
+        if(!"shimmer".equals(ConfigManager.nickTweaksGradientStyle))for(String title:List.of("Shimmer Size","Shimmer Speed","Shimmer Interval"))
+            entries.add(new SettingsSearch.Entry("NickTweaks",title,"Requires Shimmer: select the Shimmer gradient style first.",Page.COLOR.name(),0));
+        if(!ConfigManager.animationDisableSwing)entries.add(new SettingsSearch.Entry("Animations","Terminator Only","Requires Disable Swing Animation to be enabled.",Page.ANIMATIONS.name(),0));
+        if(ConfigManager.animationDisableSwing&&!ConfigManager.animationTerminatorOnly)for(String title:List.of("Swing Speed","Ignore Haste"))
+            entries.add(new SettingsSearch.Entry("Animations",title,"Requires swing animation: turn off Disable Swing Animation first.",Page.ANIMATIONS.name(),0));
+        return List.copyOf(entries);
+    }
+    private void indexOption(String title,String description,int y){searchOptions.add(new SettingsSearch.Entry(pageTitle(),title,description,page.name(),Math.max(0,y-viewTop)));}
+    private void searchResults(){
+        if(searchIndex==null)searchIndex=buildSearchIndex();
+        var results=SettingsSearch.find(searchIndex,searchQuery);
+        label(searchQuery.isBlank()?"Type a setting name to search.":results.size()+" results",contentX,rowY+4,MUTED,contentWidth);rowY+=24;
+        for(var result:results){
+            int y=rowY;
+            var action=fullButton(result.title(),()->{
+                if(result.page().equals("CAPE")){com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,new CapeScreen(this));return;}
+                open(Page.valueOf(result.page()));scroll=Math.clamp(result.offset(),0,maxScroll());positionControls();
+                if(result.description().startsWith("Requires "))toast(result.description());
+            },false);
+            action.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(result.section()+" · "+result.title())));
+            label(result.section(),contentX+8,y+29,DIM,contentWidth-16);rowY+=14;
+        }
+    }
+
+    private void damageSplash() {
+        int top=card(100);
+        label("Preview",contentX+10,top+9,PINK,contentWidth-20);
+        label("Critical",contentX+12,top+29,MUTED,contentWidth/2-24);
+        label("Normal",contentX+contentWidth/2+12,top+29,MUTED,contentWidth/2-24);
+        art.add(g->{
+            double duration=com.customcosmetics.features.damage.DamageAnimation.bounded(ConfigManager.damageSplashDuration,1.2,.3,3);
+            double progress="default".equals(ConfigManager.damageSplashStyle)?0:(System.nanoTime()/1_000_000_000.0%duration)/duration;
+            for(int i=0;i<2;i++){
+                boolean critical=i==0;
+                var hit=com.customcosmetics.features.damage.DamageText.parse(critical?"✧1,234,567✧":"32,451");
+                var sample=com.customcosmetics.features.damage.DamageSplash.styled(hit,0xFFFFFF);
+                var frame=com.customcosmetics.features.damage.DamageAnimation.frame(ConfigManager.damageSplashStyle,progress,critical,.4,.2,0);
+                if(frame.alpha()<=.01f)continue;
+                float size=(float)Math.min(ConfigManager.damageSplashSize*frame.scale(),(contentWidth/2.0-24)/Math.max(1,font.width(sample)));
+                g.pose().pushMatrix();
+                try{
+                    g.pose().translate((float)(contentX+contentWidth*(i==0?.25:.75)+frame.x()*35),(float)(top+66-frame.y()*35));
+                    g.pose().scale(size,size);
+                    g.text(font,sample,-font.width(sample)/2,0,((int)(frame.alpha()*255)<<24)|0xFFFFFF,ConfigManager.damageSplashShadow);
+                }finally{g.pose().popMatrix();}
+            }
+        });
+        toggleRow("Damage Splash","Local damage numbers in Hypixel SkyBlock.",()->ConfigManager.damageSplashEnabled,v->ConfigManager.damageSplashEnabled=v);
+        fullButton("Animation: "+capitalize(ConfigManager.damageSplashStyle),()->{
+            var styles=com.customcosmetics.features.damage.DamageAnimation.STYLES;
+            ConfigManager.damageSplashStyle=styles.get((styles.indexOf(ConfigManager.damageSplashStyle)+1)%styles.size());changed();rebuildWidgets();
+        },false);
+        sliderGrid(List.of(
+            new NumericSetting("Size",()->ConfigManager.damageSplashSize,.25,3,.05,1,v->ConfigManager.damageSplashSize=v),
+            new NumericSetting("Duration (seconds)",()->ConfigManager.damageSplashDuration,.3,3,.1,1.2,v->ConfigManager.damageSplashDuration=v)));
+        damageColor("Gradient Start",true);damageColor("Gradient End",false);
+        var symbol=fieldRow("Critical Symbol","Critical Symbol",ConfigManager.damageSplashSymbol,2,"One character; leave empty to hide.",90,value->{});
+        symbol.setResponder(value->{
+            String limited=com.customcosmetics.features.damage.DamageText.symbol(value);
+            if(!value.equals(limited)){symbol.setValue(limited);return;}
+            ConfigManager.damageSplashSymbol=limited;changed();
+        });
+        toggleRow("Bold","",()->ConfigManager.damageSplashBold,v->ConfigManager.damageSplashBold=v);
+        toggleRow("Style Normal Damage","Apply the gradient and bold style to non-critical damage too.",()->ConfigManager.damageSplashStyleNormal,v->ConfigManager.damageSplashStyleNormal=v);
+        toggleRow("Compact Numbers","Example: 1,234,567 becomes 1.2M.",()->ConfigManager.damageSplashCompact,v->ConfigManager.damageSplashCompact=v);
+        fullButton("Separator: "+capitalize(ConfigManager.damageSplashSeparator),()->{
+            var choices=List.of("none","comma","space","underscore");
+            ConfigManager.damageSplashSeparator=choices.get((choices.indexOf(ConfigManager.damageSplashSeparator)+1)%choices.size());changed();rebuildWidgets();
+        },false);
+        toggleRow("Text Shadow","",()->ConfigManager.damageSplashShadow,v->ConfigManager.damageSplashShadow=v);
+    }
+    private static String capitalize(String value){return value.substring(0,1).toUpperCase(Locale.ROOT)+value.substring(1);}
+    private void damageColor(String title,boolean start){
+        var field=fieldRow(title,title+" Color",hex(start?ConfigManager.damageSplashStartColor:ConfigManager.damageSplashEndColor),7,"#RRGGBB",110,value->{});
+        field.setResponder(value->{
+            activity();String color=value.replaceFirst("^#","");boolean valid=color.matches("[0-9a-fA-F]{6}");field.invalid(!valid);
+            if(valid){int rgb=Integer.parseInt(color,16);if(start)ConfigManager.damageSplashStartColor=rgb;else ConfigManager.damageSplashEndColor=rgb;changed();}
+        });
     }
 
     private void party(){
         label("Party Sharing",contentX,rowY+2,PINK,contentWidth);rowY+=20;
         toggleRow("Party ESP","Highlight your teammates and share your position.",()->ConfigManager.partyEspEnabled,v->ConfigManager.partyEspEnabled=v);
+        toggleRow("Chams","See loaded shared players through walls with their original skin, armor, cape and equipment.",()->ConfigManager.sharingChamsEnabled,v->ConfigManager.sharingChamsEnabled=v);
         toggleRow("IRC For Party Members","Send messages to your connected party members.",()->ConfigManager.partyChatEnabled,v->ConfigManager.partyChatEnabled=v);
         toggleRow("Connection Notifications","Show connection results after joining a party.",()->ConfigManager.partyConnectionNotifications,v->ConfigManager.partyConnectionNotifications=v);
         var prefixField=fieldRow("Chat Prefix","Chat Prefix",ConfigManager.partyChatPrefix,32,"Empty: all chat to CC Party. Commands are unchanged.",140,value->{});
@@ -179,6 +289,9 @@ public final class CosmeticsScreen extends Screen {
         var tracerField=fieldRow("Tracer Color","Tracer Color",hex(ConfigManager.partyTracerColor),7,"",110,value->{});
         tracerField.setResponder(value->{activity();boolean valid=value.matches("#?[0-9a-fA-F]{6}");tracerField.invalid(!valid);if(valid){ConfigManager.partyTracerColor=Integer.parseInt(value.replace("#",""),16);changed();}});
         toggleRow("Show Names","Show teammate names and distances.",()->ConfigManager.partyShowNames,v->ConfigManager.partyShowNames=v);
+        fullButton("Nametag Style: "+capitalize(ConfigManager.partyNametagStyle),()->{
+            ConfigManager.partyNametagStyle="vanilla".equals(ConfigManager.partyNametagStyle)?"simple":"vanilla";changed();rebuildWidgets();
+        },false,"Simple or Vanilla: applies to party and location sharing. Vanilla preserves the original name, level, colors and icons. Local data only; unavailable names fall back to the account ID.");
         var namesDistance=fieldRow("Hide Names Within (blocks)","Hide Names Within",String.format(Locale.ROOT,"%.0f",ConfigManager.partyNametagHideDistance),8,"0 = disabled",100,value->{});
         namesDistance.setResponder(value->{
             activity();boolean valid=value.matches("[0-9]{1,8}")&&Double.parseDouble(value)<=com.customcosmetics.features.party.PartyDisplayRange.MAX;namesDistance.invalid(!valid);
@@ -197,6 +310,12 @@ public final class CosmeticsScreen extends Screen {
         },false);
         fullButton("Selected Players: "+ConfigManager.positionSharingTargets.size(),()->open(Page.POSITION_RECIPIENTS),false);
         toggleRow("Show Shared Positions","Show names and distances shared by non-party players.",()->ConfigManager.positionSharingReceive,v->ConfigManager.positionSharingReceive=v);
+        toggleRow("Location Tracers","Draw lines to players whose shared positions you receive.",()->ConfigManager.locationTracersEnabled,v->ConfigManager.locationTracersEnabled=v);
+        var locationColor=fieldRow("Location Tracer Color","Location Tracer Color",hex(ConfigManager.locationTracerColor),7,"#RRGGBB",110,value->{});
+        locationColor.setResponder(value->{
+            activity();String color=value.replaceFirst("^#","");boolean valid=color.matches("[0-9a-fA-F]{6}");locationColor.invalid(!valid);
+            if(valid){ConfigManager.locationTracerColor=Integer.parseInt(color,16);changed();}
+        });
     }
 
     private void positionRecipients(){
@@ -325,8 +444,10 @@ public final class CosmeticsScreen extends Screen {
             () -> ConfigManager.swordBlockingEnabled, v -> ConfigManager.swordBlockingEnabled = v);
         fullButton("Adjust Blocking", () -> com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,
             new BlockingAdjustmentScreen(this)), false);
+        indexOption("Blocking Style","Default Jigsaw",rowY);
         blockingStyle = add(new BlockingStyleDropdown(contentX, rowY, contentWidth));
         rowY += 38;
+        indexOption("Blocking List Mode","Off Blacklist Whitelist",rowY);
         blockingMode = add(new BlockingModeDropdown(contentX, rowY, contentWidth));
         rowY += 38;
         fullButton("Edit Blocking Lists", () -> com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,
@@ -479,6 +600,7 @@ public final class CosmeticsScreen extends Screen {
             fullButton("Editing: " + (editingShimmerColors ? "Shimmer Colors" : "Gradient Colors"), () -> {
                 editingShimmerColors = !editingShimmerColors; selectedEndpoint = 0; rebuildWidgets();
             }, false);
+        indexOption(editingShimmerColors?"Shimmer Colors":"Gradient Colors","Start end color picker HEX",rowY);
         int y = card(267);
         label(editingShimmerColors ? "Shimmer Editor" : "Gradient Editor", contentX + 12, y + 12, TEXT, contentWidth - 24);
         int half = (contentWidth - 30) / 2;
@@ -656,6 +778,7 @@ public final class CosmeticsScreen extends Screen {
         }
     }
     private void sliderCell(NumericSetting setting,int x,int y,int width) {
+        indexOption(setting.title(),setting.description(),y);
         art.add(g -> outline(g,x,y,width,50,6,BORDER,CARD));
         PinkUi.Field[] number = new PinkUi.Field[1];
         number[0] = add(new PinkUi.Field(font,x + width - 56,y + 4,48,setting.title() + " value",22));
@@ -707,6 +830,7 @@ public final class CosmeticsScreen extends Screen {
     }
     private void label(String label, int x, int y, int color, int width) { art.add(g -> text(g, font, label, x, y, color, width)); }
     private void toggleRow(String title, String description, BooleanSupplier getter, Consumer<Boolean> setter) {
+        indexOption(title,description,rowY);
         var lines = description.isEmpty() ? List.<net.minecraft.util.FormattedCharSequence>of() : font.split(Component.literal(description),contentWidth - 24);
         int y = card(description.isEmpty() ? 30 : 25 + lines.size() * 11);
         label(title, contentX + 10, y + (description.isEmpty() ? 11 : 8), TEXT, contentWidth - 62);
@@ -719,6 +843,7 @@ public final class CosmeticsScreen extends Screen {
     }
 
     private PinkUi.Field fieldRow(String title,String name,String value,int maximum,String hint,int preferredWidth,Consumer<String> setter){
+        indexOption(title,name+" "+hint,rowY);
         boolean inline=contentWidth>=360;
         int fieldWidth=inline?Math.min(preferredWidth,contentWidth/2):contentWidth-20;
         int textWidth=inline?contentWidth-fieldWidth-30:contentWidth-20;
@@ -735,12 +860,17 @@ public final class CosmeticsScreen extends Screen {
         return add(field);
     }
     private PinkUi.Action fullButton(String text, Runnable callback, boolean primary) {
+        return fullButton(text,callback,primary,"");
+    }
+    private PinkUi.Action fullButton(String text,Runnable callback,boolean primary,String description){
+        indexOption(text,description,rowY);
         PinkUi.Action button = add(new PinkUi.Action(contentX, rowY, contentWidth, 26, text, primary, callback));
+        if(!description.isEmpty())button.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(description)));
         rowY += 32;
         return button;
     }
     private <T extends AbstractWidget> T add(T widget) { controls.add(new Placement(widget, widget.getY())); return addWidget(widget); }
-    private void open(Page page) { this.page = page == Page.MAIN ? Page.SIZE : page; scroll = 0; activity(); setFocused(null); rebuildWidgets(); }
+    private void open(Page page) { this.page = page == Page.MAIN ? Page.SIZE : page; searchQuery="";searchIndex=null;scroll = 0; activity(); setFocused(null); rebuildWidgets(); }
     private void selectEndpoint(int index) { selectedEndpoint = index; rebuildWidgets(); }
     private int color(int endpoint) {
         if (editingShimmerColors) return endpoint == 0 ? ConfigManager.nickTweaksShimmerColor : ConfigManager.nickTweaksShimmerHighlightColor;
@@ -855,7 +985,7 @@ public final class CosmeticsScreen extends Screen {
             text(g, font, "Custom", panelX + 16, panelY + 22, PINK, sideWidth - 30);
             int cosmeticsX = Math.max(panelX + 16, panelX + sideWidth - 14 - font.width("Cosmetics"));
             text(g, font, "Cosmetics", cosmeticsX, panelY + 35, PINK, panelX + sideWidth - 14 - cosmeticsX);
-            text(g, font, pageTitle(), contentX, panelY + 23, TEXT, contentWidth - 24);
+            text(g, font, pageTitle(), contentX, panelY + 23, TEXT, searchField.getX()-contentX-8);
             for (Consumer<GuiGraphicsExtractor> draw : pinnedArt) draw.accept(g);
             for (AbstractWidget widget : navigation) widget.extractRenderState(g, mx, my, dt);
 

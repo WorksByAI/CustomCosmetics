@@ -6,9 +6,12 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 class RealtimeCadenceTest {
-    @Test void positionHintsCannotExceedTwentyUdpOrTenWssReportsPerSecond(){
-        assertEquals(50,RealtimeClient.positionInterval(true,1));assertEquals(100,RealtimeClient.positionInterval(false,1));
+    @Test void positionHintsCannotExceedFiveUdpOrTwoWssReportsPerSecond(){
+        assertEquals(200,RealtimeClient.positionInterval(true,1));assertEquals(500,RealtimeClient.positionInterval(false,1));
         assertEquals(250,RealtimeClient.positionInterval(true,250));assertEquals(1000,RealtimeClient.positionInterval(false,Integer.MAX_VALUE));
+        assertEquals(1000,RealtimeClient.positionInterval(true,Integer.MAX_VALUE));
+        assertEquals(200,RealtimeClient.sampleInterval(true,true,1000));assertEquals(200,RealtimeClient.sampleInterval(true,false,1000));
+        assertEquals(500,RealtimeClient.sampleInterval(false,false,100));assertEquals(200,RealtimeClient.sampleInterval(false,true,50));
     }
     @Test void nearbyInterestChangesKeepPartyPositionScopeButWorldRosterAndConsentChangesDoNot(){
         var roster=new PartyRoster(Set.of(UUID.randomUUID()),Set.of(),"test");

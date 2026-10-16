@@ -4,6 +4,12 @@
   "plugin": "com.customcosmetics.mixin.CosmeticsMixinPlugin",
   "compatibilityLevel": "JAVA_25",
   "client": [
+    "ChamsMixin$Players",
+    "ChamsMixin$World",
+    "ChamsMixin$Targets",
+    "DamageSplashMixin$Metadata",
+    "DamageSplashMixin$State",
+    "DamageSplashMixin$Renderer",
     "ModernUiNicknameMixin$GuiText",
     "ModernUiNicknameMixin$PreparedText",
     "ModernUiNicknameMixin$GlyphRun",

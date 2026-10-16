@@ -16,6 +16,18 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** Inspect the compiled screen without starting Minecraft or creating a graphics context. */
 class CosmeticsScreenTest {
+    @Test void damageAndSearchAreLocalAndNeverMutateGameplayEntities()throws Exception{
+        for(String type:List.of("features/damage/DamageSplash","features/damage/DamageText","features/damage/DamageAnimation","gui/SettingsSearch")){
+            var calls=read("com/customcosmetics/"+type).methods().stream().flatMap(method->instructions(method).stream()).filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast).toList();
+            assertTrue(calls.stream().noneMatch(call->call.owner().name().stringValue().startsWith("java/net/")||call.owner().name().stringValue().startsWith("com/customcosmetics/sync/")));
+            assertTrue(calls.stream().noneMatch(call->Set.of("remove","discard","setCustomName","setHealth","setPos","send","sendPacket","sendImmediately").contains(call.name().stringValue())&&call.owner().name().stringValue().startsWith("net/minecraft/")));
+        }
+        var metadata=read("com/customcosmetics/mixin/DamageSplashMixin$Metadata");
+        assertTrue(metadata.methods().stream().flatMap(method->instructions(method).stream()).filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast).noneMatch(call->call.name().stringValue().equals("cancel")));
+        var screen=read("com/customcosmetics/gui/CosmeticsScreen");
+        assertTrue(pageReferences(code(screen,"init")).contains("DAMAGE"));
+        for(String name:List.of("damageSplash","damageColor","buildSearchIndex","searchResults"))assertTrue(code(screen,name).stream().filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast).noneMatch(call->call.owner().name().stringValue().startsWith("java/net/")||call.owner().name().stringValue().startsWith("com/customcosmetics/sync/")));
+    }
     @Test void itemCustomizationHasOneVisibleNameAndOdinFooterIsRemoved()throws Exception{
         for(String type:List.of("com/customcosmetics/gui/CosmeticsScreen","com/customcosmetics/gui/ItemAppearanceScreen")){
             var strings=read(type).methods().stream().flatMap(method->instructions(method).stream()).filter(ConstantInstruction.class::isInstance)

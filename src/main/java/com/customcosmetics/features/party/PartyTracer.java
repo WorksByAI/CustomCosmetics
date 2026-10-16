@@ -7,6 +7,8 @@ import java.util.List;
 /** Camera-facing ribbon with perspective-correct width, using the existing through-wall pipeline. */
 public final class PartyTracer {
     private PartyTracer(){}
+    public static boolean enabled(boolean party){return party?com.customcosmetics.config.ConfigManager.partyTracersEnabled:com.customcosmetics.config.ConfigManager.locationTracersEnabled;}
+    public static int color(boolean party){return 0xFF000000|(party?com.customcosmetics.config.ConfigManager.partyTracerColor:com.customcosmetics.config.ConfigManager.locationTracerColor)&0xFFFFFF;}
     public static List<Vec3> ribbon(Vec3 forward,Vec3 right,Vec3 target,double range){
         double length=target.length();
         if(!Double.isFinite(length)||length<.01)return List.of();

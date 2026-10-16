@@ -38,7 +38,7 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
     private String grantId="",peerCookie="";private long[] outgoing={0,0,0},incoming={0,0,0};
     private View sent;private Block sentBlock;private long scope,acknowledged,rosterSequence,blockSequence,positionSequence;
     private long expires,started=clock(),nextView,nextBlock,nextPosition,nextProbe,lastWs=clock(),nextUdpProbe;private boolean lastRoute;private int stopCopies;
-    private int udpPositionInterval=50,wssPositionInterval=100;
+    private int udpPositionInterval=200,wssPositionInterval=500;
     private long udpProbesSent,udpReplies;private long lastUdpReply=-1;
     private String closeReason="Client disconnected";
     public RealtimeClient(String base,PresenceAuthClient.Session session,boolean forceWss){
@@ -67,7 +67,8 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
         desired=view;block=new Block(hand,hand==BlockHand.NONE?"":itemId);this.position=position;
     }
     static boolean sameScope(View a,View b){return a.world().equals(b.world())&&a.roster().equals(b.roster())&&a.environment()==b.environment()&&a.esp()==b.esp()&&a.p2p()==b.p2p()&&a.audience().equals(b.audience());}
-    static int positionInterval(boolean udp,int recommendation){return Math.clamp(recommendation,udp?50:100,1000);}
+    static int positionInterval(boolean udp,int recommendation){return Math.clamp(recommendation,udp?200:500,1000);}
+    static int sampleInterval(boolean direct,boolean udp,int recommendation){return direct?200:positionInterval(udp,recommendation);}
     public synchronized void block(BlockHand hand,String itemId){block=new Block(hand,hand==BlockHand.NONE?"":itemId);}
     public boolean closed(){return closed;}
     public synchronized boolean ready(){return ready&&!closed&&desired.equals(sent)&&acknowledged==scope;}
@@ -135,7 +136,7 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
             var m=new JsonObject();m.addProperty("hand",value.hand().wire);m.addProperty("itemId",value.itemId());state("blocking",++blockSequence,m);sentBlock=value;nextBlock=now+100;if(stopCopies>0)stopCopies--;
         }
         var pos=position;if(sent.audience().publishes(sent.roster(),sent.esp())&&!sent.world().isEmpty()&&pos!=null&&now>=nextPosition&&PartyClient.validPosition(pos)){
-            nextPosition=now+(peers.sendingDirect()?50:positionInterval(selected,selected?udpPositionInterval:wssPositionInterval));var m=new JsonObject();m.addProperty("x",pos.x());m.addProperty("y",pos.y());m.addProperty("z",pos.z());m.addProperty("width",pos.width());m.addProperty("height",pos.height());state("position",++positionSequence,m);
+            nextPosition=now+sampleInterval(peers.sendingDirect(),selected,selected?udpPositionInterval:wssPositionInterval);var m=new JsonObject();m.addProperty("x",pos.x());m.addProperty("y",pos.y());m.addProperty("z",pos.z());m.addProperty("width",pos.width());m.addProperty("height",pos.height());state("position",++positionSequence,m);
         }
         if(canSend&&!selected&&!pendingStates.isEmpty()){String channel=pendingStates.containsKey("blocking")?"blocking":"position";send(pendingStates.remove(channel));}
     }

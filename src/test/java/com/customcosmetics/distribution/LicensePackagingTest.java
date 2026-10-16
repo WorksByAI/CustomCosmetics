@@ -11,6 +11,18 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class LicensePackagingTest {
+    @Test void release141IncludesDamageAndSharingInputsInTheClientSnapshot() throws Exception {
+        try (var zip = new ZipFile(System.getProperty("customcosmetics.fullSourceZip"))) {
+            String prefix = "CustomCosmetics-" + System.getProperty("customcosmetics.version") + "/";
+            for (String name : new String[]{"src/main/java/com/customcosmetics/features/damage/DamageSplash.java",
+                    "src/main/java/com/customcosmetics/compatibility/ChamsRenderAccess.java",
+                    "src/main/java/com/customcosmetics/features/party/TabNametags.java",
+                    "src/gametest/java/com/customcosmetics/gametest/ChamsGameTest.java", "docs/features.md"})
+                assertNotNull(zip.getEntry(prefix + name), name);
+            assertTrue(zip.stream().noneMatch(entry -> entry.getName().startsWith(prefix + "server/")
+                || entry.getName().startsWith(prefix + "ops/")));
+        }
+    }
     @Test void publisherContactIsConsistentInReadmeNoticeAndDistributedMetadata() throws Exception {
         assertTrue(Files.readString(ROOT.resolve("README.md")).contains("https://qm.qq.com/q/Km3ScGpvga"));
         for(String name:new String[]{"README.md","NOTICE","src/main/resources/fabric.mod.json"}){

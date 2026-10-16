@@ -38,6 +38,8 @@ public final class NametagMixin {
         @Inject(method = "extractRenderState(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/entity/state/EntityRenderState;F)V", at = @At("TAIL"))
         private void customcosmetics$identify(Entity entity, EntityRenderState state, float delta, CallbackInfo ci) {
             ((EntityIdentity) state).customcosmetics$setEntityId(entity.getId());
+            if(entity instanceof net.minecraft.client.player.AbstractClientPlayer&&state.nameTag!=null)
+                com.customcosmetics.features.party.SharingNametag.remember(net.minecraft.client.Minecraft.getInstance(),entity.getUUID(),state.nameTag);
         }
 
         @Inject(method = "submitNameDisplay(Lnet/minecraft/client/renderer/entity/state/EntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;I)V", at = @At("HEAD"))

@@ -15,7 +15,7 @@ public final class PartyFeatures{
     private static volatile PartyRoster roster=PartyRoster.EMPTY;private static Object connection;private static long updated,nextRequest;private static boolean hasApi,initialized;
     private static final PartyConnectionNotice NOTICE=new PartyConnectionNotice();
     private PartyFeatures(){}
-    public static boolean sharingPositions(){return ConfigManager.partyEspEnabled||ConfigManager.partyTracersEnabled;}
+    public static boolean sharingPositions(){return ConfigManager.partyEspEnabled||ConfigManager.partyTracersEnabled||ConfigManager.sharingChamsEnabled;}
     public static boolean enabled(){return sharingPositions()||ConfigManager.partyChatEnabled||PositionSharing.enabled();}
     public static PartyRoster roster(){return roster;}
     public static void connected(boolean ready){
@@ -49,6 +49,7 @@ public final class PartyFeatures{
         PartyHighlight.init();
     }
     public static void tick(Minecraft client){
+        SharingNametag.tick(client);
         init();boolean active=enabled()&&RemoteAccess.online()&&client.player!=null&&!client.hasSingleplayerServer()&&PresenceWorld.isHypixel(client);
         // A brief configuration/loading phase during a transfer is not a new party join.
         if(enabled()&&RemoteAccess.online()&&!client.hasSingleplayerServer()&&client.getCurrentServer()!=null&&(client.player==null||client.getConnection()==null)){PartySync.disconnect();return;}

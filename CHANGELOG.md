@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.1
+
+- Damage Splash: Add customizable damage numbers, inspired by Baity.
+- GUI: Add settings search.
+- Sharing: Add location tracers.
+- Sharing: Reduce position sync bandwidth and adapt movement smoothing.
+- Sharing: Add vanilla nametag style.
+- Sharing: Add chams for teammates and shared players.
+
 ## 1.4.0
 
 - GUI: Add compact layouts and reorganize settings.

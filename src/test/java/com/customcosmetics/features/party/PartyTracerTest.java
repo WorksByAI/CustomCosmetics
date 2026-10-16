@@ -5,6 +5,15 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class PartyTracerTest {
+    @Test void locationTracersHaveTheirOwnToggleAndColor(){
+        boolean party=com.customcosmetics.config.ConfigManager.partyTracersEnabled,location=com.customcosmetics.config.ConfigManager.locationTracersEnabled;
+        int pc=com.customcosmetics.config.ConfigManager.partyTracerColor,lc=com.customcosmetics.config.ConfigManager.locationTracerColor;
+        try{
+            com.customcosmetics.config.ConfigManager.partyTracersEnabled=false;com.customcosmetics.config.ConfigManager.locationTracersEnabled=true;
+            com.customcosmetics.config.ConfigManager.partyTracerColor=0x112233;com.customcosmetics.config.ConfigManager.locationTracerColor=0xAABBCC;
+            assertFalse(PartyTracer.enabled(true));assertTrue(PartyTracer.enabled(false));assertEquals(0xFF112233,PartyTracer.color(true));assertEquals(0xFFAABBCC,PartyTracer.color(false));
+        }finally{com.customcosmetics.config.ConfigManager.partyTracersEnabled=party;com.customcosmetics.config.ConfigManager.locationTracersEnabled=location;com.customcosmetics.config.ConfigManager.partyTracerColor=pc;com.customcosmetics.config.ConfigManager.locationTracerColor=lc;}
+    }
     private final Vec3 forward=new Vec3(0,0,-1),right=new Vec3(1,0,0);
     @Test void ribbonStartsAtCrosshairAndPointsAtTeammateCenter(){
         var target=new Vec3(4,2,-10);var points=PartyTracer.ribbon(forward,right,target,128);

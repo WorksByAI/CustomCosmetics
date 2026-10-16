@@ -9,6 +9,34 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ConfigManagerTest {
+    @Test void sharingChamsAreOptionalAndSaveLocally()throws Exception{
+        assertFalse(ConfigManager.sharingChamsEnabled);var path=directory.resolve("chams.json");
+        ConfigManager.sharingChamsEnabled=true;ConfigManager.save(path);
+        ConfigManager.sharingChamsEnabled=false;ConfigManager.load(path);
+        assertTrue(ConfigManager.sharingChamsEnabled);
+        assertFalse(Files.readString(path).contains("sharingChamsColor"));
+    }
+    @Test void vanillaSharingNametagsDefaultToSimpleAndPersistIndependently()throws Exception{
+        assertEquals("simple",ConfigManager.partyNametagStyle);var path=directory.resolve("nametag-style.json");
+        ConfigManager.partyNametagStyle="vanilla";ConfigManager.save(path);ConfigManager.partyNametagStyle="simple";ConfigManager.load(path);
+        assertEquals("vanilla",ConfigManager.partyNametagStyle);assertEquals("fixed",ConfigManager.partyNametagMode);
+        Files.writeString(path,"{\"settings\":{\"partyNametagStyle\":\"bad\"}}");ConfigManager.load(path);assertEquals("simple",ConfigManager.partyNametagStyle);
+    }
+    @Test void damageSplashAndLocationTracersStayOptionalAndPersistLocally()throws Exception{
+        assertFalse(ConfigManager.damageSplashEnabled);assertFalse(ConfigManager.locationTracersEnabled);
+        var path=directory.resolve("damage.json");ConfigManager.damageSplashEnabled=true;ConfigManager.damageSplashStyle="spiral";
+        ConfigManager.damageSplashSymbol="🔥";ConfigManager.damageSplashStartColor=0x112233;ConfigManager.damageSplashEndColor=0xFFEEDD;
+        ConfigManager.damageSplashCompact=true;ConfigManager.damageSplashBold=false;ConfigManager.damageSplashSize=1.75;ConfigManager.damageSplashDuration=2;
+        ConfigManager.damageSplashStyleNormal=true;ConfigManager.damageSplashShadow=false;ConfigManager.damageSplashSeparator="underscore";
+        ConfigManager.locationTracersEnabled=true;ConfigManager.locationTracerColor=0x123456;ConfigManager.save(path);
+        ConfigManager.damageSplashEnabled=false;ConfigManager.damageSplashStyle="default";ConfigManager.damageSplashSymbol="";ConfigManager.locationTracersEnabled=false;
+        ConfigManager.load(path);assertTrue(ConfigManager.damageSplashEnabled);assertEquals("spiral",ConfigManager.damageSplashStyle);assertEquals("🔥",ConfigManager.damageSplashSymbol);
+        assertEquals(0x112233,ConfigManager.damageSplashStartColor);assertEquals(0xFFEEDD,ConfigManager.damageSplashEndColor);assertTrue(ConfigManager.damageSplashCompact);assertFalse(ConfigManager.damageSplashBold);
+        assertEquals(1.75,ConfigManager.damageSplashSize);assertEquals(2,ConfigManager.damageSplashDuration);assertTrue(ConfigManager.damageSplashStyleNormal);assertFalse(ConfigManager.damageSplashShadow);assertEquals("underscore",ConfigManager.damageSplashSeparator);
+        assertTrue(ConfigManager.locationTracersEnabled);assertEquals(0x123456,ConfigManager.locationTracerColor);assertFalse(ConfigManager.partyTracersEnabled);
+        Files.writeString(path,"{\"settings\":{\"damageSplashStyle\":\"bad\",\"damageSplashSize\":100,\"damageSplashDuration\":-1,\"damageSplashSymbol\":\"ab\",\"damageSplashSeparator\":\"bad\"}}");
+        ConfigManager.load(path);assertEquals("default",ConfigManager.damageSplashStyle);assertEquals(3,ConfigManager.damageSplashSize);assertEquals(.3,ConfigManager.damageSplashDuration);assertEquals("a",ConfigManager.damageSplashSymbol);assertEquals("comma",ConfigManager.damageSplashSeparator);
+    }
     @Test void nearbyNametagHidingDefaultsToEightAndPersistsIndependentlyOfOtherPartySettings()throws Exception{
         assertEquals(8,ConfigManager.partyNametagHideDistance);var path=directory.resolve("nearby-nametags.json");
         ConfigManager.partyNametagHideDistance=12;ConfigManager.save(path);ConfigManager.partyNametagHideDistance=0;ConfigManager.load(path);

@@ -61,12 +61,12 @@ public final class PartyHighlight{
     }
     private static void submit(Target target,CameraRenderState camera,SubmitNodeCollector queue,Font font,Vec3 origin){
         var box=target.box().move(-camera.pos.x,-camera.pos.y,-camera.pos.z);double distance=target.box().getCenter().distanceTo(camera.pos);
-        if(target.party()&&ConfigManager.partyTracersEnabled){
+        if(PartyTracer.enabled(target.party())){
             var forward=new org.joml.Vector3f(0,0,-1).rotate(camera.orientation);
             var right=new org.joml.Vector3f(1,0,0).rotate(camera.orientation);
             var line=PartyTracer.ribbon(new Vec3(forward.x,forward.y,forward.z),new Vec3(right.x,right.y,right.z),box.getCenter(),Math.max(8,Math.min(128,camera.depthFar*.5)));
             if(!line.isEmpty())queue.submitCustomGeometry(new PoseStack(),PartyRenderPipeline.type(),(matrix,vertices)->{
-                for(var point:line)vertices.addVertex(matrix.pose(),(float)point.x,(float)point.y,(float)point.z).setColor(0xFF000000|ConfigManager.partyTracerColor&0xFFFFFF);
+                for(var point:line)vertices.addVertex(matrix.pose(),(float)point.x,(float)point.y,(float)point.z).setColor(PartyTracer.color(target.party()));
             });
         }
         if(target.party()&&!ConfigManager.partyEspEnabled)return;
@@ -86,8 +86,9 @@ public final class PartyHighlight{
             double range=Math.max(8,Math.min(128,camera.depthFar*.5));double length=rel.length();if(length>range)rel=rel.scale(range/length);
             var pose=new PoseStack();pose.translate(rel.x,rel.y,rel.z);pose.mulPose(new org.joml.Matrix4f().rotation(camera.orientation));
             float scale=PartyNametagScale.scale(ConfigManager.partyNametagMode,ConfigManager.partyNametagSize,length,Math.min(length,range));pose.scale(scale,-scale,scale);
-            var label=Component.literal(target.name()+" · "+Math.round(distance)+"m");
-            queue.submitText(pose,-font.width(label)/2f,0,label.getVisualOrderText(),false,Font.DisplayMode.SEE_THROUGH,0xF000F0,0xFF000000|color,0x40000000,0);
+            boolean vanilla="vanilla".equals(ConfigManager.partyNametagStyle);
+            var label=vanilla?SharingNametag.label(Minecraft.getInstance(),target.uuid(),target.name()):Component.literal(target.name()+" · "+Math.round(distance)+"m");
+            queue.submitText(pose,-font.width(label)/2f,0,label.getVisualOrderText(),false,Font.DisplayMode.SEE_THROUGH,0xF000F0,vanilla?0xFFFFFFFF:0xFF000000|color,0x40000000,0);
         }
     }
 }

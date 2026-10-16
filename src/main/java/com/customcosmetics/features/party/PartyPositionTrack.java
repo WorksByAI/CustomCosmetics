@@ -12,14 +12,15 @@ public final class PartyPositionTrack {
         var last=samples.peekLast();
         if(last!=null&&last.epoch()==next.epoch()&&last.scope()==next.scope()&&next.sampledAt()<last.sampledAt())next=last;
         if(last==null||last.epoch()!=next.epoch()||last.scope()!=next.scope()||
-                next.sampledAt()-last.sampledAt()>1000||distanceSquared(last.position(),next.position())>=32*32){
+                next.sampledAt()-last.sampledAt()>=1500||distanceSquared(last.position(),next.position())>=32*32){
             samples.clear();samples.add(next);offset=next.receivedAt()-next.sampledAt();interval=50;cursor=Long.MIN_VALUE;
         }else if(next.sampledAt()>last.sampledAt()){
-            interval=interval*.75+Math.min(500,next.sampledAt()-last.sampledAt())*.25;
+            double measured=Math.clamp(next.sampledAt()-last.sampledAt(),50,1000);
+            interval=samples.size()==1?measured:interval*.75+measured*.25;
             offset=Math.min(offset,next.receivedAt()-next.sampledAt());samples.add(next);
             while(samples.size()>16)samples.removeFirst();
         }
-        long time=Math.max(cursor,(long)(now-offset-Math.clamp(interval*1.5,75,250)));cursor=time;
+        long time=Math.max(cursor,(long)(now-offset-Math.clamp(interval*1.2,75,1200)));cursor=time;
         while(samples.size()>2&&samples.stream().skip(1).findFirst().orElseThrow().sampledAt()<=time)samples.removeFirst();
         var first=samples.getFirst();last=samples.getLast();
         if(samples.size()==1||time<=first.sampledAt())return first.position();

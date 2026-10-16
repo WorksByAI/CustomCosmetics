@@ -11,6 +11,8 @@ public final class ClientLoadProbe {
         String firstPersonRenderer = System.getProperty("fabric.gameVersion").startsWith("26.3")
             ? "net.minecraft.client.renderer.FirstPersonHandsAndItemsRenderer" : "net.minecraft.client.renderer.ItemInHandRenderer";
         for (String type : new String[] {
+            "com.customcosmetics.features.damage.DamageSplash", "com.customcosmetics.features.damage.DamageText", "com.customcosmetics.features.damage.DamageAnimation",
+            "com.customcosmetics.gui.SettingsSearch", "net.minecraft.client.multiplayer.ClientPacketListener", "net.minecraft.client.renderer.entity.state.EntityRenderState",
             "com.customcosmetics.features.accessories.AccessoryLayer", "com.customcosmetics.features.accessories.AccessoryRenderState", "net.minecraft.client.renderer.entity.state.AvatarRenderState", "net.minecraft.client.renderer.entity.EntityRenderer",
             "com.customcosmetics.features.accessories.AccessoryMeshes", "com.customcosmetics.features.accessories.DetailedAccessoryMeshes", "com.customcosmetics.gui.WardrobeScreen", "net.minecraft.client.renderer.entity.LivingEntityRenderer",
             "net.minecraft.client.Minecraft", firstPersonRenderer, "net.minecraft.client.gui.Font",
@@ -35,7 +37,7 @@ public final class ClientLoadProbe {
             "com.customcosmetics.sync.PartyPeerClient", "com.customcosmetics.sync.RealtimeConnections",
             "com.customcosmetics.config.PlayerBlocklist", "com.customcosmetics.sync.PlayerBlocks", "com.customcosmetics.sync.PlayerBlockCommands",
             "com.customcosmetics.sync.SyncDebug", "com.customcosmetics.sync.DebugSession", "com.customcosmetics.compatibility.SodiumGlyphWriter",
-            "com.customcosmetics.features.party.PartyFeatures", "com.customcosmetics.features.party.PartyHighlight",
+            "com.customcosmetics.features.party.PartyFeatures", "com.customcosmetics.features.party.PartyHighlight", "net.minecraft.client.renderer.LevelRenderer",
             "com.customcosmetics.features.party.PartyConnectionNotice", "com.customcosmetics.features.party.PartyNametagScale",
             "com.customcosmetics.features.party.PartyTracer", "com.customcosmetics.features.party.PartyPositionTrack",
             "com.customcosmetics.sync.SyncCommands", "com.customcosmetics.client.CustomCosmeticsClient",
@@ -48,6 +50,8 @@ public final class ClientLoadProbe {
             "com.customcosmetics.features.animations.PresenceWorld", "com.customcosmetics.features.animations.ViewModelAnimations"
         }) {
             var loaded = Class.forName(type, false, loader);
+            if(type.equals("net.minecraft.client.multiplayer.ClientPacketListener")&&java.util.Arrays.stream(loaded.getDeclaredMethods()).noneMatch(m->m.getName().contains("customcosmetics$damageMetadata")))throw new AssertionError("Damage metadata observer is missing");
+            if(type.equals("net.minecraft.client.renderer.entity.state.EntityRenderState")&&!java.util.Arrays.stream(loaded.getInterfaces()).anyMatch(i->i.getName().endsWith("DamageRenderState")))throw new AssertionError("Damage name state is missing");
             if(type.endsWith("PartyRenderPipeline")){
                 Object partyType=loaded.getMethod("type").invoke(null);
                 if(partyType==null)throw new AssertionError("Party render pipeline is missing");
@@ -55,6 +59,8 @@ public final class ClientLoadProbe {
             if(type.endsWith("AvatarRenderState")&&!java.util.Arrays.stream(loaded.getInterfaces()).anyMatch(i->i.getName().endsWith("AccessoryRenderState")))throw new AssertionError("Accessory state mixin missing");
             if(type.equals("net.minecraft.client.renderer.entity.EntityRenderer")&&java.util.Arrays.stream(loaded.getDeclaredMethods()).noneMatch(m->m.getName().contains("customcosmetics$extractAccessories")))throw new AssertionError("Accessory snapshot hook missing");
             if(type.equals("net.minecraft.client.renderer.entity.LivingEntityRenderer")&&java.util.Arrays.stream(loaded.getDeclaredMethods()).noneMatch(m->m.getName().contains("customcosmetics$expandCosmeticBounds")))throw new AssertionError("Accessory culling compatibility hook missing");
+            if(type.equals("net.minecraft.client.renderer.entity.LivingEntityRenderer")&&java.util.Arrays.stream(loaded.getDeclaredMethods()).noneMatch(m->m.getName().contains("customcosmetics$captureAppearance")))throw new AssertionError("Original-appearance chams hook missing");
+            if(type.equals("net.minecraft.client.renderer.LevelRenderer")&&java.util.Arrays.stream(loaded.getDeclaredMethods()).noneMatch(m->m.getName().contains("customcosmetics$finishChams")))throw new AssertionError("Chams composite hook missing");
             loaded.getDeclaredMethods();
             if(type.equals("net.minecraft.client.renderer.entity.player.AvatarRenderer") && java.util.Arrays.stream(loaded.getDeclaredMethods())
                     .noneMatch(method->method.getName().contains("customcosmetics$additionalScale")))
@@ -80,12 +86,21 @@ public final class ClientLoadProbe {
             }
         }
         checkGameReferences(loader,"com/customcosmetics/features/playersize/PlayerSize");
+        checkGameReferences(loader,"com/customcosmetics/features/damage/DamageSplash");
+        checkGameReferences(loader,"com/customcosmetics/features/party/SharingNametag");
+        checkGameReferences(loader,"com/customcosmetics/features/party/SharingChams");
+        checkGameReferences(loader,"com/customcosmetics/compatibility/ChamsRenderAccess");
+        checkGameReferences(loader,"com/customcosmetics/gui/CosmeticsScreen");
         checkGameReferences(loader,"com/customcosmetics/features/party/PartyHighlight");
         checkGameReferences(loader,"com/customcosmetics/features/party/PartyGeometry");
         checkGameReferences(loader,"com/customcosmetics/features/party/PartyTracer");
         checkGameReferences(loader,"com/customcosmetics/features/party/PartyPositionTrack");
         checkGameReferences(loader,"com/customcosmetics/features/party/PartyFeatures");
         checkGameReferences(loader,"com/customcosmetics/features/party/PartyConnectionNotice");
+        if(!System.getProperty("fabric.gameVersion").startsWith("26.3")){
+            var target=Class.forName("net.minecraft.client.renderer.rendertype.OutputTarget",false,loader);
+            if(java.util.Arrays.stream(target.getDeclaredMethods()).noneMatch(m->m.getName().contains("customcosmetics$appearanceTarget")))throw new AssertionError("Chams material target hook missing");
+        }
         checkGameReferences(loader,"com/customcosmetics/sync/SyncCommands");
         checkGameReferences(loader,"com/customcosmetics/sync/PartySync");
         checkGameReferences(loader,"com/customcosmetics/features/accessories/AccessoryLayer");

@@ -8,13 +8,14 @@
 - **Animations**：调整手持物品大小、位置、旋转和挥动速度，支持格挡位置、旋转与实时预览。
 - **Item Customization**：在本地自定义物品名称与模型，支持已启用资源包中的模型。
 - **Cape**：自定义披风，支持图片裁剪与预览；在线共享需审核，本地披风仅自己可见。
+- **Damage Splash**：自定义伤害数字的动画、颜色、大小与数字格式。
 - **Equipments (Beta)**：像素风与精细风原创饰品，支持自由搭配、调色、大小调整与同步。
 - **Sharing**：Hypixel 队友显示、远处标记、追踪线与 IRC；可向同一世界公开或指定玩家共享位置（默认关闭）。
 - **远程同步**：双方连接远程服务器即可互相看到装饰和格挡。
 - **离线模式**：断开远程连接，装饰仅自己可见。
 - **更新提示**：每次启动检查 GitHub 最新正式版，有更新时在聊天栏提示。
 
-输入 `/customcosmetics` 打开设置，左下角 GitHub 图标可访问源码仓库。
+输入 `/customcosmetics` 打开并搜索设置，GitHub 图标可访问源码仓库。
 
 支持 Minecraft **26.1.2～26.3**，需要 Java 25、Fabric Loader 0.19.5+ 和对应版本的 Fabric API。
 共享格挡或远处队友位置需安装 [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api)。
@@ -37,13 +38,14 @@ A Fabric mod for cosmetics and player synchronization.
 - **Animations**: Held-item and blocking transforms, swing speed and preview.
 - **Item Customization**: Local custom item names and models, including resource packs.
 - **Cape**: Cape cropping, preview and reviewed sharing.
+- **Damage Splash**: Custom damage number animations, colors, size and formatting.
 - **Equipments (Beta)**: Pixel / Detailed cosmetics, colors, resizing and synchronization.
 - **Sharing**: Teammate ESP, markers, tracers, party IRC and optional public / selected-player position sharing.
 - **Remote Sync**: Share cosmetics and blocking on the same server.
 - **Offline Mode**: Disconnect and show cosmetics locally.
 - **Update Notifications**: Checks GitHub releases at startup and announces updates in chat.
 
-Use `/customcosmetics` for settings; the GitHub icon opens the source.
+Use `/customcosmetics` to search settings; the GitHub icon opens the source.
 
 Supports Minecraft **26.1.2–26.3**. Requires Java 25, Fabric Loader 0.19.5+, and Fabric API for your Minecraft version.
 Sharing blocking or distant party positions requires [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api).

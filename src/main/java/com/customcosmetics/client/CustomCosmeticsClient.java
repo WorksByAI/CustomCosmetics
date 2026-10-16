@@ -29,11 +29,13 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
         com.customcosmetics.features.items.ItemCosmetics.init();
         PresenceSync.init();
         com.customcosmetics.features.party.PartyFeatures.init();
+        com.customcosmetics.features.damage.DamageSplash.init();
         com.customcosmetics.update.UpdateChecker.init();
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) -> SyncCommands.register(dispatcher));
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (com.customcosmetics.sync.RemoteAccess.online()) com.customcosmetics.features.animations.PresenceWorld.init();
             ConfigManager.flushPendingSave();
+            com.customcosmetics.features.damage.DamageSplash.tick(client);
             com.customcosmetics.features.cape.CapeCosmetics.tick();
             com.customcosmetics.features.items.ItemCosmetics.tick();
             PresenceSync.tick();

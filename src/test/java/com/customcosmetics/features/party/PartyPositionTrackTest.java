@@ -6,6 +6,17 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 class PartyPositionTrackTest {
+    @Test void reducedReportingAtTwoToFiveHertzStaysSmoothAcrossPacketArrival(){
+        for(int period:new int[]{200,500,1000,1020}){
+            var track=new PartyPositionTrack();var latest=sample(0,0,1000,1,1);int next=1;double previous=0;
+            for(long now=1000;now<12000;now+=16){
+                while(1000L+next*period+(next%3)*15<=now){long sent=(long)next*period;latest=sample(sent*.004,sent,1000+sent+(next%3)*15,1,1);next++;}
+                double x=track.render(latest,now).x();assertTrue(x>=previous-1e-9,"Backward motion at "+period+"ms");
+                if(now>4000){assertTrue(x-previous<=.25,"Jump at "+period+"ms: "+(x-previous));assertTrue(x>previous,"Frozen frame at "+period+"ms");}
+                assertTrue(x<=latest.position().x()+.31);previous=x;
+            }
+        }
+    }
     private static final UUID ID=UUID.randomUUID();
     private static PartyClient.Teammate sample(double x,long source,long arrival,long epoch,long scope){
         return new PartyClient.Teammate(ID,"Alice",new PartyClient.Position(x,80,10000,.6,1.8),Long.MAX_VALUE,source,arrival,epoch,scope);

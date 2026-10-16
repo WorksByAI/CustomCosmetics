@@ -183,7 +183,7 @@ public final class PartyGameTest implements FabricClientGameTest{
         }catch(ReflectiveOperationException error){throw new AssertionError(error);}});
         System.out.println("LOCATION_SHARING_DEFAULT_OFF_HYPIXEL_ONLY_NEAR_FAR_NAMES_DISTANCE_CONSENT_AND_NATIVE_RECIPIENT_EDITOR_OK");
     }
-    private static void clickSetting(ClientGameTestContext context,String label){
+    static void clickSetting(ClientGameTestContext context,String label){
         var location=new java.util.concurrent.atomic.AtomicReference<double[]>();
         context.runOnClient(client->{try{
             var screen=(CosmeticsScreen)ClientUiAccess.screen(client);var widget=(net.minecraft.client.gui.components.AbstractWidget)screen.children().stream().filter(child->child instanceof net.minecraft.client.gui.components.AbstractWidget w&&(w.getMessage().getString().equals(label)||w.getMessage().getString().replaceAll(": (On|Off)$","").equals(label))).findFirst().orElseThrow(()->new AssertionError("Missing setting: "+label));
@@ -279,7 +279,7 @@ public final class PartyGameTest implements FabricClientGameTest{
                 context.runOnClient(client->{try{
                     ClientUiAccess.setScreen(client,new CosmeticsScreen(null,page));var screen=(CosmeticsScreen)ClientUiAccess.screen(client);
                     int x=(Integer)uiField(screen,"contentX"),width=(Integer)uiField(screen,"contentWidth");
-                    var names=List.of("Animations","Cape","Equipments (Beta)","Item Customization","NickTweaks","Player Size","Sharing");
+                    var names=List.of("Animations","Cape","Damage Splash","Equipments (Beta)","Item Customization","NickTweaks","Player Size","Sharing");
                     var navigation=screen.children().stream().filter(child->child instanceof com.customcosmetics.gui.PinkUi.Action widget&&names.contains(widget.getMessage().getString())).map(child->(net.minecraft.client.gui.components.AbstractWidget)child).sorted(Comparator.comparingInt(net.minecraft.client.gui.components.AbstractWidget::getY)).toList();
                     if(!navigation.stream().map(widget->widget.getMessage().getString()).toList().equals(names))throw new AssertionError("Sidebar is not sorted A-Z");
                     for(var nav:navigation)if(client.font.width(nav.getMessage())>nav.getWidth()-12)throw new AssertionError("Sidebar label is truncated: "+nav.getMessage().getString());

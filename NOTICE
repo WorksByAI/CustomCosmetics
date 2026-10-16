@@ -30,6 +30,11 @@ for the original implementation.
 Modifications
 -------------
 
+On 2026-10-16, adapted FancyDmgSplash number styling and its eight animation
+styles from Baity commit d1d4b910e67ca7a318e973ca85cb516800d56e44.
+Our implementation adds bounded local queues, a settings preview, strict
+SkyBlock label detection and render-only suppression instead of removing entities.
+
 Adapted and modified by the CustomCosmetics contributors in 2026;
 this notice records changes through 2026-10-11.
 

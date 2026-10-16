@@ -31,6 +31,11 @@ public final class ConfigManager {
     private static volatile long pendingSaveAt;
 
     public static boolean smolpeopleMode = false;
+    public static boolean damageSplashEnabled=false, damageSplashBold=true, damageSplashCompact=false;
+    public static boolean damageSplashStyleNormal=false, damageSplashShadow=true;
+    public static String damageSplashStyle="default", damageSplashSymbol="✧", damageSplashSeparator="comma";
+    public static int damageSplashStartColor=0xFFFF55, damageSplashEndColor=0xFF5555;
+    public static double damageSplashSize=1, damageSplashDuration=1.2;
     public static double smolLimbSwingSpeed = 2.5;
     public static com.customcosmetics.features.accessories.AccessoriesSettings accessories=com.customcosmetics.features.accessories.AccessoriesSettings.NONE;
     public static java.util.List<PlayerBlocklist.Entry> accessoriesBlockedPlayers = java.util.List.of();
@@ -64,12 +69,16 @@ public final class ConfigManager {
     public static volatile int syncP2pPort=0;
     public static boolean partyTracersEnabled=false;
     public static int partyTracerColor=0xFFA6CF;
+    public static boolean locationTracersEnabled=false;
+    public static boolean sharingChamsEnabled=false;
+    public static int locationTracerColor=0xFFA6CF;
     public static String partyChatPrefix="`";
     public static String partyEspStyle="outline";
     public static int partyEspColor=0xFFA6CF;
     public static double partyEspOpacity=.2,partyEspLineWidth=1.5;
     public static boolean partyFarMarkers=true,partyShowNames=true;
     public static String partyNametagMode="fixed";
+    public static String partyNametagStyle="simple";
     public static double partyNametagSize=1;
     public static double partyNametagHideDistance=8;
     public static double partyMaxDisplayDistance=0;
@@ -146,6 +155,12 @@ public final class ConfigManager {
                 }
             }
             if(accessories==null)accessories=com.customcosmetics.features.accessories.AccessoriesSettings.NONE;
+            damageSplashStyle=com.customcosmetics.features.damage.DamageAnimation.normalize(damageSplashStyle);
+            damageSplashSymbol=com.customcosmetics.features.damage.DamageText.symbol(damageSplashSymbol);
+            damageSplashSeparator=damageSplashSeparator!=null&&java.util.List.of("none","comma","space","underscore").contains(damageSplashSeparator)?damageSplashSeparator:"comma";
+            damageSplashSize=com.customcosmetics.features.damage.DamageAnimation.bounded(damageSplashSize,1,.25,3);
+            damageSplashDuration=com.customcosmetics.features.damage.DamageAnimation.bounded(damageSplashDuration,1.2,.3,3);
+            damageSplashStartColor&=0xFFFFFF;damageSplashEndColor&=0xFFFFFF;
             nickTweaksNickChanger = NicknameLimit.limit(nickTweaksNickChanger);
             nickTweaksBlockedPlayers = com.customcosmetics.config.PlayerBlocklist.normalize(nickTweaksBlockedPlayers);
             accessoriesBlockedPlayers = PlayerBlocklist.normalize(accessoriesBlockedPlayers);
@@ -167,6 +182,7 @@ public final class ConfigManager {
             nickTweaksShimmerInterval = com.customcosmetics.features.nickname.NicknameGradient.normalizeInterval(nickTweaksShimmerInterval);
             clampAnimations();
             partyEspStyle=java.util.Set.of("none","fill","outline","both").contains(partyEspStyle)?partyEspStyle:"outline";
+            partyNametagStyle=com.customcosmetics.features.party.SharingNametag.normalize(partyNametagStyle);
             partyEspOpacity=Math.clamp(partyEspOpacity,.05,.75);partyEspLineWidth=Math.clamp(partyEspLineWidth,.5,4);
             partyNametagMode=com.customcosmetics.features.party.PartyNametagScale.mode(partyNametagMode);
             partyNametagSize=com.customcosmetics.features.party.PartyNametagScale.size(partyNametagSize);

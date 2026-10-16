@@ -135,6 +135,32 @@ if (providers.gradleProperty('studio_game_only').getOrElse('false').toBoolean())
         }
     }
 }
+if (providers.gradleProperty('chams_game_only').getOrElse('false').toBoolean()) {
+    sourceSets.gametest.java.include '**/ChamsGameTest.java', '**/SharingModelFixture.java', '**/mixin/ChamsWorldProbeMixin.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
+    tasks.named('processGametestResources') {
+        inputs.property 'chams_game_only', true
+        inputs.file('build.gradle')
+        filesMatching('fabric.mod.json') {
+            filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.ChamsGameTest') }
+        }
+        filesMatching('customcosmetics-test.mixins.json') {
+            filter { line -> line.contains('"client":') ? '  "client": ["ChamsWorldProbeMixin", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line }
+        }
+    }
+}
+if (providers.gradleProperty('damage_game_only').getOrElse('false').toBoolean()) {
+    sourceSets.gametest.java.include '**/DamageSplashGameTest.java', '**/SharingVisualsGameTest.java', '**/SharingModelFixture.java', '**/PartyGameTest.java', '**/mixin/DamageWorldProbeMixin.java', '**/mixin/PartyProbeMixin.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
+    tasks.named('processGametestResources') {
+        inputs.property 'damage_game_only', true
+        inputs.file('build.gradle')
+        filesMatching('fabric.mod.json') {
+            filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.DamageSplashGameTest') }
+        }
+        filesMatching('customcosmetics-test.mixins.json') {
+            filter { line -> line.contains('"client":') ? '  "client": ["DamageWorldProbeMixin", "PartyProbeMixin$Features", "PartyProbeMixin$Sync", "PartyProbeMixin$Realtime", "PartyProbeMixin$Locations", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line }
+        }
+    }
+}
 if (providers.gradleProperty('party_game_only').getOrElse('false').toBoolean()) {
     sourceSets.gametest.java.include '**/PartyGameTest.java', '**/mixin/PartyProbeMixin.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
     tasks.named('processGametestResources') {
