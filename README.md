@@ -1,6 +1,6 @@
-# CustomCosmetics v1.5.2 发布！
+# CustomCosmetics v1.5.3 发布！
 
-这是一个支持玩家间同步的自定义外观模组，支持 26.1～26.3 Fabric，并随 SkyBlock 版本更新而更新。
+这是一个支持玩家间同步的自定义外观模组，支持 26.1～26.3 Fabric，并跟随 Hypixel SkyBlock 版本更新。
 
 目前模组所有功能（[√] 表示其他安装本模组的玩家可见）：
 
@@ -17,7 +17,7 @@
 - **Offline Mode**：断开所有远程同步连接，不使用共享功能，也无法看见别人的装饰品。
 
 输入 `/customcosmetics` 打开设置。需要 Java 25、Fabric Loader 0.19.5+ 和对应版本的 Fabric API。
-共享格挡或远处队友位置需安装 [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api)。
+共享功能需安装 [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api)。
 
 ## English
 
@@ -40,9 +40,9 @@ All current features ([√] means visible to other players who also have the mod
 - **Offline Mode**: Disconnect all remote synchronization connections. Sharing is disabled, and other players' cosmetics are not shown.
 
 Use `/customcosmetics` to open settings. Requires Java 25, Fabric Loader 0.19.5+ and Fabric API for your Minecraft version.
-Sharing blocking or distant party positions requires [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api).
+Sharing modules requires [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api).
 
-[更新记录 / Changelog](CHANGELOG.md)
+
 
 采用 / Licensed under **AGPL-3.0-or-later**。部分代码移植自 / Portions ported from [Baity](https://github.com/raueyhs/Baity), originally authored by raueyhs. See [LICENSE](https://github.com/WorksByAI/CustomCosmetics/blob/main/LICENSE) and [NOTICE](https://github.com/WorksByAI/CustomCosmetics/blob/main/NOTICE).
 
