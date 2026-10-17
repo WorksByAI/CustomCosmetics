@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.4.2
+
+- Add configurable Party Chat notification sounds.
+- Keep map edits active during M7 dragon phases.
+
 ## 1.5.4.1
 
 - Fix fishing countdowns being treated as damage numbers.

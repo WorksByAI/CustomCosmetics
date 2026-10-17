@@ -272,7 +272,7 @@ if (providers.gradleProperty('damage_game_only').getOrElse('false').toBoolean())
             filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.DamageSplashGameTest') }
         }
         filesMatching('customcosmetics-test.mixins.json') {
-            filter { line -> line.contains('"client":') ? '  "client": ["DamageWorldProbeMixin", "PartyProbeMixin$Features", "PartyProbeMixin$Sync", "PartyProbeMixin$Realtime", "PartyProbeMixin$Locations", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line }
+            filter { line -> line.contains('"client":') ? '  "client": ["DamageWorldProbeMixin", "PartyProbeMixin$Features", "PartyProbeMixin$Sync", "PartyProbeMixin$Realtime", "PartyProbeMixin$Locations", "PartyProbeMixin$Sounds", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line }
         }
     }
 }
@@ -285,7 +285,7 @@ if (providers.gradleProperty('party_game_only').getOrElse('false').toBoolean()) 
             filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.PartyGameTest') }
         }
         filesMatching('customcosmetics-test.mixins.json') {
-            filter { line -> line.contains('"client":') ? '  "client": ["PartyProbeMixin$Features", "PartyProbeMixin$Sync", "PartyProbeMixin$Realtime", "PartyProbeMixin$Locations", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line }
+            filter { line -> line.contains('"client":') ? '  "client": ["PartyProbeMixin$Features", "PartyProbeMixin$Sync", "PartyProbeMixin$Realtime", "PartyProbeMixin$Locations", "PartyProbeMixin$Sounds", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line }
         }
     }
 }

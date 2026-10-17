@@ -19,6 +19,8 @@ public final class PartyGameTest implements FabricClientGameTest{
     public static volatile Map<UUID,PartyClient.Teammate> remote=Map.of();
     public static volatile String connectionStatus;
     public static volatile boolean sharedWorld;
+    public static boolean observeSounds;
+    public static final List<net.minecraft.client.resources.sounds.SoundInstance> sounds=new ArrayList<>();
     @Override public void runTest(ClientGameTestContext context){
         context.runOnClient(client->{ConfigManager.syncEnabled=false;ConfigManager.swordBlockingSyncEnabled=false;ConfigManager.offlineMode=false;ConfigManager.partyMaxDisplayDistance=0;ConfigManager.partyNametagHideDistance=0;});
         try(var world=context.worldBuilder().create()){
@@ -100,6 +102,7 @@ public final class PartyGameTest implements FabricClientGameTest{
                 if(client.font.width("IRC For Party Members")>width.getInt(screen)-68)throw new AssertionError("IRC feature name does not fit its setting row");
             }catch(ReflectiveOperationException error){throw new AssertionError(error);}});
             context.takeScreenshot("party-settings");
+            checkChatSound(context);
             checkNearNametagSetting(context);
             checkCompactSettings(context);
             checkSyncDev(context);
@@ -121,6 +124,45 @@ public final class PartyGameTest implements FabricClientGameTest{
             context.runOnClient(client->{ConfigManager.partyEspEnabled=false;if(!PartyHighlight.targets(client).isEmpty())throw new AssertionError("Disabled ESP still rendered");});
             System.out.println("PARTY_NATIVE_GPU_WALL_OUTLINE_FILL_UNLOADED_MARKER_STRANGER_FILTER_CHAT_PREFIX_AND_GUI_OK outline="+outline+" fill="+fill+" both="+both);
         }
+    }
+    private static void checkChatSound(ClientGameTestContext context){
+        context.runOnClient(client->{try{
+            var receive=PartySync.class.getDeclaredMethod("receiveChat",Minecraft.class,long.class,PartyClient.Chat.class);receive.setAccessible(true);
+            var generation=PartySync.class.getDeclaredField("generation");generation.setAccessible(true);long version=generation.getLong(null);
+            var roster=PartyFeatures.class.getDeclaredField("roster");roster.setAccessible(true);var saved=roster.get(null);
+            roster.set(null,new PartyRoster(Set.of(A,client.player.getUUID()),Set.of(),"sound-fixture"));
+            observeSounds=true;sounds.clear();
+            try{
+                ConfigManager.partyChatSound=PartyChatSound.DEFAULT;ConfigManager.partyChatSoundVolume=.35;ConfigManager.partyChatSoundPitch=1.5;ConfigManager.partyChatSoundEnabled=false;
+                receive.invoke(null,client,version,new PartyClient.Chat(A,"Alice","silent",-1));
+                ConfigManager.partyChatSoundEnabled=true;
+                receive.invoke(null,client,version+1,new PartyClient.Chat(A,"Alice","stale",-1));
+                receive.invoke(null,client,version,new PartyClient.Chat(UUID.randomUUID(),"Outsider","rejected",-1));
+                receive.invoke(null,client,version,new PartyClient.Chat(client.player.getUUID(),client.player.getName().getString(),"self",1));
+                if(!sounds.isEmpty())throw new AssertionError("Disabled, self or rejected message played a notification");
+                receive.invoke(null,client,version,new PartyClient.Chat(A,"Alice","ding",-1));
+                if(sounds.size()!=1)throw new AssertionError("Incoming party message did not play exactly one sound");
+                var sound=sounds.getFirst();if(!sound.getIdentifier().toString().equals(PartyChatSound.DEFAULT)||Math.abs(sound.getVolume()-.35)>.001||Math.abs(sound.getPitch()-1.5)>.001||!sound.isRelative())throw new AssertionError("Sound ID, volume, pitch or local playback was ignored");
+                ConfigManager.partyChatEnabled=false;receive.invoke(null,client,version,new PartyClient.Chat(A,"Alice","chat-off",-1));ConfigManager.partyChatEnabled=true;
+                ConfigManager.offlineMode=true;receive.invoke(null,client,version,new PartyClient.Chat(A,"Alice","offline",-1));
+                ConfigManager.offlineMode=false;ConfigManager.partyChatSoundVolume=0;receive.invoke(null,client,version,new PartyClient.Chat(A,"Alice","muted",-1));
+                if(sounds.size()!=1)throw new AssertionError("Chat disable, offline mode or zero volume was ignored");
+                ConfigManager.partyChatSoundEnabled=false;ConfigManager.offlineMode=true;ConfigManager.partyChatSoundVolume=.35;
+                if(!PartyChatSound.preview(client)||sounds.size()!=2)throw new AssertionError("Preview did not work with notifications disabled and offline");
+                ConfigManager.partyChatSound="missing:party_ding";if(PartyChatSound.preview(client)||sounds.size()!=2)throw new AssertionError("Missing sound should fail quietly");
+            }finally{roster.set(null,saved);observeSounds=false;ConfigManager.offlineMode=false;ConfigManager.partyChatEnabled=true;ConfigManager.partyChatSoundEnabled=false;ConfigManager.partyChatSound=PartyChatSound.DEFAULT;ConfigManager.partyChatSoundVolume=.5;ConfigManager.partyChatSoundPitch=1;}
+            var parent=new CosmeticsScreen(null,CosmeticsScreen.Page.PARTY);ClientUiAccess.setScreen(client,parent);
+            for(String label:List.of("Chat Notification Sound","Chat Sound Volume (%) value","Chat Sound Pitch value","Preview Chat Sound"))
+                if(parent.children().stream().noneMatch(c->c instanceof net.minecraft.client.gui.components.AbstractWidget w&&w.getMessage().getString().startsWith(label)))throw new AssertionError("Chat sound setting missing: "+label);
+            ClientUiAccess.setScreen(client,new com.customcosmetics.gui.PartyChatSoundScreen(parent));
+            var screen=ClientUiAccess.screen(client);var search=(com.customcosmetics.gui.PinkUi.Field)screen.children().stream().filter(c->c instanceof com.customcosmetics.gui.PinkUi.Field).findFirst().orElseThrow();search.setValue("bell");
+            var bell=(com.customcosmetics.gui.PinkUi.Action)screen.children().stream().filter(c->c instanceof com.customcosmetics.gui.PinkUi.Action b&&b.visible&&b.getMessage().getString().equals("Bell")).findFirst().orElseThrow();bell.onClick(null,false);
+            if(!ConfigManager.partyChatSound.equals("minecraft:block.bell.use")||ClientUiAccess.screen(client)!=parent)throw new AssertionError("Sound chooser did not save Bell and return");
+            ConfigManager.partyChatSound=PartyChatSound.DEFAULT;
+        }catch(ReflectiveOperationException error){throw new AssertionError(error);}});
+        context.runOnClient(client->ClientUiAccess.setScreen(client,new com.customcosmetics.gui.PartyChatSoundScreen(ClientUiAccess.screen(client))));context.waitTicks(2);context.takeScreenshot("party-chat-sound-chooser");
+        context.runOnClient(client->ClientUiAccess.screen(client).onClose());
+        System.out.println("PARTY_CHAT_SOUND_RECEIVE_GATES_LOCAL_VOLUME_PITCH_PREVIEW_AND_CHOOSER_OK");
     }
     private static void checkLocationSharing(ClientGameTestContext context){
         var previous=new java.util.concurrent.atomic.AtomicReference<Map<UUID,PartyClient.Teammate>>();

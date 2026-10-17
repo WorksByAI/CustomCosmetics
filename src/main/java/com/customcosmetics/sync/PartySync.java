@@ -32,12 +32,14 @@ public final class PartySync{
             PresenceSync.authenticatedSession().whenComplete((session,error)->client.execute(()->{if(version!=generation)return;authenticating=false;if(error!=null){status="Minecraft account authentication required";PartyFeatures.connectionFailed();}else nextAttempt=0;}));return;
         }
         long version=generation;status="Connecting";
-        try{live=RemoteAccess.channel(()->new PartyClient(base,auth,poses->{if(version==generation)remote=poses;},message->client.execute(()->{
-            if(version!=generation||!ConfigManager.partyChatEnabled||!RemoteAccess.online()||!PartyFeatures.roster().contains(message.uuid(),message.name()))return;
-            ClientUiAccess.chat(client).addClientSystemMessage(Component.literal("[CC Party] ").withColor(0xFFA6CF).append(Component.literal(message.name()+": ").withColor(0xFFA6CF)).append(Component.literal(message.text()).withColor(0xFFFFFF)));
-            if(message.delivered()==0)PartyFeatures.notice("No other party members are connected to Party IRC.");
-        }),error->client.execute(()->{if(version==generation&&RemoteAccess.online()&&ConfigManager.partyChatEnabled)PartyFeatures.notice(error);})));
+        try{live=RemoteAccess.channel(()->new PartyClient(base,auth,poses->{if(version==generation)remote=poses;},message->client.execute(()->receiveChat(client,version,message)),error->client.execute(()->{if(version==generation&&RemoteAccess.online()&&ConfigManager.partyChatEnabled)PartyFeatures.notice(error);})));
         }catch(Exception failure){status="Party service unavailable";PartyFeatures.connectionFailed();}
+    }
+    private static void receiveChat(Minecraft client,long version,PartyClient.Chat message){
+        if(version!=generation||!ConfigManager.partyChatEnabled||!RemoteAccess.online()||!PartyFeatures.roster().contains(message.uuid(),message.name()))return;
+        ClientUiAccess.chat(client).addClientSystemMessage(Component.literal("[CC Party] ").withColor(0xFFA6CF).append(Component.literal(message.name()+": ").withColor(0xFFA6CF)).append(Component.literal(message.text()).withColor(0xFFFFFF)));
+        PartyChatSound.received(client,message.uuid());
+        if(message.delivered()==0)PartyFeatures.notice("No other party members are connected to Party IRC.");
     }
     public static void chat(String message){
         if(!RemoteAccess.online())PartyFeatures.notice("Party IRC is unavailable in offline mode.");

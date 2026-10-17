@@ -9,6 +9,16 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ConfigManagerTest {
+    @Test void partyChatSoundDefaultsOffAndRoundTripsWithItsOwnSettings()throws Exception{
+        assertFalse(ConfigManager.partyChatSoundEnabled);assertEquals("minecraft:block.note_block.pling",ConfigManager.partyChatSound);
+        assertEquals(.5,ConfigManager.partyChatSoundVolume);assertEquals(1,ConfigManager.partyChatSoundPitch);
+        var path=directory.resolve("chat-sound.json");
+        ConfigManager.partyChatSoundEnabled=true;ConfigManager.partyChatSound="custom:party/ding";ConfigManager.partyChatSoundVolume=.35;ConfigManager.partyChatSoundPitch=1.5;ConfigManager.save(path);
+        ConfigManager.partyChatSoundEnabled=false;ConfigManager.partyChatSound="minecraft:ui.button.click";ConfigManager.partyChatSoundVolume=1;ConfigManager.partyChatSoundPitch=1;ConfigManager.load(path);
+        assertTrue(ConfigManager.partyChatSoundEnabled);assertEquals("custom:party/ding",ConfigManager.partyChatSound);assertEquals(.35,ConfigManager.partyChatSoundVolume);assertEquals(1.5,ConfigManager.partyChatSoundPitch);
+        Files.writeString(path,"{\"settings\":{\"partyChatSound\":\"bad id\",\"partyChatSoundVolume\":4,\"partyChatSoundPitch\":-2}}");ConfigManager.load(path);
+        assertEquals("minecraft:block.note_block.pling",ConfigManager.partyChatSound);assertEquals(1,ConfigManager.partyChatSoundVolume);assertEquals(.5,ConfigManager.partyChatSoundPitch);
+    }
     @Test void updateChecksDefaultOnAndThePreferencePersists()throws Exception{
         assertTrue(ConfigManager.updateCheckEnabled);var path=directory.resolve("updates.json");
         Files.writeString(path,"{\"settings\":{}}");ConfigManager.load(path);assertTrue(ConfigManager.updateCheckEnabled);

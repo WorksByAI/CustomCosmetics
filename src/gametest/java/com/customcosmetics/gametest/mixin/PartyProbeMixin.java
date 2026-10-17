@@ -9,6 +9,12 @@ import org.spongepowered.asm.mixin.injection.*;
 import org.spongepowered.asm.mixin.injection.callback.*;
 import java.util.*;
 public final class PartyProbeMixin{
+    @Mixin(net.minecraft.client.sounds.SoundManager.class)public static class Sounds{
+        @Inject(method="play",at=@At("HEAD"))
+        private void capture(net.minecraft.client.resources.sounds.SoundInstance sound,CallbackInfoReturnable<net.minecraft.client.sounds.SoundEngine.PlayResult> cir){
+            if(PartyGameTest.observeSounds)PartyGameTest.sounds.add(sound);
+        }
+    }
     @Mixin(PartyFeatures.class)public static class Features{
         @Inject(method="tick",at=@At("HEAD"),cancellable=true)
         private static void fixtureWorld(CallbackInfo ci){ci.cancel();}

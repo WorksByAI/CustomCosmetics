@@ -66,6 +66,9 @@ public final class ConfigManager {
     public static boolean localSkinEnabled=true,localSkinSlim=false,skinP2pSharing=false,skinP2pReceiving=true;
     public static java.util.List<PlayerBlocklist.Entry> capeBlockedPlayers = java.util.List.of();
     public static boolean partyEspEnabled=true,partyChatEnabled=true;
+    public static boolean partyChatSoundEnabled=false;
+    public static String partyChatSound="minecraft:block.note_block.pling";
+    public static double partyChatSoundVolume=.5,partyChatSoundPitch=1;
     public static boolean partyConnectionNotifications=true;
     public static boolean partyP2pEnabled=true;
     public static volatile int syncP2pPort=0;
@@ -191,6 +194,9 @@ public final class ConfigManager {
             partyNametagHideDistance=com.customcosmetics.features.party.PartyDisplayRange.normalize(partyNametagHideDistance);
             partyMaxDisplayDistance=com.customcosmetics.features.party.PartyDisplayRange.normalize(partyMaxDisplayDistance);
             partyChatPrefix=com.customcosmetics.features.party.PartyChatRules.prefix(partyChatPrefix);
+            partyChatSound=com.customcosmetics.features.party.PartyChatSound.sound(partyChatSound);
+            partyChatSoundVolume=com.customcosmetics.features.party.PartyChatSound.volume(partyChatSoundVolume);
+            partyChatSoundPitch=com.customcosmetics.features.party.PartyChatSound.pitch(partyChatSoundPitch);
             positionSharingMode=com.customcosmetics.features.party.PositionAudience.mode(positionSharingMode);
             positionSharingTargets=com.customcosmetics.features.party.PositionAudience.targets(positionSharingTargets);
             swordBlockingStyle = com.customcosmetics.features.blocking.BlockingStyle.parse(swordBlockingStyle).value();

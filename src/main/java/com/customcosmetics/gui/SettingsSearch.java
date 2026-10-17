@@ -13,7 +13,8 @@ public final class SettingsSearch {
         Map.entry("位置","position"),Map.entry("格挡","block"),Map.entry("挥动","swing"),Map.entry("速度","speed"),
         Map.entry("代理","proxy"),Map.entry("流光","shimmer"),Map.entry("鎏金","shimmer"),Map.entry("预设","preset"),Map.entry("同步","sync"),Map.entry("队伍","party"),
         Map.entry("装备","equipment"),Map.entry("物品","item"),Map.entry("字体","bold"),Map.entry("动画","animation"),
-        Map.entry("地图","map"),Map.entry("替换","replace"),Map.entry("材质","material"));
+        Map.entry("地图","map"),Map.entry("替换","replace"),Map.entry("材质","material"),
+        Map.entry("提示音","notification sound"),Map.entry("声音","sound"),Map.entry("音量","volume"),Map.entry("音高","pitch"));
     private SettingsSearch() {}
     private static String fold(String value){return Normalizer.normalize(value,Normalizer.Form.NFKC).toLowerCase(Locale.ROOT).replaceAll("[\\p{Punct}\\s]+"," ").strip();}
     public static List<Entry> find(Collection<Entry> entries,String query){

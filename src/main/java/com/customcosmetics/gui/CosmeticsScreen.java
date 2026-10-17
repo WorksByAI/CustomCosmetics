@@ -1,6 +1,7 @@
 package com.customcosmetics.gui;
 
 import com.customcosmetics.compatibility.ClientInput;
+import com.customcosmetics.compatibility.ClientUiAccess;
 import com.customcosmetics.config.ConfigManager;
 import com.customcosmetics.config.PlayerBlocklist;
 import com.customcosmetics.sync.PresenceSync;
@@ -270,6 +271,13 @@ public final class CosmeticsScreen extends Screen {
         toggleRow("Party ESP","Highlight your teammates and share your position.",()->ConfigManager.partyEspEnabled,v->ConfigManager.partyEspEnabled=v);
         toggleRow("Chams","See loaded shared players through walls with their original skin, armor, cape and equipment.",()->ConfigManager.sharingChamsEnabled,v->ConfigManager.sharingChamsEnabled=v);
         toggleRow("IRC For Party Members","Send messages to your connected party members.",()->ConfigManager.partyChatEnabled,v->ConfigManager.partyChatEnabled=v);
+        toggleRow("Chat Notification Sound","Play a sound for other party members' IRC messages.",()->ConfigManager.partyChatSoundEnabled,v->ConfigManager.partyChatSoundEnabled=v);
+        fullButton("Chat Sound: "+com.customcosmetics.features.party.PartyChatSound.label(ConfigManager.partyChatSound),()->ClientUiAccess.setScreen(minecraft,new PartyChatSoundScreen(this)),false,"Choose a notification sound, including sounds from your resource pack.");
+        sliderGrid(List.of(
+            new NumericSetting("Chat Sound Volume (%)",()->ConfigManager.partyChatSoundVolume*100,0,100,5,50,v->ConfigManager.partyChatSoundVolume=v/100),
+            new NumericSetting("Chat Sound Pitch",()->ConfigManager.partyChatSoundPitch,.5,2,.05,1,v->ConfigManager.partyChatSoundPitch=v)
+        ));
+        fullButton("Preview Chat Sound",()->{if(!com.customcosmetics.features.party.PartyChatSound.preview(minecraft))com.customcosmetics.features.party.PartyFeatures.notice("The selected sound is not available in your current resource pack.");},false,"Try the selected sound, volume and pitch.");
         toggleRow("Connection Notifications","Show connection results after joining a party.",()->ConfigManager.partyConnectionNotifications,v->ConfigManager.partyConnectionNotifications=v);
         var prefixField=fieldRow("Chat Prefix","Chat Prefix",ConfigManager.partyChatPrefix,32,"Empty: all chat to CC Party. Commands are unchanged.",140,value->{});
         prefixField.setResponder(value->{

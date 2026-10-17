@@ -3,6 +3,11 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 class SettingsSearchTest {
+    @Test void findsChatAudioControlsInChinese(){
+        var sounds=List.of(new SettingsSearch.Entry("Sharing","Chat Notification Sound","","PARTY",1),new SettingsSearch.Entry("Sharing","Chat Sound Volume (%)","","PARTY",2),new SettingsSearch.Entry("Sharing","Chat Sound Pitch","","PARTY",3));
+        assertEquals(1,SettingsSearch.find(sounds,"提示音").size());assertEquals(3,SettingsSearch.find(sounds,"声音").size());
+        assertEquals(2,SettingsSearch.find(sounds,"音量").getFirst().offset());assertEquals(3,SettingsSearch.find(sounds,"音高").getFirst().offset());
+    }
     private final List<SettingsSearch.Entry> entries=List.of(
         new SettingsSearch.Entry("Sharing","Location Tracers","Draw lines to shared players","PARTY",420),
         new SettingsSearch.Entry("Sharing","Location Tracer Color","#RRGGBB","PARTY",480),
