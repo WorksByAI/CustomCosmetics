@@ -12,6 +12,7 @@ final class MapStorage {
     private static final Gson GSON=new GsonBuilder().setPrettyPrinting().create();
     final Path root,settings,presets,rooms;
     private final Path base;
+    private volatile Map<String,Path> presetFiles=Map.of();
     MapStorage(Path base){this.base=base;root=base.resolve("map-editor");settings=root.resolve("settings.json");presets=root.resolve("presets");rooms=root.resolve("rooms");}
 
     JsonObject initialize()throws IOException{
@@ -57,21 +58,27 @@ final class MapStorage {
     }
     Map<String,MapEdits.Preset> loadPresets()throws IOException{
         var result=new TreeMap<String,MapEdits.Preset>();
+        var paths=new HashMap<String,Path>();
         try(var files=Files.list(presets)){
-            for(Path file:files.filter(p->p.getFileName().toString().endsWith(".ccmap")).sorted().toList()){
+            for(Path file:files.filter(Files::isRegularFile).filter(p->p.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".ccmap")).sorted().toList()){
+                try{
                 var layout=MapLayoutCodec.read(file);var edits=new ArrayList<MapEdits.Edit>(layout.edits().size());
                 layout.edits().forEach((p,material)->edits.add(new MapEdits.Edit(p,material,Boolean.TRUE.equals(layout.origins().get(p)))));
                 MapEdits.Preset preset;
                 try{preset=new MapEdits.Preset(layout.name(),edits,layout.fingerprint());}catch(RuntimeException error){throw new IOException("Invalid map preset",error);}
                 if(result.put(preset.name(),preset)!=null)throw new IOException("Duplicate map preset: "+preset.name());
+                paths.put(preset.name(),file);
+                }catch(IOException|RuntimeException error){throw new IOException("Could not read preset "+file.getFileName()+": "+error.getMessage(),error);}
             }
         }
-        return result;
+        presetFiles=Map.copyOf(paths);return result;
     }
+    private Path presetFile(String name){return presetFiles.getOrDefault(name,MapLayoutCodec.path(presets,name));}
+    private void rememberFile(String name,Path path){var next=new HashMap<>(presetFiles);if(path==null)next.remove(name);else next.put(name,path);presetFiles=Map.copyOf(next);}
     void savePreset(MapEdits.Preset preset)throws IOException{
         var edits=new HashMap<MapEdits.Position,String>();var origins=new HashMap<MapEdits.Position,Boolean>();
         for(var edit:preset.edits()){if(edits.put(edit.position(),edit.material())!=null)throw new IOException("Duplicate preset coordinate");if(edit.originallyAir())origins.put(edit.position(),true);}
-        MapLayoutCodec.write(MapLayoutCodec.path(presets,preset.name()),new MapLayoutCodec.Layout(preset.name(),preset.fingerprint(),null,edits,origins));
+        Path target=presetFile(preset.name());MapLayoutCodec.write(target,new MapLayoutCodec.Layout(preset.name(),preset.fingerprint(),null,edits,origins));rememberFile(preset.name(),target);
     }
     private static MapLayoutCodec.Layout readLegacyPreset(JsonReader reader)throws IOException{
         String name=null,fingerprint="";boolean foundEdits=false;var edits=new HashMap<MapEdits.Position,String>();var origins=new HashMap<MapEdits.Position,Boolean>();var palette=new HashMap<String,String>();
@@ -94,12 +101,14 @@ final class MapStorage {
         if(old.name().equals(name))return;
         Path target=MapLayoutCodec.path(presets,name);
         if(Files.exists(target))throw new IOException("A preset with that name already exists");
-        MapLayoutCodec.rename(MapLayoutCodec.path(presets,old.name()),target,replacement.name());
+        MapLayoutCodec.rename(presetFile(old.name()),target,replacement.name());
         try{deletePreset(old.name());}catch(IOException error){Files.deleteIfExists(target);throw error;}
+        rememberFile(name,target);
     }
     void deletePreset(String name)throws IOException{
-        Path source=MapLayoutCodec.path(presets,name);if(!Files.exists(source))return;
+        Path source=presetFile(name);if(!Files.exists(source)){rememberFile(name,null);return;}
         Path backup=root.resolve("backups").resolve("presets").resolve(UUID.randomUUID().toString());Files.createDirectories(backup);
         Files.move(source,backup.resolve(source.getFileName()));
+        rememberFile(name,null);
     }
 }

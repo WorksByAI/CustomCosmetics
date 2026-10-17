@@ -18,8 +18,7 @@ public class ModMenuNickTweaksMixin {
 
     @Mixin(
         targets = {
-            "com.terraformersmc.modmenu.gui.ModsScreen",
-            "com.terraformersmc.modmenu.gui.ModMenuOptionsScreen"
+            "com.terraformersmc.modmenu.gui.ModsScreen"
         },
         remap = false
     )

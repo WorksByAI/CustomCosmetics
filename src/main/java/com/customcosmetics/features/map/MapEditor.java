@@ -202,6 +202,15 @@ public final class MapEditor {
     public static void setAnchor(){var client=Minecraft.getInstance();if(client.player!=null){var p=client.player.blockPosition();anchor=new MapEdits.Position(p.getX(),0,p.getZ());notice("Map anchor: "+anchor);}}
     public record PresetInfo(String name,int blocks,String room){}
     public static List<PresetInfo> presetEntries(){return PRESETS.values().stream().map(p->new PresetInfo(p.name(),p.edits().size(),MapPresetData.roomLabel(p))).toList();}
+    public static java.util.concurrent.CompletableFuture<Void> refreshPresetsInteractive(){
+        if(busy())throw new IllegalStateException("Wait for the current map operation");
+        var target=storage;if(target==null)throw new IllegalStateException("Map storage unavailable");
+        var before=new TreeMap<>(PRESETS);
+        var result=background(target::loadPresets,loaded->{
+            if(PRESETS.size()!=before.size()||before.entrySet().stream().anyMatch(e->PRESETS.get(e.getKey())!=e.getValue()))throw new IllegalStateException("Presets changed while refreshing. Please refresh again.");
+            PRESETS.clear();PRESETS.putAll(loaded);
+        }).thenApply(value->(Void)null);operation=result;return result;
+    }
     public static void savePreset(){
         if(anchor()==null)throw new IllegalStateException("Join a world first");
         var frame=currentRoom();MapEdits.Preset preset;
@@ -240,7 +249,7 @@ public final class MapEditor {
         try{if(storage==null)throw new java.io.IOException("Map storage unavailable");storage.renamePreset(old,name);}catch(java.io.IOException error){throw new IllegalStateException("Could not rename preset: "+error.getMessage(),error);}
         PRESETS.remove(old.name());PRESETS.put(name,replacement);presetName=name;
     }
-    public static void deletePreset(){try{if(storage==null)throw new java.io.IOException("Map storage unavailable");storage.deletePreset(presetName);}catch(java.io.IOException error){throw new IllegalStateException("Could not delete map preset: "+error.getMessage(),error);}PRESETS.remove(presetName);}
+    public static void deletePreset(){if(busy())throw new IllegalStateException("Wait for the current map operation");try{if(storage==null)throw new java.io.IOException("Map storage unavailable");storage.deletePreset(presetName);}catch(java.io.IOException error){throw new IllegalStateException("Could not delete map preset: "+error.getMessage(),error);}PRESETS.remove(presetName);}
     private static <T> java.util.concurrent.CompletableFuture<T> background(java.util.concurrent.Callable<T> prepare,java.util.function.Consumer<T> apply){
         var result=new java.util.concurrent.CompletableFuture<T>();
         var worker=java.util.concurrent.CompletableFuture.supplyAsync(()->{try{return prepare.call();}catch(Exception e){throw new java.util.concurrent.CompletionException(e);}},MapWork.EXECUTOR);workerFence=worker;worker.whenComplete((value,error)->Minecraft.getInstance().execute(()->{
@@ -248,6 +257,7 @@ public final class MapEditor {
         }));return result;
     }
     public static java.util.concurrent.CompletableFuture<Void> savePresetInteractive(){
+        if(busy())throw new IllegalStateException("Wait for the current map operation");
         if(DATA.snapshot().size()<8192){savePreset();return java.util.concurrent.CompletableFuture.completedFuture(null);}
         var before=DATA.snapshot();var frame=currentRoom();var resolve=DungeonRooms.resolver();var origin=anchor();if(origin==null)throw new IllegalStateException("Join a world first");String name=presetName,hash=frame==null?fingerprint(origin,0):"";var target=storage;
         return background(()->{MapEdits.Preset preset;
@@ -282,6 +292,7 @@ public final class MapEditor {
     public static void clearInteractive(){if(DATA.snapshot().size()<8192){clear();return;}report(changeInteractive(Map::of,false));}
     public static void clearRoomInteractive(){if(DATA.snapshot().size()<8192){clearRoom();return;}var frame=currentRoom();if(frame==null)throw new IllegalArgumentException("No recognized room here");var before=DATA.snapshot();var resolve=DungeonRooms.resolver();report(changeInteractive(()->{var copy=new HashMap<MapEdits.Position,MapEdits.Edit>();for(var e:before.entrySet())if(!MapPresetData.sameRoom(frame,resolve.apply(e.getKey())))copy.put(e.getKey(),e.getValue());return MapEdits.own(copy);},false));}
     public static java.util.concurrent.CompletableFuture<Void> renamePresetInteractive(String name){
+        if(busy())throw new IllegalStateException("Wait for the current map operation");
         var old=requiredPreset();if(old.edits().size()<8192){renamePreset(name);return java.util.concurrent.CompletableFuture.completedFuture(null);}
         if(PRESETS.containsKey(name)&&!name.equals(old.name()))throw new IllegalArgumentException("A preset with that name already exists");var replacement=new MapEdits.Preset(name,old.edits(),old.fingerprint());var target=storage;
         return background(()->{target.renamePreset(old,name);return replacement;},preset->{PRESETS.remove(old.name());PRESETS.put(name,preset);presetName=name;}).thenApply(p->null);

@@ -1,4 +1,4 @@
-# CustomCosmetics v1.5.2 发布！
+# CustomCosmetics v1.5.4 发布！
 
 这是一个支持玩家间同步的自定义外观模组，支持 26.1～26.3 Fabric，并随 SkyBlock 版本更新而更新。
 
@@ -21,7 +21,7 @@
 
 ## English
 
-CustomCosmetics v1.5.2 is out!
+CustomCosmetics v1.5.4 is out!
 
 A Fabric mod for customizable cosmetics with player-to-player synchronization. Supports Minecraft 26.1–26.3 on Fabric and is updated alongside SkyBlock.
 

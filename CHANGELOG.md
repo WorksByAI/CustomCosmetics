@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.4
+
+- Map Editor: Add a Refresh button to reload preset files without restarting.
+- Fix Mod Menu options screen compatibility.
+
 ## 1.5.3
 
 - Performance optimizations for large map edits, room loading and presets.

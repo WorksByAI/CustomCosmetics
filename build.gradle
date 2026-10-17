@@ -17,6 +17,7 @@ repositories {
 }
 
 dependencies {
+    if(providers.gradleProperty('modmenu_test_jar').isPresent())testRuntimeOnly files(providers.gradleProperty('modmenu_test_jar').get())
     if(providers.gradleProperty('sodium_test_jar').isPresent())testRuntimeOnly files(providers.gradleProperty('sodium_test_jar').get())
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     implementation "net.fabricmc:fabric-loader:${project.loader_version}"
@@ -130,6 +131,17 @@ if (providers.gradleProperty('fme_game_only').getOrElse('false').toBoolean()) {
         inputs.file('build.gradle')
         filesMatching('fabric.mod.json') { filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.FmeEditorGameTest') } }
         filesMatching('customcosmetics-test.mixins.json') { filter { line -> line.contains('"client":') ? '  "client": ["FmeInputTrace", "FreecamProbe$Packets", "FreecamProbe$Actions", "MapAdventureScopeMixin", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line } }
+    }
+}
+
+if (providers.gradleProperty('preset_refresh_game_only').getOrElse('false').toBoolean()) {
+    if(providers.gradleProperty('modmenu_test_jar').isPresent())dependencies { gametestRuntimeOnly files(providers.gradleProperty('modmenu_test_jar').get()) }
+    sourceSets.gametest.java.include '**/MapPresetRefreshGameTest.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
+    tasks.named('processGametestResources') {
+        inputs.property 'preset_refresh_game_only', true
+        inputs.file('build.gradle')
+        filesMatching('fabric.mod.json') { filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.MapPresetRefreshGameTest') } }
+        filesMatching('customcosmetics-test.mixins.json') { filter { line -> line.contains('"client":') ? '  "client": ["UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line } }
     }
 }
 

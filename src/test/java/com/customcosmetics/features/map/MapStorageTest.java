@@ -11,6 +11,35 @@ import java.util.zip.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MapStorageTest {
+    @Test void externalFilenameStillSupportsOverwriteRenameAndRecoverableDelete()throws Exception{
+        var store=new MapStorage(temp);store.initialize();var preset=new MapEdits.Preset("Shared",List.of(new MapEdits.Edit(ZERO,"minecraft:stone",false)),"");store.savePreset(preset);
+        Path external=store.presets.resolve("好友改过的名字.ccmap");Files.move(MapLayoutCodec.path(store.presets,"Shared"),external);store.loadPresets();
+        var replacement=new MapEdits.Preset("Shared",List.of(new MapEdits.Edit(ZERO,"minecraft:gold_block",false)),"");store.savePreset(replacement);
+        assertFalse(Files.exists(MapLayoutCodec.path(store.presets,"Shared")));assertEquals("minecraft:gold_block",MapLayoutCodec.read(external).edits().get(ZERO));
+        store.renamePreset(replacement,"Renamed");assertFalse(Files.exists(external));assertEquals(Set.of("Renamed"),store.loadPresets().keySet());
+        store.deletePreset("Renamed");assertTrue(store.loadPresets().isEmpty());try(var files=Files.walk(store.root.resolve("backups/presets"))){assertEquals(2,files.filter(Files::isRegularFile).count());}
+    }
+    @Test void rescanningReadsAddedReplacedAndDeletedFilesRegardlessOfFilename()throws Exception{
+        var store=new MapStorage(temp);store.initialize();
+        store.savePreset(new MapEdits.Preset("Original",List.of(new MapEdits.Edit(ZERO,"minecraft:stone",false)),""));
+        var cached=store.loadPresets();assertEquals(Set.of("Original"),cached.keySet());
+        Path shared=store.presets.resolve("圣诞分享.CCMAP");
+        MapLayoutCodec.write(shared,new MapLayoutCodec.Layout("Shared","",null,Map.of(ZERO,"minecraft:snow_block"),Map.of()));
+        assertFalse(cached.containsKey("Shared"));var refreshed=store.loadPresets();assertEquals(Set.of("Original","Shared"),refreshed.keySet());
+        assertEquals("minecraft:snow_block",refreshed.get("Shared").edits().getFirst().material());
+        MapLayoutCodec.write(shared,new MapLayoutCodec.Layout("Shared","",null,Map.of(ZERO,"minecraft:gold_block"),Map.of()));
+        Files.delete(MapLayoutCodec.path(store.presets,"Original"));refreshed=store.loadPresets();
+        assertEquals(Set.of("Shared"),refreshed.keySet());assertEquals("minecraft:gold_block",refreshed.get("Shared").edits().getFirst().material());
+        Files.delete(shared);assertTrue(store.loadPresets().isEmpty());
+    }
+    @Test void scanReportsBadFilenameAndIgnoresNonFiles()throws Exception{
+        var store=new MapStorage(temp);store.initialize();Files.createDirectory(store.presets.resolve("folder.ccmap"));
+        store.savePreset(new MapEdits.Preset("Good",List.of(new MapEdits.Edit(ZERO,"minecraft:stone",false)),""));
+        assertEquals(Set.of("Good"),store.loadPresets().keySet());
+        Path broken=store.presets.resolve("broken.ccmap");Files.writeString(broken,"not a layout");
+        assertTrue(assertThrows(IOException.class,store::loadPresets).getMessage().contains("broken.ccmap"));
+        Files.delete(broken);assertEquals(Set.of("Good"),store.loadPresets().keySet());
+    }
     @TempDir Path temp;
     private static final MapEdits.Position ZERO=new MapEdits.Position(0,0,0);
     private static RoomLayouts.Frame frame(String name){return new RoomLayouts.Frame(name,name,ZERO,0);}
