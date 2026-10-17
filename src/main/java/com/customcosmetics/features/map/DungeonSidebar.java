@@ -12,6 +12,15 @@ public final class DungeonSidebar {
     private DungeonSidebar(){}
     public static String normalize(String text){return text==null?"":Normalizer.normalize(text,Normalizer.Form.NFKC).replaceAll("§[0-9a-fk-orxA-FK-ORX]","").replaceAll("[\\p{Cf}\\p{Cc}\\p{Co}]","").replaceAll("\\s+"," ").strip().toLowerCase(Locale.ROOT);}
     public static String floor(Collection<String> rows){for(String line:rows){var match=LOCATION.matcher(normalize(line));if(match.matches()&&match.group(1)!=null)return match.group(1).toUpperCase(Locale.ROOT);}return "";}
+    static boolean branded(String title,Collection<String> rows){return normalize(title).contains("skyblock")||rows.stream().anyMatch(s->normalize(s).contains("www.hypixel.net"));}
+    static boolean outsideDungeon(Collection<String> rows){
+        for(String line:rows){
+            if(line==null)continue;
+            String visible=Normalizer.normalize(line,Normalizer.Form.NFKC).replaceAll("§[0-9a-fk-orxA-FK-ORX]","").strip();
+            if((visible.startsWith("⏣")||visible.startsWith("\ue067"))&&!LOCATION.matcher(normalize(line)).matches())return true;
+        }
+        return false;
+    }
     public static boolean kuudra(String title,Collection<String> rows){
         var lines=rows.stream().filter(Objects::nonNull).map(DungeonSidebar::normalize).toList();
         return (normalize(title).contains("skyblock")||lines.stream().anyMatch(s->s.contains("www.hypixel.net")))&&lines.stream().anyMatch(s->KUUDRA.matcher(s).matches());

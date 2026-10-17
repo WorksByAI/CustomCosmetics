@@ -34,6 +34,30 @@ public final class KuudraMapGameTest implements FabricClientGameTest {
             context.runOnClient(client->check(client.level.getBlockState(MapEditor.blockPos(REAL)).is(Blocks.STONE)&&MapEditor.visible().get(REAL).material().equals("minecraft:dark_oak_planks"),"Server-restored block lost its saved material"));
             world.getServer().runOnServer(s->sidebar(s,"The Catacombs (F7)"));context.waitTicks(4);
             context.runOnClient(client->{check(!MapEditor.inKuudra(client)&&MapEditor.DATA.snapshot().isEmpty(),"Kuudra edits leaked into Catacombs in the same ClientLevel");check(MapEditor.ROOMS.edits("floor:F7+M7").isEmpty(),"Kuudra edits polluted the F7/M7 layout");});
+            world.getServer().runOnServer(s->sidebar(s,"The Catacombs (M7)"));context.waitTicks(4);
+            var bossEdits=new java.util.concurrent.atomic.AtomicReference<java.util.Map<MapEdits.Position,MapEdits.Edit>>();
+            context.runOnClient(client->{
+                MapEditor.DATA.put(new MapEdits.Edit(REAL,"minecraft:gold_block",false));MapEditor.refresh();bossEdits.set(MapEditor.DATA.snapshot());
+                check(MapEditor.automaticDungeon(client)&&MapEditor.floor().equals("M7"),"M7 fixture was not detected");
+            });
+            world.getServer().runOnServer(s->{
+                var board=s.getScoreboard();var team=board.getPlayerTeam("kuudra_row");
+                team.setPlayerPrefix(net.minecraft.network.chat.Component.literal("Power: 100%"));team.setPlayerSuffix(net.minecraft.network.chat.Component.empty());
+                int score=2;for(String row:java.util.List.of("Apex: 100%","Soul: 100%","Ice: 100%","Flame: 100%"))
+                    board.getOrCreatePlayerScore(net.minecraft.world.scores.ScoreHolder.forNameOnly(row),board.getObjective("kuudra_test")).set(score++);
+            });context.waitTicks(8);
+            context.runOnClient(client->{
+                check(!DungeonSidebar.matches(DungeonSidebarReader.read(client).title(),MapEditor.sidebarRows()),"Dragon fixture still contains a dungeon location");
+                check(MapEditor.automaticDungeon(client)&&MapEditor.allowed(client)&&MapEditor.floor().equals("M7"),"Dragon sidebar disabled the confirmed M7 session");
+                check(DungeonRooms.at(new MapEdits.Position(100,18,100)).key().equals("floor:F7+M7"),"P5 lost the shared F7/M7 layout");
+                check(MapEditor.visible()==bossEdits.get()&&MapEditor.DATA.snapshot()==bossEdits.get(),"P5 dropped or recopied the active edits");
+                check(client.level.getBlockState(MapEditor.blockPos(REAL)).is(Blocks.STONE),"P5 handling changed authoritative blocks");
+            });
+            world.getServer().runOnServer(s->s.getScoreboard().setDisplayObjective(net.minecraft.world.scores.DisplaySlot.SIDEBAR,null));context.waitTicks(4);
+            context.runOnClient(client->check(MapEditor.visible()==bossEdits.get()&&MapEditor.floor().equals("M7"),"Temporary sidebar removal lost M7 edits"));
+            world.getServer().runOnServer(s->sidebar(s,"Dungeon Hub"));context.waitTicks(4);
+            context.runOnClient(client->check(!MapEditor.automaticDungeon(client)&&!MapEditor.allowed(client)&&MapEditor.visible().isEmpty()&&MapEditor.floor().isEmpty(),"Dungeon session leaked into the Hub"));
+            System.out.println("M7_P5_DRAGON_SIDEBAR_KEEPS_SHARED_LAYOUT_AND_SNAPSHOT_EXIT_CLEARS_CONTEXT_OK");
             world.getServer().runOnServer(s->sidebar(s,"Kuudra’s Hollow (T5)"));context.waitTicks(4);
             context.runOnClient(client->{check(MapEditor.visible().containsKey(REAL),"Kuudra template was not restored on arena re-entry");MapEditor.flushRooms();});
         }

@@ -8,20 +8,22 @@ import java.util.*;
 
 /** Reads the active objective, including legacy Hypixel labels stored in team prefix/suffix pairs. */
 public final class DungeonSidebarReader {
-    public record Snapshot(String objective,String title,List<String> rows,List<String> raw){
+    public record Snapshot(String objective,String title,List<String> rows,List<String> raw,boolean detected,String floor){
         public Snapshot{rows=List.copyOf(rows);raw=List.copyOf(raw);}
-        public boolean detected(){return DungeonSidebar.matches(title,rows);}
         public boolean kuudra(){return DungeonSidebar.kuudra(title,rows);}
-        public String floor(){return DungeonSidebar.floor(rows);}
     }
-    private static final Snapshot EMPTY=new Snapshot("","",List.of(),List.of());
+    private static final DungeonSession SESSION=new DungeonSession();
+    private static Snapshot snapshot(Minecraft client,String objective,String title,List<String> rows,List<String> raw){
+        var context=SESSION.update(client.level,client.player==null?null:client.getConnection(),title,rows);
+        return new Snapshot(objective,title,rows,raw,context.detected(),context.floor());
+    }
     private DungeonSidebarReader(){}
     public static Snapshot read(Minecraft client){return read(client,false);}
     public static Snapshot read(Minecraft client,boolean diagnostics){
-        if(client.level==null||client.player==null)return EMPTY;
+        if(client.level==null||client.player==null)return snapshot(client,"","",List.of(),List.of());
         var board=client.level.getScoreboard();var objective=board.getDisplayObjective(DisplaySlot.SIDEBAR);
         var slot=SidebarAccess.teamSlot(client.player.getTeam());if(slot!=null&&board.getDisplayObjective(slot)!=null)objective=board.getDisplayObjective(slot);
-        if(objective==null)return EMPTY;
+        if(objective==null)return snapshot(client,"","",List.of(),List.of());
         var rows=new LinkedHashSet<String>();var raw=new ArrayList<String>();
         for(var row:board.listPlayerScores(objective)){
             var team=board.getPlayersTeam(row.owner());
@@ -33,7 +35,7 @@ public final class DungeonSidebarReader {
             if(team!=null&&!DungeonSidebar.normalize(prefix+suffix).isBlank())rows.add(prefix+suffix);
             if(diagnostics&&raw.size()<32)raw.add("owner="+escaped(row.owner())+", hidden="+row.isHidden()+", display="+escaped(display)+", prefix="+escaped(prefix)+", suffix="+escaped(suffix));
         }
-        return new Snapshot(objective.getName(),objective.getDisplayName().getString(),List.copyOf(rows),raw);
+        return snapshot(client,objective.getName(),objective.getDisplayName().getString(),List.copyOf(rows),raw);
     }
     private static String escaped(String text){var out=new StringBuilder();text.codePoints().limit(256).forEach(c->{if(c<32||c>126)out.append(String.format(Locale.ROOT,"\\u{%x}",c));else out.appendCodePoint(c);});return out.toString();}
 }
