@@ -14,6 +14,12 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static org.junit.jupiter.api.Assertions.*;
 
 class GitHubUpdateCheckTest {
+    @Test void fourPartHotfixVersionsUpgradeInBothDirectionsWithoutRepeatedNotices(){
+        assertEquals(Optional.of("1.5.4.1"),GitHubUpdateCheck.newerRelease(release("v1.5.4.1"),"1.5.4"));
+        assertTrue(GitHubUpdateCheck.newerRelease(release("v1.5.4.1"),"1.5.4.1").isEmpty());
+        assertTrue(GitHubUpdateCheck.newerRelease(release("v1.5.4"),"1.5.4.1").isEmpty());
+        assertEquals(Optional.of("1.5.5"),GitHubUpdateCheck.newerRelease(release("v1.5.5"),"1.5.4.1"));
+    }
     @Test void disabledChecksDoNotQueueFetchAndQueuedWorkHonorsTheSwitch(){
         var enabled=new java.util.concurrent.atomic.AtomicBoolean(false);var check=new GitHubUpdateCheck("1.0.0",enabled::get);var tasks=new ArrayList<Runnable>();
         check.start(()->{fail("Disabled check fetched a release");return Optional.empty();},tasks::add);assertTrue(tasks.isEmpty());

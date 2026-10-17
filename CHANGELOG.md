@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.4.1
+
+- Fix fishing countdowns being treated as damage numbers.
+- Support four-part hotfix versions in update checks.
+
 ## 1.5.4
 
 - Map Editor: Add a Refresh button to reload preset files without restarting.
