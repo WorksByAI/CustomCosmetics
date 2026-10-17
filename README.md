@@ -21,7 +21,7 @@
 
 ## English
 
-CustomCosmetics v1.5.2 is out!
+CustomCosmetics v1.5.3
 
 A Fabric mod for customizable cosmetics with player-to-player synchronization. Supports Minecraft 26.1–26.3 on Fabric and is updated alongside SkyBlock.
 
