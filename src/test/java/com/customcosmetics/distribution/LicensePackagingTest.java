@@ -11,6 +11,21 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class LicensePackagingTest {
+    @Test void readmeIncludesRequestedChineseIntroductionAndMatchingEnglishFeatures() throws Exception {
+        String readme=Files.readString(ROOT.resolve("README.md"));
+        String[] languages=readme.split("## English",2);
+        assertEquals(2,languages.length);
+        assertTrue(languages[0].contains("CustomCosmetics v1.5.2 发布！"));
+        assertTrue(languages[1].contains("CustomCosmetics v1.5.2 is out!"));
+        for(String section:languages){
+            for(String feature:new String[]{"Player Size","NickTweaks","Animation","Cape","Equipments","Sharing","Skins","Item Customization","Damage Splash","Map Editor","Offline Mode"})
+                assertTrue(section.contains(feature+"**"),feature);
+            assertEquals(7,section.lines().filter(line->line.startsWith("- **[√] ")).count());
+            for(String local:new String[]{"Item Customization","Damage Splash","Map Editor","Offline Mode"})
+                assertTrue(section.contains("- **"+local+"**"),local);
+            assertTrue(section.contains("1024×1024")&&section.contains("P2P")&&section.contains("Kuudra"));
+        }
+    }
     @Test void release153IncludesMapPerformanceKuudraAndUpdatePreferenceSources() throws Exception {
         try (var zip = new ZipFile(System.getProperty("customcosmetics.fullSourceZip"))) {
             String prefix = "CustomCosmetics-" + System.getProperty("customcosmetics.version") + "/";
@@ -215,9 +230,9 @@ class LicensePackagingTest {
     void readmeStaysConciseAndThirdPartyLogoHasSeparateRights() throws Exception {
         String readme = Files.readString(ROOT.resolve("README.md"));
         assertTrue(readme.length() < 3800, "The bilingual README should stay a short feature overview");
-        assertTrue(readme.contains("## English") && readme.contains("基于 Fabric") && readme.contains("A Fabric mod"));
-        assertTrue(readme.contains("支持 Minecraft **26.1.2～26.3**"));
-        assertTrue(readme.contains("Supports Minecraft **26.1.2–26.3**"));
+        assertTrue(readme.contains("## English") && readme.contains("支持玩家间同步") && readme.contains("A Fabric mod"));
+        assertTrue(readme.contains("支持 26.1～26.3 Fabric"));
+        assertTrue(readme.contains("Supports Minecraft 26.1–26.3 on Fabric"));
         assertFalse(readme.contains("26.1.x / 26.2 / 26.3"));
         assertFalse(readme.contains("/docs/") || readme.contains("SOURCE-DELIVERY.md"));
         String changes = Files.readString(ROOT.resolve("CHANGELOG.md"));
