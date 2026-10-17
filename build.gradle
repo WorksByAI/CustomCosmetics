@@ -87,6 +87,9 @@ loom.runs.named('clientGameTest') {
 if(providers.gradleProperty('sodium_test_jar').isPresent()&&providers.gradleProperty('sodium_game_test').getOrElse('false').toBoolean()){
     dependencies {gametestRuntimeOnly files(providers.gradleProperty('sodium_test_jar').get())}
 }
+if(providers.gradleProperty('external_freecam_test_jar').isPresent()){
+    dependencies {gametestRuntimeOnly files(providers.gradleProperty('external_freecam_test_jar').get())}
+}
 
 tasks.named('runClientGameTest') { dependsOn 'test' }
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.5.2
+
+- Map Editor: Store compressed presets and room layouts in separate folders; migrate legacy JSON with exact backups and save only changed rooms.
+- Add a searchable preset manager with save, load, rename and recoverable deletion.
+- Automatically align room presets from detected blocks, including directional materials; keep FME imports compatible.
+- Default forced singleplayer editing without a floor sidebar to the shared F7/M7 Boss layout.
+- Add a local-only CCMap reader with material/coordinate search and editable JSON round trips at https://cc.toryhi.com/map.
+- Skins: Raise the PNG limit to 10 MiB and the shared P2P upload cap to 8 Mbps.
+- Batch negotiated skin chunks, avoid premature retries and keep position traffic on a separate budget.
+
 ## 1.5.1
 
 - Performance optimizations.

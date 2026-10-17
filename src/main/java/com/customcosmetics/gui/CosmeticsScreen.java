@@ -760,7 +760,7 @@ public final class CosmeticsScreen extends Screen {
         toggleRow("Share Skin via P2P","Only established Sharing direct connections. No relay or server upload.",()->ConfigManager.skinP2pSharing,v->ConfigManager.skinP2pSharing=v);
         toggleRow("Receive P2P Skins","Restore the original skin when the direct connection ends.",()->ConfigManager.skinP2pReceiving,v->ConfigManager.skinP2pReceiving=v);
         label("Established P2P peers: "+com.customcosmetics.features.skins.LocalSkins.directCount(),contentX,rowY+5,MUTED,contentWidth);rowY+=24;
-        for(var line:font.split(Component.literal("PNG up to 2 MiB. Model pixels are preserved. Transfers are limited to 16 KiB/s total, with missing-chunk retries."),contentWidth-16)){int y=rowY;art.add(g->g.text(font,line,contentX+8,y,MUTED,false));rowY+=12;}
+        for(var line:font.split(Component.literal("PNG up to 10 MiB. Model pixels are preserved. Skin transfers share an 8 Mbps upload limit, with missing-chunk retries."),contentWidth-16)){int y=rowY;art.add(g->g.text(font,line,contentX+8,y,MUTED,false));rowY+=12;}
     }
     private void mapEditor(){
         toggleRow("Freecam","WASD / Jump / Sneak: fly. Sprint: faster. Bind a key in Controls.",com.customcosmetics.features.map.Freecam::active,v->com.customcosmetics.features.map.MapCommands.run(()->com.customcosmetics.features.map.Freecam.setEnabled(v)));
@@ -769,7 +769,7 @@ public final class CosmeticsScreen extends Screen {
         String explanation="Visual only: keeps real collision and mining. Air additions have no collision.";
         for(var line:font.split(Component.literal(explanation),contentWidth-16)){int y=rowY;art.add(g->g.text(font,line,contentX+8,y,MUTED,false));rowY+=12;}rowY+=6;
         toggleRow("Dungeon Only","Edit only inside the Catacombs or local single-player worlds.",()->com.customcosmetics.features.map.MapEditor.dungeonOnly,v->{com.customcosmetics.features.map.MapEditor.dungeonOnly=v;com.customcosmetics.features.map.MapEditor.refresh();});
-        toggleRow("Force Dungeon","Assume you are in a dungeon. Detect rooms from loaded blocks even when sidebar detection fails.",()->com.customcosmetics.features.map.MapEditor.forceDungeon,com.customcosmetics.features.map.MapEditor::forceDungeon);
+        toggleRow("Force Dungeon","Assume you are in a dungeon. Singleplayer without a floor uses the shared F7/M7 Boss layout; multiplayer still detects rooms from blocks.",()->com.customcosmetics.features.map.MapEditor.forceDungeon,com.customcosmetics.features.map.MapEditor::forceDungeon);
         toggleRow("Edit Mode","Right: place. Left: hide/delete. Middle: pick. Changes save by room automatically.",()->com.customcosmetics.features.map.MapEditor.editing,v->{com.customcosmetics.features.map.MapEditor.editing=v;if(v)com.customcosmetics.features.map.MapEditor.enabled=true;com.customcosmetics.features.map.MapEditor.refresh();});
         fullButton("Import FME Config",()->com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,new FmeImportScreen(this)));
         fullButton("Choose Block / Favorites",com.customcosmetics.features.map.MapEditorUi::open);
@@ -781,16 +781,8 @@ public final class CosmeticsScreen extends Screen {
         fieldRow("Block Material","Block Material",com.customcosmetics.features.map.MapEditor.material,128,"Example: minecraft:gold_block. Air hides a real block visually in Legit mode.",220,v->{if(com.customcosmetics.features.map.MapEditor.state(v)!=null)com.customcosmetics.features.map.MapEditor.material=v;});
         fullButton("Undo",()->com.customcosmetics.features.map.MapEditor.undo());
         fullButton("Clear Current Edits",()->com.customcosmetics.features.map.MapEditor.clear());
-        label("Advanced · Manual Presets",contentX,rowY+5,PINK,contentWidth);rowY+=26;
-        toggleRow("Automatically Restore Rooms","Automatically applies saved rooms, including rotations. Named rooms use FunnyMap data; new rooms use ceiling fingerprints.",()->com.customcosmetics.features.map.MapEditor.autoRooms,v->{com.customcosmetics.features.map.MapEditor.autoRooms=v;com.customcosmetics.features.map.MapEditor.save();});
-        fieldRow("Preset Name","Preset Name",com.customcosmetics.features.map.MapEditor.presetName,48,"Saved locally. Room centers are automatic; use /customcosmetics map anchor for a manual anchor.",200,v->com.customcosmetics.features.map.MapEditor.presetName=v);
-        fullButton("Save Current Preset",()->com.customcosmetics.features.map.MapCommands.run(com.customcosmetics.features.map.MapEditor::savePreset));
-        var names=com.customcosmetics.features.map.MapEditor.presets();if(!names.isEmpty())fullButton("Select Saved Preset: "+com.customcosmetics.features.map.MapEditor.presetName,()->{int i=names.indexOf(com.customcosmetics.features.map.MapEditor.presetName);com.customcosmetics.features.map.MapEditor.presetName=names.get((i+1)%names.size());rebuildWidgets();});
-        fullButton("Load Preset",()->com.customcosmetics.features.map.MapCommands.run(()->com.customcosmetics.features.map.MapEditor.loadPreset(0)));
-        fullButton("Load Rotated 90°",()->com.customcosmetics.features.map.MapCommands.run(()->com.customcosmetics.features.map.MapEditor.loadPreset(1)));
-        fullButton("Load Rotated 180°",()->com.customcosmetics.features.map.MapCommands.run(()->com.customcosmetics.features.map.MapEditor.loadPreset(2)));
-        fullButton("Load Rotated 270°",()->com.customcosmetics.features.map.MapCommands.run(()->com.customcosmetics.features.map.MapEditor.loadPreset(3)));
-        fullButton("Delete Saved Preset",()->{com.customcosmetics.features.map.MapEditor.deletePreset();rebuildWidgets();});
+        toggleRow("Automatically Restore Rooms","Automatically applies saved rooms and aligns them from blocks.",()->com.customcosmetics.features.map.MapEditor.autoRooms,v->{com.customcosmetics.features.map.MapEditor.autoRooms=v;com.customcosmetics.features.map.MapEditor.save();});
+        fullButton("Preset Manager",()->com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,new MapPresetScreen(this)));
         label("Region: /customcosmetics map pos1, pos2, fill",contentX,rowY+5,MUTED,contentWidth);rowY+=24;
     }
 

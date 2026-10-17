@@ -7,11 +7,11 @@ import javax.imageio.ImageIO;
 import javax.imageio.stream.MemoryCacheImageInputStream;
 /** Validates before decoding and keeps source resolution. No skin website or account token is used. */
 public final class SkinImages {
-    public static final int MAX_BYTES=2*1024*1024,MAX_SIDE=1024;
+    public static final int MAX_BYTES=10*1024*1024,MAX_SIDE=1024;
     private SkinImages(){}
-    public static byte[] read(Path path)throws IOException{if(!Files.isRegularFile(path)||Files.size(path)>MAX_BYTES)throw new IOException("Choose a PNG skin up to 2 MiB.");return normalize(Files.readAllBytes(path));}
+    public static byte[] read(Path path)throws IOException{if(!Files.isRegularFile(path)||Files.size(path)>MAX_BYTES)throw new IOException("Choose a PNG skin up to 10 MiB.");return normalize(Files.readAllBytes(path));}
     public static byte[] normalize(byte[] bytes)throws IOException{
-        if(bytes.length<24||bytes.length>MAX_BYTES||bytes[0]!=(byte)137||bytes[1]!='P'||bytes[2]!='N'||bytes[3]!='G')throw new IOException("Use a PNG skin up to 2 MiB.");
+        if(bytes.length<24||bytes.length>MAX_BYTES||bytes[0]!=(byte)137||bytes[1]!='P'||bytes[2]!='N'||bytes[3]!='G')throw new IOException("Use a PNG skin up to 10 MiB.");
         BufferedImage source;
         try(var stream=new MemoryCacheImageInputStream(new ByteArrayInputStream(bytes))){var readers=ImageIO.getImageReaders(stream);if(!readers.hasNext())throw new IOException("Invalid PNG skin.");var reader=readers.next();try{
             reader.setInput(stream,true,true);int w=reader.getWidth(0),h=reader.getHeight(0);boolean legacy=w==64&&h==32;
@@ -21,7 +21,7 @@ public final class SkinImages {
         if(source.getHeight()==32){mirrorLimb(image,source,0,16);mirrorLimb(image,source,40,32);boolean opaque=true;for(int y=0;y<16;y++)for(int x=32;x<64;x++)if((image.getRGB(x,y)>>>24)<128)opaque=false;if(opaque)for(int y=0;y<16;y++)for(int x=32;x<64;x++)image.setRGB(x,y,image.getRGB(x,y)&0xffffff);}
         // Vanilla base layers are opaque; outer layers retain transparency.
         int scale=side/64;opaque(image,0,0,32,16,scale);opaque(image,0,16,64,32,scale);opaque(image,16,48,48,64,scale);
-        var output=new ByteArrayOutputStream();ImageIO.write(image,"PNG",output);byte[] result=output.toByteArray();if(result.length>MAX_BYTES)throw new IOException("Normalized skin exceeds 2 MiB.");return result;
+        var output=new ByteArrayOutputStream();ImageIO.write(image,"PNG",output);byte[] result=output.toByteArray();if(result.length>MAX_BYTES)throw new IOException("Normalized skin exceeds 10 MiB.");return result;
     }
     private static void opaque(BufferedImage image,int x1,int y1,int x2,int y2,int scale){for(int y=y1*scale;y<y2*scale;y++)for(int x=x1*scale;x<x2*scale;x++)image.setRGB(x,y,image.getRGB(x,y)|0xff000000);}
     private static void mirrorLimb(BufferedImage image,BufferedImage source,int sourceU,int destinationU){

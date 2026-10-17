@@ -9,7 +9,7 @@ import java.nio.file.*;
 import java.util.List;
 import static com.customcosmetics.gui.PinkUi.*;
 public final class SkinImportScreen extends Screen {
-    private final Screen parent;private PinkUi.Field path;private int x,y,w;private String notice="PNG · Modern 64–1024 square, or legacy 64x32 · Up to 2 MiB";private boolean loading;
+    private final Screen parent;private PinkUi.Field path;private int x,y,w;private String notice="PNG · Modern 64–1024 square, or legacy 64x32 · Up to 10 MiB";private boolean loading;
     public SkinImportScreen(Screen parent){super(Component.literal("Import Local Skin"));this.parent=parent;}
     @Override protected void init(){w=Math.min(620,width-16);x=(width-w)/2;y=(height-164)/2;path=addRenderableWidget(new PinkUi.Field(font,x+12,y+43,w-120,"Skin PNG path"));path.setMaxLength(4096);path.setHint(Component.literal("Paste PNG path or drop a file"));
         addRenderableWidget(new PinkUi.Action(x+w-100,y+43,88,24,"Browse",false,this::browse));

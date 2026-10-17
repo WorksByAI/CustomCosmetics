@@ -36,7 +36,7 @@ class PartyPeerClientTest {
         Arena(long offset,boolean destinationDependentMapping)throws Exception {this.offset=offset;ba=new InetSocketAddress("127.0.0.1",destinationDependentMapping?40002:30002);a.context(new PartyPeerClient.Context(A,101,1,WORLD,ROSTER,true));b.context(new PartyPeerClient.Context(B,102,1,WORLD,ROSTER,true));
             a.permit(ids(),now);b.permit(ids(),now+offset);a.offer(offer(true),now);b.offer(offer(false),now+offset);}
         void step(boolean deliver){now+=20;a.tick(now,20);b.tick(now+offset,20);a.publish(position(++seq,now),now);b.publish(position(seq,now+offset),now+offset);
-            int count=0;while(!wire.isEmpty()){var p=wire.remove();sent.add(p);assertTrue(++count<100,"Probe reply loop");
+            int count=0;while(!wire.isEmpty()){var p=wire.remove();sent.add(p);assertTrue(++count<256,"Probe reply loop");
                 if(deliver){if(p.fromA&&p.destination.equals(ba))b.receive(p.bytes,aa,now+offset);else if(!p.fromA&&p.destination.equals(aa))a.receive(p.bytes,ba,now);}}
         }
         void run(int milliseconds,boolean deliver){for(int i=0;i<milliseconds;i+=20)step(deliver);}
@@ -90,11 +90,22 @@ class PartyPeerClientTest {
         }
     }
     private static com.customcosmetics.features.skins.SkinTransfer.Source skinSource(com.customcosmetics.features.skins.SkinTransfer.Document document,List<com.customcosmetics.features.skins.SkinTransfer.Document> received){return new com.customcosmetics.features.skins.SkinTransfer.Source(){public com.customcosmetics.features.skins.SkinTransfer.Document local(){return document;}public boolean receiving(){return received!=null;}public void received(UUID id,com.customcosmetics.features.skins.SkinTransfer.Document skin){if(received!=null&&skin!=null)received.add(skin);}};}
-    @Test void skinTrafficSharesABoundedBudgetWithoutReplacingPositionTraffic()throws Exception{
-        var arena=new Arena(0);arena.a.skins(skinSource(new com.customcosmetics.features.skins.SkinTransfer.Document(new byte[128*1024],false),null));arena.b.skins(skinSource(null,new ArrayList<>()));arena.run(3200,true);
+    @Test void eightMbpsSkinBudgetTransfersLargeFilesWithoutStarvingPositionsOrProbes()throws Exception{
+        assertEquals(1_000_000,PartyPeerClient.SKIN_BYTES_PER_SECOND);
+        var arena=new Arena(0);byte[] content=new byte[3*1024*1024];new Random(456).nextBytes(content);
+        var received=new ArrayList<com.customcosmetics.features.skins.SkinTransfer.Document>();
+        arena.a.skins(skinSource(new com.customcosmetics.features.skins.SkinTransfer.Document(content,false),null));arena.b.skins(skinSource(null,received));
+        // Warm the authenticated direct path, then measure a sustained busy interval.
+        arena.run(1800,true);int first=arena.sent.size();long started=arena.now;long duration=2000;
+        for(int i=0;i<duration;i+=20){if(i%1000==0){arena.a.permit(ids(),arena.now);arena.b.permit(ids(),arena.now);}arena.step(true);}
         var cipher=new UdpPacket(HexFormat.of().parseHex(ID),HexFormat.of().parseHex(KEY),false,4);long bytes=0;
-        for(var packet:arena.sent)if(packet.fromA&&packet.bytes[4]==1){var message=JsonParser.parseString(new String(cipher.decode(packet.bytes).body(),java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();if(message.get("type").getAsString().equals("skin"))bytes+=packet.bytes.length+28;}
-        assertTrue(bytes>4096);assertTrue(bytes<=4096+Math.ceil(3200*16*1024/1000.0));assertFalse(arena.br.isEmpty());assertEquals(Set.of(B),arena.a.direct());
+        for(var packet:arena.sent.subList(first,arena.sent.size()))if(packet.fromA&&packet.bytes[4]==1){var message=JsonParser.parseString(new String(cipher.decode(packet.bytes).body(),java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();if(message.get("type").getAsString().equals("skin"))bytes+=packet.bytes.length+28;}
+        assertTrue(bytes>1_000_000,"Transfer is still constrained by an old window, byte budget or packet limit: "+bytes);
+        assertTrue(bytes<=PartyPeerClient.SKIN_BURST_BYTES+duration*PartyPeerClient.SKIN_BYTES_PER_SECOND/1000);
+        for(int i=0;i<5000&&received.isEmpty();i+=20){if(i%1000==0){arena.a.permit(ids(),arena.now);arena.b.permit(ids(),arena.now);}arena.step(true);}
+        assertFalse(received.isEmpty(),"Large skin did not finish: "+arena.b.diagnostics(arena.now,20));assertArrayEquals(content,received.getLast().bytes());
+        assertFalse(arena.br.isEmpty());assertEquals(Set.of(B),arena.a.direct());assertTrue(arena.sent.stream().allMatch(p->p.bytes.length<=1200));
+        assertTrue(arena.br.getLast().get("sampleTime").getAsLong()>=started+duration-40,"Skin traffic starved position updates");
     }
     private static void drain(DatagramSocket socket,PartyPeerClient peer,long now)throws Exception{
         for(int i=0;i<64;i++)try{var packet=new DatagramPacket(new byte[1200],1200);socket.receive(packet);

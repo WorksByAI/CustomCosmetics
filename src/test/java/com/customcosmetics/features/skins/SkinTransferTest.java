@@ -4,6 +4,16 @@ import org.junit.jupiter.api.Test;
 import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 class SkinTransferTest {
+    @Test void negotiatedWindowBatchesChunksButLegacyPeersKeepOriginalPacing(){
+        var document=new SkinTransfer.Document(new byte[SkinTransfer.CHUNK*64],false);
+        for(boolean modern:new boolean[]{false,true}){
+            var transfer=new SkinTransfer(d->{});transfer.tick(0,document,false,m->true);
+            var clear=new JsonObject();clear.addProperty("op","clear");if(modern)clear.addProperty("window",SkinTransfer.WINDOW);transfer.receive(clear,1,document,false);
+            var want=new JsonObject();want.addProperty("op","want");want.addProperty("hash",document.hash());var indices=new JsonArray();for(int i=0;i<(modern?64:8);i++)indices.add(i);want.add("indices",indices);transfer.receive(want,1,document,false);
+            var sent=new ArrayList<JsonObject>();transfer.tick(2,document,false,m->{sent.add(m.deepCopy());return true;});
+            assertEquals(modern?64:1,sent.stream().filter(m->m.get("op").getAsString().equals("chunk")).count());
+        }
+    }
     @Test void missingReorderedAndDuplicateChunksRecoverAndHashIsVerified(){
         byte[] bytes=new byte[13800];new Random(123).nextBytes(bytes);var document=new SkinTransfer.Document(bytes,true);var result=new ArrayList<SkinTransfer.Document>();var a=new SkinTransfer(d->{});var b=new SkinTransfer(result::add);var ab=new ArrayList<JsonObject>();var ba=new ArrayList<JsonObject>();
         int dropped=0;for(long now=0;now<12000&&result.isEmpty();now+=20){a.tick(now,document,false,m->{ab.add(m.deepCopy());return true;});b.tick(now,null,true,m->{ba.add(m.deepCopy());return true;});Collections.reverse(ab);for(var m:ab){if(m.get("op").getAsString().equals("chunk")&&dropped++%7==0)continue;b.receive(m,now,null,true);b.receive(m,now,null,true);}ab.clear();for(var m:ba)a.receive(m,now,document,false);ba.clear();}

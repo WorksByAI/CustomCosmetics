@@ -49,7 +49,7 @@ public final class MapReplacementGameTest implements FabricClientGameTest {
             context.runOnClient(client->{
                 int count=MapEditor.DATA.snapshot().size();check(count>=16384,"Large replacement stopped at the former active edit cap: "+count);
                 check(MapEditor.DATA.snapshot().get(new MapEdits.Position(31,105,31)).material().equals("minecraft:dark_oak_planks"),"Large replacement missed its last section");
-                try{var saved=new RoomLayouts();saved.load(com.customcosmetics.config.CosmeticsConfigDir.getCosmeticsConfigDir().resolve("map-rooms.json"));check(saved.edits("floor:F7").size()>=16384,"Large batch was not saved completely");}catch(java.io.IOException e){throw new AssertionError(e);}
+                try{var saved=new RoomLayouts();saved.load(MapEditor.roomsPath());check(saved.edits("floor:F7").size()>=16384,"Large batch was not saved completely");}catch(java.io.IOException e){throw new AssertionError(e);}
                 MapEditor.undo();check(MapEditor.DATA.snapshot().isEmpty(),"Large replacement did not undo atomically");MapEditor.enabled=false;
             });
             world.getServer().runOnServer(server->check(server.getLevel(Level.OVERWORLD).getBlockState(new BlockPos(31,105,31)).is(Blocks.QUARTZ_BLOCK),"Large replacement changed authoritative blocks"));

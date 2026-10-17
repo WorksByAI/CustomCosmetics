@@ -24,7 +24,7 @@ public final class MapEditor {
     private static final Gson GSON=new GsonBuilder().setPrettyPrinting().create();
     private static final Map<String,MapEdits.Preset> PRESETS=new TreeMap<>();
     public static final RoomLayouts ROOMS=new RoomLayouts();
-    private static Path roomsFile;private static long nextRoomSave;
+    private static Path roomsFile;private static MapStorage storage;private static long nextRoomSave;
     private static final Set<String> appliedLayouts=new HashSet<>();
     private static final Map<MapEdits.Position,Optional<String>> pendingSaves=new LinkedHashMap<>();
     public static final Set<String> favorites=new LinkedHashSet<>();
@@ -36,27 +36,29 @@ public final class MapEditor {
     private MapEditor(){}
     public static MapEdits.Position position(BlockPos p){return new MapEdits.Position(p.getX(),p.getY(),p.getZ());}
     public static BlockPos blockPos(MapEdits.Position p){return new BlockPos(p.x(),p.y(),p.z());}
-    public static void init(){file=CosmeticsConfigDir.getCosmeticsConfigDir().resolve("map-editor.json");if(Files.isRegularFile(file))try{
-        var root=JsonParser.parseString(Files.readString(file)).getAsJsonObject();
+    public static Path roomsPath(){return roomsFile;}
+    public static Path settingsPath(){return file;}
+    public static void init(){try{
+        var candidate=new MapStorage(CosmeticsConfigDir.getCosmeticsConfigDir());var root=candidate.initialize();
+        var loadedPresets=candidate.loadPresets();ROOMS.load(candidate.rooms);
+        storage=candidate;file=candidate.settings;roomsFile=candidate.rooms;PRESETS.clear();PRESETS.putAll(loadedPresets);
         enabled=root.has("enabled")&&root.get("enabled").getAsBoolean();dungeonOnly=!root.has("dungeonOnly")||root.get("dungeonOnly").getAsBoolean();autoRooms=!root.has("autoRooms")||root.get("autoRooms").getAsBoolean();
         forceDungeon=root.has("forceDungeon")&&root.get("forceDungeon").getAsBoolean();
         if(root.has("freecamSpeed"))Freecam.speed=Freecam.validSpeed(root.get("freecamSpeed").getAsDouble());
         if(root.has("showHud"))showHud=root.get("showHud").getAsBoolean();
         if(root.has("material")&&state(root.get("material").getAsString())!=null)material=root.get("material").getAsString();
         if(root.has("favorites"))for(var item:root.getAsJsonArray("favorites"))if(favorites.size()<256&&selectable(item.getAsString()))favorites.add(item.getAsString());
-        if(root.has("presets"))for(var item:root.getAsJsonArray("presets")){try{var p=GSON.fromJson(item,MapEdits.Preset.class);if(p!=null)PRESETS.put(p.name(),p);}catch(RuntimeException ignored){}}
-    }catch(Exception error){notice("Could not load map presets: "+error.getMessage());}
-        roomsFile=file.resolveSibling("map-rooms.json");try{ROOMS.load(roomsFile);}catch(Exception error){notice(error.getMessage());}
+    }catch(Exception error){storage=null;file=null;roomsFile=null;notice("Could not load map storage; originals retained: "+error.getMessage());}
         DungeonRooms.init();MapEditorUi.init();GhostBlocks.init();
         Freecam.init();
     }
-    public static void save(){if(file==null)return;try{var root=new JsonObject();root.addProperty("enabled",enabled);root.addProperty("dungeonOnly",dungeonOnly);root.addProperty("forceDungeon",forceDungeon);root.addProperty("autoRooms",autoRooms);root.addProperty("showHud",showHud);root.addProperty("material",material);root.add("favorites",GSON.toJsonTree(favorites));root.addProperty("freecamSpeed",Freecam.validSpeed(Freecam.speed));root.add("presets",GSON.toJsonTree(PRESETS.values()));Files.createDirectories(file.getParent());var temp=file.resolveSibling(file.getFileName()+".tmp");Files.writeString(temp,GSON.toJson(root));Files.move(temp,file,StandardCopyOption.REPLACE_EXISTING);}catch(Exception error){notice("Could not save map presets: "+error.getMessage());}}
+    public static void save(){if(file==null)return;try{var root=new JsonObject();root.addProperty("enabled",enabled);root.addProperty("dungeonOnly",dungeonOnly);root.addProperty("forceDungeon",forceDungeon);root.addProperty("autoRooms",autoRooms);root.addProperty("showHud",showHud);root.addProperty("material",material);root.add("favorites",GSON.toJsonTree(favorites));root.addProperty("freecamSpeed",Freecam.validSpeed(Freecam.speed));storage.saveSettings(root);}catch(Exception error){notice("Could not save map settings: "+error.getMessage());}}
     public static void flushRooms(){if(roomsFile!=null)try{ROOMS.save(roomsFile);}catch(Exception error){notice("Could not save room edits: "+error.getMessage());}}
     public static String importFme(FmeImport.Plan plan,boolean replace)throws java.io.IOException{
         if(roomsFile==null)throw new java.io.IOException("Map Editor is not initialized");ROOMS.save(roomsFile);save();
-        var backup=file.getParent().resolve("map-import-backups").resolve(java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("uuuuMMdd-HHmmss-SSS")));Files.createDirectories(backup);
-        for(var source:List.of(file,roomsFile))if(Files.isRegularFile(source))Files.copy(source,backup.resolve(source.getFileName()));
-        var candidate=new RoomLayouts();candidate.load(roomsFile);candidate.importLayouts(plan.layouts(),replace);var temp=roomsFile.resolveSibling("map-rooms-import.json");candidate.save(temp);Files.move(temp,roomsFile,StandardCopyOption.REPLACE_EXISTING);ROOMS.load(roomsFile);
+        var backup=file.getParent().resolve("backups").resolve("fme-imports").resolve(java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("uuuuMMdd-HHmmss-SSS")));Files.createDirectories(backup);
+        if(Files.isRegularFile(file))Files.copy(file,backup.resolve(file.getFileName()));
+        ROOMS.importTo(roomsFile,backup.resolve("rooms"),plan.layouts(),replace);
         for(var id:plan.favorites())if(favorites.size()<256)favorites.add(id);save();
         var before=DATA.snapshot();var kept=new LinkedHashMap<>(before);if(replace)kept.keySet().removeIf(p->{var frame=DungeonRooms.at(p);return frame!=null&&plan.layouts().containsKey(frame.key());});DATA.replace(kept);dirty(before.keySet());appliedLayouts.clear();DungeonRooms.reset();nextScan=0;refresh();
         return "Imported FME config. Backup: "+backup;
@@ -65,7 +67,8 @@ public final class MapEditor {
     public static boolean inDungeon(Minecraft client){return client.level!=null&&client.player!=null&&(forceDungeon||automaticDungeon(client));}
     public static boolean automaticDungeon(Minecraft client){return DungeonSidebarReader.read(client).detected();}
     public static List<String> sidebarRows(){return DungeonSidebarReader.read(Minecraft.getInstance()).rows();}
-    public static String floor(){return DungeonSidebarReader.read(Minecraft.getInstance()).floor();}
+    static boolean offlineBoss(Minecraft client){return client.level!=null&&forceDungeon&&client.hasSingleplayerServer()&&DungeonSidebarReader.read(client).floor().isEmpty();}
+    public static String floor(){var client=Minecraft.getInstance();return offlineBoss(client)?"F7":DungeonSidebarReader.read(client).floor();}
     public static void forceDungeon(boolean value){forceDungeon=value;nextScan=0;var client=Minecraft.getInstance();DungeonRooms.context(client);refresh();if(enabled&&inDungeon(client)){DungeonRooms.scan();savePending();if(autoRooms)applyRooms();}}
     public static void reportStatus(){
         notice(status());var sidebar=DungeonSidebarReader.read(Minecraft.getInstance(),true);
@@ -151,8 +154,8 @@ public final class MapEditor {
         for(var p:changed)if(!Objects.equals(before.get(p),after.get(p))){var edit=after.get(p);updates.put(p,Optional.ofNullable(edit==null?null:edit.material()));}persist(updates,true);
     }
     private static void persist(Map<MapEdits.Position,Optional<String>> changes,boolean queueUnknown){
-        boolean dungeon=inDungeon(Minecraft.getInstance());var grouped=new LinkedHashMap<RoomLayouts.Frame,Map<MapEdits.Position,Optional<String>>>();
-        for(var e:changes.entrySet()){var frame=DungeonRooms.at(e.getKey());if(frame==null){if(queueUnknown&&dungeon)pendingSaves.put(e.getKey(),e.getValue());continue;}grouped.computeIfAbsent(frame,f->new LinkedHashMap<>()).put(e.getKey(),e.getValue().map(id->rotateMaterial(id,-frame.turns())));}
+        boolean dungeon=inDungeon(Minecraft.getInstance());var rotations=new HashMap<String,String>();var grouped=new LinkedHashMap<RoomLayouts.Frame,Map<MapEdits.Position,Optional<String>>>();
+        for(var e:changes.entrySet()){var frame=DungeonRooms.at(e.getKey());if(frame==null){if(queueUnknown&&dungeon)pendingSaves.put(e.getKey(),e.getValue());continue;}grouped.computeIfAbsent(frame,f->new LinkedHashMap<>()).put(e.getKey(),e.getValue().map(id->rotations.computeIfAbsent(frame.turns()+":"+id,key->rotateMaterial(id,-frame.turns()))));}
         grouped.forEach((frame,edits)->{var origins=new HashMap<MapEdits.Position,Boolean>();for(var p:edits.keySet()){var edit=DATA.snapshot().get(p);if(edit!=null)origins.put(p,edit.originallyAir());}ROOMS.changeAll(frame,edits,origins);edits.keySet().forEach(pendingSaves::remove);lastRoom=frame.label();});
     }
     private static void savePending(){if(!pendingSaves.isEmpty())persist(new LinkedHashMap<>(pendingSaves),false);}
@@ -172,9 +175,47 @@ public final class MapEditor {
     public static List<String> presets(){return List.copyOf(PRESETS.keySet());}
     public static MapEdits.Position anchor(){var client=Minecraft.getInstance();if(anchor==null&&client.player!=null){var p=client.player.blockPosition();anchor=new MapEdits.Position(Math.round((p.getX()+185)/32f)*32-185,0,Math.round((p.getZ()+185)/32f)*32-185);}return anchor;}
     public static void setAnchor(){var client=Minecraft.getInstance();if(client.player!=null){var p=client.player.blockPosition();anchor=new MapEdits.Position(p.getX(),0,p.getZ());notice("Map anchor: "+anchor);}}
-    public static void savePreset(){if(anchor()==null)throw new IllegalStateException("Join a world first");var preset=DATA.preset(presetName,anchor(),fingerprint(anchor(),0));PRESETS.put(preset.name(),preset);save();notice("Saved map preset: "+preset.name());}
-    public static void loadPreset(int turns){var preset=PRESETS.get(presetName);if(preset==null)throw new IllegalArgumentException("Preset not found");if(anchor()==null)throw new IllegalStateException("Join a world first");var old=DATA.snapshot().keySet();DATA.replace(preset.place(anchor(),turns));dirty(old);refresh();}
-    public static void deletePreset(){PRESETS.remove(presetName);save();}
+    public record PresetInfo(String name,int blocks,String room){}
+    public static List<PresetInfo> presetEntries(){return PRESETS.values().stream().map(p->new PresetInfo(p.name(),p.edits().size(),MapPresetData.roomLabel(p))).toList();}
+    public static void savePreset(){
+        if(anchor()==null)throw new IllegalStateException("Join a world first");
+        var frame=currentRoom();MapEdits.Preset preset;
+        if(frame==null)preset=DATA.preset(presetName,anchor(),fingerprint(anchor(),0));
+        else{var edits=new ArrayList<MapEdits.Edit>();for(var edit:DATA.snapshot().values())if(MapPresetData.sameRoom(frame,DungeonRooms.at(edit.position())))edits.add(edit);preset=MapPresetData.capture(presetName,frame,edits,MapEditor::rotateMaterial);}
+        if(preset.edits().isEmpty())throw new IllegalArgumentException("No edits to save in this room");
+        try{if(storage==null)throw new java.io.IOException("Map storage unavailable");storage.savePreset(preset);}catch(java.io.IOException error){throw new IllegalStateException("Could not save map preset: "+error.getMessage(),error);}
+        PRESETS.put(preset.name(),preset);save();notice("Saved map preset: "+preset.name());
+    }
+    /** Default load follows the detected room frame. Old fingerprints are matched against all four orientations. */
+    public static void loadPresetAuto(){
+        var preset=requiredPreset();if(!MapPresetData.roomKey(preset).isEmpty()){loadPreset(0);return;}
+        if(anchor()==null)throw new IllegalStateException("Join a world first");
+        var frame=currentRoom();var origins=new LinkedHashSet<MapEdits.Position>();if(frame!=null)origins.add(frame.origin());origins.add(anchor());
+        if(!preset.fingerprint().isEmpty())for(var origin:origins)for(int turns=0;turns<4;turns++)if(preset.fingerprint().equals(fingerprint(origin,turns))){loadLegacyPreset(preset,origin,turns);return;}
+        throw new IllegalArgumentException("Legacy preset: no matching block fingerprint here. Use Advanced only if you know its original anchor.");
+    }
+    private static MapEdits.Preset requiredPreset(){var preset=PRESETS.get(presetName);if(preset==null)throw new IllegalArgumentException("Select a saved preset first");return preset;}
+    public static void loadPreset(int turns){
+        var preset=requiredPreset();if(anchor()==null)throw new IllegalStateException("Join a world first");
+        if(MapPresetData.roomKey(preset).isEmpty()){loadLegacyPreset(preset,anchor(),turns);return;}
+        var frame=currentRoom();if(frame==null)throw new IllegalArgumentException("Wait for room recognition, or enable Force Dungeon when editing offline");
+        var placed=MapPresetData.place(preset,frame,turns,MapEditor::rotateMaterial);
+        var before=DATA.snapshot();var copy=new HashMap<>(before);
+        copy.keySet().removeIf(p->MapPresetData.sameRoom(frame,DungeonRooms.at(p)));copy.putAll(placed);
+        DATA.replace(copy);remember(before);dirty(before.keySet());enabled=true;refresh();flushRooms();
+    }
+    private static void loadLegacyPreset(MapEdits.Preset preset,MapEdits.Position origin,int turns){
+        var before=DATA.snapshot();var copy=new HashMap<MapEdits.Position,MapEdits.Edit>();var materials=new HashMap<String,String>();
+        for(var edit:preset.edits()){var pos=edit.position().rotate(turns).add(origin);copy.put(pos,new MapEdits.Edit(pos,materials.computeIfAbsent(edit.material(),id->rotateMaterial(id,turns)),edit.originallyAir()));}
+        DATA.replace(copy);remember(before);dirty(before.keySet());enabled=true;refresh();flushRooms();
+    }
+    public static void renamePreset(String name){
+        var old=requiredPreset();if(PRESETS.containsKey(name)&&!name.equals(old.name()))throw new IllegalArgumentException("A preset with that name already exists");
+        var replacement=new MapEdits.Preset(name,old.edits(),old.fingerprint());
+        try{if(storage==null)throw new java.io.IOException("Map storage unavailable");storage.renamePreset(old,name);}catch(java.io.IOException error){throw new IllegalStateException("Could not rename preset: "+error.getMessage(),error);}
+        PRESETS.remove(old.name());PRESETS.put(name,replacement);presetName=name;
+    }
+    public static void deletePreset(){try{if(storage==null)throw new java.io.IOException("Map storage unavailable");storage.deletePreset(presetName);}catch(java.io.IOException error){throw new IllegalStateException("Could not delete map preset: "+error.getMessage(),error);}PRESETS.remove(presetName);}
     private static String fingerprint(MapEdits.Position origin,int turns){
         if(level==null)return "";return RoomFingerprint.compute(origin,turns,p->{var at=blockPos(p);if(!level.hasChunkAt(at))return null;var s=level.getBlockState(at);return s.isAir()?"minecraft:air":BuiltInRegistries.BLOCK.getKey(s.getBlock()).toString();});
     }

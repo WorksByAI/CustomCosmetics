@@ -16,6 +16,7 @@ public final class MapCommands {
             .then(ClientCommands.literal("off").executes(c->run(()->Freecam.setEnabled(false)))));
         root.then(ClientCommands.literal("edit").executes(c->run(MapEditorUi::toggleEdit)));
         root.then(ClientCommands.literal("import").executes(c->run(MapEditorUi::requestImport)));
+        root.then(ClientCommands.literal("presets").executes(c->run(MapEditorUi::requestPresets)));
         root.then(ClientCommands.literal("blocks").executes(c->run(MapEditorUi::requestOpen)));
         root.then(ClientCommands.literal("blockgui").executes(c->run(MapEditorUi::requestOpen)));
         root.then(ClientCommands.literal("replace").executes(c->run(MapEditorUi::requestReplace))
@@ -32,7 +33,7 @@ public final class MapCommands {
         root.then(ClientCommands.literal("anchor").executes(c->run(MapEditor::setAnchor)));
         root.then(ClientCommands.literal("material").then(ClientCommands.argument("block",new MapBlockArgument()).executes(c->run(()->{String id=StringArgumentType.getString(c,"block");if(MapEditor.state(id)==null)throw new IllegalArgumentException("Unknown block");MapEditor.material=id.contains(":")?id:"minecraft:"+id;}))));
         root.then(ClientCommands.literal("save").then(ClientCommands.argument("name",StringArgumentType.greedyString()).executes(c->run(()->{MapEditor.presetName=StringArgumentType.getString(c,"name");MapEditor.savePreset();}))));
-        root.then(ClientCommands.literal("load").then(ClientCommands.argument("name",StringArgumentType.greedyString()).executes(c->run(()->{MapEditor.presetName=StringArgumentType.getString(c,"name");MapEditor.loadPreset(0);})))) ;
+        root.then(ClientCommands.literal("load").then(ClientCommands.argument("name",StringArgumentType.greedyString()).executes(c->run(()->{MapEditor.presetName=StringArgumentType.getString(c,"name");MapEditor.loadPresetAuto();})))) ;
         return root;
     }
     public static int run(Runnable action){try{action.run();return 1;}catch(RuntimeException error){MapEditor.notice(error.getMessage()==null?"Map edit failed.":error.getMessage());return 0;}}

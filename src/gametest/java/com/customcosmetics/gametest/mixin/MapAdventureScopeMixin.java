@@ -9,6 +9,6 @@ import org.spongepowered.asm.mixin.injection.At;
 /** Exercise the remote-server branch while using an isolated local test server without Mod API events. */
 @Mixin(MapEditor.class)
 public class MapAdventureScopeMixin {
-    @WrapOperation(method="allowed",at=@At(value="INVOKE",target="Lnet/minecraft/client/Minecraft;hasSingleplayerServer()Z"))
+    @WrapOperation(method={"allowed","offlineBoss"},at=@At(value="INVOKE",target="Lnet/minecraft/client/Minecraft;hasSingleplayerServer()Z"))
     private static boolean remote(Minecraft client,Operation<Boolean> original){return !MapAdventureGameTest.remoteWorld&&original.call(client);}
 }

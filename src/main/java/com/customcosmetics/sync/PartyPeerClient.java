@@ -19,6 +19,7 @@ public final class PartyPeerClient implements AutoCloseable {
     }
     private record Pending(long sent,InetSocketAddress address){}
     private static final int MAX_PEERS=16;
+    public static final int SKIN_BYTES_PER_SECOND=1_000_000,SKIN_BURST_BYTES=64*1024;
     private static final class Replay {
         long highest,bits;
         boolean accept(long sequence){if(sequence<=0)return false;if(sequence>highest){long gap=sequence-highest;bits=gap>=64?1:bits<<gap|1;highest=sequence;return true;}
@@ -26,7 +27,7 @@ public final class PartyPeerClient implements AutoCloseable {
     }
     private static final class Peer {
         String id,key;UUID uuid;String name;long epoch,scope,deadline,nextProbe,nextShadow,lastData=Long.MIN_VALUE/2,window,remoteWantUntil,probingSince;double relayRtt=500;
-        int count;boolean want,remoteWant;UdpPacket cipher;Counters counters;
+        int count,packets;boolean want,remoteWant;UdpPacket cipher;Counters counters;
         boolean sendPosition,receivePosition;
         long probesSent,probesReceived,pongsReceived,statesReceived,replays,invalidPackets,blockedSources,expiredStates,sendFailures,budgetDrops;
         List<InetSocketAddress> candidates=List.of();final Map<InetSocketAddress,PeerPath> paths=new HashMap<>();final Map<Long,Pending> pending=new HashMap<>();
@@ -42,7 +43,7 @@ public final class PartyPeerClient implements AutoCloseable {
     private long permittedUntil;
     private double tokens=25000;private long budgetTime;
     private long offersReceived,offersAccepted,offersRejected;private String lastRejection="";
-    private SkinTransfer.Source skinSource=SkinTransfer.Source.NONE;private double skinTokens=4096;private long skinBudgetTime;private int skinRoundRobin;
+    private SkinTransfer.Source skinSource=SkinTransfer.Source.NONE;private double skinTokens=SKIN_BURST_BYTES;private long skinBudgetTime;private int skinRoundRobin;
     public PartyPeerClient(Sender sender,Receiver receiver){this.sender=sender;this.receiver=receiver;}
     public void skins(SkinTransfer.Source source){skinSource=Objects.requireNonNull(source);}
     public void context(Context next){
@@ -155,8 +156,8 @@ public final class PartyPeerClient implements AutoCloseable {
     private boolean sendSkin(Peer peer,JsonObject message,long now){
         message.addProperty("type","skin");message.addProperty("scope",context.scope());message.addProperty("world",context.world());
         int size=message.toString().getBytes(StandardCharsets.UTF_8).length+UdpPacket.HEADER+16+28;
-        skinTokens=Math.min(4096,skinTokens+Math.max(0,now-skinBudgetTime)*(16*1024/1000.0));skinBudgetTime=now;if(skinTokens<size)return false;
-        if(send(peer,1,message,peer.address,now)){skinTokens-=size;return true;}return false;
+        skinTokens=Math.min(SKIN_BURST_BYTES,skinTokens+Math.max(0,now-skinBudgetTime)*(SKIN_BYTES_PER_SECOND/1000.0));skinBudgetTime=now;if(skinTokens<size)return false;
+        if(send(peer,1,message,peer.address,now,true)){skinTokens-=size;return true;}return false;
     }
     public void publish(JsonObject state,long now){
         for(var p:peers.values()){
@@ -167,18 +168,22 @@ public final class PartyPeerClient implements AutoCloseable {
         }
     }
     private boolean send(Peer p,int flow,JsonObject m,InetSocketAddress address,long now){
-        try{tokens=Math.min(25000,tokens+Math.max(0,now-budgetTime)*250);budgetTime=now;
-            byte[] data=p.cipher.encode(flow,++p.counters.outgoing[flow],m.toString().getBytes(StandardCharsets.UTF_8));if(tokens<data.length+28){p.budgetDrops++;return false;}
-            tokens-=data.length+28;sender.send(data,address);return true;
+        return send(p,flow,m,address,now,false);
+    }
+    private boolean send(Peer p,int flow,JsonObject m,InetSocketAddress address,long now,boolean skin){
+        try{if(!skin){tokens=Math.min(25000,tokens+Math.max(0,now-budgetTime)*250);budgetTime=now;}
+            byte[] data=p.cipher.encode(flow,++p.counters.outgoing[flow],m.toString().getBytes(StandardCharsets.UTF_8));if(!skin&&tokens<data.length+28){p.budgetDrops++;return false;}
+            if(!skin)tokens-=data.length+28;sender.send(data,address);return true;
         }catch(Exception unavailable){p.sendFailures++;return false;}
     }
     public boolean receive(byte[] bytes,InetSocketAddress source,long now){
         if(bytes.length<45||bytes.length>1200||bytes[0]!='C'||bytes[1]!='C'||bytes[2]!='P'||bytes[3]!='4')return false;
         var p=peers.get(HexFormat.of().formatHex(bytes,5,21));if(p==null||p.deadline<=now)return true;if(!allowed(p.candidates,source)){p.blockedSources++;return true;}
-        if(now-p.window>=1000){p.window=now;p.count=0;}if(++p.count>80)return true;
+        if(now-p.window>=1000){p.window=now;p.count=p.packets=0;}if(++p.packets>2048)return true;
         try{
             var packet=p.cipher.decode(bytes);if(!p.counters.replay[packet.flow()].accept(packet.sequence())){p.replays++;return true;}
             var m=JsonParser.parseString(new String(packet.body(),StandardCharsets.UTF_8)).getAsJsonObject();String type=m.get("type").getAsString();
+            if(!type.equals("skin")&&++p.count>80)return true;
             if(packet.flow()==2){
                 long ping=m.get("ping").getAsLong();boolean want=m.get("want").getAsBoolean();if(ping<1)return true;
                 if(type.equals("probe")){

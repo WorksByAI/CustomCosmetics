@@ -18,7 +18,7 @@ public final class DungeonRooms {
     private static final Map<String,Integer> legacy=new HashMap<>();
     private static final Map<String,Tile> tiles=new HashMap<>();
     private static final Map<String,RoomLayouts.Frame> frames=new LinkedHashMap<>();
-    private static Object contextLevel;private static boolean dungeon;private static String floor="";
+    private static Object contextLevel;private static boolean dungeon,offlineBoss;private static String floor="";
     private DungeonRooms(){}
     public static void init(){
         // Vanilla's flattening table maps legacy block metadata to modern names (no mod registry IDs).
@@ -32,8 +32,8 @@ public final class DungeonRooms {
             for(var row:rows){var room=row.getAsJsonObject();var cores=room.getAsJsonArray("cores");var def=new Definition(room.get("name").getAsString(),cores.get(0).getAsInt());for(var core:cores)definitions.put(core.getAsInt(),def);}
         }catch(Exception error){throw new IllegalStateException("Could not read FunnyMap room catalog",error);}
     }
-    public static void reset(){tiles.clear();frames.clear();contextLevel=null;dungeon=false;floor="";}
-    public static void context(Minecraft client){contextLevel=client.level;dungeon=MapEditor.inDungeon(client);floor=dungeon?MapEditor.floor():"";}
+    public static void reset(){tiles.clear();frames.clear();contextLevel=null;dungeon=false;offlineBoss=false;floor="";}
+    public static void context(Minecraft client){boolean nextOffline=MapEditor.offlineBoss(client);if(offlineBoss!=nextOffline){tiles.clear();frames.clear();}offlineBoss=nextOffline;contextLevel=client.level;dungeon=MapEditor.inDungeon(client);floor=dungeon?MapEditor.floor():"";}
     private static String cell(int x,int z){return x+":"+z;}
     private static Collection<MapEdits.Position> scanCenters(){
         var centers=new LinkedHashSet<MapEdits.Position>();for(int x=-185;x<=-25;x+=32)for(int z=-185;z<=-25;z+=32)centers.add(new MapEdits.Position(x,0,z));
@@ -50,7 +50,7 @@ public final class DungeonRooms {
         });}catch(IllegalArgumentException error){return null;}
     }
     public static void scan(){
-        var client=Minecraft.getInstance();context(client);if(!dungeon)return;
+        var client=Minecraft.getInstance();context(client);if(!dungeon||offlineBoss)return;
         MapEditor.ROOMS.anchors().forEach((key,anchor)->{if(key.startsWith("room:"))definitions.put(anchor.baseCore(),new Definition(key.substring(5),anchor.baseCore()));});
         for(var center:scanCenters()){int x=center.x(),z=center.z();String cell=cell(x,z);if(tiles.containsKey(cell))continue;Integer core=core(x,z);if(core!=null&&definitions.containsKey(core))tiles.put(cell,new Tile(x,z,core,definitions.get(core)));}
         for(var tile:tiles.values()){
@@ -74,6 +74,8 @@ public final class DungeonRooms {
     }
     public static RoomLayouts.Frame at(MapEdits.Position p){
         var client=Minecraft.getInstance();if(client.level!=contextLevel||!dungeon)return null;
+        // Explicit offline editing defaults to the shared boss layout, including coordinates in the room grid.
+        if(offlineBoss)return new RoomLayouts.Frame("floor:F7+M7","F7 / M7 Boss (offline forced)",new MapEdits.Position(0,0,0),0);
         int x=Math.round((p.x()+185)/32f)*32-185,z=Math.round((p.z()+185)/32f)*32-185;
         var frame=frames.get(cell(x,z));if(frame!=null)return frame;
         if(x>=-185&&x<=-25&&z>=-185&&z<=-25)return null;
