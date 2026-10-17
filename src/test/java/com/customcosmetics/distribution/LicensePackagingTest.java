@@ -29,6 +29,8 @@ class LicensePackagingTest {
             for (String name : new String[]{
                     "src/main/java/com/customcosmetics/features/map/MaterialReplacement.java",
                     "src/test/java/com/customcosmetics/features/map/DenseReplacementTest.java",
+                    "src/main/java/com/customcosmetics/features/map/GhostIndex.java",
+                    "src/test/java/com/customcosmetics/features/map/GhostIndexTest.java",
                     "src/main/java/com/customcosmetics/features/map/MaterialReplacementPlan.java",
                     "src/main/java/com/customcosmetics/features/map/Freecam.java",
                     "src/main/java/com/customcosmetics/features/map/FmeImport.java",

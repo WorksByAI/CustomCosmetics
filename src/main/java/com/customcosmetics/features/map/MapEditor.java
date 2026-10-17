@@ -30,6 +30,7 @@ public final class MapEditor {
     public static final Set<String> favorites=new LinkedHashSet<>();
     public static String lastRoom="None";
     private static volatile Map<MapEdits.Position,MapEdits.Edit> visible=Map.of();
+    private static final java.util.concurrent.ConcurrentMap<String,BlockState> materialStates=new java.util.concurrent.ConcurrentHashMap<>();
     private static ClientLevel level;private static Path file;private static long nextScan,nextRestrictionNotice;
     private static MapEdits.Position anchor;private static BlockPos first,second;
     private MapEditor(){}
@@ -86,7 +87,8 @@ public final class MapEditor {
     public static boolean revealsFace(BlockPos p){if(visible.isEmpty())return false;var edit=visible.get(position(p));if(edit==null)return false;var target=state(edit.material());return target!=null&&!target.canOcclude();}
     /** Approximate light at a newly exposed render surface without relighting or changing the world. */
     public static int visualLight(net.minecraft.world.level.BlockAndLightGetter world,BlockPos p){int block=world.getBrightness(net.minecraft.world.level.LightLayer.BLOCK,p),sky=world.getBrightness(net.minecraft.world.level.LightLayer.SKY,p);for(var face:Direction.values()){var q=p.relative(face);block=Math.max(block,world.getBrightness(net.minecraft.world.level.LightLayer.BLOCK,q));sky=Math.max(sky,world.getBrightness(net.minecraft.world.level.LightLayer.SKY,q));}return block<<4|sky<<20;}
-    public static BlockState state(String id){try{int bracket=id.indexOf('[');String name=bracket<0?id:id.substring(0,bracket);var key=Identifier.tryParse(name);var result=key==null?null:BuiltInRegistries.BLOCK.getOptional(key).map(Block::defaultBlockState).orElse(null);if(result==null)return null;if(bracket>=0){if(!id.endsWith("]"))return null;var seen=new HashSet<String>();for(String part:id.substring(bracket+1,id.length()-1).split(",")){String[] pair=part.split("=",-1);if(pair.length!=2||!seen.add(pair[0]))return null;var property=result.getBlock().getStateDefinition().getProperty(pair[0]);if(property==null)return null;result=withProperty(result,property,pair[1]);if(result==null)return null;}}return result;}catch(RuntimeException error){return null;}}
+    public static BlockState state(String id){if(id==null)return null;var cached=materialStates.get(id);if(cached!=null)return cached;var result=parseState(id);if(result!=null)materialStates.putIfAbsent(id,result);return result;}
+    private static BlockState parseState(String id){try{int bracket=id.indexOf('[');String name=bracket<0?id:id.substring(0,bracket);var key=Identifier.tryParse(name);var result=key==null?null:BuiltInRegistries.BLOCK.getOptional(key).map(Block::defaultBlockState).orElse(null);if(result==null)return null;if(bracket>=0){if(!id.endsWith("]"))return null;var seen=new HashSet<String>();for(String part:id.substring(bracket+1,id.length()-1).split(",")){String[] pair=part.split("=",-1);if(pair.length!=2||!seen.add(pair[0]))return null;var property=result.getBlock().getStateDefinition().getProperty(pair[0]);if(property==null)return null;result=withProperty(result,property,pair[1]);if(result==null)return null;}}return result;}catch(RuntimeException error){return null;}}
     private static <T extends Comparable<T>> BlockState withProperty(BlockState state,net.minecraft.world.level.block.state.properties.Property<T> property,String value){return property.getValue(value).map(v->state.setValue(property,v)).orElse(null);}
     public static String rotateMaterial(String id,int turns){var state=state(id);if(state==null)return id;var rotated=state.rotate(Rotation.values()[Math.floorMod(turns,4)]);String name=BuiltInRegistries.BLOCK.getKey(rotated.getBlock()).toString();if(rotated.getProperties().isEmpty())return name;var props=new TreeMap<String,String>();rotated.getProperties().forEach(p->props.put(p.getName(),propertyName(p,rotated.getValue(p))));return name+"["+String.join(",",props.entrySet().stream().map(e->e.getKey()+"="+e.getValue()).toList())+"]";}
     @SuppressWarnings({"rawtypes","unchecked"}) private static String propertyName(net.minecraft.world.level.block.state.properties.Property property,Comparable value){return property.getName(value);}
@@ -104,7 +106,7 @@ public final class MapEditor {
             @Override public net.minecraft.world.phys.shapes.VoxelShape getBlockShape(BlockState state,net.minecraft.world.level.BlockGetter world,BlockPos pos){var edit=visible.get(position(pos));return edit!=null&&edit.material().equals("minecraft:air")?net.minecraft.world.phys.shapes.Shapes.empty():super.getBlockShape(state,world,pos);}
         });
         BlockHitResult best=ray.getType()==HitResult.Type.BLOCK?ray:null;double distance=best==null?36:start.distanceToSqr(best.getLocation());
-        for(var e:visible.values())if(e.ghost(client.level.getBlockState(blockPos(e.position())).isAir())){
+        for(var e:visible.values())if(e.originallyAir()&&e.ghost(client.level.getBlockState(blockPos(e.position())).isAir())){
             var box=new AABB(blockPos(e.position()));var point=box.clip(start,end);if(point.isPresent()&&start.distanceToSqr(point.get())<distance){var at=point.get();var d=Direction.getApproximateNearest(start.x-at.x,start.y-at.y,start.z-at.z);best=new BlockHitResult(at,d,blockPos(e.position()),false);distance=start.distanceToSqr(at);}
         }return best;
     }
@@ -153,12 +155,12 @@ public final class MapEditor {
         for(var e:changes.entrySet()){var frame=DungeonRooms.at(e.getKey());if(frame==null){if(queueUnknown&&dungeon)pendingSaves.put(e.getKey(),e.getValue());continue;}grouped.computeIfAbsent(frame,f->new LinkedHashMap<>()).put(e.getKey(),e.getValue().map(id->rotateMaterial(id,-frame.turns())));}
         grouped.forEach((frame,edits)->{var origins=new HashMap<MapEdits.Position,Boolean>();for(var p:edits.keySet()){var edit=DATA.snapshot().get(p);if(edit!=null)origins.put(p,edit.originallyAir());}ROOMS.changeAll(frame,edits,origins);edits.keySet().forEach(pendingSaves::remove);lastRoom=frame.label();});
     }
-    private static void savePending(){persist(new LinkedHashMap<>(pendingSaves),false);}
+    private static void savePending(){if(!pendingSaves.isEmpty())persist(new LinkedHashMap<>(pendingSaves),false);}
     public static RoomLayouts.Frame currentRoom(){var client=Minecraft.getInstance();if(client.player==null)return null;var camera=client.getCameraEntity();return DungeonRooms.at(position((camera==null?client.player:camera).blockPosition()));}
     public static String roomLabel(){var frame=currentRoom();return frame==null?(inDungeon(Minecraft.getInstance())?"Scanning / unrecognized room (session edits)":"Outside dungeon (session edits)"):frame.label();}
     private static void applyRooms(){
-        var frames=new HashSet<>(DungeonRooms.frames());var current=currentRoom();if(current!=null)frames.add(current);var copy=new LinkedHashMap<>(DATA.snapshot());boolean changed=false;
-        for(var frame:frames){String id=frame.key()+"@"+frame.origin();var edits=ROOMS.edits(frame.key());if(edits.isEmpty()||appliedLayouts.contains(id))continue;boolean complete=true;var origins=new HashMap<MapEdits.Position,Boolean>();
+        var frames=new HashSet<>(DungeonRooms.frames());var current=currentRoom();if(current!=null)frames.add(current);Map<MapEdits.Position,MapEdits.Edit> copy=null;boolean changed=false;
+        for(var frame:frames){String id=frame.key()+"@"+frame.origin();var edits=ROOMS.edits(frame.key());if(edits.isEmpty()||appliedLayouts.contains(id))continue;if(copy==null)copy=new LinkedHashMap<>(DATA.snapshot());boolean complete=true;var origins=new HashMap<MapEdits.Position,Boolean>();
             for(var e:edits.entrySet()){var p=frame.world(e.getKey());if(copy.containsKey(p))continue;if(!level.hasChunkAt(blockPos(p))){complete=false;continue;}
                 var real=realState(blockPos(p));if(state(e.getValue())!=null){Boolean air=ROOMS.originallyAir(frame.key(),e.getKey());if(air==null){air=real.isAir();origins.put(e.getKey(),air);}copy.put(p,new MapEdits.Edit(p,rotateMaterial(e.getValue(),frame.turns()),air));changed=true;}
             }if(!origins.isEmpty())ROOMS.rememberOrigins(frame.key(),origins);if(complete)appliedLayouts.add(id);

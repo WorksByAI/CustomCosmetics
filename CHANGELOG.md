@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.5.1
+
+- Performance optimizations.
+
+## 1.5.1-beta.1 (test build)
+
+- Map Editor: Stop scanning ordinary material replacements every frame.
+- Map Editor: Index nearby ghost blocks and loaded containers; cache material states and avoid redundant room snapshots.
+
 ## 1.5.0
 
 - Equipments: Add seated Mini-Me pets, shoulder selection and synced position adjustments.

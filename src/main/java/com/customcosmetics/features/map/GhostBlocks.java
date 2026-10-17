@@ -28,14 +28,29 @@ public final class GhostBlocks {
     public static int submittedGhosts,submittedSpecialBlocks,submittedFluidGhosts,submittedPaintedEntities;
     private static final Map<MapEdits.Position,BlockEntity> entities=new HashMap<>();
     private static Object world;
+    private static Map<MapEdits.Position,MapEdits.Edit> indexed;
+    private static GhostIndex index=new GhostIndex(List.of());
+    public static int examinedCandidates;
     private static final AABB UNIT=new AABB(0,0,0,1,1,1);
     private GhostBlocks(){}
     public static void init(){LevelRenderEvents.COLLECT_SUBMITS.register(GhostBlocks::render);}
     private static void render(LevelRenderContext context){
         submittedGhosts=submittedSpecialBlocks=submittedFluidGhosts=submittedPaintedEntities=0;var client=Minecraft.getInstance();if(world!=client.level){entities.clear();world=client.level;}if(client.level==null)return;
-        entities.keySet().retainAll(MapEditor.visible().keySet());
-        var camera=context.levelState().cameraRenderState;var queue=context.submitNodeCollector();
-        for(var edit:MapEditor.visible().values()){
+        var edits=MapEditor.visible();
+        if(indexed!=edits){index=new GhostIndex(edits.values());indexed=edits;entities.keySet().retainAll(edits.keySet());}
+        examinedCandidates=0;if(edits.isEmpty())return;
+        var camera=context.levelState().cameraRenderState;
+        var candidates=new ArrayList<MapEdits.Edit>();index.nearby(camera.pos.x,camera.pos.y,camera.pos.z,96,candidates::add);
+        // Loaded block entities are sparse. Never read every retextured solid block each frame.
+        int minX=(int)Math.floor(camera.pos.x-96)>>4,maxX=(int)Math.floor(camera.pos.x+96)>>4;
+        int minZ=(int)Math.floor(camera.pos.z-96)>>4,maxZ=(int)Math.floor(camera.pos.z+96)>>4;
+        for(int cx=minX;cx<=maxX;cx++)for(int cz=minZ;cz<=maxZ;cz++){
+            var chunk=client.level.getChunkSource().getChunk(cx,cz,net.minecraft.world.level.chunk.status.ChunkStatus.FULL,false);if(chunk==null)continue;
+            for(var entity:chunk.getBlockEntities().values()){
+                var edit=edits.get(MapEditor.position(entity.getBlockPos()));if(edit!=null&&!edit.originallyAir())candidates.add(edit);
+            }
+        }
+        for(var edit:candidates){examinedCandidates++;
             var p=MapEditor.blockPos(edit.position());if(p.distToCenterSqr(camera.pos)>96*96||!client.level.hasChunkAt(p))continue;
             var real=client.level.getBlockState(p);boolean ghost=edit.ghost(real.isAir()),container=real.hasBlockEntity()&&!hasGeometry(client.getModelManager().getBlockStateModelSet().get(real));if(!ghost&&!container)continue;
             var state=MapEditor.state(edit.material());if(state==null||state.isAir())continue;
