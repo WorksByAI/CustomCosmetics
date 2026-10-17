@@ -22,8 +22,7 @@ class LicensePackagingTest {
                     "src/test/java/com/customcosmetics/features/map/MapDeltaTest.java",
                     "src/test/java/com/customcosmetics/update/GitHubUpdateCheckTest.java",
                     "src/gametest/java/com/customcosmetics/gametest/KuudraMapGameTest.java",
-                    "src/gametest/java/com/customcosmetics/gametest/MapEditPerformanceGameTest.java",
-                    "docs/map-performance.md"}) assertBundled(zip, prefix + name, name);
+                    "src/gametest/java/com/customcosmetics/gametest/MapEditPerformanceGameTest.java"}) assertBundled(zip, prefix + name, name);
         }
         String build = Files.readString(ROOT.resolve("build.gradle"));
         for (String profile : new String[]{"map_edit_perf_only", "kuudra_game_only"})
@@ -35,7 +34,7 @@ class LicensePackagingTest {
             for (String name : new String[]{"src/main/java/com/customcosmetics/features/damage/DamageSplash.java",
                     "src/main/java/com/customcosmetics/compatibility/ChamsRenderAccess.java",
                     "src/main/java/com/customcosmetics/features/party/TabNametags.java",
-                    "src/gametest/java/com/customcosmetics/gametest/ChamsGameTest.java", "docs/features.md"})
+                    "src/gametest/java/com/customcosmetics/gametest/ChamsGameTest.java"})
                 assertNotNull(zip.getEntry(prefix + name), name);
             assertTrue(zip.stream().noneMatch(entry -> entry.getName().startsWith(prefix + "server/")
                 || entry.getName().startsWith(prefix + "ops/")));
@@ -205,7 +204,7 @@ class LicensePackagingTest {
                 "src/main/java/com/customcosmetics/features/party/PartyTracer.java",
                 "src/test/java/com/customcosmetics/sync/RealtimeConnectionsTest.java",
                 "src/gametest/java/com/customcosmetics/gametest/PartyGameTest.java",
-                "docs/features.md", "README.md", "CHANGELOG.md" }) {
+                "README.md", "CHANGELOG.md" }) {
                 assertBundled(zip, prefix + file, file);
             }
             assertCleanSource(zip, prefix);
@@ -244,19 +243,30 @@ class LicensePackagingTest {
 
     @Test
     void publicSnapshotContainsOnlyReleaseDocumentationAndClientSources() throws Exception {
-        try(var files=Files.walk(ROOT.resolve("docs"))){assertEquals(java.util.List.of("features.md","map-performance.md"),files.filter(Files::isRegularFile).map(path->path.getFileName().toString()).sorted().toList());}
-        assertTrue(Files.readString(ROOT.resolve("README.md")).contains("[功能列表](docs/features.md)"));
+        assertFalse(Files.exists(ROOT.resolve("docs")), "Internal documents do not belong in the public checkout");
+        assertFalse(Files.readString(ROOT.resolve("README.md")).contains("docs/"));
         assertFalse(Files.exists(ROOT.resolve("SOURCE-DELIVERY.md")));
         assertFalse(Files.exists(ROOT.resolve("server")));
         try (var zip = new ZipFile(System.getProperty("customcosmetics.fullSourceZip"))) {
             String prefix = "CustomCosmetics-" + System.getProperty("customcosmetics.version") + "/";
             for (String type : new String[]{"UdpPresenceClient", "WebSocketPresenceClient"})
                 assertNotNull(zip.getEntry(prefix + "src/main/java/com/customcosmetics/sync/" + type + ".java"));
-            assertTrue(zip.stream().noneMatch(entry -> entry.getName().startsWith(prefix + "server/")));
+            assertTrue(zip.stream().noneMatch(entry -> entry.getName().startsWith(prefix + "server/")
+                || entry.getName().startsWith(prefix + "docs/") || entry.getName().startsWith(prefix + "ops/")));
             assertTrue(zip.stream().filter(entry -> entry.getName().endsWith(".md"))
-                .allMatch(entry -> entry.getName().equals(prefix + "README.md") || entry.getName().equals(prefix + "CHANGELOG.md") || entry.getName().equals(prefix + "docs/features.md") || entry.getName().equals(prefix + "docs/map-performance.md")));
+                .allMatch(entry -> entry.getName().equals(prefix + "README.md") || entry.getName().equals(prefix + "CHANGELOG.md")));
         }
         assertFalse(Files.readString(ROOT.resolve("NOTICE")).contains("docs/"));
+    }
+
+    @Test void latestChangelogIsBriefAndEnglish() throws Exception {
+        String changes=Files.readString(ROOT.resolve("CHANGELOG.md")).replace("\r\n","\n");
+        int start=changes.indexOf("## "+System.getProperty("customcosmetics.version"));
+        assertTrue(start>=0);int end=changes.indexOf("\n## ",start+3);
+        String entry=changes.substring(start,end<0?changes.length():end);
+        assertTrue(entry.chars().allMatch(c->c<128), "Use English release notes");
+        assertTrue(entry.length()<500, "Keep release notes brief");
+        assertTrue(entry.lines().filter(line->line.startsWith("- ")).count()<=4);
     }
 
     @Test

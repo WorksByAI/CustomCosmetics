@@ -22,7 +22,7 @@
 支持 Minecraft **26.1.2～26.3**，需要 Java 25、Fabric Loader 0.19.5+ 和对应版本的 Fabric API。
 共享格挡或远处队友位置需安装 [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api)。
 
-[功能列表](docs/features.md) · [更新记录](CHANGELOG.md)
+[更新记录](CHANGELOG.md)
 
 采用 **AGPL-3.0-or-later**。部分代码移植自 [Baity](https://github.com/raueyhs/Baity)，原作者 raueyhs。详见 [LICENSE](https://github.com/WorksByAI/CustomCosmetics/blob/main/LICENSE) 和 [NOTICE](https://github.com/WorksByAI/CustomCosmetics/blob/main/NOTICE)。
 
@@ -53,7 +53,7 @@ Use `/customcosmetics` to search settings.
 Supports Minecraft **26.1.2–26.3**. Requires Java 25, Fabric Loader 0.19.5+, and Fabric API for your Minecraft version.
 Sharing blocking or distant party positions requires [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api).
 
-[Features](docs/features.md) · [Changelog](CHANGELOG.md)
+[Changelog](CHANGELOG.md)
 
 Licensed under **AGPL-3.0-or-later**. Portions of the code are ported from [Baity](https://github.com/raueyhs/Baity), originally authored by raueyhs. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
