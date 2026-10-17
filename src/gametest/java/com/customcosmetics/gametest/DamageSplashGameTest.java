@@ -49,6 +49,22 @@ public final class DamageSplashGameTest implements FabricClientGameTest {
                 if(((DamageRenderState)state).customcosmetics$damageName()||size("LABELS")!=0)throw new AssertionError("Disabling did not restore vanilla labels");
                 ConfigManager.damageSplashEnabled=true;DamageSplash.tick(client);
                 for(String name:List.of("1,000❤","ToryHi","Lv100 123","123/200")){entity.setCustomName(Component.literal(name));if(DamageSplash.capture(entity))throw new AssertionError("Not a damage label: "+name);}
+                // Reuse one stand as the server does while the fishing timer counts down.
+                int labelsBeforeTimer=size("LABELS"),seenBeforeTimer=size("SEEN");
+                for(String name:List.of("3.0","2.1","1.4","0.7","0.0","!!!")){
+                    entity.setCustomName(Component.literal(name).withStyle(style->style.withColor(0xFFFF55)));
+                    var timerValues=entity.getEntityData().getNonDefaultValues();entity.setCustomName(null);
+                    client.getConnection().handleSetEntityData(new ClientboundSetEntityDataPacket(entity.getId(),timerValues));
+                    renderer.extractRenderState(entity,state,0);
+                    if(((DamageRenderState)state).customcosmetics$damageName()||size("LABELS")!=labelsBeforeTimer||size("SEEN")!=seenBeforeTimer)
+                        throw new AssertionError("Fishing timer was hidden or animated as damage: "+name);
+                    if(!entity.getCustomName().getString().equals(name))throw new AssertionError("Fishing timer text was changed");
+                }
+                for(String name:List.of("36","✧1,234,567✧","1.2M⚔")){
+                    entity.setCustomName(Component.literal(name));renderer.extractRenderState(entity,state,0);
+                    if(!((DamageRenderState)state).customcosmetics$damageName())throw new AssertionError("Combat label stopped working: "+name);
+                }
+                System.out.println("FISHING_COUNTDOWN_METADATA_AND_RENDER_PRESERVED_COMBAT_STILL_CAPTURED_OK");
                 for(int i=0;i<2200;i++){var hit=new ArmorStand(client.level,0,-60,4);hit.setId(-19000-i);hit.setInvisible(true);hit.setCustomName(Component.literal("✧123✧"));DamageSplash.capture(hit);}
                 if(size("LABELS")>256||size("SEEN")>2048)throw new AssertionError("Damage queues grew without bounds");
                 ConfigManager.damageSplashEnabled=false;DamageSplash.tick(client);

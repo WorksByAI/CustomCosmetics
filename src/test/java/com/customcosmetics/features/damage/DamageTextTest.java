@@ -9,7 +9,15 @@ class DamageTextTest {
         var hit=DamageText.parse("✧1,234,567✧");assertNotNull(hit);assertTrue(hit.critical());assertEquals(new BigDecimal("1234567"),hit.amount());
         assertEquals(new BigDecimal("1250000"),DamageText.parse("1.25M⚔").amount().setScale(0));
         assertEquals("⚔",DamageText.parse("1.25M⚔").suffix());assertFalse(DamageText.parse("36").critical());
-        assertEquals(new BigDecimal("1200.5"),DamageText.parse("1,200.5").amount());
+        assertEquals(new BigDecimal("1200.5"),DamageText.parse("✧1,200.5✧").amount());
+        assertEquals(new BigDecimal("1200.5"),DamageText.parse("1,200.5⚔").amount());
+        assertEquals(new BigDecimal("1200000"),DamageText.parse("1.2M").amount().setScale(0));
+    }
+    @Test void fishingCountdownUpdatesAreNotCombatLabels(){
+        for(String text:List.of("3.0","2.1","2.0","1.5","1.4","1.0","0.7","0.1","0.0","!!!","1,200.5"))
+            assertNull(DamageText.parse(text),text);
+        for(String text:List.of("1","36","1,234","✧1.4✧","✯0.7✯","0.7☄","1.2M","1.25k⚔"))
+            assertNotNull(DamageText.parse(text),text);
     }
     @Test void rejectsHealthBarsNamesInvalidGroupingAndHostileValues(){
         for(String text:List.of("ToryHi","Lv100 12345","123❤","+123","123+","1,23","1,,234","NaN","Infinity","1e20","-1","0","12345/20000","✧9999999999999999999999999999999✧"," ","123\n","1.2.3"))assertNull(DamageText.parse(text),text);

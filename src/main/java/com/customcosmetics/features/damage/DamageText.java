@@ -21,6 +21,10 @@ public final class DamageText {
         if (text == null || text.length() > 48) return null;
         var match = NUMBER.matcher(text);
         if (!match.matches()) return null;
+        // Fishing countdowns use bare decimals too. Only accept fractional values
+        // when a combat marker or a damage unit distinguishes them from timers.
+        if (match.group(2).contains(".") && match.group(1).isEmpty() && match.group(3).isEmpty()
+                && match.group(4).isEmpty() && match.group(5).isEmpty()) return null;
         try {
             var amount = new BigDecimal(match.group(2).replace(",", ""));
             int unit = match.group(3).isEmpty() ? 0 : UNITS.indexOf(match.group(3).toUpperCase(Locale.ROOT));
