@@ -19,9 +19,9 @@ public final class MaterialReplacement {
     private MaterialReplacement(){}
     public static boolean busy(){return job!=null;}
     public static String status(){return status;}
-    public static void cancel(){if(job!=null){job=null;status="Replacement cancelled. No changes were applied.";}}
+    public static void cancel(){if(job!=null){if(job.completing!=null)MapEditor.cancelBatchOperation(job.completing);job=null;status="Replacement cancelled. No changes were applied.";}}
     public static void start(String from,String to,Scope scope){
-        if(job!=null)throw new IllegalStateException("A replacement is already running");var client=Minecraft.getInstance();
+        if(MapEditor.busy()||MapRegionFill.busy())throw new IllegalStateException("Wait for the current map operation");if(job!=null)throw new IllegalStateException("A replacement is already running");var client=Minecraft.getInstance();
         if(!MapEditor.allowed(client))throw new IllegalStateException("Join an allowed world before replacing materials");
         var source=MapEditor.state(from);var target=MapEditor.state(to);if(source==null||source.isAir())throw new IllegalArgumentException("Choose a valid non-air source block");if(target==null)throw new IllegalArgumentException("Choose a valid replacement material");
         String id=BuiltInRegistries.BLOCK.getKey(source.getBlock()).toString();String material=to.contains(":")?to:"minecraft:"+to;
@@ -36,6 +36,7 @@ public final class MaterialReplacement {
     private static final class Job {
         final ClientLevel world;final Block source;final String sourceId,target;final RoomLayouts.Frame room;final MaterialReplacementPlan.Bounds bounds;
         final Map<MapEdits.Position,MapEdits.Edit> before;final MaterialReplacementPlan plan;
+        java.util.concurrent.CompletableFuture<Void> completing;
         final List<ChunkPos> chunks;final Deque<Section> sections=new ArrayDeque<>();int cursor;
         Job(Minecraft client,Block source,String sourceId,String target,RoomLayouts.Frame room,MaterialReplacementPlan.Bounds bounds){
             world=client.level;this.source=source;this.sourceId=sourceId;this.target=target;this.room=room;this.bounds=bounds;before=MapEditor.DATA.snapshot();plan=new MaterialReplacementPlan(before,sourceId,target);
@@ -44,6 +45,7 @@ public final class MaterialReplacement {
             chunks=List.copyOf(candidates);
         }
         void step(Minecraft client){
+            if(completing!=null){if(completing.isDone()){completing.join();completed();}return;}
             if(client.level!=world||!MapEditor.allowed(client))throw new IllegalStateException("Replacement cancelled because the world changed. No changes were applied.");
             if(MapEditor.DATA.snapshot()!=before)throw new IllegalStateException("Replacement cancelled because edits changed. No batch changes were applied.");
             if(room!=null&&!sameRoom(room,MapEditor.currentRoom()))throw new IllegalStateException("Replacement cancelled because you left the room. No changes were applied.");
@@ -62,7 +64,12 @@ public final class MaterialReplacement {
             }
         }
         void finish(){
-            int count=plan.changed();if(count>0)MapEditor.applyBatch(before,plan.result());job=null;
+            int count=plan.changed();if(count>0&&(before.size()>8192||count>8192)){
+                completing=MapEditor.applyBatchInteractive(before,plan::result,()->job==this&&(room==null||sameRoom(room,MapEditor.currentRoom())));status="Preparing replacement in the background…";return;
+            }
+            if(count>0)MapEditor.applyBatch(before,plan.result());completed();
+        }
+        void completed(){int count=plan.changed();job=null;
             status=count==0?"No blocks needed replacing ("+plan.matched()+" matches).":"Replaced "+count+" blocks. Use Undo to revert the entire batch.";MapEditor.notice(status);
         }
     }

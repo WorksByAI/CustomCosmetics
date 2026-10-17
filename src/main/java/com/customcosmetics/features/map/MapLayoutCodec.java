@@ -26,6 +26,15 @@ final class MapLayoutCodec {
         try{Files.move(source,target,StandardCopyOption.REPLACE_EXISTING,StandardCopyOption.ATOMIC_MOVE);}
         catch(AtomicMoveNotSupportedException error){Files.move(source,target,StandardCopyOption.REPLACE_EXISTING);}
     }
+    /** Rename only the compressed header; do not rebuild millions of palette/coordinate objects. */
+    static void rename(Path source,Path target,String name)throws IOException{
+        Path temp=Files.createTempFile(target.toAbsolutePath().getParent(),"rename-",".tmp");
+        try{
+            try(var in=new DataInputStream(new BufferedInputStream(new GZIPInputStream(Files.newInputStream(source),65536)));var out=new DataOutputStream(new BufferedOutputStream(new GZIPOutputStream(Files.newOutputStream(temp),65536)))){
+                if(in.readInt()!=MAGIC||in.readInt()!=VERSION)throw new IOException("Invalid preset format");in.readUTF();out.writeInt(MAGIC);out.writeInt(VERSION);out.writeUTF(name);in.transferTo(out);
+            }move(temp,target);
+        }finally{Files.deleteIfExists(temp);}
+    }
     static void write(Path path,Layout layout)throws IOException{
         if(layout.name==null||layout.name.isEmpty()||layout.name.length()>160)throw new IOException("Invalid layout name");
         Files.createDirectories(path.toAbsolutePath().getParent());

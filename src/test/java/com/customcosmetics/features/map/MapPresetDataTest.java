@@ -33,6 +33,15 @@ class MapPresetDataTest {
         assertThrows(IllegalArgumentException.class,()->MapPresetData.place(preset,new RoomLayouts.Frame("room:Other","Other",ZERO,0),0,(id,t)->id));
         assertEquals("",MapPresetData.roomKey(new MapEdits.Preset("Old",List.of(),"legacyhash")));
     }
+    @Test void kuudraLayoutIsIndependentOfCatacombsAndKeepsAbsoluteCoordinates()throws Exception{
+        var frame=new RoomLayouts.Frame("area:kuudra","Kuudra's Hollow",ZERO,0);var pos=new MapEdits.Position(-185,66,-184);
+        var preset=MapPresetData.capture("Kuudra Moss",frame,List.of(new MapEdits.Edit(pos,"minecraft:moss_block",false)),(id,t)->id);
+        assertEquals("Kuudra's Hollow",MapPresetData.roomLabel(preset));assertEquals(pos,MapPresetData.place(preset,frame,0,(id,t)->id).get(pos).position());
+        assertThrows(IllegalArgumentException.class,()->MapPresetData.place(preset,new RoomLayouts.Frame("floor:F7","F7",ZERO,0),0,(id,t)->id));
+        var rooms=new RoomLayouts();rooms.change(frame,pos,"minecraft:moss_block");rooms.change(new RoomLayouts.Frame("floor:M7","M7",ZERO,0),pos,"minecraft:snow_block");
+        rooms.save(directory);var restored=new RoomLayouts();restored.load(directory);
+        assertEquals("minecraft:moss_block",restored.edits("area:kuudra").get(pos));assertEquals("minecraft:snow_block",restored.edits("floor:F7+M7").get(pos));
+    }
     @Test void metadataSurvivesDiskRenameAndDeleteIsRecoverable()throws Exception{
         var storage=new MapStorage(directory);storage.initialize();
         var preset=MapPresetData.capture("Brown",new RoomLayouts.Frame("floor:F7","Boss",ZERO,0),List.of(new MapEdits.Edit(ZERO,"minecraft:dark_oak_planks",false)),(id,t)->id);

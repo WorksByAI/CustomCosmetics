@@ -18,7 +18,7 @@ public final class MapPresetScreen extends Screen {
     private PinkUi.Field search,nameField;
     private PinkUi.Action load,rename,delete,rotationButton;
     private int x,y,w,h,left,right,detailWidth,offset,rotation=-1;
-    private boolean advanced;
+    private boolean advanced,working;
     public MapPresetScreen(Screen parent){super(Component.literal("Map Editor · Preset Manager"));this.parent=parent;}
     @Override protected void init(){
         rows.clear();w=Math.min(620,width-16);h=Math.min(326,height-16);x=(width-w)/2;y=(height-h)/2;
@@ -29,7 +29,7 @@ public final class MapPresetScreen extends Screen {
         addRenderableWidget(new PinkUi.Action(x+12,y+h-64,left,22,"New Preset",false,()->{selected="";nameField.setValue("My room");confirmation="";status="Name it, then click Save.";updateButtons();}));
         load=addRenderableWidget(new PinkUi.Action(right,y+h-116,half,22,"Load",true,this::load));
         addRenderableWidget(new PinkUi.Action(right+half+6,y+h-116,half,22,"Save",false,this::save));
-        rename=addRenderableWidget(new PinkUi.Action(right,y+h-90,half,22,"Rename",false,()->run(()->{MapEditor.presetName=selected;MapEditor.renamePreset(name.strip());selected=MapEditor.presetName;reload();status="Preset renamed.";})));
+        rename=addRenderableWidget(new PinkUi.Action(right,y+h-90,half,22,"Rename",false,()->runAsync(()->{MapEditor.presetName=selected;return MapEditor.renamePresetInteractive(name.strip());},()->{selected=MapEditor.presetName;reload();status="Preset renamed.";})));
         delete=addRenderableWidget(new PinkUi.Action(right+half+6,y+h-90,half,22,"Delete",false,this::delete));
         int advancedWidth=advanced?half:detailWidth;
         addRenderableWidget(new PinkUi.Action(right,y+h-64,advancedWidth,22,advanced?"Hide Advanced":"Advanced…",false,()->{advanced=!advanced;if(!advanced)rotation=-1;rebuildWidgets();}));
@@ -50,16 +50,21 @@ public final class MapPresetScreen extends Screen {
         delete.setMessage(Component.literal(confirmation.equals("delete:"+selected)?"Confirm Delete":"Delete"));
     }
     private void select(int index){if(index>=filtered.size())return;selected=filtered.get(index).name();nameField.setValue(selected);MapEditor.presetName=selected;status="";confirmation="";rotation=-1;if(rotationButton!=null)rotationButton.setMessage(Component.literal(rotationLabel()));updateButtons();}
-    private void load(){run(()->{MapEditor.presetName=selected;if(rotation<0)MapEditor.loadPresetAuto();else MapEditor.loadPreset(rotation);status="Loaded "+selected+". Undo restores the previous edits.";confirmation="";});}
+    private void load(){runAsync(()->{MapEditor.presetName=selected;return MapEditor.loadPresetInteractive(rotation<0?null:rotation);},()->{status="Loaded "+selected+". Undo restores the previous edits.";confirmation="";});}
     private void save(){
         String target=name.strip();boolean exists=entries.stream().anyMatch(p->p.name().equals(target));
         if(exists&&!confirmation.equals("save:"+target)){confirmation="save:"+target;status="Preset exists. Click Save again to overwrite.";return;}
-        run(()->{MapEditor.presetName=target;MapEditor.savePreset();selected=target;confirmation="";reload();status="Saved "+selected+".";});
+        runAsync(()->{MapEditor.presetName=target;return MapEditor.savePresetInteractive();},()->{selected=target;confirmation="";reload();status="Saved "+selected+".";});
     }
     private void delete(){
         if(!confirmation.equals("delete:"+selected)){confirmation="delete:"+selected;status="Click Confirm Delete to remove this preset.";updateButtons();return;}
         run(()->{MapEditor.presetName=selected;MapEditor.deletePreset();selected="";confirmation="";reload();status="Deleted. A copy is kept in map-editor/backups/presets.";});
     }
+    private void runAsync(java.util.function.Supplier<java.util.concurrent.CompletableFuture<Void>> action,Runnable done){
+        if(working)return;working=true;status="Working… You can return to the game.";
+        try{action.get().whenComplete((value,error)->{working=false;if(error==null)done.run();else{while(error.getCause()!=null)error=error.getCause();status=error.getMessage();}updateButtons();});}catch(RuntimeException error){working=false;status=error.getMessage();}updateButtons();
+    }
+    @Override public void tick(){for(var child:children())if(child instanceof net.minecraft.client.gui.components.AbstractWidget widget)widget.active=!working||widget.getMessage().getString().equals("Back");if(!working)updateButtons();}
     private void run(Runnable action){try{action.run();}catch(RuntimeException error){status=error.getMessage()==null?"Preset operation failed.":error.getMessage();}updateButtons();}
     @Override public boolean mouseScrolled(double mx,double my,double horizontal,double vertical){if(mx>=x+12&&mx<right&&my>=y+62&&my<y+h-68){offset=Math.clamp(offset-(int)Math.signum(vertical)*3,0,Math.max(0,filtered.size()-rows.size()));updateButtons();return true;}return super.mouseScrolled(mx,my,horizontal,vertical);}
     @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float dt){

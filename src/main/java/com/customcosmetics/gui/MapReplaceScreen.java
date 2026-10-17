@@ -30,7 +30,7 @@ public final class MapReplaceScreen extends Screen {
         chooseTo=addRenderableWidget(new PinkUi.Action(x+18+col,y+68,col,20,"Choose Replacement",false,()->ClientUiAccess.setScreen(minecraft,new MapBlockScreen(this,"Choose Replacement Material",()->target,id->target=id))));
         scopeButton=addRenderableWidget(new PinkUi.Action(x+12,y+96,w-24,22,scopeLabel(),false,()->{scope=scope==MaterialReplacement.Scope.ROOM?MaterialReplacement.Scope.SELECTION:MaterialReplacement.Scope.ROOM;scopeButton.setMessage(Component.literal(scopeLabel()));error="";}));
         apply=addRenderableWidget(new PinkUi.Action(x+12,y+h-58,col,22,"Replace",true,this::apply));
-        undo=addRenderableWidget(new PinkUi.Action(x+18+col,y+h-58,col,22,"Undo Last Edit",false,()->{MapEditor.undo();error="Last edit undone.";}));
+        undo=addRenderableWidget(new PinkUi.Action(x+18+col,y+h-58,col,22,"Undo Last Edit",false,()->{MapEditor.undoInteractive();error="Undo requested.";}));
         cancel=addRenderableWidget(new PinkUi.Action(x+12,y+h-30,w-24,22,"Back",false,()->{if(MaterialReplacement.busy()){MaterialReplacement.cancel();error="";}else onClose();}));tick();
     }
     private String scopeLabel(){return "Scope: "+(scope==MaterialReplacement.Scope.ROOM?"Current Room":"Selected Region");}

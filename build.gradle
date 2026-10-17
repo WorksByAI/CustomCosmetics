@@ -133,6 +133,26 @@ if (providers.gradleProperty('fme_game_only').getOrElse('false').toBoolean()) {
     }
 }
 
+if (providers.gradleProperty('map_edit_perf_only').getOrElse('false').toBoolean()) {
+    sourceSets.gametest.java.include '**/MapEditPerformanceGameTest.java', '**/FmeEditorGameTest.java', '**/KuudraMapGameTest.java', '**/mixin/MapLatencyProbe.java', '**/MapAdventureGameTest.java', '**/FreecamGameTest.java', '**/mixin/FreecamProbe.java', '**/mixin/MapAdventureScopeMixin.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
+    tasks.named('processGametestResources') {
+        inputs.property 'map_edit_perf_only', true
+        inputs.file('build.gradle')
+        filesMatching('fabric.mod.json') { filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.MapEditPerformanceGameTest') } }
+        filesMatching('customcosmetics-test.mixins.json') { filter { line -> line.contains('"client":') ? '  "client": ["MapLatencyProbe$Frames", "MapLatencyProbe$Ticks", "FreecamProbe$Packets", "FreecamProbe$Actions", "MapAdventureScopeMixin", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line } }
+    }
+}
+
+if (providers.gradleProperty('kuudra_game_only').getOrElse('false').toBoolean()) {
+    sourceSets.gametest.java.include '**/KuudraMapGameTest.java', '**/MapAdventureGameTest.java', '**/FreecamGameTest.java', '**/mixin/FreecamProbe.java', '**/mixin/MapAdventureScopeMixin.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
+    tasks.named('processGametestResources') {
+        inputs.property 'kuudra_game_only', true
+        inputs.file('build.gradle')
+        filesMatching('fabric.mod.json') { filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.KuudraMapGameTest') } }
+        filesMatching('customcosmetics-test.mixins.json') { filter { line -> line.contains('"client":') ? '  "client": ["FreecamProbe$Packets", "FreecamProbe$Actions", "MapAdventureScopeMixin", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line } }
+    }
+}
+
 if (providers.gradleProperty('adventure_map_game_only').getOrElse('false').toBoolean()) {
     sourceSets.gametest.java.include '**/MapAdventureGameTest.java', '**/FreecamGameTest.java', '**/mixin/FreecamProbe.java', '**/mixin/MapAdventureScopeMixin.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
     tasks.named('processGametestResources') {
@@ -361,7 +381,7 @@ tasks.register('fullSourceZip', Zip) {
             include 'LICENSE', 'NOTICE', 'LICENSES/**', 'README.md', 'CHANGELOG.md'
             include '.gitignore', '.gitattributes', 'build.gradle', 'settings.gradle', 'gradle.properties'
             include 'gradlew', 'gradlew.bat', 'gradle/wrapper/gradle-wrapper.jar', 'gradle/wrapper/gradle-wrapper.properties'
-            include 'src/main/**', 'src/test/**', 'src/gametest/**', 'docs/features.md'
+            include 'src/main/**', 'src/test/**', 'src/gametest/**', 'docs/features.md', 'docs/map-performance.md'
             include 'tools/*.py'
         }
     }

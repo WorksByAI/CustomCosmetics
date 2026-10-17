@@ -4,6 +4,18 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DungeonSidebarTest {
+    @Test void kuudraLocationAcceptsFormattingTiersAndTypographicApostrophes(){
+        for(String location:List.of("§c⏣ Kuudra's Hollow","\ue067 Kuudra’s Hol\u200blow (T5)","⏣ Kuudras Hollow (Infernal)","⏣ Kuudraʼs Hollow (Tier 1)")){
+            assertTrue(DungeonSidebar.kuudra("SKYBLOCK",List.of(location)),location);
+            assertFalse(DungeonSidebar.matches("SKYBLOCK",List.of(location)));
+            assertEquals("",DungeonSidebar.floor(List.of(location)));
+        }
+        assertTrue(DungeonSidebar.kuudra("Other title",List.of("⏣ Kuudra's Hollow","www.hypixel.net")));
+    }
+    @Test void kuudraBossQuestAndCrimsonIsleDoNotCountAsTheArena(){
+        for(String text:List.of("Kuudra","Kuudra: 100%","Defeat Kuudra's Hollow","Travel to Kuudra's Hollow","⏣ Forgotten Skull","⏣ Crimson Isle","⏣ The Catacombs (F7)"))assertFalse(DungeonSidebar.kuudra("SKYBLOCK",List.of(text)),text);
+        assertFalse(DungeonSidebar.kuudra("Lobby",List.of("Kuudra's Hollow")));
+    }
     @Test void actualVideoSidebarWorksWithoutHostnameOrApi(){assertTrue(DungeonSidebar.matches("SKYBLOCK",List.of("Late Summer 30th","⏣ The Catacombs (F7)","Time Elapsed: 28m 43s","Cleared: 39% (71)","Solo","www.hypixel.net")));}
     @Test void formattingSplitLettersAndTeamSidebarAreNormalized(){assertTrue(DungeonSidebar.matches("§aSKYBLOCK CO-OP",List.of("§c⏣ The C§6a§et§aa§bc§9o§dm§cb§as \u200b(Ｍ７)","Starting in: 10s")));assertTrue(DungeonSidebar.matches("Other title",List.of("⏣ The Catacombs (E)","www.hypixel.net")));}
     @Test void dungeonHubSkillsAndUnrelatedObjectivesDoNotCountAsDungeon(){for(String location:List.of("⏣ Dungeon Hub","Catacombs Level: 50","Complete The Catacombs (F7)","Catacombs (F8)","Catacombs (M8)"))assertFalse(DungeonSidebar.matches("SKYBLOCK",List.of(location)));assertFalse(DungeonSidebar.matches("Lobby",List.of("The Catacombs (F7)")));assertFalse(DungeonSidebar.matches("SKYBLOCK",List.of()));}

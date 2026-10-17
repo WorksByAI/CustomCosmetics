@@ -30,6 +30,17 @@ public final class GhostBlocks {
     private static Object world;
     private static Map<MapEdits.Position,MapEdits.Edit> indexed;
     private static GhostIndex index=new GhostIndex(List.of());
+    private record Built(Map<MapEdits.Position,MapEdits.Edit> source,GhostIndex index){}
+    private static java.util.concurrent.CompletableFuture<Built> building;
+    private static void updateIndex(Map<MapEdits.Position,MapEdits.Edit> edits){
+        if(indexed==edits)return;
+        if(building!=null&&building.isDone()){var built=building.join();building=null;index=built.index;indexed=built.source;}
+        var changes=indexed==null?null:MapEdits.differences(indexed,edits);
+        if(changes!=null&&changes.size()<=64){for(var p:changes){index.update(p,edits.get(p));entities.remove(p);}indexed=edits;return;}
+        if(edits.size()<8192){index=new GhostIndex(edits.values());indexed=edits;entities.keySet().retainAll(edits.keySet());}
+        else if(building==null)building=java.util.concurrent.CompletableFuture.supplyAsync(()->new Built(edits,new GhostIndex(edits.values())),MapWork.EXECUTOR);
+    }
+    public static List<MapEdits.Edit> nearby(double x,double y,double z,int radius){var edits=MapEditor.visible();updateIndex(edits);var result=new ArrayList<MapEdits.Edit>();index.nearby(x,y,z,radius,4096,e->{var current=edits.get(e.position());if(current!=null&&current.originallyAir())result.add(current);});return result;}
     public static int examinedCandidates;
     private static final AABB UNIT=new AABB(0,0,0,1,1,1);
     private GhostBlocks(){}
@@ -37,10 +48,10 @@ public final class GhostBlocks {
     private static void render(LevelRenderContext context){
         submittedGhosts=submittedSpecialBlocks=submittedFluidGhosts=submittedPaintedEntities=0;var client=Minecraft.getInstance();if(world!=client.level){entities.clear();world=client.level;}if(client.level==null)return;
         var edits=MapEditor.visible();
-        if(indexed!=edits){index=new GhostIndex(edits.values());indexed=edits;entities.keySet().retainAll(edits.keySet());}
+        updateIndex(edits);
         examinedCandidates=0;if(edits.isEmpty())return;
         var camera=context.levelState().cameraRenderState;
-        var candidates=new ArrayList<MapEdits.Edit>();index.nearby(camera.pos.x,camera.pos.y,camera.pos.z,96,candidates::add);
+        var candidates=new ArrayList<>(nearby(camera.pos.x,camera.pos.y,camera.pos.z,96));
         // Loaded block entities are sparse. Never read every retextured solid block each frame.
         int minX=(int)Math.floor(camera.pos.x-96)>>4,maxX=(int)Math.floor(camera.pos.x+96)>>4;
         int minZ=(int)Math.floor(camera.pos.z-96)>>4,maxZ=(int)Math.floor(camera.pos.z+96)>>4;
@@ -50,7 +61,8 @@ public final class GhostBlocks {
                 var edit=edits.get(MapEditor.position(entity.getBlockPos()));if(edit!=null&&!edit.originallyAir())candidates.add(edit);
             }
         }
-        for(var edit:candidates){examinedCandidates++;
+        long deadline=System.nanoTime()+3_000_000;
+        for(var edit:candidates){if(examinedCandidates>0&&System.nanoTime()>=deadline)break;examinedCandidates++;
             var p=MapEditor.blockPos(edit.position());if(p.distToCenterSqr(camera.pos)>96*96||!client.level.hasChunkAt(p))continue;
             var real=client.level.getBlockState(p);boolean ghost=edit.ghost(real.isAir()),container=real.hasBlockEntity()&&!hasGeometry(client.getModelManager().getBlockStateModelSet().get(real));if(!ghost&&!container)continue;
             var state=MapEditor.state(edit.material());if(state==null||state.isAir())continue;

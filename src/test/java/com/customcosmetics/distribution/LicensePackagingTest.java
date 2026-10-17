@@ -11,6 +11,24 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class LicensePackagingTest {
+    @Test void release153IncludesMapPerformanceKuudraAndUpdatePreferenceSources() throws Exception {
+        try (var zip = new ZipFile(System.getProperty("customcosmetics.fullSourceZip"))) {
+            String prefix = "CustomCosmetics-" + System.getProperty("customcosmetics.version") + "/";
+            for (String name : new String[]{
+                    "src/main/java/com/customcosmetics/features/map/RoomRestorer.java",
+                    "src/main/java/com/customcosmetics/features/map/RoomSaveQueue.java",
+                    "src/main/java/com/customcosmetics/features/map/MapRegionFill.java",
+                    "src/main/java/com/customcosmetics/features/map/MapWork.java",
+                    "src/test/java/com/customcosmetics/features/map/MapDeltaTest.java",
+                    "src/test/java/com/customcosmetics/update/GitHubUpdateCheckTest.java",
+                    "src/gametest/java/com/customcosmetics/gametest/KuudraMapGameTest.java",
+                    "src/gametest/java/com/customcosmetics/gametest/MapEditPerformanceGameTest.java",
+                    "docs/map-performance.md"}) assertBundled(zip, prefix + name, name);
+        }
+        String build = Files.readString(ROOT.resolve("build.gradle"));
+        for (String profile : new String[]{"map_edit_perf_only", "kuudra_game_only"})
+            assertTrue(build.contains("gradleProperty('" + profile + "')"), profile);
+    }
     @Test void release141IncludesDamageAndSharingInputsInTheClientSnapshot() throws Exception {
         try (var zip = new ZipFile(System.getProperty("customcosmetics.fullSourceZip"))) {
             String prefix = "CustomCosmetics-" + System.getProperty("customcosmetics.version") + "/";
@@ -226,7 +244,7 @@ class LicensePackagingTest {
 
     @Test
     void publicSnapshotContainsOnlyReleaseDocumentationAndClientSources() throws Exception {
-        try(var files=Files.walk(ROOT.resolve("docs"))){assertEquals(java.util.List.of("features.md"),files.filter(Files::isRegularFile).map(path->path.getFileName().toString()).toList());}
+        try(var files=Files.walk(ROOT.resolve("docs"))){assertEquals(java.util.List.of("features.md","map-performance.md"),files.filter(Files::isRegularFile).map(path->path.getFileName().toString()).sorted().toList());}
         assertTrue(Files.readString(ROOT.resolve("README.md")).contains("[功能列表](docs/features.md)"));
         assertFalse(Files.exists(ROOT.resolve("SOURCE-DELIVERY.md")));
         assertFalse(Files.exists(ROOT.resolve("server")));
@@ -236,7 +254,7 @@ class LicensePackagingTest {
                 assertNotNull(zip.getEntry(prefix + "src/main/java/com/customcosmetics/sync/" + type + ".java"));
             assertTrue(zip.stream().noneMatch(entry -> entry.getName().startsWith(prefix + "server/")));
             assertTrue(zip.stream().filter(entry -> entry.getName().endsWith(".md"))
-                .allMatch(entry -> entry.getName().equals(prefix + "README.md") || entry.getName().equals(prefix + "CHANGELOG.md") || entry.getName().equals(prefix + "docs/features.md")));
+                .allMatch(entry -> entry.getName().equals(prefix + "README.md") || entry.getName().equals(prefix + "CHANGELOG.md") || entry.getName().equals(prefix + "docs/features.md") || entry.getName().equals(prefix + "docs/map-performance.md")));
         }
         assertFalse(Files.readString(ROOT.resolve("NOTICE")).contains("docs/"));
     }

@@ -23,6 +23,8 @@ public final class RoomLayouts {
     private final Set<String> dirtyRooms=new HashSet<>();
     RoomLayouts copy(){var copy=new RoomLayouts();copy.rooms.putAll(rooms);copy.anchors.putAll(anchors);copy.origins.putAll(origins);copy.dirty=dirty;copy.dirtyRooms.addAll(dirtyRooms);return copy;}
     void adopt(RoomLayouts candidate){rooms.clear();rooms.putAll(candidate.rooms);anchors.clear();anchors.putAll(candidate.anchors);origins.clear();origins.putAll(candidate.origins);dirty|=candidate.dirty;dirtyRooms.addAll(candidate.dirtyRooms);}
+    boolean sameData(RoomLayouts other){return sameMaps(rooms,other.rooms)&&sameMaps(origins,other.origins)&&anchors.equals(other.anchors);}
+    private static <V> boolean sameMaps(Map<String,V> a,Map<String,V> b){if(a.size()!=b.size())return false;for(var e:a.entrySet())if(b.get(e.getKey())!=e.getValue())return false;return true;}
     public static String canonicalKey(String key){return key.equals("floor:F7")||key.equals("floor:M7")?"floor:F7+M7":key;}
     public Map<MapEdits.Position,String> edits(String key){return rooms.getOrDefault(canonicalKey(key),Map.of());}
     public int count(){return rooms.size();}
@@ -30,8 +32,9 @@ public final class RoomLayouts {
     public Map<String,LegacyAnchor> anchors(){return Map.copyOf(anchors);}
     public void clear(String key){key=canonicalKey(key);if(rooms.remove(key)!=null){dirty=true;dirtyRooms.add(key);}origins.remove(key);}
     public Boolean originallyAir(String key,MapEdits.Position relative){return origins.getOrDefault(canonicalKey(key),Map.of()).get(relative);}
+    Map<MapEdits.Position,Boolean> originSnapshot(String key){return origins.getOrDefault(canonicalKey(key),Map.of());}
     public void rememberOrigin(String key,MapEdits.Position relative,boolean air){rememberOrigins(key,Map.of(relative,air));}
-    public void rememberOrigins(String key,Map<MapEdits.Position,Boolean> additions){key=canonicalKey(key);var edits=rooms.getOrDefault(key,Map.of());var existing=origins.getOrDefault(key,Map.of());var values=new HashMap<>(existing);additions.forEach((p,air)->{if(edits.containsKey(p))values.put(p,air);});if(!values.equals(existing)){origins.put(key,MapEdits.immutable(values));dirty=true;dirtyRooms.add(key);}}
+    public void rememberOrigins(String key,Map<MapEdits.Position,Boolean> additions){key=canonicalKey(key);var edits=rooms.getOrDefault(key,Map.of());var existing=origins.getOrDefault(key,Map.of());var updates=new HashMap<MapEdits.Position,Boolean>();additions.forEach((p,air)->{if(edits.containsKey(p))updates.put(p,air);});var values=MapEdits.change(existing,updates);if(values!=existing){origins.put(key,values);dirty=true;dirtyRooms.add(key);}}
     /** Shared boss geometry; existing shared data wins, then F7, then M7-only coordinates. */
     public static Map<String,FmeImport.Layout> sharedBossLayouts(Map<String,FmeImport.Layout> source){
         var result=new TreeMap<>(source);var merged=new LinkedHashMap<MapEdits.Position,String>();boolean found=false;
@@ -52,12 +55,19 @@ public final class RoomLayouts {
     }
     public void changeAll(Frame frame,Map<MapEdits.Position,Optional<String>> changes,Map<MapEdits.Position,Boolean> sourceOrigins){
         if(frame==null)return;
-        var existing=rooms.getOrDefault(frame.key(),Map.of());var copy=new LinkedHashMap<>(existing);
-        var originalOrigins=origins.getOrDefault(frame.key(),Map.of());var nextOrigins=new HashMap<>(originalOrigins);
-        for(var entry:changes.entrySet()){var relative=frame.relative(entry.getKey());String material=entry.getValue().orElse(null);if(material==null){copy.remove(relative);nextOrigins.remove(relative);}else{new MapEdits.Edit(relative,material,false);copy.put(relative,material);if(sourceOrigins.containsKey(entry.getKey()))nextOrigins.put(relative,sourceOrigins.get(entry.getKey()));}}
-        if(copy.equals(existing)&&nextOrigins.equals(originalOrigins))return;
+        var existing=rooms.getOrDefault(frame.key(),Map.of());var updates=new HashMap<MapEdits.Position,String>();
+        var originalOrigins=origins.getOrDefault(frame.key(),Map.of());var originUpdates=new HashMap<MapEdits.Position,Boolean>();
+        for(var entry:changes.entrySet()){var relative=frame.relative(entry.getKey());String material=entry.getValue().orElse(null);updates.put(relative,material);if(material==null)originUpdates.put(relative,null);else{new MapEdits.Edit(relative,material,false);if(sourceOrigins.containsKey(entry.getKey()))originUpdates.put(relative,sourceOrigins.get(entry.getKey()));}}
+        var copy=MapEdits.change(existing,updates);var nextOrigins=MapEdits.change(originalOrigins,originUpdates);
+        if(copy==existing&&nextOrigins==originalOrigins)return;
         if(!rooms.containsKey(frame.key())&&rooms.size()>=MAX_ROOMS)throw new IllegalArgumentException("Room library is full");
         if(copy.isEmpty()){rooms.remove(frame.key());origins.remove(frame.key());}else{rooms.put(frame.key(),MapEdits.immutable(copy));origins.put(frame.key(),MapEdits.immutable(nextOrigins));}dirty=true;dirtyRooms.add(frame.key());
+    }
+    boolean hasChanges(){return dirty;}
+    Set<String> changedRooms(){return Set.copyOf(dirtyRooms);}
+    void saved(RoomLayouts snapshot,Set<String> keys){
+        for(String key:keys)if(rooms.get(key)==snapshot.rooms.get(key)&&origins.get(key)==snapshot.origins.get(key)&&Objects.equals(anchors.get(key),snapshot.anchors.get(key)))dirtyRooms.remove(key);
+        dirty=!dirtyRooms.isEmpty();
     }
     public void load(Path path)throws IOException{
         if(Files.isDirectory(path)){loadDirectory(path);return;}

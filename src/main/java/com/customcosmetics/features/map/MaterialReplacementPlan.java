@@ -15,7 +15,7 @@ public final class MaterialReplacementPlan {
     private final String source,target;
     private int changed,matchedCount;
     public MaterialReplacementPlan(Map<MapEdits.Position,MapEdits.Edit> before,String source,String target){
-        this.before=MapEdits.immutable(before);next=new LinkedHashMap<>(before);this.source=source;this.target=target;
+        this.before=MapEdits.immutable(before);next=new HashMap<>();this.source=source;this.target=target;
         new MapEdits.Edit(new MapEdits.Position(0,0,0),source,false);new MapEdits.Edit(new MapEdits.Position(0,0,0),target,false);
         if(source.contains("[")||Set.of("minecraft:air","minecraft:cave_air","minecraft:void_air").contains(source))throw new IllegalArgumentException("Choose a non-air source block type");
     }
@@ -29,5 +29,5 @@ public final class MaterialReplacementPlan {
     }
     public int matched(){return matchedCount;}
     public int changed(){return changed;}
-    public Map<MapEdits.Position,MapEdits.Edit> result(){return MapEdits.immutable(next);}
+    public Map<MapEdits.Position,MapEdits.Edit> result(){return MapEdits.change(before,next);}
 }

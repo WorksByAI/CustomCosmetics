@@ -696,6 +696,7 @@ public final class CosmeticsScreen extends Screen {
     }
 
     private void sync() {
+        toggleRow("Check for Updates","Check GitHub for new releases and show a chat notification. Enabled by default.",()->ConfigManager.updateCheckEnabled,v->ConfigManager.updateCheckEnabled=v);
         fullButton("Mode: "+(ConfigManager.offlineMode?"Offline":"Online"),()->{
             com.customcosmetics.config.CosmeticsMode.setOffline(!ConfigManager.offlineMode);activity();rebuildWidgets();
         },false).setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal("Offline: local cosmetics only. No remote connections.")));
@@ -768,8 +769,9 @@ public final class CosmeticsScreen extends Screen {
         toggleRow("Map Editor","Local edits. Other players keep the original map.",()->com.customcosmetics.features.map.MapEditor.enabled,v->{com.customcosmetics.features.map.MapEditor.enabled=v;com.customcosmetics.features.map.MapEditor.refresh();});
         String explanation="Visual only: keeps real collision and mining. Air additions have no collision.";
         for(var line:font.split(Component.literal(explanation),contentWidth-16)){int y=rowY;art.add(g->g.text(font,line,contentX+8,y,MUTED,false));rowY+=12;}rowY+=6;
-        toggleRow("Dungeon Only","Edit only inside the Catacombs or local single-player worlds.",()->com.customcosmetics.features.map.MapEditor.dungeonOnly,v->{com.customcosmetics.features.map.MapEditor.dungeonOnly=v;com.customcosmetics.features.map.MapEditor.refresh();});
+        toggleRow("Dungeon Only","Edit only inside the Catacombs, Kuudra or local single-player worlds.",()->com.customcosmetics.features.map.MapEditor.dungeonOnly,v->{com.customcosmetics.features.map.MapEditor.dungeonOnly=v;com.customcosmetics.features.map.MapEditor.refresh();});
         toggleRow("Force Dungeon","Assume you are in a dungeon. Singleplayer without a floor uses the shared F7/M7 Boss layout; multiplayer still detects rooms from blocks.",()->com.customcosmetics.features.map.MapEditor.forceDungeon,com.customcosmetics.features.map.MapEditor::forceDungeon);
+        toggleRow("Force Kuudra","Edit a local Kuudra map or override detection. Uses a separate Kuudra layout at the original world coordinates.",()->com.customcosmetics.features.map.MapEditor.forceKuudra,com.customcosmetics.features.map.MapEditor::forceKuudra);
         toggleRow("Edit Mode","Right: place. Left: hide/delete. Middle: pick. Changes save by room automatically.",()->com.customcosmetics.features.map.MapEditor.editing,v->{com.customcosmetics.features.map.MapEditor.editing=v;if(v)com.customcosmetics.features.map.MapEditor.enabled=true;com.customcosmetics.features.map.MapEditor.refresh();});
         fullButton("Import FME Config",()->com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,new FmeImportScreen(this)));
         fullButton("Choose Block / Favorites",com.customcosmetics.features.map.MapEditorUi::open);
@@ -777,10 +779,10 @@ public final class CosmeticsScreen extends Screen {
         toggleRow("Editor HUD","Room, selected block and controls while editing.",()->com.customcosmetics.features.map.MapEditor.showHud,v->{com.customcosmetics.features.map.MapEditor.showHud=v;com.customcosmetics.features.map.MapEditor.save();});
         label("Room: "+com.customcosmetics.features.map.MapEditor.roomLabel(),contentX,rowY+5,MUTED,contentWidth);rowY+=24;
         label("Room library: "+com.customcosmetics.features.map.MapEditor.ROOMS.count()+" saved layouts",contentX,rowY+5,MUTED,contentWidth);rowY+=24;
-        fullButton("Reset This Room",()->com.customcosmetics.features.map.MapCommands.run(com.customcosmetics.features.map.MapEditor::clearRoom));
+        fullButton("Reset This Room",()->com.customcosmetics.features.map.MapCommands.run(com.customcosmetics.features.map.MapEditor::clearRoomInteractive));
         fieldRow("Block Material","Block Material",com.customcosmetics.features.map.MapEditor.material,128,"Example: minecraft:gold_block. Air hides a real block visually in Legit mode.",220,v->{if(com.customcosmetics.features.map.MapEditor.state(v)!=null)com.customcosmetics.features.map.MapEditor.material=v;});
-        fullButton("Undo",()->com.customcosmetics.features.map.MapEditor.undo());
-        fullButton("Clear Current Edits",()->com.customcosmetics.features.map.MapEditor.clear());
+        fullButton("Undo",()->com.customcosmetics.features.map.MapEditor.undoInteractive());
+        fullButton("Clear Current Edits",()->com.customcosmetics.features.map.MapEditor.clearInteractive());
         toggleRow("Automatically Restore Rooms","Automatically applies saved rooms and aligns them from blocks.",()->com.customcosmetics.features.map.MapEditor.autoRooms,v->{com.customcosmetics.features.map.MapEditor.autoRooms=v;com.customcosmetics.features.map.MapEditor.save();});
         fullButton("Preset Manager",()->com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,new MapPresetScreen(this)));
         label("Region: /customcosmetics map pos1, pos2, fill",contentX,rowY+5,MUTED,contentWidth);rowY+=24;

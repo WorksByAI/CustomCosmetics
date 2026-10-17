@@ -10,19 +10,19 @@
 - **Cape**：自定义披风，支持图片裁剪与预览；在线共享需审核，本地披风仅自己可见。
 - **Damage Splash**：自定义伤害数字的动画、颜色、大小与数字格式。
 - **Equipments (Beta)**：像素风与精细风原创饰品，支持自由搭配、调色、大小、位置微调与同步。
-- **Map Editor**：本地材质编辑、假方块与可旋转房间预设。
+- **Map Editor**：地牢／Kuudra 纯视觉改图、批量材质替换与自动对齐预设，大图操作在后台或分帧处理。
 - **Skins**：本地皮肤导入，可选仅通过已建立的 P2P 直连分享。
 - **Sharing**：Hypixel 队友显示、远处标记、追踪线与 IRC；可向同一世界公开或指定玩家共享位置（默认关闭）。
 - **远程同步**：双方连接远程服务器即可互相看到装饰和格挡。
 - **离线模式**：断开远程连接，装饰仅自己可见。
-- **更新提示**：每次启动检查 GitHub 最新正式版，有更新时在聊天栏提示。
+- **更新提示**：默认检查 GitHub 最新正式版，可在 Settings → Check for Updates 关闭。
 
 输入 `/customcosmetics` 打开并搜索设置，GitHub 图标可访问源码仓库。
 
 支持 Minecraft **26.1.2～26.3**，需要 Java 25、Fabric Loader 0.19.5+ 和对应版本的 Fabric API。
 共享格挡或远处队友位置需安装 [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api)。
 
-[功能列表](docs/features.md) · [客户端说明](https://github.com/WorksByAI/CustomCosmetics/blob/main/docs/client.md) · [服务端部署](https://github.com/WorksByAI/CustomCosmetics/blob/main/server/DEPLOY.md) · [完整源码](https://github.com/WorksByAI/CustomCosmetics/blob/main/SOURCE-DELIVERY.md)
+[功能列表](docs/features.md) · [更新记录](CHANGELOG.md)
 
 采用 **AGPL-3.0-or-later**。部分代码移植自 [Baity](https://github.com/raueyhs/Baity)，原作者 raueyhs。详见 [LICENSE](https://github.com/WorksByAI/CustomCosmetics/blob/main/LICENSE) 和 [NOTICE](https://github.com/WorksByAI/CustomCosmetics/blob/main/NOTICE)。
 
@@ -42,18 +42,18 @@ A Fabric mod for cosmetics and player synchronization.
 - **Cape**: Cape cropping, preview and reviewed sharing.
 - **Damage Splash**: Custom damage number animations, colors, size and formatting.
 - **Equipments (Beta)**: Pixel / Detailed styles with synced colors, size and position.
-- **Map Editor**: Local materials, ghost blocks and rotated room presets.
+- **Map Editor**: Visual Catacombs/Kuudra edits, bulk replacement and aligned presets. Optimized for large layouts.
 - **Skins**: Local PNG imports and optional P2P-only sharing.
 - **Sharing**: Teammate ESP, markers, tracers, party IRC and optional public / selected-player position sharing.
 - **Remote / Offline**: Share cosmetics and blocking, or keep them local.
-- **Updates**: Checks GitHub releases at startup.
+- **Updates**: Enabled by default; switch off in Settings.
 
 Use `/customcosmetics` to search settings.
 
 Supports Minecraft **26.1.2–26.3**. Requires Java 25, Fabric Loader 0.19.5+, and Fabric API for your Minecraft version.
 Sharing blocking or distant party positions requires [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api).
 
-[Features](docs/features.md) · [Client Guide](https://github.com/WorksByAI/CustomCosmetics/blob/main/docs/client.md) · [Server](https://github.com/WorksByAI/CustomCosmetics/blob/main/server/DEPLOY.md) · [Source](https://github.com/WorksByAI/CustomCosmetics/blob/main/SOURCE-DELIVERY.md)
+[Features](docs/features.md) · [Changelog](CHANGELOG.md)
 
 Licensed under **AGPL-3.0-or-later**. Portions of the code are ported from [Baity](https://github.com/raueyhs/Baity), originally authored by raueyhs. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 

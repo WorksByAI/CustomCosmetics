@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.5.3
+
+- Map Editor: Use sparse edits and undo, background room saves and rendering indexes to avoid whole-map work on each click.
+- Restore loaded room sections and prepare large preset operations and replacements without blocking the game thread.
+- Process region fills incrementally and prepare legacy automatic presets in the background.
+
+- Settings: Add an optional update check switch, enabled by default.
+- Map Editor: Add Kuudra detection, separate arena saves, presets and bulk material replacement.
+- Add Force Kuudra for offline editing and clear session edits when switching between Kuudra and other areas.
+
 ## 1.5.2
 
 - Map Editor: Store compressed presets and room layouts in separate folders; migrate legacy JSON with exact backups and save only changed rooms.

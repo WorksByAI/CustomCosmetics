@@ -11,6 +11,9 @@ public final class MapCommands {
         root.then(ClientCommands.literal("force").executes(c->run(()->{MapEditor.forceDungeon(!MapEditor.forceDungeon);MapEditor.reportStatus();}))
             .then(ClientCommands.literal("on").executes(c->run(()->{MapEditor.forceDungeon(true);MapEditor.reportStatus();})))
             .then(ClientCommands.literal("off").executes(c->run(()->{MapEditor.forceDungeon(false);MapEditor.reportStatus();}))));
+        root.then(ClientCommands.literal("kuudra").executes(c->run(()->{MapEditor.enabled=true;MapEditor.forceKuudra(true);com.customcosmetics.client.CustomCosmeticsClient.requestGui(com.customcosmetics.gui.CosmeticsScreen.Page.MAP);}))
+            .then(ClientCommands.literal("on").executes(c->run(()->{MapEditor.enabled=true;MapEditor.forceKuudra(true);MapEditor.reportStatus();})))
+            .then(ClientCommands.literal("off").executes(c->run(()->{MapEditor.forceKuudra(false);MapEditor.reportStatus();}))));
         root.then(ClientCommands.literal("freecam").executes(c->run(Freecam::toggle))
             .then(ClientCommands.literal("on").executes(c->run(()->Freecam.setEnabled(true))))
             .then(ClientCommands.literal("off").executes(c->run(()->Freecam.setEnabled(false)))));
@@ -23,17 +26,17 @@ public final class MapCommands {
             .then(ClientCommands.argument("from",new MapBlockArgument()).then(ClientCommands.argument("to",new MapBlockArgument())
                 .executes(c->run(()->MaterialReplacement.start(StringArgumentType.getString(c,"from"),StringArgumentType.getString(c,"to"),MaterialReplacement.Scope.ROOM)))
                 .then(ClientCommands.literal("selection").executes(c->run(()->MaterialReplacement.start(StringArgumentType.getString(c,"from"),StringArgumentType.getString(c,"to"),MaterialReplacement.Scope.SELECTION)))))));
-        root.then(ClientCommands.literal("clearroom").executes(c->run(MapEditor::clearRoom)));
+        root.then(ClientCommands.literal("clearroom").executes(c->run(MapEditor::clearRoomInteractive)));
         root.then(ClientCommands.literal("guide").executes(c->run(()->MapEditor.notice("Map Editor: right-click places, left-click hides a real block or removes an edit, middle-click picks. Shift+right replaces a hidden block. /customcosmetics map blocks: searchable palette; right-click favorites. Room changes save automatically; /customcosmetics map clearroom resets this room."))));
-        root.then(ClientCommands.literal("undo").executes(c->run(MapEditor::undo)));
-        root.then(ClientCommands.literal("clear").executes(c->run(MapEditor::clear)));
+        root.then(ClientCommands.literal("undo").executes(c->run(MapEditor::undoInteractive)));
+        root.then(ClientCommands.literal("clear").executes(c->run(MapEditor::clearInteractive)));
         root.then(ClientCommands.literal("pos1").executes(c->run(()->MapEditor.mark(false))));
         root.then(ClientCommands.literal("pos2").executes(c->run(()->MapEditor.mark(true))));
         root.then(ClientCommands.literal("fill").executes(c->run(MapEditor::fill)));
         root.then(ClientCommands.literal("anchor").executes(c->run(MapEditor::setAnchor)));
         root.then(ClientCommands.literal("material").then(ClientCommands.argument("block",new MapBlockArgument()).executes(c->run(()->{String id=StringArgumentType.getString(c,"block");if(MapEditor.state(id)==null)throw new IllegalArgumentException("Unknown block");MapEditor.material=id.contains(":")?id:"minecraft:"+id;}))));
-        root.then(ClientCommands.literal("save").then(ClientCommands.argument("name",StringArgumentType.greedyString()).executes(c->run(()->{MapEditor.presetName=StringArgumentType.getString(c,"name");MapEditor.savePreset();}))));
-        root.then(ClientCommands.literal("load").then(ClientCommands.argument("name",StringArgumentType.greedyString()).executes(c->run(()->{MapEditor.presetName=StringArgumentType.getString(c,"name");MapEditor.loadPresetAuto();})))) ;
+        root.then(ClientCommands.literal("save").then(ClientCommands.argument("name",StringArgumentType.greedyString()).executes(c->run(()->{MapEditor.presetName=StringArgumentType.getString(c,"name");MapEditor.report(MapEditor.savePresetInteractive());}))));
+        root.then(ClientCommands.literal("load").then(ClientCommands.argument("name",StringArgumentType.greedyString()).executes(c->run(()->{MapEditor.presetName=StringArgumentType.getString(c,"name");MapEditor.report(MapEditor.loadPresetInteractive(null));})))) ;
         return root;
     }
     public static int run(Runnable action){try{action.run();return 1;}catch(RuntimeException error){MapEditor.notice(error.getMessage()==null?"Map edit failed.":error.getMessage());return 0;}}

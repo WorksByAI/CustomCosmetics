@@ -94,7 +94,7 @@ final class MapStorage {
         if(old.name().equals(name))return;
         Path target=MapLayoutCodec.path(presets,name);
         if(Files.exists(target))throw new IOException("A preset with that name already exists");
-        savePreset(replacement);
+        MapLayoutCodec.rename(MapLayoutCodec.path(presets,old.name()),target,replacement.name());
         try{deletePreset(old.name());}catch(IOException error){Files.deleteIfExists(target);throw error;}
     }
     void deletePreset(String name)throws IOException{

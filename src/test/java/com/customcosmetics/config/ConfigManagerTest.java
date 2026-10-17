@@ -9,6 +9,11 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ConfigManagerTest {
+    @Test void updateChecksDefaultOnAndThePreferencePersists()throws Exception{
+        assertTrue(ConfigManager.updateCheckEnabled);var path=directory.resolve("updates.json");
+        Files.writeString(path,"{\"settings\":{}}");ConfigManager.load(path);assertTrue(ConfigManager.updateCheckEnabled);
+        ConfigManager.updateCheckEnabled=false;ConfigManager.save(path);ConfigManager.updateCheckEnabled=true;ConfigManager.load(path);assertFalse(ConfigManager.updateCheckEnabled);
+    }
     @Test void sharingChamsAreOptionalAndSaveLocally()throws Exception{
         assertFalse(ConfigManager.sharingChamsEnabled);var path=directory.resolve("chams.json");
         ConfigManager.sharingChamsEnabled=true;ConfigManager.save(path);

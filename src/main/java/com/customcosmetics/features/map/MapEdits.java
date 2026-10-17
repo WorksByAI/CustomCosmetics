@@ -8,8 +8,38 @@ public final class MapEdits {
     private static final java.util.regex.Pattern MATERIAL=java.util.regex.Pattern.compile("[a-z0-9_.-]+:[a-z0-9_./-]+(?:\\[[a-z0-9_]+=[a-z0-9_]+(?:,[a-z0-9_]+=[a-z0-9_]+)*\\])?");
     /** Avoid MapN's linear probing for spatial keys; retain immutable snapshots without recopying them. */
     public static <V> Map<Position,V> immutable(Map<Position,V> source){
-        if(source instanceof Snapshot<?>)return source;if(source.isEmpty())return Map.of();
+        if(source instanceof Snapshot<?>||source instanceof Delta<?>)return source;if(source.isEmpty())return Map.of();
         var copy=new HashMap<Position,V>(source);copy.forEach((p,v)->{Objects.requireNonNull(p);Objects.requireNonNull(v);});return new Snapshot<>(copy);
+    }
+    /** Transfers a private builder to an immutable snapshot; caller must never mutate it again. */
+    static <V> Map<Position,V> own(Map<Position,V> builder){return builder.isEmpty()?Map.of():new Snapshot<>(builder);}
+    /** Sparse copy-on-write updates. A null value removes a coordinate without copying the base map. */
+    static <V> Map<Position,V> change(Map<Position,V> previous,Map<Position,V> updates){
+        var effective=new HashMap<Position,V>();int size=previous.size();
+        updates.forEach((p,v)->{if(!Objects.equals(previous.get(p),v))effective.put(p,v);});
+        if(effective.isEmpty())return previous;
+        for(var e:effective.entrySet()){if(e.getValue()==null)size--;else if(!previous.containsKey(e.getKey()))size++;}
+        Map<Position,V> base=previous;Map<Position,V> combined=effective;
+        if(previous instanceof Delta<V> delta&&delta.updates.size()<4096&&effective.size()<4096){base=delta.base;combined=new HashMap<>(delta.updates);combined.putAll(effective);}
+        return new Delta<>(base,combined,size,previous,Set.copyOf(effective.keySet()));
+    }
+    static Set<Position> differences(Map<Position,?> a,Map<Position,?> b){
+        if(a==b)return Set.of();
+        if(b instanceof Delta<?> d&&d.previous.get()==a)return d.recent;
+        if(a instanceof Delta<?> d&&d.previous.get()==b)return d.recent;
+        return null;
+    }
+    private static final class Delta<V> extends AbstractMap<Position,V>{
+        private final Map<Position,V> base,updates;private final int count;
+        private final java.lang.ref.WeakReference<Map<Position,V>> previous;private final Set<Position> recent;
+        Delta(Map<Position,V> base,Map<Position,V> updates,int count,Map<Position,V> previous,Set<Position> recent){this.base=base;this.updates=Collections.unmodifiableMap(updates);this.count=count;this.previous=new java.lang.ref.WeakReference<>(previous);this.recent=recent;}
+        @Override public V get(Object p){return updates.containsKey(p)?updates.get(p):base.get(p);}
+        @Override public boolean containsKey(Object p){return updates.containsKey(p)?updates.get(p)!=null:base.containsKey(p);}
+        @Override public int size(){return count;}
+        @Override public Set<Entry<Position,V>> entrySet(){return new AbstractSet<>(){
+            @Override public int size(){return count;}
+            @Override public Iterator<Entry<Position,V>> iterator(){return java.util.stream.Stream.concat(base.entrySet().stream().filter(e->!updates.containsKey(e.getKey())),updates.entrySet().stream().filter(e->e.getValue()!=null)).iterator();}
+        };}
     }
     private static final class Snapshot<V> extends AbstractMap<Position,V>{
         private final Map<Position,V> values;
@@ -38,8 +68,10 @@ public final class MapEdits {
     private Map<Position,Edit> edits=Map.of();private final Deque<Map<Position,Edit>> undo=new ArrayDeque<>();
     public Map<Position,Edit> snapshot(){return edits;}
     public void replace(Map<Position,Edit> next){var snapshot=immutable(next);undo.push(edits);while(undo.size()>32)undo.removeLast();edits=snapshot;}
-    public void put(Edit edit){var copy=new LinkedHashMap<>(edits);copy.put(edit.position,edit);replace(copy);}
-    public void remove(Position p){var copy=new LinkedHashMap<>(edits);copy.remove(p);replace(copy);}
+    public void put(Edit edit){var next=change(edits,Map.of(edit.position,edit));if(next!=edits)replace(next);}
+    public void remove(Position p){var next=change(edits,Collections.singletonMap(p,null));if(next!=edits)replace(next);}
+    public Set<Position> undoPositions(){return undo.isEmpty()?Set.of():differences(edits,undo.peek());}
+    Map<Position,Edit> undoSnapshot(){return undo.peek();}
     public boolean undo(){if(undo.isEmpty())return false;edits=undo.pop();return true;}
     public void clear(){if(!edits.isEmpty())replace(Map.of());}
     public void reset(){edits=Map.of();undo.clear();}

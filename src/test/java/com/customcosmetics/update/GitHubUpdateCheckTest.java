@@ -14,6 +14,12 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static org.junit.jupiter.api.Assertions.*;
 
 class GitHubUpdateCheckTest {
+    @Test void disabledChecksDoNotQueueFetchAndQueuedWorkHonorsTheSwitch(){
+        var enabled=new java.util.concurrent.atomic.AtomicBoolean(false);var check=new GitHubUpdateCheck("1.0.0",enabled::get);var tasks=new ArrayList<Runnable>();
+        check.start(()->{fail("Disabled check fetched a release");return Optional.empty();},tasks::add);assertTrue(tasks.isEmpty());
+        enabled.set(true);check.start(()->{fail("Queued check ignored disabling");return Optional.empty();},tasks::add);enabled.set(false);tasks.removeFirst().run();assertNull(check.poll(true));
+        enabled.set(true);check.start(()->Optional.of("1.0.1"),Runnable::run);enabled.set(false);assertNull(check.poll(true));enabled.set(true);assertNull(check.poll(true));
+    }
     @Test void miniMeBetaDoesNotNotifyStableUsersButCanUpgradeToTheNextStableRelease() {
         String beta="{\"draft\":false,\"prerelease\":true,\"tag_name\":\"v1.4.3b1\"}";
         assertTrue(GitHubUpdateCheck.newerRelease(beta,"1.4.2").isEmpty());

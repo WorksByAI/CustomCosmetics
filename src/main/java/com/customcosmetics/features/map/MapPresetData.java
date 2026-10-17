@@ -14,7 +14,7 @@ public final class MapPresetData {
         try{return RoomLayouts.canonicalKey(JsonParser.parseString(preset.fingerprint().substring(PREFIX.length())).getAsJsonObject().get("room").getAsString());}
         catch(RuntimeException error){throw new IllegalArgumentException("Invalid preset room metadata",error);}
     }
-    public static String roomLabel(MapEdits.Preset preset){String key=roomKey(preset);return key.equals("floor:F7+M7")?"F7 / M7 Boss":key.startsWith("room:")?key.substring(5):key.startsWith("fingerprint:")?"Room "+key.substring(12,Math.min(20,key.length())):key.isEmpty()?"Legacy / manual anchor":key;}
+    public static String roomLabel(MapEdits.Preset preset){String key=roomKey(preset);return key.equals(DungeonRooms.KUUDRA_KEY)?"Kuudra's Hollow":key.equals("floor:F7+M7")?"F7 / M7 Boss":key.startsWith("room:")?key.substring(5):key.startsWith("fingerprint:")?"Room "+key.substring(12,Math.min(20,key.length())):key.isEmpty()?"Legacy / manual anchor":key;}
     public static boolean sameRoom(RoomLayouts.Frame a,RoomLayouts.Frame b){return a!=null&&b!=null&&a.key().equals(b.key())&&a.origin().equals(b.origin());}
     public static MapEdits.Preset capture(String name,RoomLayouts.Frame frame,Collection<MapEdits.Edit> edits,BiFunction<String,Integer,String> rotate){
         var metadata=new JsonObject();metadata.addProperty("room",frame.key());

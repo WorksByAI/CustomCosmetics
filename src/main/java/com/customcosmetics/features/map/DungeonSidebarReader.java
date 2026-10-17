@@ -11,6 +11,7 @@ public final class DungeonSidebarReader {
     public record Snapshot(String objective,String title,List<String> rows,List<String> raw){
         public Snapshot{rows=List.copyOf(rows);raw=List.copyOf(raw);}
         public boolean detected(){return DungeonSidebar.matches(title,rows);}
+        public boolean kuudra(){return DungeonSidebar.kuudra(title,rows);}
         public String floor(){return DungeonSidebar.floor(rows);}
     }
     private static final Snapshot EMPTY=new Snapshot("","",List.of(),List.of());

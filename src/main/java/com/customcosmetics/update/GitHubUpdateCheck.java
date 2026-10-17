@@ -12,6 +12,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import java.util.function.BooleanSupplier;
 import net.fabricmc.loader.api.SemanticVersion;
 import net.fabricmc.loader.api.VersionParsingException;
 
@@ -21,10 +22,12 @@ public final class GitHubUpdateCheck {
     public static final URI RELEASE_PAGE = URI.create("https://github.com/WorksByAI/CustomCosmetics/releases/latest");
     private static final int MAX_RESPONSE = 65_536;
     private final String installed;
+    private final BooleanSupplier enabled;
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicReference<String> pending = new AtomicReference<>();
 
-    public GitHubUpdateCheck(String installed) { this.installed = installed; }
+    public GitHubUpdateCheck(String installed) { this(installed,()->true); }
+    public GitHubUpdateCheck(String installed,BooleanSupplier enabled) { this.installed = installed;this.enabled=enabled; }
     public String installed() { return installed; }
     public void start() {
         start(() -> {
@@ -33,13 +36,15 @@ public final class GitHubUpdateCheck {
         }, ForkJoinPool.commonPool());
     }
     void start(Supplier<Optional<String>> fetch, Executor executor) {
-        if (!started.compareAndSet(false, true)) return;
+        if (!enabled.getAsBoolean() || !started.compareAndSet(false, true)) return;
         executor.execute(() -> {
-            try { fetch.get().ifPresent(pending::set); }
+            if(!enabled.getAsBoolean()){started.set(false);return;}
+            try { fetch.get().filter(value->enabled.getAsBoolean()).ifPresent(pending::set); }
             catch (RuntimeException unavailable) { /* An update check must never interrupt the game. */ }
+            finally{if(!enabled.getAsBoolean())started.set(false);}
         });
     }
-    public String poll(boolean worldReady) { return worldReady ? pending.getAndSet(null) : null; }
+    public String poll(boolean worldReady) { if(!enabled.getAsBoolean()){pending.set(null);return null;}return worldReady ? pending.getAndSet(null) : null; }
 
     static Optional<String> fetch(URI endpoint, String installed) throws IOException {
         HttpURLConnection connection = com.customcosmetics.sync.RemoteAccess.manage((HttpURLConnection) endpoint.toURL().openConnection());
