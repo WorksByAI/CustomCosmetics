@@ -35,6 +35,7 @@ public final class Freecam {
         if(!MapEditor.allowed(client))throw new IllegalStateException("Freecam needs an allowed Map Editor world.");
         if(!client.player.isAlive()||client.player.isPassenger()||client.player.isSleeping())throw new IllegalStateException("Leave the vehicle or bed before enabling Freecam.");
         if(client.getCameraEntity()!=client.player)throw new IllegalStateException("Return to your player camera first.");
+        com.customcosmetics.features.camera.Snaplook.stop(client);
         body=client.player;input=body.input;perspective=client.options.getCameraType();
         camera=new RemotePlayer(client.level,body.getGameProfile()){
             // LivingEntity normally renders its independent head yaw. Our un-ticked camera uses mouse yaw.

@@ -706,6 +706,11 @@ public final class CosmeticsScreen extends Screen {
     private void sync() {
         toggleRow("Check for Updates","Check GitHub for new releases and show a chat notification. Enabled by default.",()->ConfigManager.updateCheckEnabled,v->ConfigManager.updateCheckEnabled=v);
         toggleRow("Command Tooltips","Show the actual command when hovering clickable text. Preserves existing text, item and entity tooltips.",()->ConfigManager.commandTooltipsEnabled,v->ConfigManager.commandTooltipsEnabled=v);
+        toggleRow("Snaplook","Hold your assigned key to switch perspective; release to restore your previous view.",()->ConfigManager.snaplookEnabled,v->{ConfigManager.snaplookEnabled=v;if(!v)com.customcosmetics.features.camera.Snaplook.stop(minecraft);});
+        fullButton("Snaplook View: "+switch(com.customcosmetics.features.camera.Snaplook.normalize(ConfigManager.snaplookPerspective)){case "first"->"First Person";case "back"->"Third Person Back";default->"Third Person Front (Rear View)";},()->{
+            ConfigManager.snaplookPerspective=switch(com.customcosmetics.features.camera.Snaplook.normalize(ConfigManager.snaplookPerspective)){case "front"->"back";case "back"->"first";default->"front";};changed();rebuildWidgets();
+        },false);
+        fullButton("Snaplook Keybind…",()->ClientUiAccess.setScreen(minecraft,new net.minecraft.client.gui.screens.options.controls.KeyBindsScreen(this,minecraft.options)),false,"Assign Snaplook under CustomCosmetics: Camera. Unbound by default.");
         fullButton("Mode: "+(ConfigManager.offlineMode?"Offline":"Online"),()->{
             com.customcosmetics.config.CosmeticsMode.setOffline(!ConfigManager.offlineMode);activity();rebuildWidgets();
         },false).setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal("Offline: local cosmetics only. No remote connections.")));

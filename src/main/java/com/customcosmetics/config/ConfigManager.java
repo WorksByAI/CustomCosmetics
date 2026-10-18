@@ -63,6 +63,8 @@ public final class ConfigManager {
     public static volatile boolean offlineMode = false;
     public static volatile boolean updateCheckEnabled = true;
     public static boolean commandTooltipsEnabled=true;
+    public static boolean snaplookEnabled=true;
+    public static String snaplookPerspective="front";
     public static boolean capeEnabled = true;
     public static boolean localSkinEnabled=true,localSkinSlim=false,skinP2pSharing=false,skinP2pReceiving=true;
     public static java.util.List<PlayerBlocklist.Entry> capeBlockedPlayers = java.util.List.of();
@@ -162,6 +164,7 @@ public final class ConfigManager {
             }
             if(accessories==null)accessories=com.customcosmetics.features.accessories.AccessoriesSettings.NONE;
             damageSplashStyle=com.customcosmetics.features.damage.DamageAnimation.normalize(damageSplashStyle);
+            snaplookPerspective=com.customcosmetics.features.camera.Snaplook.normalize(snaplookPerspective);
             damageSplashSymbol=com.customcosmetics.features.damage.DamageText.symbol(damageSplashSymbol);
             damageSplashSeparator=damageSplashSeparator!=null&&java.util.List.of("none","comma","space","underscore").contains(damageSplashSeparator)?damageSplashSeparator:"comma";
             damageSplashSize=com.customcosmetics.features.damage.DamageAnimation.bounded(damageSplashSize,1,.25,3);

@@ -1,4 +1,6 @@
 {
+  "key.customcosmetics.snaplook": "Snaplook (hold)",
+  "key.category.customcosmetics.camera": "CustomCosmetics: Camera",
   "key.customcosmetics.freecam": "Toggle Map Editor Freecam",
   "key.category.customcosmetics.map_editor": "CustomCosmetics: Map Editor",
   "key.customcosmetics.map_blocks": "Map Editor Block Palette",

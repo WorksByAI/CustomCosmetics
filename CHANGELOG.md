@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.4.4
+
+- Add hold-to-use Snaplook with configurable perspective and keybind.
+
 ## 1.5.4.3
 
 - Prepare dungeon room edits and fixed boss layouts from dungeon entry.

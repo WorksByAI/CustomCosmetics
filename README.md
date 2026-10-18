@@ -1,4 +1,4 @@
-# CustomCosmetics v1.5.4.3 发布！
+# CustomCosmetics v1.5.4.4 发布！
 
 这是一个支持玩家间同步的自定义外观模组，支持 26.1～26.3 Fabric，并跟随 Hypixel SkyBlock 版本更新。
 
@@ -14,7 +14,7 @@
 - **Item Customization**：自定义物品名称与模型，支持资源包中的自定义模型。
 - **Damage Splash**：自定义伤害数字的动画、颜色、大小与数字格式。
 - **Map Editor**：地牢／Kuudra 纯视觉改图、批量方块替换。
-- **Command Tooltips**：悬停查看实际执行的命令，保留原有提示。
+- **Command Tooltips / Snaplook**：查看聊天指令；按住快捷键临时切换视角。
 - **Offline Mode**：断开所有远程同步连接，不使用共享功能，也无法看见别人的装饰品。
 
 输入 `/customcosmetics` 打开设置。需要 Java 25、Fabric Loader 0.19.5+ 和对应版本的 Fabric API。
@@ -22,7 +22,7 @@
 
 ## English
 
-CustomCosmetics v1.5.4.3
+CustomCosmetics v1.5.4.4
 
 A Fabric mod for customizable cosmetics with player-to-player synchronization. Supports Minecraft 26.1–26.3 on Fabric and is updated alongside SkyBlock.
 
@@ -38,7 +38,7 @@ All current features ([√] means visible to other players who also have the mod
 - **Item Customization**: Customize item names and models, including custom models from resource packs.
 - **Damage Splash**: Customize damage-number animations, colors, sizes and number formatting.
 - **Map Editor**: Visual-only Catacombs/Kuudra map editing and bulk block replacement.
-- **Command Tooltips**: Preview the actual command on hover while keeping existing tooltips.
+- **Command Tooltips / Snaplook**: Preview chat commands or hold a key to switch perspective.
 - **Offline Mode**: Disconnect all remote synchronization connections. Sharing is disabled, and other players' cosmetics are not shown.
 
 Use `/customcosmetics` to open settings. Requires Java 25, Fabric Loader 0.19.5+ and Fabric API for your Minecraft version.

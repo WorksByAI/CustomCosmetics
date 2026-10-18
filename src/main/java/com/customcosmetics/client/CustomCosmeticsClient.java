@@ -28,6 +28,7 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
         com.customcosmetics.features.nickname.NicknamePresets.init();
         com.customcosmetics.features.items.ItemCosmetics.init();
         com.customcosmetics.features.map.MapEditor.init();
+        com.customcosmetics.features.camera.Snaplook.init();
         com.customcosmetics.features.skins.LocalSkins.init();
         PresenceSync.init();
         com.customcosmetics.features.party.PartyFeatures.init();
@@ -39,6 +40,7 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
             ConfigManager.flushPendingSave();
             com.customcosmetics.features.map.MapEditor.tick(client);
             com.customcosmetics.features.map.Freecam.tick(client);
+            com.customcosmetics.features.camera.Snaplook.tick(client);
             com.customcosmetics.features.damage.DamageSplash.tick(client);
             com.customcosmetics.features.cape.CapeCosmetics.tick();
             com.customcosmetics.features.items.ItemCosmetics.tick();
@@ -58,6 +60,7 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
             }
         });
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
+            com.customcosmetics.features.camera.Snaplook.stop(client);
             com.customcosmetics.features.map.Freecam.stop(client);
             com.customcosmetics.features.map.MapEditor.flushRooms();
             com.customcosmetics.features.cape.CapeCosmetics.close();
