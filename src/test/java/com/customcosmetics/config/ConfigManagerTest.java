@@ -9,6 +9,10 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ConfigManagerTest {
+    @Test void commandTooltipSwitchDefaultsOnAndPersists()throws Exception{
+        assertTrue(ConfigManager.commandTooltipsEnabled);var path=directory.resolve("command-tooltip.json");
+        ConfigManager.commandTooltipsEnabled=false;ConfigManager.save(path);ConfigManager.commandTooltipsEnabled=true;ConfigManager.load(path);assertFalse(ConfigManager.commandTooltipsEnabled);
+    }
     @Test void partyChatSoundDefaultsOffAndRoundTripsWithItsOwnSettings()throws Exception{
         assertFalse(ConfigManager.partyChatSoundEnabled);assertEquals("minecraft:block.note_block.pling",ConfigManager.partyChatSound);
         assertEquals(.5,ConfigManager.partyChatSoundVolume);assertEquals(1,ConfigManager.partyChatSoundPitch);

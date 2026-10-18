@@ -99,8 +99,9 @@ public final class MapEditor {
         syncArea(client);DungeonRooms.context(client);MapEditorUi.tick(client);long now=System.currentTimeMillis();if(now>=nextRoomSave){nextRoomSave=now+750;saveRoomEdits();}
         MaterialReplacement.tick(client);MapRegionFill.tick(client);boolean active=enabled&&allowed(client);
         if(!active){restorer.cancel();if(!visible.isEmpty()){visible=Map.of();dirty(DATA.snapshot().keySet());}return;}
-        if(now>=nextScan){nextScan=now+2000;DungeonRooms.scan();savePending();if(autoRooms&&!MapRegionFill.busy()){applyRooms();if(!editing&&!busy())scanRooms(client);}}
-        if(autoRooms&&!busy()&&!MapRegionFill.busy())restorer.tick();else restorer.cancel();visible=DATA.snapshot();
+        DungeonRooms.scanStep();
+        if(now>=nextScan){nextScan=now+2000;savePending();}
+        if(autoRooms&&!busy()&&!MapRegionFill.busy()){applyRooms();if(!editing)scanRooms(client);}else restorer.cancel();visible=DATA.snapshot();
     }
     public static void refresh(){var next=enabled&&allowed(Minecraft.getInstance())?DATA.snapshot():Map.<MapEdits.Position,MapEdits.Edit>of();if(next==visible){save();return;}refresh(DATA.snapshot().keySet());}
     private static void refresh(Collection<MapEdits.Position> changes){visible=enabled&&allowed(Minecraft.getInstance())?DATA.snapshot():Map.of();dirty(changes);save();}
@@ -111,6 +112,8 @@ public final class MapEditor {
     }
     private static Set<MapEdits.Position> sections(Collection<MapEdits.Position> positions){var sections=new HashSet<MapEdits.Position>();for(var p:positions)sections.add(new MapEdits.Position(p.x()>>4,p.y()>>4,p.z()>>4));return sections;}
     public static BlockState realState(BlockPos p){return Minecraft.getInstance().level.getBlockState(p);}
+    /** ClientLevel.hasChunkAt can accept an absent chunk; never substitute its empty placeholder. */
+    public static boolean loaded(BlockPos p){var world=Minecraft.getInstance().level;return world!=null&&world.getChunkSource().getChunk(p.getX()>>4,p.getZ()>>4,net.minecraft.world.level.chunk.status.ChunkStatus.FULL,false)!=null;}
     public static Map<MapEdits.Position,MapEdits.Edit> visible(){return visible;}
     /** Renderer-only neighbor/section culling. Never change collision, mining or world state. */
     public static boolean revealsFace(BlockPos p){if(visible.isEmpty())return false;var edit=visible.get(position(p));if(edit==null)return false;var target=state(edit.material());return target!=null&&!target.canOcclude();}
@@ -190,7 +193,7 @@ public final class MapEditor {
     private static void applyRooms(){if(busy())return;var frames=new HashSet<>(DungeonRooms.frames());var current=currentRoom();if(current!=null)frames.add(current);restorer.request(frames);restorer.tick();}
     static void restored(Map<MapEdits.Position,MapEdits.Edit> before,Map<MapEdits.Position,MapEdits.Edit> result,Set<MapEdits.Position> sections){
         if(DATA.snapshot()!=before)return;DATA.replace(result);visible=enabled&&allowed(Minecraft.getInstance())?DATA.snapshot():Map.of();
-        if(level!=null)for(var p:sections)level.setSectionDirtyWithNeighbors(p.x(),p.y(),p.z());
+        if(level!=null)for(var p:sections)if(loaded(blockPos(p).multiply(16)))level.setSectionDirtyWithNeighbors(p.x(),p.y(),p.z());
     }
     public static void undo(){var before=DATA.snapshot();var changes=DATA.undoPositions();if(!DATA.undo())return;
         if(changes==null){remember(before);dirty(before.keySet());refresh();}else{var updates=new HashMap<MapEdits.Position,Optional<String>>();for(var p:changes){var edit=DATA.snapshot().get(p);updates.put(p,Optional.ofNullable(edit==null?null:edit.material()));}persist(updates,true);refresh(changes);}
@@ -313,13 +316,13 @@ public final class MapEditor {
         });pendingImport=workerFence;result.whenComplete((value,error)->pendingImport=null);operation=result.thenApply(v->null);return result;
     }
     private static String fingerprint(MapEdits.Position origin,int turns){
-        if(level==null)return "";return RoomFingerprint.compute(origin,turns,p->{var at=blockPos(p);if(!level.hasChunkAt(at))return null;var s=level.getBlockState(at);return s.isAir()?"minecraft:air":BuiltInRegistries.BLOCK.getKey(s.getBlock()).toString();});
+        if(level==null)return "";return RoomFingerprint.compute(origin,turns,p->{var at=blockPos(p);if(!loaded(at))return null;var s=level.getBlockState(at);return s.isAir()?"minecraft:air":BuiltInRegistries.BLOCK.getKey(s.getBlock()).toString();});
     }
     private static final Set<String> appliedRooms=new HashSet<>();
-    private static void scanRooms(Minecraft client){if(PRESETS.isEmpty()||!inDungeon(client))return;
-        var player=client.player.blockPosition();for(int x=-185;x<=-25;x+=32)for(int z=-185;z<=-25;z+=32){
-            if(Math.abs(x-player.getX())>64||Math.abs(z-player.getZ())>64)continue;
-            var origin=new MapEdits.Position(x,0,z);String key=x+":"+z;if(appliedRooms.contains(key))continue;
+    private static int presetScanCursor;
+    private static void scanRooms(Minecraft client){if(PRESETS.values().stream().noneMatch(p->p.fingerprint().matches("[a-f0-9]{64}"))||!inDungeon(client))return;
+        int cell=Math.floorMod(presetScanCursor++,36),x=-185+(cell/6)*32,z=-185+(cell%6)*32;{
+            var origin=new MapEdits.Position(x,0,z);String key=x+":"+z;if(appliedRooms.contains(key))return;
             for(int turns=0;turns<4;turns++){String hash=fingerprint(origin,turns);if(hash.isEmpty())break;
                 var preset=PRESETS.values().stream().filter(p->!p.fingerprint().isEmpty()&&p.fingerprint().equals(hash)).findFirst();if(preset.isEmpty())continue;
                 var before=DATA.snapshot();var selected=preset.get();int rotation=turns;

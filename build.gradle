@@ -145,6 +145,16 @@ if (providers.gradleProperty('preset_refresh_game_only').getOrElse('false').toBo
     }
 }
 
+if (providers.gradleProperty('eager_map_game_only').getOrElse('false').toBoolean()) {
+    sourceSets.gametest.java.include '**/EagerMapGameTest.java', '**/mixin/CommandTooltipProbe.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
+    tasks.named('processGametestResources') {
+        inputs.property 'eager_map_game_only', true
+        inputs.file('build.gradle')
+        filesMatching('fabric.mod.json') { filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.EagerMapGameTest') } }
+        filesMatching('customcosmetics-test.mixins.json') { filter { line -> line.contains('"client":') ? '  "client": ["CommandTooltipProbe", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line } }
+    }
+}
+
 if (providers.gradleProperty('map_edit_perf_only').getOrElse('false').toBoolean()) {
     sourceSets.gametest.java.include '**/MapEditPerformanceGameTest.java', '**/FmeEditorGameTest.java', '**/KuudraMapGameTest.java', '**/mixin/MapLatencyProbe.java', '**/MapAdventureGameTest.java', '**/FreecamGameTest.java', '**/mixin/FreecamProbe.java', '**/mixin/MapAdventureScopeMixin.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
     tasks.named('processGametestResources') {

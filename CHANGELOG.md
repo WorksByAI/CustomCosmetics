@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.4.3
+
+- Prepare dungeon room edits and fixed boss layouts from dungeon entry.
+- Add a Settings toggle for command hover previews.
+
 ## 1.5.4.2
 
 - Add configurable Party Chat notification sounds.
