@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Hide transient HTTP 429 notifications and report persistent sync failures.
+
 ## 1.5.4.4
 
 - Add hold-to-use Snaplook with configurable perspective and keybind.
