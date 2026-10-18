@@ -46,6 +46,7 @@ public record SyncFailure(Reason reason, Stage stage, int httpStatus) {
     }
 
     public static SyncFailure of(Reason reason, Stage stage) { return new SyncFailure(reason, stage, 0); }
+    public boolean rateLimited() { return httpStatus == 429 || reason == Reason.RATE_LIMITED; }
     public String description() {
         return reason.text + (httpStatus > 0 ? " (HTTP " + httpStatus + ")" : "");
     }

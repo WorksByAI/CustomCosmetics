@@ -51,6 +51,12 @@ public final class StartupSyncNotice {
         complete(ticket, success, null, now);
     }
 
+    /** A temporary rate limit leaves this operation eligible for the next scheduled refresh. */
+    public synchronized void defer(Ticket ticket) {
+        if (ticket != null && inWorld && !delivered && pendingResult == null && ticket.generation() == generation
+                && !results.containsKey(ticket.operation())) started.remove(ticket.operation());
+    }
+
     public synchronized void complete(Ticket ticket, boolean success, SyncFailure failure, long now) {
         if (ticket == null || !inWorld || delivered || pendingResult != null || ticket.generation() != generation
                 || results.putIfAbsent(ticket.operation(), success) != null) return;

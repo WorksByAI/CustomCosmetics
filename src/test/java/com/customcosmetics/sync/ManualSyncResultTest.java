@@ -6,6 +6,16 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ManualSyncResultTest {
     @Test
+    void hiddenRateLimitDoesNotMaskOtherOperationsActionableFailure() {
+        var result = new ManualSyncResult();
+        var limited = SyncFailure.fromHttp(SyncFailure.Stage.DOWNLOAD, 429, "");
+        var denied = SyncFailure.fromHttp(SyncFailure.Stage.UPLOAD, 403, "");
+        result.begin(1);
+        assertNull(result.complete(1, READ, false, limited));
+        assertEquals(new ManualSyncResult.Result(false, denied), result.complete(1, WRITE, false, denied));
+    }
+
+    @Test
     void successfulUploadDoesNotHideFailedDownload() {
         var result = new ManualSyncResult();
         var failure = SyncFailure.of(SyncFailure.Reason.TIMEOUT, SyncFailure.Stage.DOWNLOAD);

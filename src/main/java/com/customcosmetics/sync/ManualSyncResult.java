@@ -22,6 +22,8 @@ public final class ManualSyncResult {
         results.putIfAbsent(operation, new Result(success, failure));
         if (results.size() != StartupSyncNotice.Operation.values().length) return null;
         pending = false;
+        // A transient 429 must not hide an actionable error from the other operation.
+        for (var part : results.values()) if (!part.success() && (part.failure() == null || !part.failure().rateLimited())) return part;
         for (var part : results.values()) if (!part.success()) return part;
         return new Result(true, null);
     }

@@ -115,6 +115,17 @@ class StartupSyncNoticeTest {
     }
 
     @Test
+    void staleDeferredRequestCannotReleaseANewWorldsRequest() {
+        var oldRead = notice.beginAutomatic(READ);
+        notice.enterWorld();
+        var currentRead = notice.beginAutomatic(READ);
+        notice.defer(oldRead);
+        assertNull(notice.beginAutomatic(READ));
+        notice.complete(currentRead, false, 1_000);
+        assertEquals(new StartupSyncNotice.Result(false), notice.poll(4_000));
+    }
+
+    @Test
     void keepsTheSpecificFirstFailureUntilItIsShown() {
         var failure = SyncFailure.of(SyncFailure.Reason.INVALID_MINECRAFT_SESSION, SyncFailure.Stage.MINECRAFT_AUTH);
         notice.complete(notice.beginAutomatic(WRITE), false, failure, 1_000);

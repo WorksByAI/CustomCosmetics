@@ -54,6 +54,7 @@ public final class PresenceSync {
     private static final Logger LOGGER = LoggerFactory.getLogger("CustomCosmetics/PresenceSync");
     private static final SyncCadence CADENCE = new SyncCadence();
     private static final StartupSyncNotice STARTUP_NOTICE = new StartupSyncNotice();
+    private static final RateLimitNotice RATE_LIMIT_NOTICE = new RateLimitNotice();
     private static final long REPORT_CHANGE_DEBOUNCE_MS = 3_000L;
     private static final int CONNECT_TIMEOUT_MS = 10_000;
     private static final int READ_TIMEOUT_MS = 10_000;
@@ -116,6 +117,7 @@ public final class PresenceSync {
         lastReportedSignature = "";
         lastSeenLocalPlayerUuid = null;
         STARTUP_NOTICE.leaveWorld();
+        RATE_LIMIT_NOTICE.reset();
         activeWorldConnection = null;
         wasAutoSyncActive = false;
         loadCacheFromDisk();
@@ -191,6 +193,7 @@ public final class PresenceSync {
         CapeSync.modeChanged();
         ENDPOINT_VERSION.incrementAndGet();
         MANUAL_RESULT.cancel();
+        RATE_LIMIT_NOTICE.reset();
         PresenceProxyResolver.resetSession();
         SESSIONS.reset();
         lastReportedSignature = "";
@@ -250,8 +253,7 @@ public final class PresenceSync {
             } finally {
                 if (!cancelled && endpointVersion == ENDPOINT_VERSION.get()) {
                     if (!success) nextReportAllowedAt = System.currentTimeMillis() + 10_000;
-                    STARTUP_NOTICE.complete(startupTicket, success, failure, System.currentTimeMillis());
-                    completeManualResult(endpointVersion, StartupSyncNotice.Operation.WRITE, success, failure);
+                    completeNetworkResult(endpointVersion, startupTicket, StartupSyncNotice.Operation.WRITE, success, failure);
                 }
                 REPORTING.set(false);
             }
@@ -379,6 +381,7 @@ public final class PresenceSync {
         if (inWorld && connection != activeWorldConnection) {
             activeWorldConnection = connection;
             STARTUP_NOTICE.enterWorld();
+            RATE_LIMIT_NOTICE.reset();
             ENDPOINT_VERSION.incrementAndGet();
             MANUAL_RESULT.cancel();
             CADENCE.reset();
@@ -386,6 +389,7 @@ public final class PresenceSync {
         } else if (connection == null && activeWorldConnection != null && client.getCurrentServer() == null) {
             activeWorldConnection = null;
             STARTUP_NOTICE.leaveWorld();
+            RATE_LIMIT_NOTICE.reset();
             ENDPOINT_VERSION.incrementAndGet();
             MANUAL_RESULT.cancel();
         }
@@ -396,6 +400,7 @@ public final class PresenceSync {
             if (switchedAccount || lastSeenLocalPlayerUuid == null) {
                 nextReportAllowedAt = 0L;
                 if (switchedAccount) {
+                    RATE_LIMIT_NOTICE.reset();
                     lastReportedSignature = "";
                     SESSIONS.reset();
                     CADENCE.reset();
@@ -405,7 +410,10 @@ public final class PresenceSync {
         }
 
         boolean active = inWorld && ConfigManager.syncEnabled && !serviceBaseUrl().isBlank();
-        if (!active && wasAutoSyncActive) lastReportedSignature = "";
+        if (!active && wasAutoSyncActive) {
+            lastReportedSignature = "";
+            RATE_LIMIT_NOTICE.reset();
+        }
         wasAutoSyncActive = active;
         SyncCadence.Due due = CADENCE.tick(System.currentTimeMillis(), active,
             ConfigManager.getSyncRefreshIntervalSeconds() * 1000L);
@@ -431,9 +439,26 @@ public final class PresenceSync {
     private static void completeManualResult(long endpointVersion, StartupSyncNotice.Operation operation, boolean success, SyncFailure failure) {
         ManualSyncResult.Result result = MANUAL_RESULT.complete(endpointVersion, operation, success, success ? null : failure);
         if (result == null) return;
+        // Persistent rate limits are reported by the shared per-operation counter instead.
+        if (!result.success() && result.failure() != null && result.failure().rateLimited()) return;
         Minecraft.getInstance().execute(() -> {
             if (endpointVersion == ENDPOINT_VERSION.get())
                 MessageUtils.sendSyncResult(result.success(), false, result.failure());
+        });
+    }
+
+    private static void completeNetworkResult(long endpointVersion, StartupSyncNotice.Ticket ticket,
+                                             StartupSyncNotice.Operation operation, boolean success, SyncFailure failure) {
+        Minecraft.getInstance().execute(() -> {
+            if (endpointVersion != ENDPOINT_VERSION.get() || !RemoteAccess.online()) return;
+            boolean persistentRateLimit = RATE_LIMIT_NOTICE.complete(operation, success, failure);
+            if (!success && failure != null && failure.rateLimited()) {
+                STARTUP_NOTICE.defer(ticket);
+                if (persistentRateLimit) MessageUtils.sendSyncResult(false, ConfigManager.syncNotifications, failure);
+            } else {
+                STARTUP_NOTICE.complete(ticket, success, failure, System.currentTimeMillis());
+            }
+            completeManualResult(endpointVersion, operation, success, failure);
         });
     }
 
@@ -461,8 +486,7 @@ public final class PresenceSync {
             try { success = fetchAndReplace(url, forceRemoteSync, endpointVersion); }
             catch (Exception e) { failure = SyncFailure.fromException(e, SyncFailure.Stage.DOWNLOAD); }
             finally {
-                STARTUP_NOTICE.complete(startupTicket, success, failure, System.currentTimeMillis());
-                completeManualResult(endpointVersion, StartupSyncNotice.Operation.READ, success, failure);
+                completeNetworkResult(endpointVersion, startupTicket, StartupSyncNotice.Operation.READ, success, failure);
                 FETCHING.set(false);
                 if (endpointVersion != ENDPOINT_VERSION.get()) Minecraft.getInstance().execute(CADENCE::reset);
             }
