@@ -64,7 +64,7 @@ public final class ConfigManager {
     public static volatile boolean updateCheckEnabled = true;
     public static boolean commandTooltipsEnabled=true;
     public static boolean snaplookEnabled=true;
-    public static String snaplookPerspective="front";
+    public static String snaplookPerspective="back";
     public static boolean capeEnabled = true;
     public static boolean localSkinEnabled=true,localSkinSlim=false,skinP2pSharing=false,skinP2pReceiving=true;
     public static java.util.List<PlayerBlocklist.Entry> capeBlockedPlayers = java.util.List.of();

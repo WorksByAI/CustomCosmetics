@@ -9,11 +9,11 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ConfigManagerTest {
-    @Test void snaplookDefaultsToRearViewAndSettingsPersist()throws Exception{
-        assertTrue(ConfigManager.snaplookEnabled);assertEquals("front",ConfigManager.snaplookPerspective);
-        var path=directory.resolve("snaplook.json");ConfigManager.snaplookEnabled=false;ConfigManager.snaplookPerspective="back";ConfigManager.save(path);
-        ConfigManager.snaplookEnabled=true;ConfigManager.snaplookPerspective="front";ConfigManager.load(path);assertFalse(ConfigManager.snaplookEnabled);assertEquals("back",ConfigManager.snaplookPerspective);
-        Files.writeString(path,"{\"settings\":{\"snaplookPerspective\":\"invalid\"}}");ConfigManager.load(path);assertEquals("front",ConfigManager.snaplookPerspective);
+    @Test void snaplookDefaultsToBackViewAndSettingsPersist()throws Exception{
+        assertTrue(ConfigManager.snaplookEnabled);assertEquals("back",ConfigManager.snaplookPerspective);
+        var path=directory.resolve("snaplook.json");ConfigManager.snaplookEnabled=false;ConfigManager.snaplookPerspective="front";ConfigManager.save(path);
+        ConfigManager.snaplookEnabled=true;ConfigManager.snaplookPerspective="back";ConfigManager.load(path);assertFalse(ConfigManager.snaplookEnabled);assertEquals("front",ConfigManager.snaplookPerspective);
+        Files.writeString(path,"{\"settings\":{\"snaplookPerspective\":\"invalid\"}}");ConfigManager.load(path);assertEquals("back",ConfigManager.snaplookPerspective);
     }
     @Test void commandTooltipSwitchDefaultsOnAndPersists()throws Exception{
         assertTrue(ConfigManager.commandTooltipsEnabled);var path=directory.resolve("command-tooltip.json");

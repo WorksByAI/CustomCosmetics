@@ -21,7 +21,7 @@ public final class Snaplook {
     public static void init(){key=KeyMappingHelper.registerKeyMapping(new KeyMapping("key.customcosmetics.snaplook",InputConstants.UNKNOWN.getValue(),KeyMapping.Category.register(Identifier.fromNamespaceAndPath("customcosmetics","camera"))));}
     public static KeyMapping binding(){return key;}
     public static boolean active(){return previous!=null;}
-    public static String normalize(String mode){return mode!=null&&java.util.Set.of("first","back","front").contains(mode)?mode:"front";}
+    public static String normalize(String mode){return mode!=null&&java.util.Set.of("first","back","front").contains(mode)?mode:"back";}
     public static CameraType perspective(String mode){return switch(normalize(mode)){case "first"->CameraType.FIRST_PERSON;case "back"->CameraType.THIRD_PERSON_BACK;default->CameraType.THIRD_PERSON_FRONT;};}
     public static void tick(Minecraft client){
         if(key==null)return;while(key.consumeClick()){}

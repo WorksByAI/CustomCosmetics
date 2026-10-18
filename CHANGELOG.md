@@ -1,7 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.5.4.5
 
+- Default Snaplook to third-person back view.
 - Hide transient HTTP 429 notifications and report persistent sync failures.
 
 ## 1.5.4.4
