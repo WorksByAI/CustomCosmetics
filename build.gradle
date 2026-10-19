@@ -83,6 +83,7 @@ loom.runs.named('clientGameTest') {
     vmArg "-Dcustomcosmetics.itemModelCatharsisTest=${providers.gradleProperty('appearance_catharsis_test').getOrElse('false')}"
     vmArg "-Dcustomcosmetics.nicknameOnly=${providers.gradleProperty('nickname_game_only').getOrElse('false')}"
     vmArg "-Dcustomcosmetics.nicknameAnimation=${providers.gradleProperty('nickname_capture_animation').getOrElse('false')}"
+    vmArg "-Dcustomcosmetics.damageRainbowOnly=${providers.gradleProperty('damage_rainbow_game_only').getOrElse('false')}"
 }
 
 if(providers.gradleProperty('sodium_test_jar').isPresent()&&providers.gradleProperty('sodium_game_test').getOrElse('false').toBoolean()){

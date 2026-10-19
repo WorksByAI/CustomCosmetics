@@ -35,6 +35,8 @@ public final class ConfigManager {
     public static boolean damageSplashStyleNormal=false, damageSplashShadow=true;
     public static String damageSplashStyle="default", damageSplashSymbol="✧", damageSplashSeparator="comma";
     public static int damageSplashStartColor=0xFFFF55, damageSplashEndColor=0xFF5555;
+    public static String damageSplashColorMode="gradient";
+    public static double damageSplashRainbowSpeed=1;
     public static double damageSplashSize=1, damageSplashDuration=1.2;
     public static double smolLimbSwingSpeed = 2.5;
     public static com.customcosmetics.features.accessories.AccessoriesSettings accessories=com.customcosmetics.features.accessories.AccessoriesSettings.NONE;
@@ -164,6 +166,8 @@ public final class ConfigManager {
             }
             if(accessories==null)accessories=com.customcosmetics.features.accessories.AccessoriesSettings.NONE;
             damageSplashStyle=com.customcosmetics.features.damage.DamageAnimation.normalize(damageSplashStyle);
+            damageSplashColorMode=com.customcosmetics.features.damage.DamageColors.normalize(damageSplashColorMode);
+            damageSplashRainbowSpeed=com.customcosmetics.features.damage.DamageColors.speed(damageSplashRainbowSpeed);
             snaplookPerspective=com.customcosmetics.features.camera.Snaplook.normalize(snaplookPerspective);
             damageSplashSymbol=com.customcosmetics.features.damage.DamageText.symbol(damageSplashSymbol);
             damageSplashSeparator=damageSplashSeparator!=null&&java.util.List.of("none","comma","space","underscore").contains(damageSplashSeparator)?damageSplashSeparator:"comma";

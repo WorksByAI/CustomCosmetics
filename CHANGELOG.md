@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Add animated rainbow colors for Damage Splash.
+
 ## 1.5.4.5
 
 - Default Snaplook to third-person back view.

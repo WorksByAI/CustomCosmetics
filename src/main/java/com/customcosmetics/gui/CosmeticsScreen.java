@@ -241,7 +241,13 @@ public final class CosmeticsScreen extends Screen {
         sliderGrid(List.of(
             new NumericSetting("Size",()->ConfigManager.damageSplashSize,.25,3,.05,1,v->ConfigManager.damageSplashSize=v),
             new NumericSetting("Duration (seconds)",()->ConfigManager.damageSplashDuration,.3,3,.1,1.2,v->ConfigManager.damageSplashDuration=v)));
-        damageColor("Gradient Start",true);damageColor("Gradient End",false);
+        fullButton("Color Mode: "+capitalize(com.customcosmetics.features.damage.DamageColors.normalize(ConfigManager.damageSplashColorMode)),()->{
+            ConfigManager.damageSplashColorMode="rainbow".equals(com.customcosmetics.features.damage.DamageColors.normalize(ConfigManager.damageSplashColorMode))?"gradient":"rainbow";
+            changed();rebuildWidgets();
+        },false);
+        if("rainbow".equals(com.customcosmetics.features.damage.DamageColors.normalize(ConfigManager.damageSplashColorMode)))
+            sliderGrid(List.of(new NumericSetting("Rainbow Speed",()->ConfigManager.damageSplashRainbowSpeed,0,4,.1,1,v->ConfigManager.damageSplashRainbowSpeed=v)));
+        else {damageColor("Gradient Start",true);damageColor("Gradient End",false);}
         var symbol=fieldRow("Critical Symbol","Critical Symbol",ConfigManager.damageSplashSymbol,2,"One character; leave empty to hide.",90,value->{});
         symbol.setResponder(value->{
             String limited=com.customcosmetics.features.damage.DamageText.symbol(value);
@@ -249,7 +255,7 @@ public final class CosmeticsScreen extends Screen {
             ConfigManager.damageSplashSymbol=limited;changed();
         });
         toggleRow("Bold","",()->ConfigManager.damageSplashBold,v->ConfigManager.damageSplashBold=v);
-        toggleRow("Style Normal Damage","Apply the gradient and bold style to non-critical damage too.",()->ConfigManager.damageSplashStyleNormal,v->ConfigManager.damageSplashStyleNormal=v);
+        toggleRow("Style Normal Damage","Apply the selected colors and bold style to non-critical damage too.",()->ConfigManager.damageSplashStyleNormal,v->ConfigManager.damageSplashStyleNormal=v);
         toggleRow("Compact Numbers","Example: 1,234,567 becomes 1.2M.",()->ConfigManager.damageSplashCompact,v->ConfigManager.damageSplashCompact=v);
         fullButton("Separator: "+capitalize(ConfigManager.damageSplashSeparator),()->{
             var choices=List.of("none","comma","space","underscore");

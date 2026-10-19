@@ -12,7 +12,7 @@
 - **[√] Sharing**：Hypixel 队友显示、远处标记、追踪线与 IRC；可向同一世界公开或指定玩家共享位置（默认关闭）。
 - **[√] Skins**：支持导入最高 1024×1024 像素的皮肤，共享仅在 P2P 打洞成功后对其他玩家可见。
 - **Item Customization**：自定义物品名称与模型，支持资源包中的自定义模型。
-- **Damage Splash**：自定义伤害数字的动画、颜色、大小与数字格式。
+- **Damage Splash**：自定义伤害数字的动画、双色渐变／流动彩虹配色、大小与数字格式。
 - **Map Editor**：地牢／Kuudra 纯视觉改图、批量方块替换。
 - **Command Tooltips / Snaplook**：查看聊天指令；按住快捷键临时切换视角。
 - **Offline Mode**：断开所有远程同步连接，不使用共享功能，也无法看见别人的装饰品。
@@ -36,7 +36,7 @@ All current features ([√] means visible to other players who also have the mod
 - **[√] Sharing**: Hypixel party member displays, distant markers, tracers and IRC. Optionally share your position publicly within the same world or with selected players (off by default).
 - **[√] Skins**: Import skins up to 1024×1024 pixels. Shared skins are visible to other players only after a direct P2P connection is established.
 - **Item Customization**: Customize item names and models, including custom models from resource packs.
-- **Damage Splash**: Customize damage-number animations, colors, sizes and number formatting.
+- **Damage Splash**: Customize damage-number animations, gradients or animated rainbow colors, sizes and number formatting.
 - **Map Editor**: Visual-only Catacombs/Kuudra map editing and bulk block replacement.
 - **Command Tooltips / Snaplook**: Preview chat commands or hold a key to switch perspective.
 - **Offline Mode**: Disconnect all remote synchronization connections. Sharing is disabled, and other players' cosmetics are not shown.

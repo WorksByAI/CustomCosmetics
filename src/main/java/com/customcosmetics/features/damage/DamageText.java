@@ -59,12 +59,20 @@ public final class DamageText {
     }
 
     public static List<Glyph> glyphs(Hit hit, boolean compact, String separator, String symbol, boolean styleNormal, int start, int end, int originalColor) {
+        return glyphs(hit, compact, separator, symbol, styleNormal, start, end, originalColor, "gradient", 0, 1);
+    }
+
+    public static List<Glyph> glyphs(Hit hit, boolean compact, String separator, String symbol, boolean styleNormal,
+                                   int start, int end, int originalColor, String colorMode, double seconds, double speed) {
         boolean styled = hit.critical() || styleNormal;
+        boolean rainbow = "rainbow".equals(DamageColors.normalize(colorMode));
+        int phase = DamageColors.phase(seconds, speed);
         String numeric = number(hit.amount(), compact, separator);
         String text = (hit.critical() ? symbol(symbol) : "") + numeric + (hit.critical() ? symbol(symbol) : "") + hit.suffix();
         int[] codes = text.codePoints().toArray();
         var result = new java.util.ArrayList<Glyph>(codes.length);
-        for (int i = 0; i < codes.length; i++) result.add(new Glyph(new String(Character.toChars(codes[i])), styled ? blend(start, end, codes.length == 1 ? 0 : (double) i / (codes.length - 1)) : originalColor & 0xFFFFFF));
+        for (int i = 0; i < codes.length; i++) result.add(new Glyph(new String(Character.toChars(codes[i])), !styled ? originalColor & 0xFFFFFF
+            : rainbow ? DamageColors.rgb(DamageColors.index(i, codes.length, phase)) : blend(start, end, codes.length == 1 ? 0 : (double) i / (codes.length - 1))));
         return List.copyOf(result);
     }
 

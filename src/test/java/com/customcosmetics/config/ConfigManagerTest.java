@@ -9,6 +9,18 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ConfigManagerTest {
+    @Test void damageRainbowSettingsPersistAndOlderConfigsKeepTheGradient()throws Exception{
+        assertEquals("gradient",ConfigManager.damageSplashColorMode);assertEquals(1,ConfigManager.damageSplashRainbowSpeed);
+        var path=directory.resolve("damage-rainbow.json");Files.writeString(path,"{\"settings\":{\"damageSplashStartColor\":1122867}}");ConfigManager.load(path);
+        assertEquals("gradient",ConfigManager.damageSplashColorMode);assertEquals(0x112233,ConfigManager.damageSplashStartColor);
+        ConfigManager.damageSplashColorMode="rainbow";ConfigManager.damageSplashRainbowSpeed=2.5;ConfigManager.save(path);
+        ConfigManager.damageSplashColorMode="gradient";ConfigManager.damageSplashRainbowSpeed=1;ConfigManager.load(path);
+        assertEquals("rainbow",ConfigManager.damageSplashColorMode);assertEquals(2.5,ConfigManager.damageSplashRainbowSpeed);
+        Files.writeString(path,"{\"settings\":{\"damageSplashColorMode\":\"invalid\",\"damageSplashRainbowSpeed\":99}}");ConfigManager.load(path);
+        assertEquals("gradient",ConfigManager.damageSplashColorMode);assertEquals(4,ConfigManager.damageSplashRainbowSpeed);
+        Files.writeString(path,"{\"settings\":{\"damageSplashColorMode\":\"RAINBOW\",\"damageSplashRainbowSpeed\":-1}}");ConfigManager.load(path);
+        assertEquals("rainbow",ConfigManager.damageSplashColorMode);assertEquals(0,ConfigManager.damageSplashRainbowSpeed);
+    }
     @Test void snaplookDefaultsToBackViewAndSettingsPersist()throws Exception{
         assertTrue(ConfigManager.snaplookEnabled);assertEquals("back",ConfigManager.snaplookPerspective);
         var path=directory.resolve("snaplook.json");ConfigManager.snaplookEnabled=false;ConfigManager.snaplookPerspective="front";ConfigManager.save(path);

@@ -10,6 +10,8 @@ import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.scores.DisplaySlot;
@@ -20,10 +22,12 @@ public final class DamageSplash {
     private static final int MAX_LABELS = 256, MAX_SEEN = 2048;
     private static final Map<UUID, Seen> SEEN = new LinkedHashMap<>();
     private static final Deque<Label> LABELS = new ArrayDeque<>();
+    private static final Style[][] RAINBOW_STYLES = rainbowStyles();
     private static Object level;
     private static boolean allowed;
     private record Seen(int id, String text) {}
-    private record Label(Vec3 position, Component text, boolean critical, long started, double driftX, double driftZ, double phase) {}
+    private record Label(Vec3 position, Component text, FormattedCharSequence visual, int characters,
+                         boolean critical, long started, double driftX, double driftZ, double phase) {}
     private DamageSplash() {}
     public static void init() { LevelRenderEvents.COLLECT_SUBMITS.register(DamageSplash::render); }
 
@@ -60,20 +64,46 @@ public final class DamageSplash {
         SEEN.put(stand.getUUID(), new Seen(stand.getId(), name));
         if (SEEN.size() > MAX_SEEN) SEEN.remove(SEEN.keySet().iterator().next());
         var random = java.util.concurrent.ThreadLocalRandom.current();
-        LABELS.addLast(new Label(stand.position().add(0, stand.getBbHeight()+.5, 0), styled(hit, originalColor(stand.getCustomName())),
+        var text = styled(hit, originalColor(stand.getCustomName()), "gradient", 0);
+        String plain = text.getString();
+        LABELS.addLast(new Label(stand.position().add(0, stand.getBbHeight()+.5, 0), text, text.getVisualOrderText(), plain.codePointCount(0, plain.length()),
             hit.critical(), System.nanoTime(), random.nextDouble(-.6, .6), random.nextDouble(-.6, .6), random.nextDouble(Math.PI*2)));
         if (LABELS.size() > MAX_LABELS) LABELS.removeFirst();
         return true;
     }
 
     public static Component styled(DamageText.Hit hit, int originalColor) {
+        return styled(hit, originalColor, ConfigManager.damageSplashColorMode, System.nanoTime() / 1_000_000_000.0);
+    }
+
+    private static Component styled(DamageText.Hit hit, int originalColor, String colorMode, double seconds) {
         var text = Component.empty();
         for (var glyph : DamageText.glyphs(hit, ConfigManager.damageSplashCompact, ConfigManager.damageSplashSeparator,
                 ConfigManager.damageSplashSymbol, ConfigManager.damageSplashStyleNormal,
-                ConfigManager.damageSplashStartColor, ConfigManager.damageSplashEndColor, originalColor))
+                ConfigManager.damageSplashStartColor, ConfigManager.damageSplashEndColor, originalColor,
+                colorMode, seconds, ConfigManager.damageSplashRainbowSpeed))
             text.append(Component.literal(glyph.text()).withStyle(style -> style.withColor(glyph.color())
                 .withBold(ConfigManager.damageSplashBold && (hit.critical() || ConfigManager.damageSplashStyleNormal))));
         return text;
+    }
+
+    private static Style[][] rainbowStyles() {
+        var styles = new Style[2][DamageColors.PALETTE_SIZE];
+        for (int bold = 0; bold < 2; bold++) for (int i = 0; i < DamageColors.PALETTE_SIZE; i++)
+            styles[bold][i] = Style.EMPTY.withColor(DamageColors.rgb(i)).withBold(bold == 1);
+        return styles;
+    }
+
+    /** The source component already contains the cached number formatting and bold setting. */
+    public static FormattedCharSequence coloredSequence(FormattedCharSequence visual, int count, boolean critical, double seconds) {
+        if (!"rainbow".equals(DamageColors.normalize(ConfigManager.damageSplashColorMode))
+                || !(critical || ConfigManager.damageSplashStyleNormal)) return visual;
+        int phase = DamageColors.phase(seconds, ConfigManager.damageSplashRainbowSpeed);
+        return sink -> {
+            int[] character = {0};
+            return visual.accept((index, style, code) -> sink.accept(index,
+                RAINBOW_STYLES[style.isBold() ? 1 : 0][DamageColors.index(character[0]++, count, phase)], code));
+        };
     }
 
     private static int originalColor(Component text) {
@@ -94,7 +124,7 @@ public final class DamageSplash {
             pose.mulPose(new org.joml.Matrix4f().rotation(camera.orientation));
             float scale = (float) (.0325*DamageAnimation.bounded(ConfigManager.damageSplashSize, 1, .25, 3)*frame.scale());
             pose.scale(scale, -scale, scale);
-            context.submitNodeCollector().submitText(pose, -client.font.width(label.text())/2f, 0, label.text().getVisualOrderText(),
+            context.submitNodeCollector().submitText(pose, -client.font.width(label.text())/2f, 0, coloredSequence(label.visual(), label.characters(), label.critical(), now / 1_000_000_000.0),
                 ConfigManager.damageSplashShadow, Font.DisplayMode.NORMAL, 0xF000F0, ((int) (frame.alpha()*255) << 24) | 0xFFFFFF, 0, 0);
         }
     }

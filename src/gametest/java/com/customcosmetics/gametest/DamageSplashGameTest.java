@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.*;
 public final class DamageSplashGameTest implements FabricClientGameTest {
     public static boolean fixtureWorld;
     @Override public void runTest(ClientGameTestContext context){
+        if(Boolean.getBoolean("customcosmetics.damageRainbowOnly")){checkRainbow(context);return;}
         context.runOnClient(client->{ConfigManager.offlineMode=true;ConfigManager.syncEnabled=false;ConfigManager.swordBlockingSyncEnabled=false;ConfigManager.partyEspEnabled=false;ConfigManager.partyChatEnabled=false;});
         try(var world=context.worldBuilder().create()){
             world.getServer().runCommand("time set noon");world.getServer().runCommand("weather clear");
@@ -89,6 +90,52 @@ public final class DamageSplashGameTest implements FabricClientGameTest {
         }catch(Exception error){throw new AssertionError(error);}finally{fixtureWorld=false;}
         context.runOnClient(client->DamageSplash.tick(client));
         new PartyGameTest().runTest(context);
+    }
+    private static void checkRainbow(ClientGameTestContext context){
+        context.runOnClient(client->{ConfigManager.offlineMode=true;ConfigManager.syncEnabled=false;ConfigManager.partyEspEnabled=false;ConfigManager.partyChatEnabled=false;});
+        try(var world=context.worldBuilder().create()){
+            world.getServer().runCommand("time set noon");world.getServer().runCommand("weather clear");
+            context.waitTicks(15);world.getServer().runCommand("tp @a 0.5 -60 -0.5 0 0");context.waitTicks(8);
+            context.getInput().resizeWindow(1280,720);
+            context.runOnClient(client->{
+                client.options.guiScale().set(1);fixtureWorld=true;
+                ConfigManager.damageSplashEnabled=true;ConfigManager.damageSplashDuration=3;ConfigManager.damageSplashSize=3;
+                ConfigManager.damageSplashColorMode="rainbow";ConfigManager.damageSplashRainbowSpeed=1;
+                DamageSplash.tick(client);
+                var entity=new ArmorStand(client.level,.5,-60,4.5);entity.setId(-28700);entity.setInvisible(true);
+                entity.setCustomName(Component.literal("✧1,234,567✧"));client.level.addEntity(entity);
+                if(!DamageSplash.capture(entity)||size("LABELS")!=1)throw new AssertionError("Rainbow label was not captured");
+                if(entity.isRemoved()||client.level.getEntity(entity.getId())!=entity)throw new AssertionError("Rainbow changed the real entity");
+            });
+            context.waitTicks(4);context.takeScreenshot("damage-rainbow-world");
+            if(rainbowPixels(context)<20)throw new AssertionError("Rainbow world colors did not reach the GPU");
+            context.runOnClient(client->{
+                ConfigManager.damageSplashEnabled=false;DamageSplash.tick(client);
+                ConfigManager.damageSplashSize=1;ConfigManager.damageSplashColorMode="gradient";
+                ConfigManager.damageSplashStartColor=0x123456;ConfigManager.damageSplashEndColor=0x654321;
+                ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.DAMAGE));
+            });context.waitTicks(2);
+            click(context,"Color Mode: Gradient");
+            context.runOnClient(client->{if(!ConfigManager.damageSplashColorMode.equals("rainbow"))throw new AssertionError("Color mode button did not enable rainbow");});
+            context.takeScreenshot("damage-rainbow-preview");
+            click(context,"Color Mode: Rainbow");
+            context.runOnClient(client->{
+                if(!ConfigManager.damageSplashColorMode.equals("gradient")||ConfigManager.damageSplashStartColor!=0x123456||ConfigManager.damageSplashEndColor!=0x654321)
+                    throw new AssertionError("Returning to gradient lost the saved palette");
+                ClientUiAccess.setScreen(client,null);fixtureWorld=false;ConfigManager.damageSplashEnabled=false;
+            });
+            System.out.println("DAMAGE_RAINBOW_WORLD_GPU_UI_TOGGLE_PREVIEW_AND_GRADIENT_PRESERVATION_OK");
+        }finally{fixtureWorld=false;}
+    }
+    private static int rainbowPixels(ClientGameTestContext context){
+        var count=new CompletableFuture<Integer>();
+        context.runOnClient(client->Screenshot.takeScreenshot(client.gameRenderer.mainRenderTarget(),image->{try(image){
+            int n=0;for(int y=100;y<620;y++)for(int x=260;x<1020;x++){
+                int rgb=image.getPixel(x,y),r=rgb>>>16&255,g=rgb>>>8&255,b=rgb&255;
+                if((r>190&&g<150&&b<150)||(g>190&&r<150&&b<150)||(b>190&&r<150&&g<150))n++;
+            }count.complete(n);
+        }catch(Throwable error){count.completeExceptionally(error);}}));
+        context.waitFor(client->count.isDone());return count.join();
     }
     private static void checkSearch(ClientGameTestContext context){
         context.runOnClient(client->ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SIZE)));
