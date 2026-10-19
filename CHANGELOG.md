@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.6.0
 
 - Reduce text, player-model and map-processing overhead.
 - Add independent module switches and display-paced nickname animation.
