@@ -3,6 +3,16 @@ package com.customcosmetics.features.nickname;
 
 /** Immutable, client-rendered gradient; elapsed time never requires a remote update. */
 public record NicknameGradient(String style, int start, int end, double speed, int shimmerColor, int shimmerHighlightColor, double shimmerSize, double shimmerInterval) {
+    private record Blend(int from,int to,float hue,float saturation,float value,double deltaHue,double deltaSaturation,double deltaValue) {}
+    private static final ThreadLocal<Blend[]> BLENDS=ThreadLocal.withInitial(()->new Blend[4]);
+    private static Blend blend(int from,int to){
+        var entries=BLENDS.get();
+        for(int i=0;i<entries.length;i++){var found=entries[i];if(found!=null&&found.from==from&&found.to==to){if(i!=0){entries[i]=entries[0];entries[0]=found;}return found;}}
+        float[] a=hsv(from),b=hsv(to);if(a[1]<.001)a[0]=b[0];if(b[1]<.001)b[0]=a[0];
+        double delta=b[0]-a[0];if(delta>.5)delta-=1;if(delta<-.5)delta+=1;
+        var result=new Blend(from,to,a[0],a[1],a[2],delta,b[1]-a[1],b[2]-a[2]);
+        System.arraycopy(entries,0,entries,1,entries.length-1);entries[0]=result;return result;
+    }
     public static final int PRESET_START = 0x24CFDF;
     public static final int PRESET_END = 0xEA78C5;
     public static final int DEFAULT_SHIMMER = 0xFFCF64;
@@ -57,16 +67,11 @@ public record NicknameGradient(String style, int start, int end, double speed, i
     }
 
     private static int hueBlend(int from, int to, double t) {
-        float[] a = hsv(from), b = hsv(to);
-        if (a[1] < 0.001) a[0] = b[0];
-        if (b[1] < 0.001) b[0] = a[0];
-        double delta = b[0] - a[0];
-        if (delta > 0.5) delta -= 1;
-        if (delta < -0.5) delta += 1;
-        double hue = a[0] + delta * t;
+        var blend=blend(from,to);
+        double hue = blend.hue + blend.deltaHue * t;
         hue -= Math.floor(hue);
-        double s = a[1] + (b[1] - a[1]) * t;
-        double v = a[2] + (b[2] - a[2]) * t;
+        double s = blend.saturation + blend.deltaSaturation * t;
+        double v = blend.value + blend.deltaValue * t;
         double h = hue * 6, f = h - Math.floor(h), p = v * (1 - s), q = v * (1 - f * s), r = v * (1 - (1 - f) * s);
         return switch ((int) h % 6) {
             case 0 -> rgb(v, r, p); case 1 -> rgb(q, v, p); case 2 -> rgb(p, v, r);

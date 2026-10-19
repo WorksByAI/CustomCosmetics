@@ -30,6 +30,7 @@ public final class AccessoriesMixin {
         @Inject(method="extractRenderState(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/entity/state/EntityRenderState;F)V",at=@At("TAIL"))
         private void customcosmetics$extractAccessories(Entity entity,EntityRenderState state,float partial,CallbackInfo ci){
             if(!(state instanceof AccessoryRenderState target))return;
+            if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.EQUIPMENT)){target.customcosmetics$accessories(AccessoriesSettings.NONE);return;}
             var player=Minecraft.getInstance().player;var uuid=entity.getUUID();
             target.customcosmetics$hideAccessories(false);
             target.customcosmetics$accessories(AccessoriesSettings.choose(player==null?null:player.getUUID(),uuid,ConfigManager.offlineMode,ConfigManager.accessories,PresenceSync.getRemoteAccessories(uuid)));

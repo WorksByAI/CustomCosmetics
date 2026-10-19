@@ -21,14 +21,14 @@ public final class LocalSkins {
     private static Set<UUID> direct=Set.of();private static int decoding;
     private LocalSkins(){}
     private static final SkinTransfer.Source SOURCE=new SkinTransfer.Source(){
-        public SkinTransfer.Document local(){return ConfigManager.localSkinEnabled&&ConfigManager.skinP2pSharing?local:null;}
-        public boolean receiving(){return ConfigManager.skinP2pReceiving;}
+        public SkinTransfer.Document local(){return (ConfigManager.localSkinEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS))&&(ConfigManager.skinP2pSharing && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS))?local:null;}
+        public boolean receiving(){return (ConfigManager.skinP2pReceiving && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS));}
         public void received(UUID id,SkinTransfer.Document skin){Minecraft.getInstance().execute(()->receive(id,skin));}
     };
-    public static SkinTransfer.Source exchange(){return store==null?SkinTransfer.Source.NONE:SOURCE;}
+    public static SkinTransfer.Source exchange(){return store==null||!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS)?SkinTransfer.Source.NONE:SOURCE;}
     public static void init(){store=new LocalSkinStore(CosmeticsConfigDir.getCosmeticsConfigDir().resolve("skins"));try{var png=store.load();if(png!=null)local=new SkinTransfer.Document(png,ConfigManager.localSkinSlim);}catch(IOException error){notice("Could not load local skin: "+error.getMessage());}}
-    public static void tick(){direct=RealtimeSync.directPeers();remote.keySet().retainAll(direct);pending.keySet().retainAll(direct);if(!ConfigManager.skinP2pReceiving){remote.clear();pending.clear();}
-        var document=local;if(document!=null&&ConfigManager.localSkinEnabled&&!textures.containsKey(document.hash()))try{texture(document.bytes());}catch(IOException error){notice("Could not load skin texture: "+error.getMessage());}
+    public static void tick(){if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS))return;direct=RealtimeSync.directPeers();remote.keySet().retainAll(direct);pending.keySet().retainAll(direct);if(!(ConfigManager.skinP2pReceiving && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS))){remote.clear();pending.clear();}
+        var document=local;if(document!=null&&(ConfigManager.localSkinEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS))&&!textures.containsKey(document.hash()))try{texture(document.bytes());}catch(IOException error){notice("Could not load skin texture: "+error.getMessage());}
     }
     public static boolean hasLocal(){return local!=null;}
     public static int directCount(){return direct.size();}
@@ -37,13 +37,13 @@ public final class LocalSkins {
     public static void slim(boolean slim){ConfigManager.localSkinSlim=slim;var old=local;if(old!=null)local=new SkinTransfer.Document(old.bytes(),slim);ConfigManager.requestSave();}
     private static void receive(UUID id,SkinTransfer.Document document){
         if(document==null){remote.remove(id);pending.remove(id);return;}
-        if(!ConfigManager.skinP2pReceiving||!direct.contains(id)||!RemoteAccess.online())return;
+        if(!(ConfigManager.skinP2pReceiving && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS))||!direct.contains(id)||!RemoteAccess.online())return;
         var ready=remote.get(id);if(ready!=null&&ready.wireHash.equals(document.hash())&&textures.containsKey(ready.textureHash)){remote.put(id,new Ready(ready.wireHash,ready.textureHash,document.slim()));return;}
         if(document.hash().equals(pending.get(id))||decoding>=2)return;
         decoding++;pending.put(id,document.hash());
         CompletableFuture.supplyAsync(()->{try{return SkinImages.normalize(document.bytes());}catch(IOException error){throw new CompletionException(error);}}).whenComplete((png,error)->Minecraft.getInstance().execute(()->{
             decoding--;if(!document.hash().equals(pending.get(id)))return;pending.remove(id);
-            if(error!=null||!ConfigManager.skinP2pReceiving||!direct.contains(id)||!RemoteAccess.online())return;
+            if(error!=null||!(ConfigManager.skinP2pReceiving && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS))||!direct.contains(id)||!RemoteAccess.online())return;
             try{String hash=SkinTransfer.hash(png);texture(png);remote.put(id,new Ready(document.hash(),hash,document.slim()));}catch(IOException ignored){}
         }));
     }
@@ -53,9 +53,10 @@ public final class LocalSkins {
         while(textures.size()>20){var first=textures.entrySet().iterator();var entry=first.next();first.remove();Minecraft.getInstance().getTextureManager().release(entry.getValue());}return id;
     }
     public static PlayerSkin skin(UUID id,PlayerSkin original){
+        if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS))return original;
         var client=Minecraft.getInstance();boolean self=id.equals(client.getUser().getProfileId());String hash;boolean slim;
-        if(self){var document=local;if(!ConfigManager.localSkinEnabled||document==null)return original;hash=document.hash();slim=document.slim();}
-        else{var ready=remote.get(id);if(!ConfigManager.skinP2pReceiving||!RemoteAccess.online()||!direct.contains(id)||ready==null)return original;hash=ready.textureHash;slim=ready.slim;}
+        if(self){var document=local;if(!(ConfigManager.localSkinEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS))||document==null)return original;hash=document.hash();slim=document.slim();}
+        else{var ready=remote.get(id);if(!(ConfigManager.skinP2pReceiving && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS))||!RemoteAccess.online()||!direct.contains(id)||ready==null)return original;hash=ready.textureHash;slim=ready.slim;}
         var texture=textures.get(hash);if(texture==null)return original;
         ClientAsset.Texture asset=new ClientAsset.Texture(){public Identifier id(){return texture;}public Identifier texturePath(){return texture;}};
         return new PlayerSkin(asset,original.cape(),original.elytra(),slim?PlayerModelType.SLIM:PlayerModelType.WIDE,false);

@@ -9,6 +9,11 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ConfigManagerTest {
+    @Test void moduleMasterSwitchesRoundTripWithoutOverwritingFeaturePreferences()throws Exception{
+        assertEquals(0,ConfigManager.disabledModules);var path=directory.resolve("modules.json");
+        String oldStyle=ConfigManager.nickTweaksGradientStyle;FeatureModules.all(false);FeatureModules.set(FeatureModules.Feature.MAP,true);int mask=ConfigManager.disabledModules;ConfigManager.save(path);
+        FeatureModules.all(true);ConfigManager.load(path);assertEquals(mask,ConfigManager.disabledModules);assertTrue(FeatureModules.enabled(FeatureModules.Feature.MAP));assertFalse(FeatureModules.enabled(FeatureModules.Feature.NICK));assertEquals(oldStyle,ConfigManager.nickTweaksGradientStyle);
+    }
     @Test void damageRainbowSettingsPersistAndOlderConfigsKeepTheGradient()throws Exception{
         assertEquals("gradient",ConfigManager.damageSplashColorMode);assertEquals(1,ConfigManager.damageSplashRainbowSpeed);
         var path=directory.resolve("damage-rainbow.json");Files.writeString(path,"{\"settings\":{\"damageSplashStartColor\":1122867}}");ConfigManager.load(path);

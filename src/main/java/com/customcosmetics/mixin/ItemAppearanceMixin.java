@@ -33,14 +33,16 @@ public final class ItemAppearanceMixin {
         @WrapMethod(method = "appendItemLayers")
         private void customcosmetics$trackModelFallback(ItemStackRenderState state, ItemStack stack, ItemDisplayContext context,
             Level level, ItemOwner owner, int seed, Operation<Void> original) {
+            if(!ItemCosmetics.modelsActive()){original.call(state,stack,context,level,owner,seed);return;}
             var calls = customcosmetics$calls.get(); calls.push(new RenderCall(state, stack));
             try { original.call(state, stack, context, level, owner, seed); }
-            finally { calls.pop(); if (calls.isEmpty()) customcosmetics$calls.remove(); }
+            finally { calls.pop(); }
         }
         @ModifyExpressionValue(method = "appendItemLayers", order = 1100, at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/item/ItemStack;get(Lnet/minecraft/core/component/DataComponentType;)Ljava/lang/Object;"))
         private Object customcosmetics$itemModel(Object original, @Local(argsOnly = true) ItemStack stack,
             @Local(argsOnly = true) ItemStackRenderState state) {
+            if(!ItemCosmetics.modelsActive())return original;
             // A pack's fallback for this same stack/state must reach the original model, not reselect our override.
             int depth = 0;
             for (var call : customcosmetics$calls.get()) if (call.state() == state && call.stack() == stack && ++depth > 1) return original;

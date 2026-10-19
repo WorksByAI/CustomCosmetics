@@ -26,7 +26,7 @@ public final class Snaplook {
     public static void tick(Minecraft client){
         if(key==null)return;while(key.consumeClick()){}
         if(!key.isDown()){stop(client);blocked=false;return;}
-        if(!ConfigManager.snaplookEnabled||client.player==null||client.level==null||!client.player.isAlive()||client.player.isSleeping()
+        if(!(ConfigManager.snaplookEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SNAPLOOK))||client.player==null||client.level==null||!client.player.isAlive()||client.player.isSleeping()
                 ||ClientUiAccess.screen(client)!=null||!client.isWindowActive()||Freecam.active()||client.getCameraEntity()!=client.player){stop(client);return;}
         if(blocked)return;
         if(active()&&(owner!=client.player||level!=client.level)){stop(client);return;}

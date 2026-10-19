@@ -38,6 +38,7 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (com.customcosmetics.sync.RemoteAccess.online()) com.customcosmetics.features.animations.PresenceWorld.init();
             ConfigManager.flushPendingSave();
+            com.customcosmetics.features.smolpeople.SmolPlayers.tick(client);
             com.customcosmetics.features.map.MapEditor.tick(client);
             com.customcosmetics.features.map.Freecam.tick(client);
             com.customcosmetics.features.camera.Snaplook.tick(client);

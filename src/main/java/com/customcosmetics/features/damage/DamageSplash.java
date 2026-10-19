@@ -41,7 +41,7 @@ public final class DamageSplash {
     }
 
     public static void tick(Minecraft client) {
-        boolean next = ConfigManager.damageSplashEnabled && isSkyblock(client);
+        boolean next = (ConfigManager.damageSplashEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.DAMAGE)) && isSkyblock(client);
         if (level != client.level || !next) { SEEN.clear(); LABELS.clear(); }
         level = client.level; allowed = next;
         if (!next) return;
@@ -55,7 +55,7 @@ public final class DamageSplash {
     }
 
     public static boolean capture(ArmorStand stand) {
-        if (!ConfigManager.damageSplashEnabled || !allowed || stand.level() != level || !stand.isInvisible() || !stand.hasCustomName()) return false;
+        if (!(ConfigManager.damageSplashEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.DAMAGE)) || !allowed || stand.level() != level || !stand.isInvisible() || !stand.hasCustomName()) return false;
         String name = stand.getCustomName().getString();
         var previous = SEEN.get(stand.getUUID());
         if (previous != null && previous.text().equals(name)) return true;
@@ -111,7 +111,7 @@ public final class DamageSplash {
     }
     private static double progress(long start, long now) { return (now-start)/1_000_000_000.0/DamageAnimation.bounded(ConfigManager.damageSplashDuration, 1.2, .3, 3); }
     private static void render(LevelRenderContext context) {
-        if (!ConfigManager.damageSplashEnabled || !allowed || level != Minecraft.getInstance().level || LABELS.isEmpty()) return;
+        if (!(ConfigManager.damageSplashEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.DAMAGE)) || !allowed || level != Minecraft.getInstance().level || LABELS.isEmpty()) return;
         var client = Minecraft.getInstance(); var camera = context.levelState().cameraRenderState;
         long now = System.nanoTime();
         for (var label : LABELS) {

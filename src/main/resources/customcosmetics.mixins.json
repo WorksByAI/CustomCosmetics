@@ -4,6 +4,7 @@
   "plugin": "com.customcosmetics.mixin.CosmeticsMixinPlugin",
   "compatibilityLevel": "JAVA_25",
   "client": [
+    "SidebarRevisionMixin",
     "CommandTooltipMixin",
     "FreecamMixin$Look",
     "FreecamMixin$Body",
@@ -59,6 +60,7 @@
     "SmolPeopleMixin$SmolPlayerRendererMixin",
     "SmolPeopleMixin$SmolCameraMixin",
     "NickTweaksMixin$FontMixin",
+    "NickTweaksMixin$Frame",
     "NickTweaksMixin$ScreenGuiTextScopeMixin",
     "ModMenuNickTweaksMixin$ModMenuScreenMixin",
     "NametagMixin$IdentityMixin",

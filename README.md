@@ -16,6 +16,7 @@
 - **Map Editor**：地牢／Kuudra 纯视觉改图、批量方块替换。
 - **Command Tooltips / Snaplook**：查看聊天指令；按住快捷键临时切换视角。
 - **Offline Mode**：断开所有远程同步连接，不使用共享功能，也无法看见别人的装饰品。
+- **Module Manager**：在 Settings 中独立开关功能，或一键全部开关，保留详细设置。
 
 输入 `/customcosmetics` 打开设置。需要 Java 25、Fabric Loader 0.19.5+ 和对应版本的 Fabric API。
 共享功能需安装 [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api)。
@@ -40,6 +41,7 @@ All current features ([√] means visible to other players who also have the mod
 - **Map Editor**: Visual-only Catacombs/Kuudra map editing and bulk block replacement.
 - **Command Tooltips / Snaplook**: Preview chat commands or hold a key to switch perspective.
 - **Offline Mode**: Disconnect all remote synchronization connections. Sharing is disabled, and other players' cosmetics are not shown.
+- **Module Manager**: Toggle individual features or all modules in Settings while keeping their preferences.
 
 Use `/customcosmetics` to open settings. Requires Java 25, Fabric Loader 0.19.5+ and Fabric API for your Minecraft version.
 Sharing modules requires [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api).

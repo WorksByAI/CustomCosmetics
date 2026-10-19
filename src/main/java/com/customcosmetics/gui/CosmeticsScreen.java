@@ -25,7 +25,7 @@ import static com.customcosmetics.gui.PinkUi.*;
 
 /** Independent pink cosmetics studio, with scrollable settings and keyboard focus. */
 public final class CosmeticsScreen extends Screen {
-    public enum Page { MAIN, SIZE, NICK, COLOR, CHROMA, PRESETS, BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, POSITION_RECIPIENTS, ANIMATIONS, DAMAGE, ITEMS, ACCESSORIES, MAP, PARTY, SKINS, SYNC, SEARCH }
+    public enum Page { MAIN, SIZE, NICK, COLOR, CHROMA, PRESETS, BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, POSITION_RECIPIENTS, ANIMATIONS, DAMAGE, ITEMS, ACCESSORIES, MAP, PARTY, SKINS, SYNC, MODULES, SEARCH }
     private static final ScreenSession SESSION = new ScreenSession();
     private final Screen parent;
     private Page page;
@@ -152,6 +152,7 @@ public final class CosmeticsScreen extends Screen {
             case PARTY -> party();
             case POSITION_RECIPIENTS -> positionRecipients();
             case SYNC -> sync();
+            case MODULES -> modules();
             case SEARCH -> searchResults();
         }
         if (page == Page.SIZE || page == Page.NICK || page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS || page == Page.DAMAGE) credit();
@@ -172,6 +173,7 @@ public final class CosmeticsScreen extends Screen {
             case ACCESSORIES, BLOCKED_ACCESSORIES -> "Equipments (Beta)";
             case PARTY, POSITION_RECIPIENTS -> "Sharing";
             case SYNC -> "Settings";
+            case MODULES -> "Module Manager";
             case BLOCKED_CAPES -> "Cape";
             case SEARCH -> "Search";
         };
@@ -709,7 +711,23 @@ public final class CosmeticsScreen extends Screen {
             new NumericSetting("Speed", () -> ConfigManager.nickTweaksChromaSpeed, 0.1, 8, 0.1, 1, v -> ConfigManager.nickTweaksChromaSpeed = v)));
     }
 
+    private void modules(){
+        fullButton("Enable All Modules",()->{int before=ConfigManager.disabledModules;com.customcosmetics.config.FeatureModules.all(true);moduleChanged(before);},false);
+        fullButton("Disable All Modules",()->{int before=ConfigManager.disabledModules;com.customcosmetics.config.FeatureModules.all(false);moduleChanged(before);},false);
+        for(var feature:com.customcosmetics.config.FeatureModules.Feature.values())
+            toggleRow(feature.label,"Master switch; keeps your detailed settings.",()->com.customcosmetics.config.FeatureModules.enabled(feature),value->{int before=ConfigManager.disabledModules;com.customcosmetics.config.FeatureModules.set(feature,value);moduleChanged(before);});
+    }
+    private void moduleChanged(int before){
+        changed();int difference=before^ConfigManager.disabledModules;
+        if((difference&com.customcosmetics.config.FeatureModules.Feature.MAP.bit())!=0)com.customcosmetics.features.map.MapEditor.refresh();
+        if(!com.customcosmetics.config.FeatureModules.remoteConsumers()){
+            PresenceSync.onModeChanged();com.customcosmetics.sync.RealtimeSync.disconnect();com.customcosmetics.sync.PartySync.disconnect();com.customcosmetics.sync.BlockingSync.disconnect();
+        }
+        if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS))com.customcosmetics.features.skins.LocalSkins.close();
+        rebuildWidgets();
+    }
     private void sync() {
+        fullButton("Module Manager",()->open(Page.MODULES),false,"Enable or disable whole features without losing their settings.");
         toggleRow("Check for Updates","Check GitHub for new releases and show a chat notification. Enabled by default.",()->ConfigManager.updateCheckEnabled,v->ConfigManager.updateCheckEnabled=v);
         toggleRow("Command Tooltips","Show the actual command when hovering clickable text. Preserves existing text, item and entity tooltips.",()->ConfigManager.commandTooltipsEnabled,v->ConfigManager.commandTooltipsEnabled=v);
         toggleRow("Snaplook","Hold your assigned key to switch perspective; release to restore your previous view.",()->ConfigManager.snaplookEnabled,v->{ConfigManager.snaplookEnabled=v;if(!v)com.customcosmetics.features.camera.Snaplook.stop(minecraft);});

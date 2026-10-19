@@ -10,7 +10,7 @@ public final class CommandTooltips {
     public static final String PREFIX="Click to execute command: ";
     private CommandTooltips(){}
     public static Style enrich(Style style){
-        if(!ConfigManager.commandTooltipsEnabled||style==null||!(style.getClickEvent() instanceof ClickEvent.RunCommand run))return style;
+        if(!(ConfigManager.commandTooltipsEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.COMMAND_TOOLTIPS))||style==null||!(style.getClickEvent() instanceof ClickEvent.RunCommand run))return style;
         var hover=style.getHoverEvent();if(hover!=null&&!(hover instanceof HoverEvent.ShowText))return style;
         var previous=hover instanceof HoverEvent.ShowText text?text.value():null;
         // Cooperate with standalone tooltip mods or servers already showing the same real command.

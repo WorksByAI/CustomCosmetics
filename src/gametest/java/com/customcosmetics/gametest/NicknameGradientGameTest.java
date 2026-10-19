@@ -114,7 +114,7 @@ public final class NicknameGradientGameTest implements FabricClientGameTest {
             context.runOnClient(client->{
                 var screen=ClientUiAccess.screen(client);
                 var cape=editorWidget(client,"Cape",0,com.customcosmetics.gui.PinkUi.Action.class);
-                var sync=editorWidget(client,"Sync",0,com.customcosmetics.gui.PinkUi.Action.class);
+                var sync=editorWidget(client,"Settings",0,com.customcosmetics.gui.PinkUi.Action.class);
                 if(cape.getBottom()>sync.getY()||screen.children().indexOf(cape)>=screen.children().indexOf(sync))
                     throw new AssertionError("Cape must precede Sync in both sidebar layout and keyboard navigation");
             });context.takeScreenshot("release-cape-above-sync");

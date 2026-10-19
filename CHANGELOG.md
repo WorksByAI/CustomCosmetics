@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Reduce text, player-model and map-processing overhead.
+- Add independent module switches and display-paced nickname animation.
+
 ## 1.5.4.6
 
 - Add animated rainbow colors for Damage Splash.

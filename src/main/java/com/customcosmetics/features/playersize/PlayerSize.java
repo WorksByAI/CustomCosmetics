@@ -14,6 +14,7 @@ import net.minecraft.client.Minecraft;
 public final class PlayerSize {
     private PlayerSize(){}
     public static PlayerSizeSettings settings(int entityId){
+        if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.PLAYER_SIZE))return PlayerSizeSettings.NORMAL;
         var client=Minecraft.getInstance();var player=SmolPlayers.getPlayerByEntityId(entityId);
         if(player==null)return PlayerSizeSettings.NORMAL;
         var self=client.player==null?null:client.player.getUUID();

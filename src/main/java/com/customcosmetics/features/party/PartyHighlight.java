@@ -23,6 +23,7 @@ public final class PartyHighlight{
     private PartyHighlight(){}
     public static void init(){LevelRenderEvents.COLLECT_SUBMITS.register(PartyHighlight::render);}
     public static List<Target> targets(Minecraft client){
+        if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SHARING)){if(level!=null){level=null;TRACKS.clear();}return List.of();}
         if(level!=client.level){level=client.level;TRACKS.clear();}
         boolean partyPositions=PartyFeatures.sharingPositions(),shared=PositionSharing.receiving(client);
         if((!partyPositions&&!shared)||!RemoteAccess.online()||client.level==null||client.player==null){TRACKS.clear();return List.of();}

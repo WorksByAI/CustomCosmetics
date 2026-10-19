@@ -21,13 +21,14 @@ public final class SwordBlocking {
         BlockingSync.tick(localHand, localItemId, client.level);
     }
     private static void sample(Minecraft client) {
+        if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ANIMATIONS)){if(localHand!=BlockHand.NONE){localHand=BlockHand.NONE;localItemId="";BlockingSync.localHandChanged(localHand,localItemId);}return;}
         BlockHand previous = localHand;
         String previousId = localItemId;
         var player = client.player;
         boolean world = client.level != null && player != null;
         boolean otherUse = world && player.isUsingItem() && !BlockingItems.allowed(player.getUseItem())
             && !(player.getUseItem().getItem() instanceof ShieldItem);
-        localHand = BlockHand.choose(ConfigManager.swordBlockingEnabled, world, ClientUiAccess.screen(client) != null,
+        localHand = BlockHand.choose((ConfigManager.swordBlockingEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ANIMATIONS)), world, ClientUiAccess.screen(client) != null,
             client.isWindowActive(), world && player.isAlive(), world && player.isSpectator(),
             client.options.keyUse.isDown(), otherUse, world && BlockingItems.allowed(player.getMainHandItem()),
             world && BlockingItems.allowed(player.getOffhandItem()));
@@ -37,10 +38,10 @@ public final class SwordBlocking {
     }
 
     public static boolean isSword(ItemStack stack) { return SwordItems.isSword(stack); }
-    public static BlockHand localHand() { sample(Minecraft.getInstance()); return ConfigManager.swordBlockingEnabled ? localHand : BlockHand.NONE; }
+    public static BlockHand localHand() { sample(Minecraft.getInstance()); return (ConfigManager.swordBlockingEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ANIMATIONS)) ? localHand : BlockHand.NONE; }
 
     public static BlockHand hand(Player player) {
-        if (!ConfigManager.swordBlockingEnabled || player == null || !player.isAlive() || player.isSpectator()) return BlockHand.NONE;
+        if (!(ConfigManager.swordBlockingEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ANIMATIONS)) || player == null || !player.isAlive() || player.isSpectator()) return BlockHand.NONE;
         if (player == Minecraft.getInstance().player) sample(Minecraft.getInstance());
         boolean local = player == Minecraft.getInstance().player;
         var pose = !local && ConfigManager.swordBlockingSyncEnabled && ConfigManager.syncEnabled

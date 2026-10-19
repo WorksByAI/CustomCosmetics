@@ -14,12 +14,12 @@ final class RoomRestorer {
         Work(RoomLayouts.Frame frame,Map<MapEdits.Position,String> source){this.frame=frame;this.source=source;sections=source.size()<8192?CompletableFuture.completedFuture(index(frame,source)):CompletableFuture.supplyAsync(()->index(frame,source),MapWork.EXECUTOR);}
     }
     private record Selected(Work work,Section section,boolean knownOnly){}
-    private final Map<String,Work> works=new HashMap<>();private Job job;
-    void reset(){works.clear();job=null;}
+    private final Map<String,Work> works=new HashMap<>();private Job job;private long nextSectionCheck;
+    void reset(){works.clear();job=null;nextSectionCheck=0;}
     void cancel(){job=null;}
     void request(Collection<RoomLayouts.Frame> frames){
         var wanted=new HashSet<String>();for(var frame:frames){var source=MapEditor.ROOMS.edits(frame.key());String id=frame.key()+"@"+frame.origin()+":"+frame.turns();wanted.add(id);var old=works.get(id);
-            if(source.isEmpty())works.remove(id);else if(old==null||old.source!=source)works.put(id,new Work(frame,source));}
+            if(source.isEmpty())works.remove(id);else if(old==null||old.source!=source){works.put(id,new Work(frame,source));nextSectionCheck=0;}}
         works.keySet().retainAll(wanted);
     }
     private static List<Section> index(RoomLayouts.Frame frame,Map<MapEdits.Position,String> source){
@@ -32,12 +32,13 @@ final class RoomRestorer {
         works.values().removeIf(w->MapEditor.ROOMS.edits(w.frame.key())!=w.source);
         if(job!=null&&(MapEditor.DATA.snapshot()!=job.before||job.selected.stream().anyMatch(s->!works.containsValue(s.work)||MapEditor.ROOMS.edits(s.work.frame.key())!=s.work.source)))job=null;
         if(job==null){
+            long now=System.nanoTime();if(now<nextSectionCheck)return;
             var selected=new ArrayList<Selected>();
             for(var work:works.values())if(work.sections.isDone())for(var section:work.sections.join())if(!work.completed.contains(section.position)){
                 boolean loaded=MapEditor.loaded(MapEditor.blockPos(section.position).multiply(16));
                 if(loaded||!work.preloaded.contains(section.position))selected.add(new Selected(work,section,!loaded));
             }
-            if(selected.isEmpty())return;job=new Job(selected);
+            if(selected.isEmpty()){nextSectionCheck=now+100_000_000;return;}job=new Job(selected);
         }
         job.step();
     }

@@ -21,7 +21,7 @@ public final class CapeCosmetics {
     private static long textureRetry;
     private CapeCosmetics(){}
     public static void init(){textureRetry=0;try{local=new LocalCapeStore(CosmeticsConfigDir.getCosmeticsConfigDir());}catch(Exception e){notice("Could not load local cape: "+e.getMessage());}}
-    public static void tick(){if(local!=null&&local.hash()!=null&&!loaded(local.hash())&&System.currentTimeMillis()>=textureRetry){textureRetry=System.currentTimeMillis()+5000;try{texture(local.copy());}catch(IOException ignored){}}}
+    public static void tick(){if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.CAPE))return;if(local!=null&&local.hash()!=null&&!loaded(local.hash())&&System.currentTimeMillis()>=textureRetry){textureRetry=System.currentTimeMillis()+5000;try{texture(local.copy());}catch(IOException ignored){}}}
     public static byte[] localPng(){return local==null?null:local.copy();}
     public static boolean hasLocal(){return local!=null&&local.hash()!=null;}
     public static synchronized Identifier preview(){
@@ -42,10 +42,10 @@ public final class CapeCosmetics {
         return id;
     }
     public static synchronized PlayerSkin skin(UUID uuid,PlayerSkin original){
-        if(!ConfigManager.capeEnabled)return original;
+        if(!(ConfigManager.capeEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.CAPE)))return original;
         var client=Minecraft.getInstance();UUID self=client.player==null?null:client.player.getUUID();
         if(!Objects.equals(uuid,self)&&com.customcosmetics.sync.PlayerBlocks.blocked(com.customcosmetics.sync.PlayerBlocks.Kind.CAPE,uuid,com.customcosmetics.sync.PresenceSync.cachedPlayerName(uuid)))return original;
-        String hash=CapeVisibility.hash(uuid,self,RemoteAccess.online(),ConfigManager.capeEnabled,previewDepth>0,local==null?null:local.hash(),approved);
+        String hash=CapeVisibility.hash(uuid,self,RemoteAccess.online(),(ConfigManager.capeEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.CAPE)),previewDepth>0,local==null?null:local.hash(),approved);
         Identifier id=hash==null?null:textures.get(hash);
         if(id==null)return original;
         ClientAsset.Texture asset=new ClientAsset.Texture(){public Identifier id(){return id;}public Identifier texturePath(){return id;}};

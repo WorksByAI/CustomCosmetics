@@ -11,15 +11,17 @@ public final class AccessoryCatalog {
     public record Style(String id,String label,String kind,int variant,int color,int accent,Collection collection){}
     public record Slot(String id,String label,List<Style> styles){public Slot{styles=List.copyOf(styles);}}
     private static final List<Slot> SLOTS=load();
+    private static final Map<String,Slot> BY_ID=index();
+    private static Map<String,Slot> index(){var result=new HashMap<String,Slot>();for(var slot:SLOTS)result.put(slot.id,slot);return Map.copyOf(result);}
     private AccessoryCatalog(){}
     public static List<Slot> slots(){return SLOTS;}
     public static List<Slot> slots(Collection collection){return SLOTS.stream().map(slot->new Slot(slot.id,slot.label,styles(slot.id,collection))).filter(slot->!slot.styles.isEmpty()).toList();}
     public static List<Style> styles(String key,Collection collection){return slot(key).styles.stream().filter(style->style.collection==collection).toList();}
     public static int count(Collection collection){return SLOTS.stream().flatMap(slot->slot.styles.stream()).mapToInt(style->style.collection==collection?1:0).sum();}
-    public static Slot slot(String key){return SLOTS.stream().filter(s->s.id.equals(key)).findFirst().orElseThrow(()->new IllegalArgumentException(key));}
-    public static Style style(String key,String id){var slot=slot(key);return slot.styles.stream().filter(s->s.id.equals(id)).findFirst().orElse(slot.styles.getFirst());}
+    public static Slot slot(String key){var slot=BY_ID.get(key);if(slot==null)throw new IllegalArgumentException(key);return slot;}
+    public static Style style(String key,String id){var slot=slot(key);for(var style:slot.styles)if(style.id.equals(id))return style;return slot.styles.getFirst();}
     public static int count(){return SLOTS.stream().mapToInt(s->s.styles.size()).sum();}
-    public static boolean known(String key){return SLOTS.stream().anyMatch(s->s.id.equals(key));}
+    public static boolean known(String key){return key!=null&&BY_ID.containsKey(key);}
     private static List<Slot> load(){
         try(var stream=AccessoryCatalog.class.getResourceAsStream("/assets/customcosmetics/accessories/catalog.json")){
             if(stream==null)throw new IOException("Missing accessory catalog");var root=JsonParser.parseReader(new InputStreamReader(stream,StandardCharsets.UTF_8)).getAsJsonObject();var slots=new ArrayList<Slot>();

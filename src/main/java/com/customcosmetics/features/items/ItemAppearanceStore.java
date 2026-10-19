@@ -30,6 +30,10 @@ public final class ItemAppearanceStore {
     private final Path path;
     private final Map<String, Appearance> entries = new TreeMap<>();
     private boolean enabled = true, dirty;
+    private int models,names;
+    public boolean hasModels(){return models!=0;}
+    public boolean hasNames(){return names!=0;}
+    private void count(Appearance value,int change){if(value==null)return;if(!value.model().isEmpty())models+=change;if(!value.name().isEmpty())names+=change;}
     public ItemAppearanceStore(Path path) { this.path = path; }
     public static String key(String raw) {
         if (raw == null) return "";
@@ -47,9 +51,9 @@ public final class ItemAppearanceStore {
     public void put(String uuid, Appearance value) {
         String key = key(uuid);
         if (key.isEmpty()) throw new IllegalArgumentException("This item has no valid unique item UUID.");
-        if (value.empty()) { if (entries.remove(key) != null) dirty = true; return; }
+        if (value.empty()) { var removed=entries.remove(key);if(removed!=null){count(removed,-1);dirty=true;}return; }
         if (!entries.containsKey(key) && entries.size() >= MAX_ENTRIES) throw new IllegalStateException("Too many customized items.");
-        if (!value.equals(entries.put(key, value))) dirty = true;
+        var previous=entries.put(key,value);if(!value.equals(previous)){count(previous,-1);count(value,1);dirty=true;}
     }
     public void load() throws IOException {
         if (!Files.exists(path)) return;
@@ -71,7 +75,7 @@ public final class ItemAppearanceStore {
                 } catch (RuntimeException malformedEntry) { /* An invalid override must not break other items. */ }
             }
             boolean newEnabled = !root.has("enabled") || root.get("enabled").getAsBoolean();
-            entries.clear(); entries.putAll(loaded); enabled = newEnabled; dirty = false;
+            entries.clear(); entries.putAll(loaded);models=names=0;for(var value:loaded.values())count(value,1); enabled = newEnabled; dirty = false;
         } catch (RuntimeException malformed) { throw new IOException("Invalid item appearance format.", malformed); }
     }
     public void save() throws IOException {

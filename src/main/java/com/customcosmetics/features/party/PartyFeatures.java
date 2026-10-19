@@ -15,8 +15,8 @@ public final class PartyFeatures{
     private static volatile PartyRoster roster=PartyRoster.EMPTY;private static Object connection;private static long updated,nextRequest;private static boolean hasApi,initialized;
     private static final PartyConnectionNotice NOTICE=new PartyConnectionNotice();
     private PartyFeatures(){}
-    public static boolean sharingPositions(){return ConfigManager.partyEspEnabled||ConfigManager.partyTracersEnabled||ConfigManager.sharingChamsEnabled;}
-    public static boolean enabled(){return sharingPositions()||ConfigManager.partyChatEnabled||PositionSharing.enabled();}
+    public static boolean sharingPositions(){return (ConfigManager.partyEspEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SHARING))||(ConfigManager.partyTracersEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SHARING))||(ConfigManager.sharingChamsEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SHARING));}
+    public static boolean enabled(){return com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SHARING)&&sharingPositions()||(ConfigManager.partyChatEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SHARING))||PositionSharing.enabled();}
     public static PartyRoster roster(){return roster;}
     public static void connected(boolean ready){
         NOTICE.membership(!roster.empty());
@@ -40,7 +40,7 @@ public final class PartyFeatures{
         });
         ClientSendMessageEvents.ALLOW_CHAT.register(message->{
             String prefix=ConfigManager.partyChatPrefix;
-            if(!PartyChatRules.intercept(message,ConfigManager.partyChatEnabled,prefix))return true;
+            if(!PartyChatRules.intercept(message,(ConfigManager.partyChatEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SHARING)),prefix))return true;
             String text=PartyChatRules.body(message,prefix);
             if(!PartyChatRules.valid(text))notice("Party IRC: enter 1–256 characters without formatting codes.");
             else PartySync.chat(text);
@@ -50,6 +50,7 @@ public final class PartyFeatures{
     }
     public static void tick(Minecraft client){
         SharingNametag.tick(client);
+        if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SHARING)){if(!roster.empty()){roster=PartyRoster.EMPTY;PARSER.reset();NOTICE.membership(false);}PartySync.disconnect();return;}
         init();boolean active=enabled()&&RemoteAccess.online()&&client.player!=null&&!client.hasSingleplayerServer()&&PresenceWorld.isHypixel(client);
         // A brief configuration/loading phase during a transfer is not a new party join.
         if(enabled()&&RemoteAccess.online()&&!client.hasSingleplayerServer()&&client.getCurrentServer()!=null&&(client.player==null||client.getConnection()==null)){PartySync.disconnect();return;}

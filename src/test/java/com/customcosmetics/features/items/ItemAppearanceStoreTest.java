@@ -7,6 +7,14 @@ import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ItemAppearanceStoreTest {
+    @Test void overrideFastPathsTrackReplacementsRemovalAndReload()throws Exception{
+        var path=directory.resolve("fast-path.json");var store=new ItemAppearanceStore(path);
+        assertFalse(store.hasModels());assertFalse(store.hasNames());
+        store.put(A,new ItemAppearanceStore.Appearance("name",""));assertTrue(store.hasNames());assertFalse(store.hasModels());
+        store.put(A,new ItemAppearanceStore.Appearance("","minecraft:stick"));assertFalse(store.hasNames());assertTrue(store.hasModels());
+        store.put(B,new ItemAppearanceStore.Appearance("other",""));store.save();var restored=new ItemAppearanceStore(path);restored.load();assertTrue(restored.hasModels());assertTrue(restored.hasNames());
+        restored.put(A,new ItemAppearanceStore.Appearance("",""));assertFalse(restored.hasModels());assertTrue(restored.hasNames());restored.put(B,new ItemAppearanceStore.Appearance("",""));assertFalse(restored.hasNames());
+    }
     private static final String A="12345678-1234-1234-1234-123456789abc",B="12345678-1234-1234-1234-123456789abd";
     @TempDir Path directory;
     @Test void savesAndReloadsSeparatePhysicalItemsAndEnabledState() throws Exception {

@@ -48,17 +48,39 @@ public final class SmolPlayers {
 
     private static final Map<UUID, ProfileIdCacheEntry> PROFILE_ID_CACHE = new ConcurrentHashMap<>();
     private static final UUID UNSET_SKIN_OWNER_ID = new UUID(0L, 0L);
+    private static Object cachedLevel, cachedConnection, cachedPlayer, cachedAppearance;
+    private static long cachedTick = Long.MIN_VALUE;
+    private static boolean cachedLocalMode;
+    private static List<SmolMirrorSource> mirrorSources;
+    private static final it.unimi.dsi.fastutil.ints.Int2ByteOpenHashMap MIRRORS=new it.unimi.dsi.fastutil.ints.Int2ByteOpenHashMap(),NAMETAGS=new it.unimi.dsi.fastutil.ints.Int2ByteOpenHashMap();
+    private static final Map<UUID,String[]> VISIBLE_NAMES = new java.util.IdentityHashMap<>();
+    public static void clearCache(){cachedLevel=cachedConnection=cachedPlayer=cachedAppearance=null;cachedTick=Long.MIN_VALUE;mirrorSources=null;VISIBLE_NAMES.clear();PROFILE_ID_CACHE.clear();MIRRORS.clear();NAMETAGS.clear();}
+    public static void tick(Minecraft client){if(client.player==null||!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SMOL)){if(cachedLevel!=null)clearCache();}else refreshMirrorCache(client);}
+
+    /** Mirror discovery is shared by all player/model/nametag hooks during this client tick. */
+    private static void refreshMirrorCache(Minecraft mc) {
+        Object appearance = PresenceSync.appearanceSnapshot();
+        long tick = mc.player == null ? Long.MIN_VALUE : mc.player.tickCount;
+        var connection = mc.getConnection();
+        if (cachedLevel == mc.level && cachedConnection == connection && cachedPlayer == mc.player
+                && cachedAppearance == appearance && cachedTick == tick && cachedLocalMode == (ConfigManager.smolpeopleMode && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SMOL))) return;
+        if (cachedLevel != mc.level || cachedConnection != connection) PROFILE_ID_CACHE.clear();
+        cachedLevel = mc.level; cachedConnection = connection; cachedPlayer = mc.player;
+        cachedAppearance = appearance; cachedTick = tick; cachedLocalMode = (ConfigManager.smolpeopleMode && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SMOL));
+        mirrorSources = null; VISIBLE_NAMES.clear();MIRRORS.clear();NAMETAGS.clear();
+    }
 
     private SmolPlayers() {
     }
 
     public static boolean shouldApplySmolTo(int entityId) {
-        if (!ConfigManager.smolpeopleMode && !PresenceSync.hasRemoteSmolUser()) {
+        if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SMOL))return false;
+        if (!(ConfigManager.smolpeopleMode && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SMOL)) && !PresenceSync.hasRemoteSmolUser()) {
             return false;
         }
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null && entityId == mc.player.getId()) {
-            return ConfigManager.smolpeopleMode;
+            return (ConfigManager.smolpeopleMode && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SMOL));
         }
 
         if (ConfigManager.offlineMode) return false;
@@ -72,11 +94,8 @@ public final class SmolPlayers {
             return remotePreference;
         }
 
-        if (isMirrorOfAnySmolSource(targetPlayer)) {
-            return true;
-        }
-
-        return false;
+        refreshMirrorCache(mc);byte cached=MIRRORS.get(entityId);if(cached!=0)return cached==2;
+        boolean mirror=isMirrorOfAnySmolSource(targetPlayer);MIRRORS.put(entityId,(byte)(mirror?2:1));return mirror;
     }
 
     public static float getLimbSwingSpeed(int entityId) {
@@ -101,7 +120,8 @@ public final class SmolPlayers {
     }
 
     public static boolean isMirrorNametagArmorStand(int entityId) {
-        if (!ConfigManager.smolpeopleMode && !PresenceSync.hasRemoteSmolUser()) {
+        if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SMOL))return false;
+        if (!(ConfigManager.smolpeopleMode && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SMOL)) && !PresenceSync.hasRemoteSmolUser()) {
             return false;
         }
         Minecraft mc = Minecraft.getInstance();
@@ -112,6 +132,10 @@ public final class SmolPlayers {
         if (!(entity instanceof ArmorStand armorStand)) {
             return false;
         }
+        refreshMirrorCache(mc);byte cached=NAMETAGS.get(entityId);if(cached!=0)return cached==2;
+        boolean match=mirrorNametag(mc,armorStand);NAMETAGS.put(entityId,(byte)(match?2:1));return match;
+    }
+    private static boolean mirrorNametag(Minecraft mc,ArmorStand armorStand){
         if (!isNametagArmorStandCandidate(armorStand)) {
             return false;
         }
@@ -160,14 +184,16 @@ public final class SmolPlayers {
     }
 
     private static List<SmolMirrorSource> collectSmolMirrorSources(Minecraft mc) {
+        refreshMirrorCache(mc);
+        if (mirrorSources != null) return mirrorSources;
         List<SmolMirrorSource> sources = new ArrayList<>();
         Set<UUID> seen = new HashSet<>();
-        if (mc.player != null && ConfigManager.smolpeopleMode) {
+        if (mc.player != null && (ConfigManager.smolpeopleMode && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SMOL))) {
             sources.add(new SmolMirrorSource(mc.player.getUUID(), mc.player, null));
             seen.add(mc.player.getUUID());
         }
         if (mc.getConnection() == null) {
-            return sources;
+            return mirrorSources = List.copyOf(sources);
         }
         for (PlayerInfo info : mc.getConnection().getOnlinePlayers()) {
             if (info == null || info.getProfile() == null) {
@@ -183,12 +209,12 @@ public final class SmolPlayers {
             Player worldPlayer = mc.level != null ? mc.level.getPlayerByUUID(uuid) : null;
             sources.add(new SmolMirrorSource(uuid, worldPlayer, info));
         }
-        return sources;
+        return mirrorSources = List.copyOf(sources);
     }
 
     private static boolean shouldSmolifySourcePlayer(Minecraft mc, UUID uuid) {
         if (mc.player != null && uuid.equals(mc.player.getUUID())) {
-            return ConfigManager.smolpeopleMode;
+            return (ConfigManager.smolpeopleMode && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SMOL));
         }
         Boolean remotePreference = PresenceSync.getRemoteSmolPreference(uuid);
         if (remotePreference != null) {
@@ -287,12 +313,7 @@ public final class SmolPlayers {
         if (mc.getConnection() == null || uuid == null) {
             return false;
         }
-        for (PlayerInfo entry : mc.getConnection().getOnlinePlayers()) {
-            if (entry != null && entry.getProfile() != null && uuid.equals(entry.getProfile().id())) {
-                return true;
-            }
-        }
-        return false;
+        return mc.getConnection().getPlayerInfo(uuid) != null;
     }
 
     private static boolean matchesVisibleName(Player self, Player other) {
@@ -307,14 +328,17 @@ public final class SmolPlayers {
     }
 
     private static String[] collectVisibleNames(Player player) {
+        refreshMirrorCache(Minecraft.getInstance());
+        var cached = VISIBLE_NAMES.get(player.getUUID());
+        if (cached != null) return cached;
         String plainName = LocateUtils.toPlainText(player.getName().getString());
         String displayName = player.getDisplayName() != null
             ? LocateUtils.toPlainText(player.getDisplayName().getString())
             : null;
         if (displayName != null && displayName.equals(plainName)) {
-            return new String[] { plainName };
+            var result = new String[] { plainName }; VISIBLE_NAMES.put(player.getUUID(), result); return result;
         }
-        return new String[] { plainName, displayName };
+        var result = new String[] { plainName, displayName }; VISIBLE_NAMES.put(player.getUUID(), result); return result;
     }
 
     private static boolean namesMatchMirror(String selfName, String otherName) {
@@ -335,11 +359,6 @@ public final class SmolPlayers {
         }
         UUID uuid = player.getUUID();
         String textureValue = getTexturesPropertyValue(player.getGameProfile());
-        ProfileIdCacheEntry cached = PROFILE_ID_CACHE.get(uuid);
-        if (cached != null && java.util.Objects.equals(cached.textureValue(), textureValue)) {
-            UUID cachedProfileId = cached.profileId();
-            return cachedProfileId != null ? cachedProfileId : UNSET_SKIN_OWNER_ID;
-        }
         if (textureValue == null) {
             Minecraft mc = Minecraft.getInstance();
             if (mc.getConnection() != null) {
@@ -348,6 +367,11 @@ public final class SmolPlayers {
                     textureValue = getTexturesPropertyValue(info.getProfile());
                 }
             }
+        }
+        ProfileIdCacheEntry cached = PROFILE_ID_CACHE.get(uuid);
+        if (cached != null && java.util.Objects.equals(cached.textureValue(), textureValue)) {
+            UUID cachedProfileId = cached.profileId();
+            return cachedProfileId != null ? cachedProfileId : UNSET_SKIN_OWNER_ID;
         }
         UUID profileId = textureValue != null ? parseProfileIdFromTextureValue(textureValue) : null;
         PROFILE_ID_CACHE.put(uuid, new ProfileIdCacheEntry(textureValue, profileId));

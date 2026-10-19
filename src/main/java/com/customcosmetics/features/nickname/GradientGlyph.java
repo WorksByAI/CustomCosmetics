@@ -35,7 +35,7 @@ public record GradientGlyph(TextRenderable.Styled original, NicknameGlyphEffect 
         catch (InvocationTargetException error) { throw error.getCause(); }
     }
     public void render(Matrix4fc pose, VertexConsumer vertices, int light, boolean inverseDepth) {
-        var colors = new GradientVertices(vertices, effect, x, y, advance, foreground, System.currentTimeMillis());
+        var colors = new GradientVertices(vertices, effect, x, y, advance, foreground, AnimationClock.millis());
         colors.bulkPose(pose);
         original.render(pose, colors.optimized(), light, inverseDepth);
         colors.finish();
@@ -58,6 +58,7 @@ public record GradientGlyph(TextRenderable.Styled original, NicknameGlyphEffect 
         private final long time;
         private final QuadSelector selector;
         private final Vertex[] quad = new Vertex[4];
+        private final Vertex interpolated = new Vertex();
         private int count;
         private Vertex current;
         private org.joml.Matrix4f bulkInverse;
@@ -120,10 +121,10 @@ public record GradientGlyph(TextRenderable.Styled original, NicknameGlyphEffect 
                 int strips = Math.clamp((int)Math.ceil(Math.abs(quad[3].paintX - quad[0].paintX) * 2-0.0001f), 1, 64);
                 for (int strip=0;strip<strips;strip++) {
                     float a = strip/(float)strips, b=(strip+1)/(float)strips;
-                    emit(between(quad[0],quad[3],a),sample);
-                    emit(between(quad[1],quad[2],a),sample);
-                    emit(between(quad[1],quad[2],b),sample);
-                    emit(between(quad[0],quad[3],b),sample);
+                    emit(between(interpolated,quad[0],quad[3],a),sample);
+                    emit(between(interpolated,quad[1],quad[2],a),sample);
+                    emit(between(interpolated,quad[1],quad[2],b),sample);
+                    emit(between(interpolated,quad[0],quad[3],b),sample);
                 }
             }
             count=0;current=null;
@@ -148,8 +149,8 @@ public record GradientGlyph(TextRenderable.Styled original, NicknameGlyphEffect 
             if(vertex.hasNormal)sink.setNormal(vertex.nx,vertex.ny,vertex.nz);
             if(vertex.hasLineWidth)sink.setLineWidth(vertex.lineWidth);
         }
-        private static Vertex between(Vertex a,Vertex b,float t) {
-            Vertex v=new Vertex();v.pose=a.pose;v.pose2d=a.pose2d;v.color=a.color;v.light=a.light;
+        private static Vertex between(Vertex v,Vertex a,Vertex b,float t) {
+            v.pose=a.pose;v.pose2d=a.pose2d;v.color=a.color;v.light=a.light;
             v.x=a.x+(b.x-a.x)*t;v.y=a.y+(b.y-a.y)*t;v.z=a.z+(b.z-a.z)*t;
             v.paintX=a.paintX+(b.paintX-a.paintX)*t;v.paintY=a.paintY+(b.paintY-a.paintY)*t;
             v.u=a.u+(b.u-a.u)*t;v.v=a.v+(b.v-a.v)*t;

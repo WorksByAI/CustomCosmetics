@@ -50,7 +50,7 @@ public final class BlockingSync {
         String base = PresenceSync.serviceBaseUrl(), host = SyncEndpoint.normalizeHost(ConfigManager.syncUdpHost);
         boolean useUdp = "udp".equals(ConfigManager.syncBlockingTransport);
         boolean active = RemoteAccess.online() && worldIdentity != null && !base.isBlank() && (!useUdp || host != null && !host.isBlank())
-            && ConfigManager.swordBlockingEnabled && ConfigManager.swordBlockingSyncEnabled && ConfigManager.syncEnabled;
+            && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ANIMATIONS) && ConfigManager.swordBlockingEnabled && ConfigManager.swordBlockingSyncEnabled && ConfigManager.syncEnabled;
         String key = active ? base + "|" + ConfigManager.syncBlockingTransport + "|" + host + ":" + ConfigManager.syncUdpPort : "";
         var auth = active ? PresenceSync.actionSession() : null;
         if (!endpoint.equals(key) || authenticated != auth) {

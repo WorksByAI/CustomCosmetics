@@ -13,6 +13,7 @@ public final class VisualBlockhit {
     private VisualBlockhit() {}
 
     public static void tick(Minecraft client) {
+        if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ANIMATIONS))return;
         if (world != client.level) { world = client.level; clock = new BlockhitClock(); }
         if (client.isPaused()) return;
         clock.tick(active(client), ViewModelAnimations.swingDuration(client));

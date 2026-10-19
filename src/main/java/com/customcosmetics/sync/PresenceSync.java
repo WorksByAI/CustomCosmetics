@@ -87,6 +87,8 @@ public final class PresenceSync {
     private record RemoteSnapshot(Map<UUID, RemoteUserState> users, Map<String, ChromaProfile> profiles,
                                   List<RemoteNickname> nicknames, boolean hasSmol) {}
     private static volatile RemoteSnapshot remoteSnapshot = new RemoteSnapshot(Map.of(), Map.of(), List.of(), false);
+    /** Opaque identity for client-render caches; changes whenever synchronized appearance changes. */
+    public static Object appearanceSnapshot() { return remoteSnapshot; }
 
     private PresenceSync() {
     }
@@ -136,7 +138,7 @@ public final class PresenceSync {
     }
 
     public static void tick() {
-        if (!RemoteAccess.online()) return;
+        if (!RemoteAccess.online()||!com.customcosmetics.config.FeatureModules.remoteConsumers()) return;
         if (RemoteServerConfig.reload(false)) onServerAddressChanged();
         handleImmediateSyncTriggers();
     }
@@ -653,7 +655,7 @@ public final class PresenceSync {
             Double.isFinite(ConfigManager.nickTweaksShimmerSpeed) ? clamp(ConfigManager.nickTweaksShimmerSpeed, 0, 4) : 1,
             ConfigManager.nickTweaksShimmerColor & 0xFFFFFF, ConfigManager.nickTweaksShimmerHighlightColor & 0xFFFFFF, ConfigManager.nickTweaksShimmerSize,ConfigManager.nickTweaksShimmerInterval,
             nickTweaksEnabled && customNickColorEnabled && !chromaEnabled && ConfigManager.nickTweaksGradientStyle.equals("segmented")
-                ? NicknameSegments.normalize(ConfigManager.nickTweaksGradientSegments) : List.of(),PlayerSizeSettings.local().active(),ConfigManager.accessories.active()
+                ? NicknameSegments.normalize(ConfigManager.nickTweaksGradientSegments) : List.of(),PlayerSizeSettings.local().active(),com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.EQUIPMENT)?ConfigManager.accessories.active():AccessoriesSettings.NONE
         );
         return state;
     }

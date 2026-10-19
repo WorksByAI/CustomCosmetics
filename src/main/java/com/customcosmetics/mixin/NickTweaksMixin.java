@@ -11,6 +11,7 @@ import com.customcosmetics.utils.NickRenderUtils;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.locale.Language;
@@ -26,6 +27,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 public class NickTweaksMixin {
+    @Mixin(Minecraft.class)
+    public static class Frame {
+        @Inject(method="renderFrame",at=@At("HEAD"))
+        private void customcosmetics$frame(CallbackInfo ci){NickRenderUtils.beginFrame();if(com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.NICK))com.customcosmetics.features.nickname.AnimationClock.frame((Minecraft)(Object)this);}
+    }
 
     @Environment(EnvType.CLIENT)
     @Mixin(Font.class)
@@ -65,6 +71,7 @@ public class NickTweaksMixin {
 
         @Inject(method = "width(Lnet/minecraft/network/chat/FormattedText;)I", at = @At("HEAD"), cancellable = true)
         private void customcosmetics$chromaWidthFormattedText(FormattedText text, CallbackInfoReturnable<Integer> cir) {
+            if(!NickRenderUtils.hasActiveTargets())return;
             FormattedCharSequence visualOrder = Language.getInstance().getVisualOrder(text);
             cir.setReturnValue(((Font) (Object) this).width(visualOrder));
         }

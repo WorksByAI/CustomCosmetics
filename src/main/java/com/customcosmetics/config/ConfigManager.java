@@ -31,6 +31,7 @@ public final class ConfigManager {
     private static volatile long pendingSaveAt;
 
     public static boolean smolpeopleMode = false;
+    public static volatile int disabledModules=0;
     public static boolean damageSplashEnabled=false, damageSplashBold=true, damageSplashCompact=false;
     public static boolean damageSplashStyleNormal=false, damageSplashShadow=true;
     public static String damageSplashStyle="default", damageSplashSymbol="✧", damageSplashSeparator="comma";

@@ -70,7 +70,7 @@ public final class MapEditor {
         var before=DATA.snapshot();var kept=new LinkedHashMap<>(before);if(replace)kept.keySet().removeIf(p->{var frame=DungeonRooms.at(p);return frame!=null&&plan.layouts().containsKey(frame.key());});DATA.replace(kept);dirty(before.keySet());appliedLayouts.clear();DungeonRooms.reset();nextScan=0;refresh();
         return "Imported FME config. Backup: "+backup;
     }
-    public static boolean allowed(Minecraft client){return client.level!=null&&client.player!=null&&(!dungeonOnly||client.hasSingleplayerServer()||inMapArea(client));}
+    public static boolean allowed(Minecraft client){return com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.MAP)&&client.level!=null&&client.player!=null&&(!dungeonOnly||client.hasSingleplayerServer()||inMapArea(client));}
     public static boolean inDungeon(Minecraft client){return client.level!=null&&client.player!=null&&(forceDungeon||automaticDungeon(client));}
     public static boolean automaticKuudra(Minecraft client){return DungeonSidebarReader.read(client).kuudra();}
     public static boolean inKuudra(Minecraft client){return client.level!=null&&client.player!=null&&(forceKuudra||automaticKuudra(client));}
@@ -95,6 +95,10 @@ public final class MapEditor {
         com.customcosmetics.client.CustomCosmeticsClient.LOGGER.info("Map area detector: forcedDungeon={}; forcedKuudra={}; dungeon={}; kuudra={}; objective={}; title={}; floor={}; rows={}",forceDungeon,forceKuudra,sidebar.detected(),sidebar.kuudra(),sidebar.objective(),sidebar.title(),sidebar.floor(),sidebar.raw());
     }
     public static void tick(Minecraft client){
+        if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.MAP)){
+            if(level!=null){saveRoomEdits();if(!visible.isEmpty()){visible=Map.of();dirty(DATA.snapshot().keySet());}DungeonRooms.reset();DungeonSidebarReader.clearCache();restorer.reset();MaterialReplacement.cancel();MapRegionFill.cancel();level=null;}
+            return;
+        }
         if(level!=client.level){saveRoomEdits();level=client.level;visible=Map.of();DATA.reset();pendingSaves.clear();appliedRooms.clear();appliedLayouts.clear();DungeonRooms.reset();restorer.reset();anchor=null;first=second=null;editing=false;nextScan=0;lastRoom="None";kuudraContext=inKuudra(client);}
         syncArea(client);DungeonRooms.context(client);MapEditorUi.tick(client);long now=System.currentTimeMillis();if(now>=nextRoomSave){nextRoomSave=now+750;saveRoomEdits();}
         MaterialReplacement.tick(client);MapRegionFill.tick(client);boolean active=enabled&&allowed(client);

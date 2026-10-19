@@ -8,6 +8,18 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class GradientVerticesTest {
+    @Test void interpolationScratchNeverLeaksAttributesFromPreviousQuads(){
+        var output=new Capture();var effect=new NicknameGlyphEffect(new NicknameGradient("smooth",0x24CFDF,0xEA78C5,1),0,1);
+        var vertices=new GradientGlyph.GradientVertices(output,effect,100,20,8,0xFF24CFDF,0);
+        for(int color:new int[]{0xFF24CFDF,0xFF000000,0xFF24CFDF}){
+            vertices.addVertex(100,20,0).setColor(color).setUv(.2f,.3f).setLight(0xF000F0);
+            vertices.addVertex(100,28,0).setColor(color).setUv(.2f,.7f).setLight(0xF000F0);
+            vertices.addVertex(108,28,0).setColor(color).setUv(.6f,.7f).setLight(0xF000F0);
+            vertices.addVertex(108,20,0).setColor(color).setUv(.6f,.3f).setLight(0xF000F0);vertices.finish();
+        }
+        assertEquals(132,output.vertices.size());assertTrue(output.vertices.subList(64,68).stream().allMatch(v->v.color==0xFF000000));
+        assertEquals(output.vertices.subList(0,64).stream().map(v->v.color).toList(),output.vertices.subList(68,132).stream().map(v->v.color).toList());
+    }
     @Test void oneGlyphGetsMultipleColorsWithoutChangingAlphaAtlasCoordinatesOrLighting() {
         var output=new Capture();
         draw(output,new Matrix4f(),0xB224CFDF);

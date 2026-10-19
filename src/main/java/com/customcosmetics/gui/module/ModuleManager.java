@@ -12,8 +12,8 @@ import java.util.Map;
 
 public final class ModuleManager {
     private static final Map<String, Module> MODULES = Map.of(
-        "SmolPeople", new Module(() -> ConfigManager.smolpeopleMode),
-        "NickTweaks", new Module(() -> ConfigManager.nickTweaksEnabled)
+        "SmolPeople", new Module(() -> (ConfigManager.smolpeopleMode && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SMOL))),
+        "NickTweaks", new Module(() -> (ConfigManager.nickTweaksEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.NICK)))
     );
 
     private ModuleManager() {}

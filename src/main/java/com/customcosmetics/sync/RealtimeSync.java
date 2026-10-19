@@ -15,7 +15,7 @@ public final class RealtimeSync {
     private RealtimeSync(){}
     public static boolean enabled(){return !"udp".equals(ConfigManager.syncBlockingTransport)||PositionSharing.enabled();}
     public static void block(BlockHand value,String id){
-        boolean share=ConfigManager.swordBlockingEnabled&&ConfigManager.swordBlockingSyncEnabled&&ConfigManager.syncEnabled;
+        boolean share=(ConfigManager.swordBlockingEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ANIMATIONS))&&ConfigManager.swordBlockingSyncEnabled&&ConfigManager.syncEnabled;
         hand=share?value:BlockHand.NONE;item=share?id:"";if(live!=null)live.block(hand,item);
     }
     public static BlockingTransport.Pose pose(UUID id){if(!RemoteAccess.online()||live==null)return null;var pose=live.blocks().get(id);return pose!=null&&pose.expiresAt()>System.nanoTime()/1000000?pose:null;}
@@ -32,7 +32,7 @@ public final class RealtimeSync {
     public static void disconnect(){generation++;if(live!=null)live.close();live=null;endpoint="";identity=null;nextAttempt=0;authenticating=false;}
     public static void onSettingsClosed(){if(live!=null&&live.requestedUdpPort()!=ConfigManager.getSyncP2pPort())disconnect();}
     public static void tick(Minecraft client){
-        boolean blocking=ConfigManager.swordBlockingEnabled&&ConfigManager.swordBlockingSyncEnabled&&ConfigManager.syncEnabled;
+        boolean blocking=(ConfigManager.swordBlockingEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ANIMATIONS))&&ConfigManager.swordBlockingSyncEnabled&&ConfigManager.syncEnabled;
         boolean party=PartyFeatures.sharingPositions()&&!PartyFeatures.roster().empty();
         var audience=PositionSharing.audience(client);boolean locations=audience.receive()||audience.publishes(PartyFeatures.roster(),party);
         if(!enabled()||!RemoteAccess.online()||client.player==null||client.level==null||client.hasSingleplayerServer()||!blocking&&!party&&!locations){disconnect();return;}

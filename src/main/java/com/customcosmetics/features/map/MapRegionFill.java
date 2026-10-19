@@ -12,6 +12,7 @@ final class MapRegionFill {
     private static Job job;
     private MapRegionFill(){}
     static boolean busy(){return job!=null;}
+    static void cancel(){job=null;}
     static void start(BlockPos first,BlockPos second,String material){
         var client=Minecraft.getInstance();
         if(!MapEditor.allowed(client))throw new IllegalStateException("Join an allowed world first");

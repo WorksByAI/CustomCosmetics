@@ -34,6 +34,7 @@ public final class ItemCosmetics {
         catch (java.io.IOException error) { CustomCosmeticsClient.LOGGER.warn("Could not load local item appearances: {}", error.getMessage()); }
     }
     public static ItemAppearanceStore store() { return store; }
+    public static boolean modelsActive(){return com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ITEMS)&&(!PREVIEWS.isEmpty()||store!=null&&store.enabled()&&store.hasModels());}
     public static String uuid(CompoundTag data) {
         String direct = ItemAppearanceStore.key(data.getStringOr("uuid", ""));
         if (!direct.isEmpty()) return direct;
@@ -106,6 +107,7 @@ public final class ItemCosmetics {
         return VALIDATED.computeIfAbsent(new Validation(id, source.getItem(), source.getComponentsPatch(), source.getCount()), key -> renderable(source, id));
     }
     public static Identifier model(ItemStack stack, Identifier original) {
+        if(!modelsActive())return original;
         if (VALIDATING.contains(stack)) return original;
         var preview = PREVIEWS.get(stack);
         if (preview != null) return preview;
@@ -115,12 +117,15 @@ public final class ItemCosmetics {
         return hasModel(selected) && validated(stack, selected) ? selected : original;
     }
     public static Component name(ItemStack stack, Component original) {
+        if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ITEMS))return original;
+        if(store==null||!store.hasNames())return original;
         // The integrated server shares ItemStack classes but must retain its original names.
         if (store == null || !store.enabled() || !Minecraft.getInstance().isSameThread()) return original;
         String raw = store.get(uuid(stack)).name();
         return raw.isEmpty() ? original : ItemNameText.parse(raw);
     }
     public static void tick() {
+        if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ITEMS))return;
         if (store != null && store.dirty() && System.currentTimeMillis() - lastSave > 750) save();
     }
     public static boolean save() {

@@ -45,6 +45,7 @@ public final class NickRenderUtils {
     private static volatile String cachePlayerName = "";
     private static volatile UUID cachePlayerUuid;
     private static volatile List<Target> cachedTargets = List.of();
+    private static volatile boolean cachedSmooth;
     private static final ThreadLocal<Boolean> PREVIEW_OVERRIDE = ThreadLocal.withInitial(() -> Boolean.FALSE);
     private static final ThreadLocal<Boolean> CLICK_GUI_RENDER_SCOPE = ThreadLocal.withInitial(() -> Boolean.FALSE);
     private static final ThreadLocal<Boolean> MOD_MENU_TEXT_RENDER_SCOPE = ThreadLocal.withInitial(() -> Boolean.FALSE);
@@ -76,6 +77,14 @@ public final class NickRenderUtils {
         }
     };
     private static final char[] HEX = "0123456789ABCDEF".toCharArray();
+    private static final TargetMatch[] NO_MATCH=new TargetMatch[0];
+    private static volatile long renderFrame;
+    private static final class TextCaches {
+        final IdentityFrameCache<FormattedCharSequence,FormattedCharSequence> resolved=new IdentityFrameCache<>(4096),measured=new IdentityFrameCache<>(4096);
+        void begin(){long version=TARGET_VERSION.get();resolved.begin(renderFrame,version);measured.begin(renderFrame,version);}
+    }
+    private static final ThreadLocal<TextCaches> TEXT_CACHES=ThreadLocal.withInitial(TextCaches::new);
+    public static void beginFrame(){renderFrame++;}
 
     private NickRenderUtils() {
     }
@@ -85,8 +94,10 @@ public final class NickRenderUtils {
         cachePlayerName = "";
         cachePlayerUuid = null;
         cachedTargets = List.of();
+        cachedSmooth=false;
         TARGET_VERSION.incrementAndGet();
         synchronized (MATCH_CACHE_LOCK) { MATCH_CACHE.clear(); }
+        var text=TEXT_CACHES.get();text.resolved.begin(Long.MIN_VALUE,Long.MIN_VALUE);text.measured.begin(Long.MIN_VALUE,Long.MIN_VALUE);
     }
 
     public static long getTargetsCacheAt() {
@@ -94,6 +105,7 @@ public final class NickRenderUtils {
     }
 
     private static boolean shouldSkipNickTweakSubstitution() {
+        if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.NICK))return true;
         if (Boolean.TRUE.equals(PREVIEW_OVERRIDE.get())) {
             return false;
         }
@@ -191,9 +203,6 @@ public final class NickRenderUtils {
         }
 
         if (matchByIndex == null) {
-            codePoints = text.codePoints().toArray();
-            if (codePoints.length == 0) return text;
-
             String lower = text.toLowerCase(Locale.ROOT);
             List<Target> matchingTargets = null;
             for (Target target : targets) {
@@ -201,8 +210,11 @@ public final class NickRenderUtils {
                 if (matchingTargets == null) matchingTargets = new ArrayList<>();
                 matchingTargets.add(target);
             }
-            if (matchingTargets == null || matchingTargets.isEmpty()) return text;
+            if (matchingTargets == null || matchingTargets.isEmpty()) {
+                synchronized(MATCH_CACHE_LOCK){MATCH_CACHE.put(cacheKey,NO_MATCH);}return text;
+            }
 
+            codePoints = text.codePoints().toArray();
             matchByIndex = matchTargets(codePoints, matchingTargets);
             synchronized (MATCH_CACHE_LOCK) {
                 MATCH_CACHE.put(cacheKey, matchByIndex);
@@ -370,6 +382,11 @@ public final class NickRenderUtils {
         if (shouldSkipNickTweakSubstitution()) return original;
         List<Target> targets = collectTargets();
         if (targets.isEmpty()) return original;
+        var caches=TEXT_CACHES.get();caches.begin();var cached=caches.resolved.get(original);if(cached!=null)return cached;
+        var result=resolveCharSequence(original,targets);caches.resolved.put(original,result);return result;
+    }
+
+    private static FormattedCharSequence resolveCharSequence(FormattedCharSequence original,List<Target> targets) {
 
         StringBuilder sbPlain = new StringBuilder();
         boolean[] styled = {false};
@@ -390,8 +407,6 @@ public final class NickRenderUtils {
         }
 
         if (matchByIndex == null) {
-            int[] codePoints = plain.codePoints().toArray();
-
             String lower = plain.toLowerCase(Locale.ROOT);
             List<Target> matchingTargets = null;
             for (Target target : targets) {
@@ -399,8 +414,11 @@ public final class NickRenderUtils {
                 if (matchingTargets == null) matchingTargets = new ArrayList<>();
                 matchingTargets.add(target);
             }
-            if (matchingTargets == null || matchingTargets.isEmpty()) return original;
+            if (matchingTargets == null || matchingTargets.isEmpty()) {
+                synchronized(MATCH_CACHE_LOCK){MATCH_CACHE.put(cacheKey,NO_MATCH);}return original;
+            }
 
+            int[] codePoints = plain.codePoints().toArray();
             matchByIndex = matchTargets(codePoints, matchingTargets);
             synchronized (MATCH_CACHE_LOCK) {
                 MATCH_CACHE.put(cacheKey, matchByIndex);
@@ -436,15 +454,20 @@ public final class NickRenderUtils {
 
     public static boolean hasSmoothGradient() {
         if (shouldSkipNickTweakSubstitution()) return false;
-        return collectTargets().stream().anyMatch(target -> target.gradient() != null);
+        return !collectTargets().isEmpty()&&cachedSmooth;
     }
+    public static boolean hasActiveTargets(){return !shouldSkipNickTweakSubstitution()&&!collectTargets().isEmpty();}
 
     /** Measure actual advances so narrow Latin letters and wide CJK glyphs share one gradient. */
     public static FormattedCharSequence measureGradient(FormattedCharSequence original, Font font) {
-        boolean local = ConfigManager.nickTweaksCustomNickColorEnabled
-            && !NicknameGradient.normalizeStyle(ConfigManager.nickTweaksGradientStyle).equals("character");
-        if (!local && !Boolean.TRUE.equals(CLICK_GUI_RENDER_SCOPE.get()) && PresenceSync.remoteNicknames().stream().noneMatch(n -> n.profile().customNickColorEnabled()
-                && !n.profile().chromaEnabled() && !n.profile().gradientStyle().equals("character"))) return original;
+        if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.NICK))return original;
+        if(original==null)return null;
+        var caches=TEXT_CACHES.get();caches.begin();var cached=caches.measured.get(original);if(cached!=null)return cached;
+        var result=measureUncachedGradient(original,font);caches.measured.put(original,result);return result;
+    }
+    private static FormattedCharSequence measureUncachedGradient(FormattedCharSequence original,Font font){
+        boolean[] containsEffect={false};original.accept((index,style,codepoint)->{if(NicknameGlyphEffect.from(style)!=null){containsEffect[0]=true;return false;}return true;});
+        if(!containsEffect[0])return original;
         List<Glyph> glyphs = new ArrayList<>();
         original.accept((index, style, codepoint) -> { glyphs.add(new Glyph(codepoint, style)); return true; });
         boolean changed = false;
@@ -668,6 +691,7 @@ public final class NickRenderUtils {
         targets.removeIf(t -> t.name().isBlank());
         targets.sort(Comparator.comparingInt((Target t) -> t.codePoints().length).reversed());
         cachedTargets = List.copyOf(targets);
+        cachedSmooth=false;for(var target:targets)if(target.gradient()!=null){cachedSmooth=true;break;}
         cachePlayerName = selfName;
         cachePlayerUuid = selfUuid;
         targetsCacheAt = now;

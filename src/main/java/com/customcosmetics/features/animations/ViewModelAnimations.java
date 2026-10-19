@@ -84,7 +84,7 @@ public final class ViewModelAnimations {
         return Math.max(1, itemDuration + Math.max(0, fatigueLevel) * 2);
     }
     public static int duration(int base, double speed) { return Math.max(1, (int) (base * Math.exp(-Math.clamp(speed, -2, 1)))); }
-    public static boolean enabled() { return ConfigManager.animationsEnabled; }
+    public static boolean enabled() { return (ConfigManager.animationsEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ANIMATIONS)); }
     public static boolean customTiming() { return enabled() && (ConfigManager.animationSwingSpeed != 0 || ConfigManager.animationIgnoreHaste); }
     public static boolean customTiming(boolean mainHandEmpty) { return customTiming() && !mainHandEmpty; }
     public static boolean suppressSwing(String skyblockId) {

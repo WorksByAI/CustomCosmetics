@@ -34,11 +34,16 @@ public record AccessoriesSettings(Part wings, Part halo, Part ears, Map<String,P
     public Part part(String key){return switch(key){case "wings"->wings;case "halo"->halo;case "ears"->ears;default->{if(!AccessoryCatalog.known(key))throw new IllegalArgumentException(key);yield extra.get(key);}};}
     public AccessoriesSettings with(String key,Part part){return switch(key){case "wings"->new AccessoriesSettings(part,halo,ears,extra);case "halo"->new AccessoriesSettings(wings,part,ears,extra);case "ears"->new AccessoriesSettings(wings,halo,part,extra);default->{if(!AccessoryCatalog.known(key))throw new IllegalArgumentException(key);var copy=new TreeMap<>(extra);copy.put(key,part);yield new AccessoriesSettings(wings,halo,ears,copy);}};}
     public AccessoriesSettings active(){
+        boolean normalized = (wings.enabled || wings.equals(NONE.wings)) && (halo.enabled || halo.equals(NONE.halo)) && (ears.enabled || ears.equals(NONE.ears));
+        if (normalized) {
+            for (var entry : extra.entrySet()) if (!entry.getValue().enabled && !entry.getValue().equals(NONE.extra.get(entry.getKey()))) { normalized = false; break; }
+            if (normalized) return this;
+        }
         var w=wings.enabled?wings:NONE.wings;var h=halo.enabled?halo:NONE.halo;var e=ears.enabled?ears:NONE.ears;
         var copy=new TreeMap<String,Part>();extra.forEach((key,part)->copy.put(key,part.enabled?part:NONE.extra.get(key)));
         return w.equals(wings)&&h.equals(halo)&&e.equals(ears)&&copy.equals(extra)?this:new AccessoriesSettings(w,h,e,copy);
     }
-    public boolean any(){return wings.enabled||halo.enabled||ears.enabled||extra.values().stream().anyMatch(Part::enabled);}
+    public boolean any(){if(wings.enabled||halo.enabled||ears.enabled)return true;for(var part:extra.values())if(part.enabled)return true;return false;}
     public static AccessoriesSettings choose(UUID self,UUID target,boolean offline,AccessoriesSettings local,AccessoriesSettings remote){
         if(target==null)return NONE;if(target.equals(self))return local==null?NONE:local.active();return offline||remote==null?NONE:remote.active();
     }

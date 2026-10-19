@@ -11,7 +11,7 @@ public final class SharingChams {
     private SharingChams(){}
     public static boolean applies(int entityId){
         var client=Minecraft.getInstance();
-        if(!ConfigManager.sharingChamsEnabled||!RemoteAccess.online()||client.level==null||client.player==null)return false;
+        if(!(ConfigManager.sharingChamsEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SHARING))||!RemoteAccess.online()||client.level==null||client.player==null)return false;
         var entity=client.level.getEntity(entityId);
         if(!(entity instanceof AbstractClientPlayer player)||player==client.player||player.isInvisible()||player.isSpectator())return false;
         if(!PartyDisplayRange.visible(ConfigManager.partyMaxDisplayDistance,client.player.distanceToSqr(player)))return false;

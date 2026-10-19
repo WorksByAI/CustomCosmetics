@@ -18,6 +18,7 @@ public final class DungeonRooms {
     private static final Map<String,Integer> legacy=new HashMap<>();
     private static final Map<String,Tile> tiles=new HashMap<>();
     private static final Map<String,RoomLayouts.Frame> frames=new LinkedHashMap<>();
+    private static final Map<String,Long> nextDiscovery=new HashMap<>();
     public static final String KUUDRA_KEY="area:kuudra";
     private static final RoomLayouts.Frame KUUDRA_FRAME=new RoomLayouts.Frame(KUUDRA_KEY,"Kuudra's Hollow",new MapEdits.Position(0,0,0),0);
     private static Object contextLevel;private static boolean dungeon,offlineBoss,kuudra;private static String floor="";private static int scanCursor;
@@ -34,8 +35,8 @@ public final class DungeonRooms {
             for(var row:rows){var room=row.getAsJsonObject();var cores=room.getAsJsonArray("cores");var def=new Definition(room.get("name").getAsString(),cores.get(0).getAsInt());for(var core:cores)definitions.put(core.getAsInt(),def);}
         }catch(Exception error){throw new IllegalStateException("Could not read FunnyMap room catalog",error);}
     }
-    public static void reset(){tiles.clear();frames.clear();scanCursor=0;contextLevel=null;dungeon=false;offlineBoss=false;kuudra=false;floor="";}
-    public static void context(Minecraft client){boolean nextOffline=MapEditor.offlineBoss(client),nextKuudra=MapEditor.inKuudra(client);if(contextLevel!=client.level||offlineBoss!=nextOffline||kuudra!=nextKuudra){tiles.clear();frames.clear();}offlineBoss=nextOffline;kuudra=nextKuudra;contextLevel=client.level;dungeon=MapEditor.inMapArea(client);floor=dungeon&&!kuudra?MapEditor.floor():"";}
+    public static void reset(){tiles.clear();frames.clear();nextDiscovery.clear();scanCursor=0;contextLevel=null;dungeon=false;offlineBoss=false;kuudra=false;floor="";}
+    public static void context(Minecraft client){boolean nextOffline=MapEditor.offlineBoss(client),nextKuudra=MapEditor.inKuudra(client);if(contextLevel!=client.level||offlineBoss!=nextOffline||kuudra!=nextKuudra){tiles.clear();frames.clear();nextDiscovery.clear();}offlineBoss=nextOffline;kuudra=nextKuudra;contextLevel=client.level;dungeon=MapEditor.inMapArea(client);floor=dungeon&&!kuudra?MapEditor.floor():"";}
     private static String cell(int x,int z){return x+":"+z;}
     private static Collection<MapEdits.Position> scanCenters(){
         var centers=new LinkedHashSet<MapEdits.Position>();for(int x=-185;x<=-25;x+=32)for(int z=-185;z<=-25;z+=32)centers.add(new MapEdits.Position(x,0,z));
@@ -57,10 +58,12 @@ public final class DungeonRooms {
     /** Visit every loaded room from dungeon entry, distributing discovery across ticks. */
     public static void scanStep(){
         var client=Minecraft.getInstance();context(client);if(!dungeon||offlineBoss||kuudra)return;
-        var centers=new ArrayList<>(scanCenters());long end=System.nanoTime()+2_000_000;
+        var centers=new ArrayList<>(scanCenters());long end=System.nanoTime()+250_000,now=System.nanoTime();
         for(int visited=0;visited<centers.size();visited++){
             var center=centers.get(Math.floorMod(scanCursor++,centers.size()));
-            if(MapEditor.loaded(new BlockPos(center.x(),70,center.z())))scan(List.of(center));
+            String key=cell(center.x(),center.z());
+            if(frames.containsKey(key)||now<nextDiscovery.getOrDefault(key,0L))continue;
+            if(MapEditor.loaded(new BlockPos(center.x(),70,center.z()))){scan(List.of(center));nextDiscovery.put(key,now+2_000_000_000L);}
             if(System.nanoTime()>=end)return;
         }
     }
