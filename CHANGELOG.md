@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.5.4.6
 
 - Add animated rainbow colors for Damage Splash.
 
