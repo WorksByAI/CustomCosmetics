@@ -12,14 +12,19 @@ public final class WaypointData {
     public static final int MAX_GROUPS = 128, MAX_POINTS = 4096;
     private WaypointData() {}
 
-    public record Point(String name, int x, int y, int z, int color, boolean enabled) {
+    public record Point(String name, int x, int y, int z, int color, boolean enabled, double alpha) {
         public Point {
             name = text(name, 80, "Waypoint name");
             if (Math.abs((long) x) > 30_000_000 || Math.abs((long) z) > 30_000_000 || y < -2048 || y > 2048)
                 throw new IllegalArgumentException("Coordinates are outside the supported world range.");
             color &= 0xffffff;
+            if (!Double.isFinite(alpha) || alpha < 0 || alpha > 1)
+                throw new IllegalArgumentException("Waypoint alpha must be between 0 and 1.");
         }
-        public Point enabled(boolean value) { return new Point(name, x, y, z, color, value); }
+        public Point(String name, int x, int y, int z, int color, boolean enabled) {
+            this(name, x, y, z, color, enabled, .5);
+        }
+        public Point enabled(boolean value) { return new Point(name, x, y, z, color, value, alpha); }
         public double distanceSquared(double px, double py, double pz) {
             double dx = x + .5 - px, dy = y + .5 - py, dz = z + .5 - pz;
             return dx * dx + dy * dy + dz * dz;
@@ -47,18 +52,17 @@ public final class WaypointData {
         public Group enabled(boolean value) { return new Group(id, name, scope, value, ordered, throughWalls, points, style); }
     }
 
-    public static final List<String> STYLES = List.of("waypoint", "outlined_waypoint", "highlight", "outlined_highlight", "outline", "diamond");
+    public static final List<String> STYLES = List.of("waypoint", "outlined_waypoint", "highlight", "outlined_highlight", "outline");
     public static String normalizeStyle(String style) {
         return STYLES.contains(style) ? style : "waypoint";
     }
     public static String styleName(String style) {
         return switch (normalizeStyle(style)) {
-            case "outlined_waypoint" -> "Outlined Beacon";
-            case "highlight" -> "Block Highlight";
+            case "outlined_waypoint" -> "Outlined Waypoint";
+            case "highlight" -> "Highlight";
             case "outlined_highlight" -> "Outlined Highlight";
-            case "outline" -> "Block Outline";
-            case "diamond" -> "Diamond";
-            default -> "Beacon";
+            case "outline" -> "Outline";
+            default -> "Waypoint";
         };
     }
     /** Check edits and imports without making older files with duplicates unreadable. */

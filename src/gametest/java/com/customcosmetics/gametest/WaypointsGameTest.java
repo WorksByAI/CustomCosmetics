@@ -81,7 +81,8 @@ public final class WaypointsGameTest implements FabricClientGameTest {
                     check(first().scope().equals(Waypoints.currentScope()), "New group was not scoped to its world");
                 });
                 click(context, "Edit Group", PinkUi.Action.class);
-                click(context, "Style: Beacon", PinkUi.Action.class);
+                assertSafeEditActions(context);
+                click(context, "Style: Waypoint", PinkUi.Action.class);
                 click(context, "Save", PinkUi.Action.class);
                 context.runOnClient(client -> check(first().style().equals("outlined_waypoint"), "Group render style was not saved"));
                 click(context, "Add Waypoint", PinkUi.Action.class);
@@ -148,14 +149,24 @@ public final class WaypointsGameTest implements FabricClientGameTest {
                 context.getInput().resizeWindow(640, 480); context.waitTicks(4);
                 assertControlsInside(context); context.takeScreenshot("waypoint-manager-compact");
                 click(context, "Display Options", PinkUi.Action.class);
-                assertControlsInside(context);
+                assertControlsInside(context); context.takeScreenshot("waypoint-skyblocker-options-compact");
+                context.runOnClient(client -> {
+                    widget(client, "Render Line", PinkUi.Action.class);
+                    widget(client, "Allow Skipping", PinkUi.Action.class);
+                    widget(client, "Go Backwards", PinkUi.Action.class);
+                    widget(client, "Line Color", PinkUi.Field.class);
+                });
                 click(context, "Names: On", PinkUi.Action.class);
                 context.runOnClient(client -> check(!ConfigManager.waypointShowLabels, "Waypoint label toggle did not apply"));
                 click(context, "Names: Off", PinkUi.Action.class);
                 context.runOnClient(client -> check(ConfigManager.waypointShowLabels, "Waypoint labels did not turn back on"));
+                click(context, "Performance & Extras", PinkUi.Action.class);
+                assertControlsInside(context); context.takeScreenshot("waypoint-performance-options-compact");
+                click(context, "Waypoint Options", PinkUi.Action.class);
                 click(context, "Done", PinkUi.Action.class);
                 click(context, "Magenta Marker", PinkUi.Action.class);
-                assertControlsInside(context); context.takeScreenshot("waypoint-editor-compact");
+                assertControlsInside(context); assertSafeEditActions(context);
+                context.takeScreenshot("waypoint-editor-compact");
                 click(context, "Cancel", PinkUi.Action.class);
                 context.getInput().resizeWindow(1280, 720); context.waitTicks(4);
                 context.runOnClient(client -> {
@@ -382,6 +393,16 @@ public final class WaypointsGameTest implements FabricClientGameTest {
             for (var child : screen.children()) if (child instanceof AbstractWidget widget && widget.visible)
                 check(widget.getX() >= 0 && widget.getY() >= 0 && widget.getRight() <= screen.width && widget.getBottom() <= screen.height,
                         "Waypoint control outside compact viewport: " + widget.getMessage().getString());
+        });
+    }
+    private static void assertSafeEditActions(ClientGameTestContext context) {
+        context.runOnClient(client -> {
+            var cancel = widget(client, "Cancel", PinkUi.Action.class);
+            var save = widget(client, "Save", PinkUi.Action.class);
+            var delete = widget(client, "Delete", PinkUi.Action.class);
+            check(cancel.getRight() < save.getX(), "Cancel must be left of Save");
+            check(delete.getBottom() < save.getY(), "Delete must be separate from the main actions");
+            check(delete.getWidth() < cancel.getWidth(), "Delete button must be smaller than Cancel");
         });
     }
     private static AbstractWidget widget(net.minecraft.client.Minecraft client, String prefix, Class<?> type) {

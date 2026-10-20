@@ -27,11 +27,12 @@ class WaypointCodecTest {
     }
     @Test void waypointStylesSurviveLocalStorageAndSkyblockerShare() throws Exception {
         Group group = new Group(UUID.randomUUID().toString(), "Styled", "hypixel:hub", true, false, true,
-                List.of(new Point("A", 1, 70, 2, 0x55ff99, true)), "outlined_highlight");
+                List.of(new Point("A", 1, 70, 2, 0x55ff99, true, .25)), "outlined_highlight");
         assertEquals("outlined_highlight", WaypointCodec.decode(WaypointCodec.encode(new Snapshot(true, List.of(group))))
                 .groups().getFirst().style());
-        assertEquals("outlined_highlight", WaypointCodec.importGroups(WaypointCodec.exportGroups(List.of(group)), "")
-                .getFirst().style());
+        Group imported = WaypointCodec.importGroups(WaypointCodec.exportGroups(List.of(group)), "").getFirst();
+        assertEquals("outlined_highlight", imported.style());
+        assertEquals(.25, imported.points().getFirst().alpha());
         assertEquals("waypoint", WaypointData.normalizeStyle("future_skyblocker_style"));
     }
     @Test void oneIslandCannotAddTheSameCoordinatesTwice() {

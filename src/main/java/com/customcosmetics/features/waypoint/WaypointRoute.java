@@ -22,10 +22,23 @@ public final class WaypointRoute {
         tick(points, x, y, z, 1.5);
     }
     public void tick(List<Point> points, double x, double y, double z, double radius) {
+        tick(points, x, y, z, radius, false, false);
+    }
+    public void tick(List<Point> points, double x, double y, double z, double radius, boolean allowSkip, boolean allowBackwards) {
         if (current >= points.size()) current = 0;
         if (points.size() < 2) return;
         int next = (current + 1) % points.size();
-        if (points.get(next).enabled() && points.get(next).distanceSquared(x, y, z) <= radius * radius) current = next;
+        double radiusSquared = radius * radius;
+        if (!allowSkip && !allowBackwards) {
+            if (points.get(next).enabled() && points.get(next).distanceSquared(x, y, z) <= radiusSquared) current = next;
+            return;
+        }
+        int previous = Math.floorMod(current - 1, points.size());
+        for (int i = 0; i < points.size(); i++) {
+            if ((!allowSkip && i != next && i != previous) || (!allowBackwards && i != next)) continue;
+            Point point = points.get(i);
+            if (point.enabled() && point.distanceSquared(x, y, z) <= radiusSquared) current = i;
+        }
     }
     public int relation(int index, int count) {
         if (index == current) return 0;

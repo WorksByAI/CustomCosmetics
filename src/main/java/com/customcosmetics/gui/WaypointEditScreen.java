@@ -18,7 +18,9 @@ final class WaypointEditScreen extends Screen {
     private final int pointIndex;
     private final boolean groupMode, existing;
     private String name, scope, style = "waypoint", px = "0", py = "0", pz = "0", color = "55FF99", message = "";
+    private double alpha = .5;
     private boolean enabled = true, ordered, throughWalls = true, confirmDelete;
+    private long deleteConfirmUntil;
     private int orderIndex, x, y, w, h;
     private Field nameField, xField, yField, zField, colorField;
 
@@ -37,7 +39,8 @@ final class WaypointEditScreen extends Screen {
             if (existing) {
                 Point point = group.points().get(pointIndex);
                 name = point.name(); px = "" + point.x(); py = "" + point.y(); pz = "" + point.z();
-                color = String.format(Locale.ROOT, "%06X", point.color()); enabled = point.enabled();
+                color = String.format(Locale.ROOT, "%02X%06X", Math.round(point.alpha() * 255), point.color());
+                alpha = point.alpha(); enabled = point.enabled();
             } else takePosition();
         }
     }
@@ -53,13 +56,15 @@ final class WaypointEditScreen extends Screen {
         nameField = addRenderableWidget(new Field(font, x + 12, y + (compact() ? 39 : 45), w - 24, "Name", 20));
         nameField.setMaxLength(80); nameField.setValue(name); nameField.setResponder(value -> name = value);
         if (groupMode) buildGroup(); else buildPoint();
-        int third = (w - 36) / 3;
-        Action save = addRenderableWidget(new Action(x + 12, y + h - 34, third, 22, "Save", true, this::save));
+        int half = (w - 30) / 2;
+        addRenderableWidget(new Action(x + 12, y + h - 34, half, 22, "Cancel", false, this::onClose));
+        Action save = addRenderableWidget(new Action(x + 18 + half, y + h - 34, w - 30 - half, 22, "Save", true, this::save));
         save.active = Waypoints.writable();
-        addRenderableWidget(new Action(x + 18 + third, y + h - 34, third, 22, "Cancel", false, this::onClose));
-        Action delete = addRenderableWidget(new Action(x + 24 + third * 2, y + h - 34, w - 36 - third * 2, 22,
-                confirmDelete ? "Confirm Delete" : "Delete", false, this::delete));
-        delete.active = existing && Waypoints.writable();
+        if (existing) {
+            Action delete = addRenderableWidget(new Action(x + w - 120, y + 11, 108, 18,
+                    confirmDelete ? "Confirm Delete" : "Delete", false, this::delete));
+            delete.active = Waypoints.writable();
+        }
     }
     private void buildGroup() {
         int half = (w - 30) / 2;
@@ -84,8 +89,8 @@ final class WaypointEditScreen extends Screen {
         yField = coordinate(x + 18 + third, y + (compact() ? 76 : 92), third, "Y", py, value -> py = value);
         zField = coordinate(x + 24 + third * 2, y + (compact() ? 76 : 92), w - 36 - third * 2, "Z", pz, value -> pz = value);
         int half = (w - 30) / 2;
-        colorField = addRenderableWidget(new Field(font, x + 12, y + (compact() ? 112 : 139), half, "Color (RRGGBB)", 20));
-        colorField.setMaxLength(7); colorField.setValue(color); colorField.setResponder(value -> color = value);
+        colorField = addRenderableWidget(new Field(font, x + 12, y + (compact() ? 112 : 139), half, "Color (ARGB)", 20));
+        colorField.setMaxLength(9); colorField.setValue(color); colorField.setResponder(value -> color = value);
         addRenderableWidget(new Action(x + 18 + half, y + (compact() ? 112 : 139), half, 22, "Use Current Position", false, this::takePosition));
         addRenderableWidget(new Action(x + 12, y + (compact() ? 138 : 171), w - 24, 22, enabled ? "Waypoint: Enabled" : "Waypoint: Disabled", false,
                 () -> { enabled = !enabled; rebuildWidgets(); }));
@@ -111,9 +116,12 @@ final class WaypointEditScreen extends Screen {
                 Waypoints.put(new Group(source.id(), name, scope, enabled, ordered, throughWalls, source.points(), style));
             } else {
                 String rgb = color.startsWith("#") ? color.substring(1) : color;
-                if (!rgb.matches("[0-9a-fA-F]{6}")) throw new IllegalArgumentException("Color must contain six hexadecimal digits, e.g. 55FF99.");
+                if (!rgb.matches("(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})"))
+                    throw new IllegalArgumentException("Color needs RRGGBB or AARRGGBB hex digits.");
+                if (rgb.length() == 8) alpha = Integer.parseInt(rgb.substring(0, 2), 16) / 255d;
+                String rgbOnly = rgb.substring(rgb.length() - 6);
                 Point point = new Point(name, Integer.parseInt(px.strip()), Integer.parseInt(py.strip()), Integer.parseInt(pz.strip()),
-                        Integer.parseInt(rgb, 16), enabled);
+                        Integer.parseInt(rgbOnly, 16), enabled, alpha);
                 var points = new ArrayList<>(original.points());
                 if (existing) points.remove(pointIndex);
                 points.add(Math.clamp(orderIndex, 0, points.size()), point);
@@ -124,8 +132,10 @@ final class WaypointEditScreen extends Screen {
         catch (RuntimeException bad) { message = bad.getMessage(); }
     }
     private void delete() {
-        if (!confirmDelete) {
-            confirmDelete = true; message = groupMode ? "Delete this group and all its waypoints? Click again." : "Delete this waypoint? Click again.";
+        long now = System.currentTimeMillis();
+        if (!confirmDelete || now >= deleteConfirmUntil) {
+            confirmDelete = true; deleteConfirmUntil = now + 10_000;
+            message = groupMode ? "Delete this group and all its waypoints? Click again." : "Delete this waypoint? Click again.";
             rebuildWidgets(); return;
         }
         try {
@@ -134,10 +144,17 @@ final class WaypointEditScreen extends Screen {
             onClose();
         } catch (RuntimeException bad) { message = bad.getMessage(); }
     }
+    @Override public void tick() {
+        super.tick();
+        if (confirmDelete && System.currentTimeMillis() >= deleteConfirmUntil) {
+            confirmDelete = false; message = ""; rebuildWidgets();
+        }
+    }
     @Override public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
         outline(g, x, y, w, h, 10, BORDER, PANEL);
         boolean headerMessage = compact() && original != null && original.ordered() && !groupMode && !message.isEmpty();
-        text(g, font, headerMessage ? message : (existing ? "Edit " : "New ") + getTitle().getString(), x + 12, y + 13, PINK, w - 24);
+        text(g, font, headerMessage ? message : (existing ? "Edit " : "New ") + getTitle().getString(), x + 12, y + 13, PINK,
+                existing ? w - 140 : w - 24);
         text(g, font, "Name", x + 12, y + (compact() ? 27 : 32), MUTED, w - 24);
         if (groupMode) {
             if (!compact() || message.isEmpty())
@@ -152,7 +169,7 @@ final class WaypointEditScreen extends Screen {
             text(g, font, "X", x + 12, y + (compact() ? 64 : 78), MUTED, third);
             text(g, font, "Y", x + 18 + third, y + (compact() ? 64 : 78), MUTED, third);
             text(g, font, "Z", x + 24 + third * 2, y + (compact() ? 64 : 78), MUTED, third);
-            text(g, font, "Color · RRGGBB", x + 12, y + (compact() ? 100 : 125), MUTED, w - 24);
+            text(g, font, "Color · AARRGGBB (or RRGGBB)", x + 12, y + (compact() ? 100 : 125), MUTED, w - 24);
             if (!compact()) text(g, font, original.ordered() ? "Route position: " + (orderIndex + 1) : "Group: " + original.name(),
                     x + 12, y + 236, MUTED, w - 24);
         }

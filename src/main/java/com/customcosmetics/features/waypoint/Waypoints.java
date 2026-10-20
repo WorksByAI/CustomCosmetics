@@ -17,6 +17,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.renderer.blockentity.BeaconRenderer;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
@@ -153,7 +154,8 @@ public final class Waypoints {
         if (tick < graceUntil || markers.length == 0) { visibleCount = 0; return; }
         double x = client.player.getX(), y = client.player.getY(), z = client.player.getZ();
         for (Group group : data.groups()) if (group.enabled() && group.ordered() && group.scope().equals(scope))
-            ROUTES.computeIfAbsent(group.id(), ignored -> new WaypointRoute()).tick(group.points(), x, y, z, ConfigManager.waypointActivationRadius);
+            ROUTES.computeIfAbsent(group.id(), ignored -> new WaypointRoute()).tick(group.points(), x, y, z,
+                    ConfigManager.waypointActivationRadius, ConfigManager.waypointAllowSkipping, ConfigManager.waypointAllowBackwards);
         if (tick % 5 != 0 && !selectionDirty) return;
         selectionDirty = false;
         int limit = Math.min(ConfigManager.waypointMaxRendered, visible.length);
@@ -210,12 +212,10 @@ public final class Waypoints {
         if (!data.enabled() || visibleCount == 0) return;
         var camera = context.levelState().cameraRenderState;
         var queue = context.submitNodeCollector();
-        float range = Math.max(8, Math.min(128, camera.depthFar * .5f));
         var pose = new PoseStack();
         var rotation = new Matrix4f().rotation(camera.orientation);
         var forward = new Vector3f(0, 0, -1).rotate(camera.orientation);
         float size = (float) ConfigManager.waypointMarkerSize;
-        int alpha = Math.clamp((int) Math.round(ConfigManager.waypointOpacity * 255), 26, 217);
         for (int i = 0; i < visibleCount; i++) {
             Marker marker = visible[i];
             Point point = marker.point;
@@ -223,50 +223,71 @@ public final class Waypoints {
             double length = Math.sqrt(dx * dx + dy * dy + dz * dz);
             if (length > 8 && dx * forward.x + dy * forward.y + dz * forward.z < -length * .15) continue;
             int color = marker.color();
+            if (marker.route != null && marker.relation == 1 && ConfigManager.waypointRenderLine) {
+                int lineColor = ConfigManager.waypointLineColor;
+                float tx = (float) (point.x() + .5 - camera.pos.x);
+                float ty = (float) (point.y() + .5 - camera.pos.y);
+                float tz = (float) (point.z() + .5 - camera.pos.z);
+                float nx = tx - forward.x, ny = ty - forward.y, nz = tz - forward.z;
+                float inv = (float) (1 / Math.max(.001, Math.sqrt(nx * nx + ny * ny + nz * nz)));
+                nx *= inv; ny *= inv; nz *= inv;
+                pose.setIdentity();
+                final float normalX = nx, normalY = ny, normalZ = nz;
+                queue.submitCustomGeometry(pose, RenderTypes.linesTranslucent(), (matrix, vertices) -> {
+                    vertices.addVertex(matrix.pose(), forward.x, forward.y, forward.z).setColor(lineColor)
+                            .setNormal(normalX, normalY, normalZ).setLineWidth((float) ConfigManager.waypointLineWidth);
+                    vertices.addVertex(matrix.pose(), tx, ty, tz).setColor(lineColor)
+                            .setNormal(normalX, normalY, normalZ).setLineWidth((float) ConfigManager.waypointLineWidth);
+                });
+            }
             var type = marker.group.throughWalls() ? PartyRenderPipeline.type() : RenderTypes.debugQuads();
-            // Beyond a useful block-sized silhouette, keep a legible billboard at the
-            // waypoint's real depth (or the through-wall projection depth).
-            boolean diamond = marker.group.style().equals("diamond") || length > Math.max(range, 256);
             pose.setIdentity();
-            if (diamond) {
-                double factor = marker.group.throughWalls() && length > range ? range / length : 1;
-                pose.translate(dx * factor, dy * factor, dz * factor);
-                pose.mulPose(rotation);
-                float scale = (float) (.025 * size * Math.max(1,
-                        (marker.group.throughWalls() ? Math.min(length, range) : length) / 12));
-                pose.scale(scale, -scale, scale);
-            } else pose.translate(point.x() - camera.pos.x, point.y() - camera.pos.y, point.z() - camera.pos.z);
+            pose.translate(point.x() - camera.pos.x, point.y() - camera.pos.y, point.z() - camera.pos.z);
             String style = marker.group.style();
+            int alpha = Math.clamp((int) Math.round(point.alpha() * ConfigManager.waypointOpacity * 510), 0, 255);
             int fill = (alpha << 24) | (color & 0xffffff);
-            int beam = (Math.max(18, alpha / 3) << 24) | (color & 0xffffff);
             float low = .5f - size * .5f, high = .5f + size * .5f;
             queue.submitCustomGeometry(pose, type, (matrix, vertices) -> {
-                if (diamond) {
-                    vertices.addVertex(matrix.pose(), 0, 3, 0).setColor(color);
-                    vertices.addVertex(matrix.pose(), 4, 7, 0).setColor(color);
-                    vertices.addVertex(matrix.pose(), 0, 11, 0).setColor(color);
-                    vertices.addVertex(matrix.pose(), -4, 7, 0).setColor(color);
-                    return;
-                }
                 if (!style.equals("outline"))
                     WaypointGeometry.box(vertices, matrix.pose(), low, 0, low, high, size, high, fill);
                 if (style.equals("outline") || style.equals("outlined_highlight") || style.equals("outlined_waypoint"))
-                    WaypointGeometry.outline(vertices, matrix.pose(), low, 0, low, high, size, high, .012f * size, 0xff000000 | (color & 0xffffff));
-                if (style.equals("waypoint") || style.equals("outlined_waypoint"))
-                    WaypointGeometry.beam(vertices, matrix.pose(), .5f, size, .5f, .08f * size, beam);
+                    WaypointGeometry.outline(vertices, matrix.pose(), low, 0, low, high, size, high,
+                            (float) Math.max(.012 * size, Math.min(.06, length * .0015)), color);
             });
+            if (style.equals("waypoint") || style.equals("outlined_waypoint")) {
+                double horizontalDistance = Math.hypot(dx, dz);
+                float radius = (float) Math.max(1, horizontalDistance / 96);
+                BeaconRenderer.submitBeaconBeam(pose, queue, BeaconRenderer.BEAM_LOCATION, 1,
+                        (context.levelState().gameTime % 40) + Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true),
+                        0, 2048, color, .2f * radius, .25f * radius);
+                // At extreme range a block-sized beacon base collapses to a pixel. Keep
+                // a small, depth-correct square at the actual marker position.
+                if (length > 256) {
+                    pose.setIdentity();
+                    pose.translate(dx, dy, dz);
+                    pose.mulPose(rotation);
+                    float scale = (float) (length * .012);
+                    pose.scale(scale, -scale, scale);
+                    queue.submitCustomGeometry(pose, type, (matrix, vertices) -> {
+                        vertices.addVertex(matrix.pose(), -.5f, -.5f, 0).setColor(color);
+                        vertices.addVertex(matrix.pose(), .5f, -.5f, 0).setColor(color);
+                        vertices.addVertex(matrix.pose(), .5f, .5f, 0).setColor(color);
+                        vertices.addVertex(matrix.pose(), -.5f, .5f, 0).setColor(color);
+                    });
+                }
+            }
             if (!ConfigManager.waypointShowLabels) continue;
-            // Native submit methods snapshot the pose, so the same preparation stack is safe to reuse.
-            double factor = marker.group.throughWalls() && length > range ? range / length : 1;
             pose.setIdentity();
-            pose.translate(dx * factor, dy * factor, dz * factor);
+            pose.translate(dx, dy, dz);
             pose.mulPose(rotation);
-            float scale = (float) (.025 * Math.max(1,
-                    (marker.group.throughWalls() ? Math.min(length, range) : length) / 12));
+            float scale = (float) (.025 * Math.max(1, length / 10));
             pose.scale(scale, -scale, scale);
             queue.submitText(pose, -marker.width / 2f, -13, marker.label, false,
                     marker.group.throughWalls() ? Font.DisplayMode.SEE_THROUGH : Font.DisplayMode.NORMAL,
-                    0xF000F0, color, 0x50000000, 0);
+                    0xF000F0, 0xffffffff, 0x50000000, 0);
+            if (marker.route != null)
+                queue.submitText(pose, -marker.indexWidth / 2f, 0, marker.indexLabel, false,
+                        Font.DisplayMode.SEE_THROUGH, 0xF000F0, 0xffffffff, 0x50000000, 0);
         }
     }
     private static final class Marker {
@@ -275,23 +296,21 @@ public final class Waypoints {
         final int index;
         final WaypointRoute route;
         double distance;
-        int relation = 2, width;
+        int relation = 2, width, indexWidth;
         long labelDistance = -1;
-        int labelRelation = 99;
         boolean labelShowDistance;
-        FormattedCharSequence label;
+        FormattedCharSequence label, indexLabel;
         Marker(Group group, Point point, int index, WaypointRoute route) {
             this.group = group; this.point = point; this.index = index; this.route = route;
+            if (route != null) indexLabel = Component.literal(Integer.toString(index + 1)).getVisualOrderText();
         }
         void updateLabel(Font font, boolean showDistance) {
-            long meters = Math.round(Math.sqrt(distance));
-            if (meters == labelDistance && relation == labelRelation && showDistance == labelShowDistance) return;
-            String prefix = route == null ? "" : (index + 1) + ". " + switch (relation) {
-                case -1 -> "[Previous] "; case 0 -> "[Current] "; case 1 -> "[Next] "; default -> "";
-            };
-            Component text = Component.literal(prefix + point.name() + (showDistance ? " · " + meters + "m" : ""));
+            long meters = showDistance ? Math.round(Math.sqrt(distance)) : -1;
+            if (meters == labelDistance && showDistance == labelShowDistance) return;
+            Component text = Component.literal(point.name() + (showDistance ? " · " + meters + "m" : ""));
             label = text.getVisualOrderText(); width = font.width(text);
-            labelDistance = meters; labelRelation = relation; labelShowDistance = showDistance;
+            if (indexLabel != null && indexWidth == 0) indexWidth = font.width(indexLabel);
+            labelDistance = meters; labelShowDistance = showDistance;
         }
         int color() {
             return 0xff000000 | (route == null ? point.color() : switch (relation) {

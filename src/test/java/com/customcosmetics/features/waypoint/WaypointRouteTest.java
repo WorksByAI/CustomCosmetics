@@ -35,6 +35,17 @@ class WaypointRouteTest {
         route.tick(List.of(), 0, 0, 0);
         assertEquals(0, route.current());
     }
+    @Test void skyblockerSkippingAndBacktrackingOptionsControlProximity() {
+        var route = new WaypointRoute();
+        route.tick(points, 20.5, 70.5, .5, 2, true, false);
+        assertEquals(0, route.current(), "Disallowing backwards also prevents jumping past the next point");
+        route.tick(points, 20.5, 70.5, .5, 2, true, true);
+        assertEquals(2, route.current());
+        route.tick(points, 10.5, 70.5, .5, 2, false, false);
+        assertEquals(2, route.current());
+        route.tick(points, 10.5, 70.5, .5, 2, false, true);
+        assertEquals(1, route.current());
+    }
     @Test void skyblockWaypointsFollowIslandAcrossServerInstances() {
         assertEquals("hypixel:hub", hypixelScope("hub", "mini1"));
         assertEquals("hypixel:dynamic", hypixelScope("dynamic", "mini1"));

@@ -90,7 +90,7 @@ public final class WaypointCodec {
         value.addProperty("island", scopeParts.length >= 2 && scopeParts[0].equals("hypixel") ? scopeParts[1] : "unknown");
         value.addProperty("ordered", group.ordered());
         value.addProperty("renderThroughWalls", group.throughWalls());
-        value.addProperty("waypointType", group.style().equals("diamond") ? "waypoint" : group.style());
+        value.addProperty("waypointType", group.style());
         JsonArray points = new JsonArray();
         for (Point point : group.points()) {
             JsonObject p = new JsonObject();
@@ -103,7 +103,7 @@ public final class WaypointCodec {
             colors.add(((point.color() >> 8) & 255) / 255f);
             colors.add((point.color() & 255) / 255f);
             p.add("colorComponents", colors);
-            p.addProperty("alpha", 0.5);
+            p.addProperty("alpha", point.alpha());
             p.addProperty("shouldRender", point.enabled());
             points.add(p);
         }
@@ -128,7 +128,8 @@ public final class WaypointCodec {
                 int x = exactInt(pos.get(0)), y = exactInt(pos.get(1)), z = exactInt(pos.get(2));
                 String name = componentText(point.get("name"));
                 if (name.isBlank()) name = "Waypoint (" + x + ", " + y + ", " + z + ")";
-                decoded.add(new Point(name, x, y, z, color, bool(point, "shouldRender", true)));
+                double alpha = point.has("alpha") ? point.get("alpha").getAsDouble() : .5;
+                decoded.add(new Point(name, x, y, z, color, bool(point, "shouldRender", true), alpha));
             }
             String scope;
             if (local) scope = normalizeScope(string(group, "scope"));

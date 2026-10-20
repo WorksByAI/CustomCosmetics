@@ -68,9 +68,12 @@ public final class ConfigManager {
     public static volatile boolean updateCheckEnabled = true;
     public static boolean commandTooltipsEnabled=true;
     public static boolean accessoryHelperTooltipEnabled=true;
-    public static boolean waypointShowLabels=true,waypointShowDistance=true;
+    public static boolean waypointShowLabels=true,waypointShowDistance=false;
+    public static boolean waypointRenderLine=true,waypointAllowSkipping=true,waypointAllowBackwards=true;
+    public static double waypointLineWidth=5;
+    public static int waypointLineColor=0xff00ff00;
     public static int waypointMaxRendered=64,waypointMaxDistance=0;
-    public static double waypointMarkerSize=1,waypointOpacity=.5,waypointActivationRadius=1.5;
+    public static double waypointMarkerSize=1,waypointOpacity=.5,waypointActivationRadius=2;
     public static boolean snaplookEnabled=true;
     public static String snaplookPerspective="back";
     public static boolean capeEnabled = true;
@@ -209,6 +212,7 @@ public final class ConfigManager {
             waypointMarkerSize=Double.isFinite(waypointMarkerSize)?Math.clamp(waypointMarkerSize,.5,2):1;
             waypointOpacity=Double.isFinite(waypointOpacity)?Math.clamp(waypointOpacity,.1,.85):.5;
             waypointActivationRadius=Double.isFinite(waypointActivationRadius)?Math.clamp(waypointActivationRadius,1,10):1.5;
+            waypointLineWidth=Double.isFinite(waypointLineWidth)?Math.clamp(waypointLineWidth,1,15):5;
             partyNametagMode=com.customcosmetics.features.party.PartyNametagScale.mode(partyNametagMode);
             partyNametagSize=com.customcosmetics.features.party.PartyNametagScale.size(partyNametagSize);
             partyNametagHideDistance=com.customcosmetics.features.party.PartyDisplayRange.normalize(partyNametagHideDistance);
