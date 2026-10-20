@@ -5,7 +5,7 @@
 - Add synced creature models and custom worn armor models and colors.
 - Let shortcuts override server commands; scope waypoints through Hypixel Mod API.
 - Refresh accessory metadata from Skyblocker's public API.
-- Match Skyblocker's waypoint styles and route controls; add safer editing, clear-all and a render budget.
+- Match Skyblocker's waypoint styles and route controls; skip duplicate imports, delay Clear All confirmation and bound rendering work.
 
 ## 1.8.1
 

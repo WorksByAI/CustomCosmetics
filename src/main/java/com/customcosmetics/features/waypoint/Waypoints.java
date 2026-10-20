@@ -121,11 +121,12 @@ public final class Waypoints {
         return importGroups(WaypointCodec.importGroups(text, currentScope()));
     }
     public static int importGroups(List<Group> imported) {
-        var groups = new ArrayList<>(snapshot().groups());
-        groups.addAll(imported);
-        requireUniqueCoordinates(groups);
-        replace(new Snapshot(data.enabled(), groups));
-        return imported.size();
+        return importGroupsDetailed(imported).groups();
+    }
+    public static WaypointData.ImportResult importGroupsDetailed(List<Group> imported) {
+        var result = WaypointData.mergeImport(snapshot(), imported);
+        if (result.groups() > 0) replace(result.snapshot());
+        return result;
     }
     public static boolean orderedAction(String action) {
         String here = currentScope();

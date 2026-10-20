@@ -44,7 +44,8 @@ public final class WaypointsGameTest implements FabricClientGameTest {
             Files.createDirectories(skyblockerFile.getParent());
             Files.writeString(skyblockerFile, """
                 [{"name":"Hub","island":"hub","waypoints":[{"pos":[1,70,2],"name":"",
-                    "colorComponents":[1,0,0],"shouldRender":true}]},
+                    "colorComponents":[1,0,0],"shouldRender":true},
+                    {"pos":[1,70,2],"name":"Duplicate","colorComponents":[0,1,0],"shouldRender":true}]},
                  {"name":"Mining","island":"mining_3","ordered":true,"waypoints":[
                     {"pos":[3,100,4],"name":"Ore","colorComponents":[0,1,0],"shouldRender":false}]}]
                 """);
@@ -139,6 +140,7 @@ public final class WaypointsGameTest implements FabricClientGameTest {
                     check(imported.get(1).scope().equals("hypixel:hub") && imported.get(2).scope().equals("hypixel:mining_3"),
                             "Imported Skyblocker islands were not separated");
                     check(imported.get(1).points().getFirst().name().startsWith("Waypoint ("), "Unnamed Skyblocker point was lost");
+                    check(imported.get(1).points().size() == 1, "Duplicate Skyblocker coordinates were imported");
                     check(!imported.get(2).points().getFirst().enabled(), "Disabled Skyblocker point became enabled");
                 });
                 click(context, "Back", PinkUi.Action.class);
@@ -303,6 +305,13 @@ public final class WaypointsGameTest implements FabricClientGameTest {
                 });
                 click(context, "Clear All", PinkUi.Action.class);
                 context.runOnClient(client -> check(Waypoints.snapshot().groups().size() == 1, "Clear All skipped confirmation"));
+                context.runOnClient(client -> check(ClientUiAccess.screen(client).children().stream()
+                        .filter(PinkUi.Action.class::isInstance).map(PinkUi.Action.class::cast)
+                        .anyMatch(widget -> widget.getMessage().getString().startsWith("Wait ") && !widget.active),
+                        "Clear All confirmation did not wait for three seconds"));
+                context.waitFor(client -> ClientUiAccess.screen(client).children().stream()
+                        .filter(PinkUi.Action.class::isInstance).map(PinkUi.Action.class::cast)
+                        .anyMatch(widget -> widget.getMessage().getString().equals("Confirm Clear") && widget.active));
                 click(context, "Confirm Clear", PinkUi.Action.class);
                 context.runOnClient(client -> {
                     check(Waypoints.snapshot().groups().isEmpty(), "Clear All did not remove waypoints from other islands");

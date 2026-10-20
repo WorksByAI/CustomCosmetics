@@ -15,7 +15,7 @@ public final class WaypointScreen extends Screen {
     private final Screen parent;
     private String selected = "", message = "", here = "", island = "";
     private boolean followCurrent = true;
-    private long clearConfirmUntil;
+    private long clearConfirmAfter, clearConfirmUntil;
     private int screenTicks;
     private int x, y, w, h, left, right, detail, rows, groupOffset, pointOffset;
     private List<Group> allGroups = List.of(), groups = List.of();
@@ -77,10 +77,12 @@ public final class WaypointScreen extends Screen {
                 () -> ClientUiAccess.setScreen(minecraft, new WaypointImportScreen(this))));
         addRenderableWidget(new Action(x + 18 + importWidth, y + h - 98, actionWidth, 22, "Display Options", false,
                 () -> ClientUiAccess.setScreen(minecraft, new WaypointOptionsScreen(this))));
+        long now = System.currentTimeMillis();
+        String clearText = now < clearConfirmAfter ? "Wait " + ((clearConfirmAfter - now + 999) / 1000) + "s"
+                : now < clearConfirmUntil ? "Confirm Clear" : "Clear All";
         Action clear = addRenderableWidget(new Action(x + 24 + importWidth + actionWidth, y + h - 98,
-                w - 36 - importWidth - actionWidth, 22,
-                System.currentTimeMillis() < clearConfirmUntil ? "Confirm Clear" : "Clear All", false, this::clearAll));
-        clear.active = Waypoints.writable() && !allGroups.isEmpty();
+                w - 36 - importWidth - actionWidth, 22, clearText, false, this::clearAll));
+        clear.active = Waypoints.writable() && !allGroups.isEmpty() && now >= clearConfirmAfter;
         int third = (w - 36) / 3;
         addRenderableWidget(new Action(x + 12, y + h - 70, third, 22, "Import Clipboard", false, () -> perform(() -> {
             int count = Waypoints.importClipboard(minecraft.keyboardHandler.getClipboard());
@@ -102,12 +104,14 @@ public final class WaypointScreen extends Screen {
     private void clearAll() {
         long now = System.currentTimeMillis();
         if (now >= clearConfirmUntil) {
-            clearConfirmUntil = now + 10_000;
-            message = "Clear every waypoint on every island? Click Confirm Clear within 10 seconds.";
+            clearConfirmAfter = now + 3_000;
+            clearConfirmUntil = clearConfirmAfter + 10_000;
+            message = "Clear every island? Wait 3 seconds, then click Confirm Clear.";
             rebuildWidgets();
             return;
         }
-        clearConfirmUntil = 0;
+        if (now < clearConfirmAfter) return;
+        clearConfirmAfter = clearConfirmUntil = 0;
         perform(() -> {
             Waypoints.clearAll();
             selected = ""; groupOffset = pointOffset = 0;
@@ -117,6 +121,11 @@ public final class WaypointScreen extends Screen {
     @Override public void tick() {
         super.tick();
         if (++screenTicks % 20 != 0) return;
+        boolean timerUpdate = clearConfirmUntil != 0;
+        if (timerUpdate && System.currentTimeMillis() >= clearConfirmUntil) {
+            clearConfirmAfter = clearConfirmUntil = 0;
+            message = "Clear cancelled; confirmation expired.";
+        }
         String current = Waypoints.currentScope();
         if (!current.equals(here)) {
             here = current;
@@ -124,7 +133,7 @@ public final class WaypointScreen extends Screen {
                 island = current; selected = ""; groupOffset = pointOffset = 0;
             }
             rebuildWidgets();
-        }
+        } else if (timerUpdate) rebuildWidgets();
     }
     private void perform(Work work) {
         try { work.run(); }

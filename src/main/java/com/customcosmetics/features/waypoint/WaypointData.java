@@ -74,6 +74,30 @@ public final class WaypointData {
     }
     private record Coordinate(String scope, int x, int y, int z) {}
 
+    public record ImportResult(Snapshot snapshot, int groups, int points, int skipped) {}
+
+    /** Keep existing waypoints and the first imported point at each island coordinate. */
+    public static ImportResult mergeImport(Snapshot current, List<Group> imported) {
+        Set<Coordinate> seen = new HashSet<>();
+        for (Group group : current.groups()) for (Point point : group.points())
+            seen.add(new Coordinate(group.scope(), point.x(), point.y(), point.z()));
+        var groups = new java.util.ArrayList<>(current.groups());
+        int addedGroups = 0, addedPoints = 0, skipped = 0;
+        for (Group group : imported) {
+            var unique = new java.util.ArrayList<Point>();
+            for (Point point : group.points()) {
+                if (seen.add(new Coordinate(group.scope(), point.x(), point.y(), point.z()))) unique.add(point);
+                else skipped++;
+            }
+            // A group emptied solely by duplicate points adds nothing useful to the manager.
+            if (!group.points().isEmpty() && unique.isEmpty()) continue;
+            groups.add(group.points(unique));
+            addedGroups++;
+            addedPoints += unique.size();
+        }
+        return new ImportResult(new Snapshot(current.enabled(), groups), addedGroups, addedPoints, skipped);
+    }
+
     public record Snapshot(boolean enabled, List<Group> groups) {
         public Snapshot {
             groups = List.copyOf(groups);

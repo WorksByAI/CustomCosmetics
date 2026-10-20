@@ -93,9 +93,10 @@ public final class WaypointImportScreen extends Screen {
     private void apply() {
         if (preview == null || reading) return;
         try {
-            int count = Waypoints.importGroups(preview);
+            var result = Waypoints.importGroupsDetailed(preview);
             preview = null; importButton.active = false;
-            notice = "Imported " + count + " group(s). Islands remain separate.";
+            notice = "Imported " + result.groups() + " group(s), " + result.points() + " waypoint(s). "
+                    + "Skipped " + result.skipped() + " duplicate coordinate(s).";
         } catch (RuntimeException failure) { notice = "Import failed: " + failure.getMessage(); }
     }
 

@@ -44,6 +44,34 @@ class WaypointCodecTest {
         assertThrows(IllegalArgumentException.class, () -> WaypointData.requireUniqueCoordinates(List.of(hub.points(List.of(point, point)))));
         assertDoesNotThrow(() -> WaypointData.requireUniqueCoordinates(List.of(hub, differentIsland)));
     }
+    @Test void skyblockerImportSkipsRepeatedCoordinatesAfterClearAll() {
+        Point first = new Point("First", -693, 119, 85, 0x00ff00, true);
+        Point duplicate = new Point("Duplicate", -693, 119, 85, 0xff0000, false);
+        Point another = new Point("Another", -698, 102, 31, 0x0000ff, true);
+        Group source = Group.create("Foraging", "hypixel:foraging_2")
+                .points(List.of(first, duplicate, first, another));
+        Group repeated = Group.create("Repeated group", "hypixel:foraging_2").points(List.of(duplicate));
+        var result = WaypointData.mergeImport(Snapshot.empty(), List.of(source, repeated));
+        assertEquals(1, result.groups());
+        assertEquals(2, result.points());
+        assertEquals(3, result.skipped());
+        assertEquals(List.of(first, another), result.snapshot().groups().getFirst().points());
+        assertDoesNotThrow(() -> WaypointData.requireUniqueCoordinates(result.snapshot().groups()));
+    }
+    @Test void skyblockerImportPreservesExistingPointsAndIslandBoundaries() {
+        Point original = new Point("Existing", 1, 70, 2, 0xff0000, true);
+        Group hub = Group.create("Hub", "hypixel:hub").points(List.of(original));
+        Group importedHub = Group.create("Imported Hub", "hypixel:hub")
+                .points(List.of(new Point("Duplicate", 1, 70, 2, 0x00ff00, false),
+                        new Point("New", 3, 70, 4, 0x00ff00, true)));
+        Group mining = Group.create("Mining", "hypixel:mining_3").points(List.of(original));
+        var result = WaypointData.mergeImport(new Snapshot(true, List.of(hub)), List.of(importedHub, mining));
+        assertEquals(2, result.groups());
+        assertEquals(2, result.points());
+        assertEquals(1, result.skipped());
+        assertEquals(original, result.snapshot().groups().getFirst().points().getFirst());
+        assertDoesNotThrow(() -> WaypointData.requireUniqueCoordinates(result.snapshot().groups()));
+    }
     @Test void skyblockerV1SharePreservesColorCoordinatesAndOrder() throws Exception {
         Group source = example();
         Group result = WaypointCodec.importGroups(WaypointCodec.exportGroups(List.of(source)), "hypixel:hub").getFirst();
