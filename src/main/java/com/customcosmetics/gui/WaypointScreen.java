@@ -15,6 +15,7 @@ public final class WaypointScreen extends Screen {
     private final Screen parent;
     private String selected = "", message = "", here = "", island = "";
     private boolean followCurrent = true;
+    private long clearConfirmUntil;
     private int screenTicks;
     private int x, y, w, h, left, right, detail, rows, groupOffset, pointOffset;
     private List<Group> allGroups = List.of(), groups = List.of();
@@ -71,8 +72,15 @@ public final class WaypointScreen extends Screen {
         Action addPoint = addRenderableWidget(new Action(right + half + 6, y + h - 126, detail - half - 6, 22, "Add Waypoint", true,
                 () -> ClientUiAccess.setScreen(minecraft, new WaypointEditScreen(this, group, group.points().size()))));
         editGroup.active = group != null; addPoint.active = group != null;
-        addRenderableWidget(new Action(x + 12, y + h - 98, w - 24, 22, "Import Skyblocker waypoints.json", false,
+        int importWidth = (w - 24) / 2, actionWidth = (w - 24 - importWidth - 12) / 2;
+        addRenderableWidget(new Action(x + 12, y + h - 98, importWidth, 22, "Import Skyblocker waypoints.json", false,
                 () -> ClientUiAccess.setScreen(minecraft, new WaypointImportScreen(this))));
+        addRenderableWidget(new Action(x + 18 + importWidth, y + h - 98, actionWidth, 22, "Display Options", false,
+                () -> ClientUiAccess.setScreen(minecraft, new WaypointOptionsScreen(this))));
+        Action clear = addRenderableWidget(new Action(x + 24 + importWidth + actionWidth, y + h - 98,
+                w - 36 - importWidth - actionWidth, 22,
+                System.currentTimeMillis() < clearConfirmUntil ? "Confirm Clear" : "Clear All", false, this::clearAll));
+        clear.active = Waypoints.writable() && !allGroups.isEmpty();
         int third = (w - 36) / 3;
         addRenderableWidget(new Action(x + 12, y + h - 70, third, 22, "Import Clipboard", false, () -> perform(() -> {
             int count = Waypoints.importClipboard(minecraft.keyboardHandler.getClipboard());
@@ -90,6 +98,21 @@ public final class WaypointScreen extends Screen {
         island = SkyblockIslands.nextScope(island, direction);
         selected = ""; groupOffset = pointOffset = 0; message = "";
         rebuildWidgets();
+    }
+    private void clearAll() {
+        long now = System.currentTimeMillis();
+        if (now >= clearConfirmUntil) {
+            clearConfirmUntil = now + 10_000;
+            message = "Clear every waypoint on every island? Click Confirm Clear within 10 seconds.";
+            rebuildWidgets();
+            return;
+        }
+        clearConfirmUntil = 0;
+        perform(() -> {
+            Waypoints.clearAll();
+            selected = ""; groupOffset = pointOffset = 0;
+            message = "All waypoint groups were cleared.";
+        });
     }
     @Override public void tick() {
         super.tick();
@@ -130,7 +153,7 @@ public final class WaypointScreen extends Screen {
         if (group != null) for (int i = 0; i < rows && pointOffset + i < group.points().size(); i++)
             g.fill(right + 2, y + 78 + i * 27, right + 4, y + 90 + i * 27, 0xff000000 | group.points().get(pointOffset + i).color());
         String feedback = !Waypoints.status().isEmpty() ? Waypoints.status() : message;
-        text(g, font, feedback.isEmpty() ? "Scroll either list · Click a waypoint to edit · Nearest 256 markers are drawn" : feedback,
+        text(g, font, feedback.isEmpty() ? "Scroll either list · Click a waypoint to edit · Display options control marker count" : feedback,
                 x + 12, y + h - 41, feedback.isEmpty() ? MUTED : PINK, w - 24);
         text(g, font, "Ordered routes: /ccos waypoint ordered next | previous | reset", x + 12, y + h - 25, DIM, w - 24);
         super.extractRenderState(g, mx, my, dt);

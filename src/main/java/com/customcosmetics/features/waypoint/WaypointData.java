@@ -4,6 +4,7 @@ package com.customcosmetics.features.waypoint;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 /** Immutable snapshots keep disk writes and rendering independent from GUI edits. */
@@ -26,20 +27,48 @@ public final class WaypointData {
     }
 
     public record Group(String id, String name, String scope, boolean enabled, boolean ordered,
-                        boolean throughWalls, List<Point> points) {
+                        boolean throughWalls, List<Point> points, String style) {
         public Group {
             UUID.fromString(Objects.requireNonNull(id));
             name = text(name, 80, "Group name");
             scope = text(scope, 512, "World / area");
             points = List.copyOf(points);
+            style = normalizeStyle(style);
             if (points.size() > MAX_POINTS) throw new IllegalArgumentException("Too many waypoints.");
+        }
+        public Group(String id, String name, String scope, boolean enabled, boolean ordered,
+                     boolean throughWalls, List<Point> points) {
+            this(id, name, scope, enabled, ordered, throughWalls, points, "waypoint");
         }
         public static Group create(String name, String scope) {
             return new Group(UUID.randomUUID().toString(), name, scope, true, false, true, List.of());
         }
-        public Group points(List<Point> value) { return new Group(id, name, scope, enabled, ordered, throughWalls, value); }
-        public Group enabled(boolean value) { return new Group(id, name, scope, value, ordered, throughWalls, points); }
+        public Group points(List<Point> value) { return new Group(id, name, scope, enabled, ordered, throughWalls, value, style); }
+        public Group enabled(boolean value) { return new Group(id, name, scope, value, ordered, throughWalls, points, style); }
     }
+
+    public static final List<String> STYLES = List.of("waypoint", "outlined_waypoint", "highlight", "outlined_highlight", "outline", "diamond");
+    public static String normalizeStyle(String style) {
+        return STYLES.contains(style) ? style : "waypoint";
+    }
+    public static String styleName(String style) {
+        return switch (normalizeStyle(style)) {
+            case "outlined_waypoint" -> "Outlined Beacon";
+            case "highlight" -> "Block Highlight";
+            case "outlined_highlight" -> "Outlined Highlight";
+            case "outline" -> "Block Outline";
+            case "diamond" -> "Diamond";
+            default -> "Beacon";
+        };
+    }
+    /** Check edits and imports without making older files with duplicates unreadable. */
+    public static void requireUniqueCoordinates(List<Group> groups) {
+        Set<Coordinate> seen = new HashSet<>();
+        for (Group group : groups) for (Point point : group.points())
+            if (!seen.add(new Coordinate(group.scope(), point.x(), point.y(), point.z())))
+                throw new IllegalArgumentException("A waypoint already exists at " + point.x() + ", " + point.y() + ", " + point.z() + " on this island.");
+    }
+    private record Coordinate(String scope, int x, int y, int z) {}
 
     public record Snapshot(boolean enabled, List<Group> groups) {
         public Snapshot {

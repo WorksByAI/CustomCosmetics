@@ -27,6 +27,7 @@ public final class WaypointCodec {
             value.addProperty("id", group.id());
             value.addProperty("scope", group.scope());
             value.addProperty("enabled", group.enabled());
+            value.addProperty("style", group.style());
             groups.add(value);
         }
         root.add("groups", groups);
@@ -89,7 +90,7 @@ public final class WaypointCodec {
         value.addProperty("island", scopeParts.length >= 2 && scopeParts[0].equals("hypixel") ? scopeParts[1] : "unknown");
         value.addProperty("ordered", group.ordered());
         value.addProperty("renderThroughWalls", group.throughWalls());
-        value.addProperty("waypointType", "waypoint");
+        value.addProperty("waypointType", group.style().equals("diamond") ? "waypoint" : group.style());
         JsonArray points = new JsonArray();
         for (Point point : group.points()) {
             JsonObject p = new JsonObject();
@@ -135,9 +136,11 @@ public final class WaypointCodec {
                 String island = string(group, "island");
                 scope = hypixelScope(island, "");
             }
+            String style = group.has(local ? "style" : "waypointType")
+                    ? string(group, local ? "style" : "waypointType") : "waypoint";
             groups.add(new Group(local ? string(group, "id") : UUID.randomUUID().toString(), string(group, "name"),
                     scope, local ? bool(group, "enabled", true) : true, bool(group, "ordered", false),
-                    bool(group, "renderThroughWalls", true), decoded));
+                    bool(group, "renderThroughWalls", true), decoded, style));
         }
         return new Snapshot(true, groups).groups();
     }

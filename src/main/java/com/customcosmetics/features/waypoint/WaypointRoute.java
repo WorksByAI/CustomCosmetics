@@ -19,10 +19,13 @@ public final class WaypointRoute {
         };
     }
     public void tick(List<Point> points, double x, double y, double z) {
+        tick(points, x, y, z, 1.5);
+    }
+    public void tick(List<Point> points, double x, double y, double z, double radius) {
         if (current >= points.size()) current = 0;
         if (points.size() < 2) return;
         int next = (current + 1) % points.size();
-        if (points.get(next).enabled() && points.get(next).distanceSquared(x, y, z) <= 2.25) current = next;
+        if (points.get(next).enabled() && points.get(next).distanceSquared(x, y, z) <= radius * radius) current = next;
     }
     public int relation(int index, int count) {
         if (index == current) return 0;

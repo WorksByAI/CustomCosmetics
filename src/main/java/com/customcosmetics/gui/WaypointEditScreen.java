@@ -17,7 +17,7 @@ final class WaypointEditScreen extends Screen {
     private final Group original;
     private final int pointIndex;
     private final boolean groupMode, existing;
-    private String name, scope, px = "0", py = "0", pz = "0", color = "55FF99", message = "";
+    private String name, scope, style = "waypoint", px = "0", py = "0", pz = "0", color = "55FF99", message = "";
     private boolean enabled = true, ordered, throughWalls = true, confirmDelete;
     private int orderIndex, x, y, w, h;
     private Field nameField, xField, yField, zField, colorField;
@@ -31,7 +31,7 @@ final class WaypointEditScreen extends Screen {
         existing = group != null && (groupMode || pointIndex < group.points().size());
         name = groupMode ? group == null ? "New Group" : group.name() : "Waypoint " + (pointIndex + 1);
         scope = group == null ? selectedScope : group.scope();
-        if (groupMode && group != null) { enabled = group.enabled(); ordered = group.ordered(); throughWalls = group.throughWalls(); }
+        if (groupMode && group != null) { enabled = group.enabled(); ordered = group.ordered(); throughWalls = group.throughWalls(); style = group.style(); }
         if (!groupMode) {
             orderIndex = pointIndex;
             if (existing) {
@@ -69,7 +69,10 @@ final class WaypointEditScreen extends Screen {
                 () -> { ordered = !ordered; rebuildWidgets(); }));
         addRenderableWidget(new Action(x + 12, y + (compact() ? 92 : 104), w - 24, 22, throughWalls ? "Visible Through Walls: On" : "Visible Through Walls: Off", false,
                 () -> { throughWalls = !throughWalls; rebuildWidgets(); }));
-        addRenderableWidget(new Action(x + 12, y + (compact() ? 138 : 158), w - 24, 22, "Bind to Current SkyBlock Island", false, () -> {
+        addRenderableWidget(new Action(x + 12, y + (compact() ? 118 : 132), w - 24, 22, "Style: " + styleName(style), false, () -> {
+            style = STYLES.get((STYLES.indexOf(style) + 1) % STYLES.size()); rebuildWidgets();
+        }));
+        addRenderableWidget(new Action(x + 12, y + (compact() ? 144 : 158), w - 24, 22, "Bind to Current SkyBlock Island", false, () -> {
             String current = Waypoints.currentScope();
             if (current.isBlank()) message = "Join Hypixel SkyBlock or wait for island data.";
             else { scope = current; message = "Scope updated. Save to apply."; }
@@ -105,7 +108,7 @@ final class WaypointEditScreen extends Screen {
             if (groupMode) {
                 if (scope.isBlank()) throw new IllegalArgumentException("Select a SkyBlock island first.");
                 Group source = original == null ? Group.create(name, scope) : original;
-                Waypoints.put(new Group(source.id(), name, scope, enabled, ordered, throughWalls, source.points()));
+                Waypoints.put(new Group(source.id(), name, scope, enabled, ordered, throughWalls, source.points(), style));
             } else {
                 String rgb = color.startsWith("#") ? color.substring(1) : color;
                 if (!rgb.matches("[0-9a-fA-F]{6}")) throw new IllegalArgumentException("Color must contain six hexadecimal digits, e.g. 55FF99.");
@@ -137,12 +140,12 @@ final class WaypointEditScreen extends Screen {
         text(g, font, headerMessage ? message : (existing ? "Edit " : "New ") + getTitle().getString(), x + 12, y + 13, PINK, w - 24);
         text(g, font, "Name", x + 12, y + (compact() ? 27 : 32), MUTED, w - 24);
         if (groupMode) {
-            text(g, font, "Scope: " + (scope.isBlank() ? "Not set" : scope), x + 12, y + (compact() ? 122 : 139), TEXT, w - 24);
+            if (!compact() || message.isEmpty())
+                text(g, font, "Scope: " + (scope.isBlank() ? "Not set" : scope), x + 12, y + (compact() ? 173 : 190), TEXT, w - 24);
             if (!compact()) {
-            text(g, font, "Groups appear only on their SkyBlock island.", x + 12, y + 194, MUTED, w - 24);
-            text(g, font, "SkyBlock waypoints follow their island across server instances.", x + 12, y + 208, MUTED, w - 24);
+            text(g, font, "Groups follow their SkyBlock island across server instances.", x + 12, y + 208, MUTED, w - 24);
             text(g, font, "Ordered: previous (red), current (white), next (green).", x + 12, y + 222, MUTED, w - 24);
-            text(g, font, "Reach the next point within 1.5 blocks to advance.", x + 12, y + 236, MUTED, w - 24);
+            text(g, font, "Activation radius is adjustable under Display Options.", x + 12, y + 236, MUTED, w - 24);
             }
         } else {
             int third = (w - 36) / 3;

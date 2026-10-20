@@ -25,6 +25,24 @@ class WaypointCodecTest {
         assertEquals(saved, WaypointCodec.decode(WaypointCodec.encode(saved)));
         assertTrue(saved.groups().getFirst().points().getFirst().enabled(), "Disabling a group must preserve point settings");
     }
+    @Test void waypointStylesSurviveLocalStorageAndSkyblockerShare() throws Exception {
+        Group group = new Group(UUID.randomUUID().toString(), "Styled", "hypixel:hub", true, false, true,
+                List.of(new Point("A", 1, 70, 2, 0x55ff99, true)), "outlined_highlight");
+        assertEquals("outlined_highlight", WaypointCodec.decode(WaypointCodec.encode(new Snapshot(true, List.of(group))))
+                .groups().getFirst().style());
+        assertEquals("outlined_highlight", WaypointCodec.importGroups(WaypointCodec.exportGroups(List.of(group)), "")
+                .getFirst().style());
+        assertEquals("waypoint", WaypointData.normalizeStyle("future_skyblocker_style"));
+    }
+    @Test void oneIslandCannotAddTheSameCoordinatesTwice() {
+        Point point = new Point("First", 4, 70, -8, 0xff0000, true);
+        Group hub = Group.create("Hub", "hypixel:hub").points(List.of(point));
+        Group sameIsland = Group.create("Other group", "hypixel:hub").points(List.of(point.enabled(false)));
+        Group differentIsland = Group.create("Mining", "hypixel:mining_3").points(List.of(point));
+        assertThrows(IllegalArgumentException.class, () -> WaypointData.requireUniqueCoordinates(List.of(hub, sameIsland)));
+        assertThrows(IllegalArgumentException.class, () -> WaypointData.requireUniqueCoordinates(List.of(hub.points(List.of(point, point)))));
+        assertDoesNotThrow(() -> WaypointData.requireUniqueCoordinates(List.of(hub, differentIsland)));
+    }
     @Test void skyblockerV1SharePreservesColorCoordinatesAndOrder() throws Exception {
         Group source = example();
         Group result = WaypointCodec.importGroups(WaypointCodec.exportGroups(List.of(source)), "hypixel:hub").getFirst();

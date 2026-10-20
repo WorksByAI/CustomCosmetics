@@ -51,6 +51,8 @@ public final class WaypointsGameTest implements FabricClientGameTest {
             context.runOnClient(client -> {
                 clipboardBefore.set(client.keyboardHandler.getClipboard());
                 ConfigManager.offlineMode = true; ConfigManager.syncEnabled = false; ConfigManager.disabledModules = -1;
+                ConfigManager.waypointShowLabels = ConfigManager.waypointShowDistance = true;
+                ConfigManager.waypointMaxRendered = 64; ConfigManager.waypointMaxDistance = 0;
                 Waypoints.replace(Snapshot.empty()); client.options.guiScale().set(2);
                 registerOcclusionWall();
             });
@@ -78,6 +80,10 @@ public final class WaypointsGameTest implements FabricClientGameTest {
                     check(Waypoints.snapshot().groups().size() == 1, "GUI group was not created");
                     check(first().scope().equals(Waypoints.currentScope()), "New group was not scoped to its world");
                 });
+                click(context, "Edit Group", PinkUi.Action.class);
+                click(context, "Style: Beacon", PinkUi.Action.class);
+                click(context, "Save", PinkUi.Action.class);
+                context.runOnClient(client -> check(first().style().equals("outlined_waypoint"), "Group render style was not saved"));
                 click(context, "Add Waypoint", PinkUi.Action.class);
                 type(context, "Name", "Current Position");
                 click(context, "Use Current Position", PinkUi.Action.class);
@@ -86,6 +92,14 @@ public final class WaypointsGameTest implements FabricClientGameTest {
                     var pos = client.player.blockPosition(); var point = first().points().getFirst();
                     check(point.x() == pos.getX() && point.y() == pos.getY() && point.z() == pos.getZ(), "Current-position fixture differs from player");
                 });
+                click(context, "Add Waypoint", PinkUi.Action.class);
+                click(context, "Save", PinkUi.Action.class);
+                context.runOnClient(client -> {
+                    check(first().points().size() == 1, "Duplicate waypoint coordinates were added");
+                    check(ClientUiAccess.screen(client).getClass().getSimpleName().equals("WaypointEditScreen"),
+                            "Duplicate coordinate error did not keep the editor open");
+                });
+                click(context, "Cancel", PinkUi.Action.class);
                 click(context, "Current Position", PinkUi.Action.class);
                 type(context, "Name", "Magenta Marker");
                 type(context, "X", "0"); type(context, "Y", "-60"); type(context, "Z", "8");
@@ -107,9 +121,8 @@ public final class WaypointsGameTest implements FabricClientGameTest {
                     check(copy.points().equals(first().points()) && copy.scope().equals("hypixel:unknown"), "Skyblocker share did not use the Unknown island");
                 });
                 click(context, "Import Clipboard", PinkUi.Action.class);
-                context.runOnClient(client -> check(Waypoints.snapshot().groups().size() == 2, "GUI import did not append a group"));
-                // The imported copy is identical; remove it before counting render markers.
-                context.runOnClient(client -> Waypoints.removeGroup(Waypoints.snapshot().groups().get(1).id()));
+                context.runOnClient(client -> check(Waypoints.snapshot().groups().size() == 1,
+                        "Clipboard import added a second waypoint at existing coordinates"));
                 click(context, "Import Skyblocker waypoints.json", PinkUi.Action.class);
                 context.runOnClient(client -> check(ClientUiAccess.screen(client) instanceof WaypointImportScreen,
                         "Skyblocker file import screen did not open"));
@@ -134,6 +147,13 @@ public final class WaypointsGameTest implements FabricClientGameTest {
                 command(context, "ccos waypoint");
                 context.getInput().resizeWindow(640, 480); context.waitTicks(4);
                 assertControlsInside(context); context.takeScreenshot("waypoint-manager-compact");
+                click(context, "Display Options", PinkUi.Action.class);
+                assertControlsInside(context);
+                click(context, "Names: On", PinkUi.Action.class);
+                context.runOnClient(client -> check(!ConfigManager.waypointShowLabels, "Waypoint label toggle did not apply"));
+                click(context, "Names: Off", PinkUi.Action.class);
+                context.runOnClient(client -> check(ConfigManager.waypointShowLabels, "Waypoint labels did not turn back on"));
+                click(context, "Done", PinkUi.Action.class);
                 click(context, "Magenta Marker", PinkUi.Action.class);
                 assertControlsInside(context); context.takeScreenshot("waypoint-editor-compact");
                 click(context, "Cancel", PinkUi.Action.class);
@@ -146,8 +166,25 @@ public final class WaypointsGameTest implements FabricClientGameTest {
                 context.waitTicks(15);
                 checkVisible(context, 1);
                 int withMarker = magentaPixels(context);
-                context.takeScreenshot("waypoint-world-magenta-label-and-diamond");
+                context.takeScreenshot("waypoint-world-magenta-label-and-beacon");
                 check(withMarker > 25, "Actual waypoint marker / label pixels missing: " + withMarker);
+                AtomicReference<Group> beforeBudget = new AtomicReference<>();
+                context.runOnClient(client -> {
+                    beforeBudget.set(first());
+                    var points = new ArrayList<Point>();
+                    for (int i = 0; i < 96; i++) points.add(new Point("Budget " + i, i, -60, 8 + i, 0xff22ff, true));
+                    Waypoints.put(first().points(points));
+                });
+                context.waitTicks(6); checkVisible(context, 64);
+                context.runOnClient(client -> {
+                    ConfigManager.waypointMaxRendered = 16; Waypoints.invalidateVisuals();
+                });
+                context.waitTicks(2); checkVisible(context, 16);
+                context.runOnClient(client -> {
+                    ConfigManager.waypointMaxRendered = 64;
+                    Waypoints.put(beforeBudget.get());
+                });
+                context.waitTicks(6); checkVisible(context, 1);
                 context.runOnClient(client -> Waypoints.replace(new Snapshot(false, Waypoints.snapshot().groups())));
                 context.waitTicks(6); checkVisible(context, 0);
                 int withoutMarker = magentaPixels(context);
@@ -238,8 +275,12 @@ public final class WaypointsGameTest implements FabricClientGameTest {
                             .map(AbstractWidget.class::cast).noneMatch(widget -> widget.active &&
                                     widget.getMessage().getString().equals("Edit Group")),
                             "A group from another world was editable in the current island list");
-                    Waypoints.removeGroup(saved.get().id());
-                    check(Waypoints.snapshot().groups().isEmpty(), "Group delete failed");
+                });
+                click(context, "Clear All", PinkUi.Action.class);
+                context.runOnClient(client -> check(Waypoints.snapshot().groups().size() == 1, "Clear All skipped confirmation"));
+                click(context, "Confirm Clear", PinkUi.Action.class);
+                context.runOnClient(client -> {
+                    check(Waypoints.snapshot().groups().isEmpty(), "Clear All did not remove waypoints from other islands");
                     ClientUiAccess.setScreen(client, null);
                 });
                 context.waitFor(client -> Waypoints.status().isEmpty());
