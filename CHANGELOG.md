@@ -1,19 +1,11 @@
 # Changelog
 
-## 1.8.2-dev.3
-
-- Accept shorthand item and armor model IDs; save valid item edits when pressing Done.
-
-## 1.8.2-dev.2
-
-- Fix waypoint text crashes with distance labels disabled, including when leaving the editor with Escape.
-
-## 1.8.2-dev.1
+## 1.8.2
 
 - Add synced creature models and custom worn armor models and colors.
-- Let shortcuts override server commands; scope waypoints through Hypixel Mod API.
-- Refresh accessory metadata from Skyblocker's public API.
-- Match Skyblocker's waypoint styles and route controls; skip duplicate imports, delay Clear All confirmation and bound rendering work.
+- Accept shorthand model IDs and save item edits with Done; allow server-command shortcut overrides.
+- Use Hypixel island scopes, live accessory metadata and Skyblocker-style waypoint controls.
+- Bound waypoint rendering, skip duplicate imports, delay Clear All confirmation and fix text crashes.
 
 ## 1.8.1
 
