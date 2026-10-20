@@ -120,7 +120,7 @@ public final class WaypointScreen extends Screen {
     @Override public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
         outline(g, x, y, w, h, 10, BORDER, PANEL);
         text(g, font, "Waypoints", x + 12, y + 16, PINK, w - 140);
-        if (w >= 600) text(g, font, "Current: " + (here.isBlank() ? "Waiting for island data" : SkyblockIslands.name(here)),
+        if (w >= 600) text(g, font, "Current: " + (here.isBlank() ? "Waiting for Hypixel SkyBlock" : SkyblockIslands.name(here)),
                 x + 334, y + 43, MUTED, w - 346);
         text(g, font, "Groups on this island · " + groups.size(), x + 12, y + 58, TEXT, left);
         text(g, font, group == null ? "Create a group to begin" : group.name() + " · " + group.points().size() +

@@ -15,12 +15,12 @@
 - **Item Customization**：自定义物品名称、图标模型、穿戴护甲模型与颜色；扫描配饰背包后显示收集／升级提示。
 - **Damage Splash**：自定义伤害数字的动画、双色渐变／流动彩虹配色、大小与数字格式。
 - **Map Editor**：地牢／Kuudra 纯视觉改图、批量方块替换。
-- **Waypoints / Shortcuts**：独立命令打开的坐标分组、路线、Skyblocker 路点配置导入，以及命令别名、参数替换和键鼠组合键。
+- **Waypoints / Shortcuts**：Hypixel Mod API 识别 SkyBlock 岛屿；支持路点、路线、Skyblocker 导入及命令／键鼠快捷方式。
 - **Command Tooltips / Snaplook**：查看聊天指令；按住快捷键临时切换视角。
 - **Offline Mode**：断开所有远程同步连接，不使用共享功能，也无法看见别人的装饰品。
 - 模块：Settings → Module Manager。
 
-输入 `/ccos` 或 `/customcosmetics` 打开重新排版的设置。使用 `/ccos waypoint`、`/ccos shortcuts` 打开独立工具。需要 Java 25、Fabric Loader 0.19.5+ 和对应版本的 Fabric API。
+用 `/ccos` 或 `/customcosmetics` 打开设置；`/ccos waypoint`、`/ccos shortcuts` 打开工具。需要 Java 25、Fabric Loader 0.19.5+ 和匹配的 Fabric API。
 共享功能需安装 [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api)。
 
 ## English
@@ -42,12 +42,12 @@ Features ([√] visible to other mod users):
 - **Item Customization**: Local item names, icon models, worn armor models and colors, plus accessory tooltips after scanning the Accessory Bag.
 - **Damage Splash**: Damage-number animations, gradients, rainbow colors and formatting.
 - **Map Editor**: Visual-only Catacombs/Kuudra map editing and bulk block replacement.
-- **Waypoints / Shortcuts**: Command-only managers for waypoint groups, ordered routes, Skyblocker config import, command aliases, argument replacements and keyboard/mouse chords.
+- **Waypoints / Shortcuts**: Hypixel Mod API island markers, routes, Skyblocker import, command aliases and key/mouse shortcuts.
 - **Command Tooltips / Snaplook**: Preview chat commands or hold a key to switch perspective.
 - **Offline Mode**: Disconnect all remote synchronization connections. Sharing is disabled, and other players' cosmetics are not shown.
 - Modules: Settings → Module Manager.
 
-Use `/ccos` or `/customcosmetics` to open the redesigned settings. Open the standalone tools with `/ccos waypoint` and `/ccos shortcuts`. Requires Java 25, Fabric Loader 0.19.5+ and Fabric API for your Minecraft version.
+Use `/ccos` or `/customcosmetics` for settings; `/ccos waypoint` and `/ccos shortcuts` open the tools. Requires Java 25, Fabric Loader 0.19.5+ and matching Fabric API.
 Sharing modules requires [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api).
 
 采用 / Licensed under **AGPL-3.0-or-later**。部分代码移植自 / Portions ported from [Baity](https://github.com/raueyhs/Baity), originally authored by raueyhs. See [LICENSE](https://github.com/WorksByAI/CustomCosmetics/blob/main/LICENSE) and [NOTICE](https://github.com/WorksByAI/CustomCosmetics/blob/main/NOTICE).

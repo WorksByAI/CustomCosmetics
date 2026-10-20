@@ -5,7 +5,7 @@
 - Add visual creature models with player-to-player sync.
 - Add per-item worn armor model and color overrides, including leather helmet styling for player heads.
 - Let shortcuts override server commands while protecting `/ccos` and `/customcosmetics`.
-- Bind waypoints to SkyBlock islands and refresh accessory metadata from Skyblocker's public API.
+- Scope waypoints through Hypixel Mod API; refresh accessory metadata from Skyblocker's public API.
 
 ## 1.8.1
 

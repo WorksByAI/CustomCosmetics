@@ -62,6 +62,11 @@ public final class WaypointsGameTest implements FabricClientGameTest {
                 world.getServer().runCommand("fill -10 -61 -10 10 -61 20 stone");
                 world.getServer().runCommand("tp @a 0.5 -60 0.5 0 0");
                 context.getInput().resizeWindow(1280, 720); context.waitTicks(25);
+                context.runOnClient(client -> {
+                    check(Waypoints.currentScope().isEmpty(), "Vanilla singleplayer created a SkyBlock waypoint scope");
+                    simulateSkyblockLocation(client, "unknown");
+                });
+                context.waitTicks(21);
                 command(context, "customcosmetics waypoint"); assertManager(context);
                 context.runOnClient(client -> ClientUiAccess.setScreen(client, null));
                 command(context, "ccos waypoint"); assertManager(context);
@@ -223,6 +228,8 @@ public final class WaypointsGameTest implements FabricClientGameTest {
             // A second real save has the same dimension but must never inherit the first world's markers.
             try (var world = context.worldBuilder().create()) {
                 context.waitTicks(30);
+                context.runOnClient(client -> simulateSkyblockLocation(client, "hub"));
+                context.waitTicks(21);
                 context.runOnClient(client -> check(!Waypoints.currentScope().equals(saved.get().scope()), "Independent saves share the same waypoint scope"));
                 checkVisible(context, 0);
                 command(context, "ccos waypoint");
@@ -285,6 +292,16 @@ public final class WaypointsGameTest implements FabricClientGameTest {
         });
     }
     private static Group first() { return Waypoints.snapshot().groups().getFirst(); }
+    private static void simulateSkyblockLocation(net.minecraft.client.Minecraft client, String island) {
+        try {
+            var world = Class.forName("com.customcosmetics.features.waypoint.WaypointWorld");
+            var field = world.getDeclaredField("SESSION"); field.setAccessible(true);
+            Object session = field.get(null);
+            var location = session.getClass().getDeclaredMethod("location", Object.class, String.class, String.class);
+            location.setAccessible(true);
+            location.invoke(session, client.getConnection(), "SKYBLOCK", island);
+        } catch (ReflectiveOperationException failure) { throw new AssertionError("Could not simulate Hypixel Mod API location", failure); }
+    }
     private static String minecraftClipboard(net.minecraft.client.Minecraft client) { return client.keyboardHandler.getClipboard(); }
     private static void hideHud(net.minecraft.client.Minecraft client, boolean hidden) throws ReflectiveOperationException {
         try { client.options.getClass().getField("hideGui").setBoolean(client.options, hidden); }

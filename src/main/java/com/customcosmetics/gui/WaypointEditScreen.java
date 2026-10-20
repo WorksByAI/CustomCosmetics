@@ -69,9 +69,9 @@ final class WaypointEditScreen extends Screen {
                 () -> { ordered = !ordered; rebuildWidgets(); }));
         addRenderableWidget(new Action(x + 12, y + (compact() ? 92 : 104), w - 24, 22, throughWalls ? "Visible Through Walls: On" : "Visible Through Walls: Off", false,
                 () -> { throughWalls = !throughWalls; rebuildWidgets(); }));
-        addRenderableWidget(new Action(x + 12, y + (compact() ? 138 : 158), w - 24, 22, "Bind to Current World / Island", false, () -> {
+        addRenderableWidget(new Action(x + 12, y + (compact() ? 138 : 158), w - 24, 22, "Bind to Current SkyBlock Island", false, () -> {
             String current = Waypoints.currentScope();
-            if (current.isBlank()) message = "Join a world or wait for Hypixel island data.";
+            if (current.isBlank()) message = "Join Hypixel SkyBlock or wait for island data.";
             else { scope = current; message = "Scope updated. Save to apply."; }
         }));
     }
@@ -103,7 +103,7 @@ final class WaypointEditScreen extends Screen {
     private void save() {
         try {
             if (groupMode) {
-                if (scope.isBlank()) throw new IllegalArgumentException("Bind this group to a world / island first.");
+                if (scope.isBlank()) throw new IllegalArgumentException("Select a SkyBlock island first.");
                 Group source = original == null ? Group.create(name, scope) : original;
                 Waypoints.put(new Group(source.id(), name, scope, enabled, ordered, throughWalls, source.points()));
             } else {
@@ -139,7 +139,7 @@ final class WaypointEditScreen extends Screen {
         if (groupMode) {
             text(g, font, "Scope: " + (scope.isBlank() ? "Not set" : scope), x + 12, y + (compact() ? 122 : 139), TEXT, w - 24);
             if (!compact()) {
-            text(g, font, "Groups appear only in their bound world or island.", x + 12, y + 194, MUTED, w - 24);
+            text(g, font, "Groups appear only on their SkyBlock island.", x + 12, y + 194, MUTED, w - 24);
             text(g, font, "SkyBlock waypoints follow their island across server instances.", x + 12, y + 208, MUTED, w - 24);
             text(g, font, "Ordered: previous (red), current (white), next (green).", x + 12, y + 222, MUTED, w - 24);
             text(g, font, "Reach the next point within 1.5 blocks to advance.", x + 12, y + 236, MUTED, w - 24);
