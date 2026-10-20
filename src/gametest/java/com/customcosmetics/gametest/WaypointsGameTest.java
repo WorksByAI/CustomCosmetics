@@ -52,7 +52,8 @@ public final class WaypointsGameTest implements FabricClientGameTest {
             context.runOnClient(client -> {
                 clipboardBefore.set(client.keyboardHandler.getClipboard());
                 ConfigManager.offlineMode = true; ConfigManager.syncEnabled = false; ConfigManager.disabledModules = -1;
-                ConfigManager.waypointShowLabels = ConfigManager.waypointShowDistance = true;
+                ConfigManager.waypointShowLabels = true;
+                ConfigManager.waypointShowDistance = false;
                 ConfigManager.waypointMaxRendered = 64; ConfigManager.waypointMaxDistance = 0;
                 Waypoints.replace(Snapshot.empty()); client.options.guiScale().set(2);
                 registerOcclusionWall();
@@ -183,7 +184,14 @@ public final class WaypointsGameTest implements FabricClientGameTest {
                 click(context, "Magenta Marker", PinkUi.Action.class);
                 assertControlsInside(context); assertSafeEditActions(context);
                 context.takeScreenshot("waypoint-editor-compact");
-                click(context, "Cancel", PinkUi.Action.class);
+                type(context, "Name", "Unsaved edit before Escape");
+                context.getInput().pressKey(ClientInput.ESCAPE); context.waitTicks(3);
+                assertManager(context);
+                context.runOnClient(client -> check(first().points().getFirst().name().equals("Magenta Marker"),
+                        "Escape saved an unfinished waypoint edit"));
+                context.getInput().pressKey(ClientInput.ESCAPE); context.waitTicks(3);
+                context.runOnClient(client -> check(ClientUiAccess.screen(client) == null,
+                        "Escape did not close the waypoint manager"));
                 context.getInput().resizeWindow(1280, 720); context.waitTicks(4);
                 context.runOnClient(client -> {
                     hideHud(client, true);
@@ -192,6 +200,7 @@ public final class WaypointsGameTest implements FabricClientGameTest {
                 });
                 context.waitTicks(15);
                 checkVisible(context, 1);
+                assertVisibleLabelsReady(context);
                 int withMarker = magentaPixels(context);
                 context.takeScreenshot("waypoint-world-magenta-label-and-beacon");
                 check(withMarker > 25, "Actual waypoint marker / label pixels missing: " + withMarker);
@@ -401,6 +410,18 @@ public final class WaypointsGameTest implements FabricClientGameTest {
         context.runOnClient(client -> {
             var field = Waypoints.class.getDeclaredField("visibleCount"); field.setAccessible(true);
             check(field.getInt(null) == expected, "Visible waypoint count differs: expected " + expected + ", got " + field.getInt(null));
+        });
+    }
+    private static void assertVisibleLabelsReady(ClientGameTestContext context) throws Exception {
+        context.runOnClient(client -> {
+            var visible = Waypoints.class.getDeclaredField("visible"); visible.setAccessible(true);
+            var count = Waypoints.class.getDeclaredField("visibleCount"); count.setAccessible(true);
+            Object[] markers = (Object[]) visible.get(null);
+            check(!ConfigManager.waypointShowDistance, "Missing distance-disabled label regression");
+            for (int i = 0; i < count.getInt(null); i++) {
+                var label = markers[i].getClass().getDeclaredField("label"); label.setAccessible(true);
+                check(label.get(markers[i]) != null, "Waypoint submitted a null label with distance text disabled");
+            }
         });
     }
     private static void assertRoute(ClientGameTestContext context, int expected) throws Exception {

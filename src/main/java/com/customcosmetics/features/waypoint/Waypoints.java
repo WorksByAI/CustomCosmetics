@@ -277,7 +277,7 @@ public final class Waypoints {
                     });
                 }
             }
-            if (!ConfigManager.waypointShowLabels) continue;
+            if (!ConfigManager.waypointShowLabels || marker.label == null) continue;
             pose.setIdentity();
             pose.translate(dx, dy, dz);
             pose.mulPose(rotation);
@@ -307,7 +307,7 @@ public final class Waypoints {
         }
         void updateLabel(Font font, boolean showDistance) {
             long meters = showDistance ? Math.round(Math.sqrt(distance)) : -1;
-            if (meters == labelDistance && showDistance == labelShowDistance) return;
+            if (label != null && meters == labelDistance && showDistance == labelShowDistance) return;
             Component text = Component.literal(point.name() + (showDistance ? " · " + meters + "m" : ""));
             label = text.getVisualOrderText(); width = font.width(text);
             if (indexLabel != null && indexWidth == 0) indexWidth = font.width(indexLabel);

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.2-dev.2
+
+- Fix waypoint text crashes with distance labels disabled, including when leaving the editor with Escape.
+
 ## 1.8.2-dev.1
 
 - Add synced creature models and custom worn armor models and colors.
