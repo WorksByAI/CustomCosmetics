@@ -1,6 +1,6 @@
-# CustomCosmetics v1.8.0 发布！
+# CustomCosmetics v1.8.1 发布！
 
-这是一个支持玩家间同步的自定义外观模组，支持 26.1～26.3 Fabric，并跟随 Hypixel SkyBlock 版本更新。
+Fabric 客户端外观模组，支持 26.1～26.3，部分功能可在玩家间同步。
 
 目前模组所有功能（[√] 表示其他安装本模组的玩家可见）：
 
@@ -11,10 +11,10 @@
 - **[√] Equipments**：原创饰品，支持自由搭配、调色、大小、位置微调。
 - **[√] Sharing**：Hypixel 队友显示、远处标记、追踪线与 IRC；可向同一世界公开或指定玩家共享位置（默认关闭）。
 - **[√] Skins**：支持导入最高 1024×1024 像素的皮肤，共享仅在 P2P 打洞成功后对其他玩家可见。
-- **Item Customization**：自定义物品名称与模型，支持资源包中的自定义模型。
+- **Item Customization**：自定义物品名称与模型；扫描配饰背包后显示收集／升级提示。
 - **Damage Splash**：自定义伤害数字的动画、双色渐变／流动彩虹配色、大小与数字格式。
 - **Map Editor**：地牢／Kuudra 纯视觉改图、批量方块替换。
-- **Waypoints / Shortcuts**：独立命令打开的坐标分组、路线、导入导出，以及命令别名、参数替换和键鼠组合键。
+- **Waypoints / Shortcuts**：独立命令打开的坐标分组、路线、Skyblocker 路点配置导入，以及命令别名、参数替换和键鼠组合键。
 - **Command Tooltips / Snaplook**：查看聊天指令；按住快捷键临时切换视角。
 - **Offline Mode**：断开所有远程同步连接，不使用共享功能，也无法看见别人的装饰品。
 - 模块：Settings → Module Manager。
@@ -24,9 +24,9 @@
 
 ## English
 
-CustomCosmetics v1.8.0
+CustomCosmetics v1.8.1
 
-A Fabric mod for customizable, synchronized cosmetics. Supports Minecraft 26.1–26.3 on Fabric.
+Fabric cosmetics for Minecraft 26.1–26.3, with optional player sync.
 
 Features ([√] visible to other mod users):
 
@@ -37,10 +37,10 @@ Features ([√] visible to other mod users):
 - **[√] Equipments**: Accessories with configurable colors, sizes and offsets.
 - **[√] Sharing**: Hypixel party member displays, distant markers, tracers and IRC. Optionally share your position publicly within the same world or with selected players (off by default).
 - **[√] Skins**: Import skins up to 1024×1024 pixels. Shared skins are visible to other players only after a direct P2P connection is established.
-- **Item Customization**: Local item names and models, including resource-pack models.
+- **Item Customization**: Local item names and models, plus accessory collection and upgrade tooltips after scanning the Accessory Bag.
 - **Damage Splash**: Damage-number animations, gradients, rainbow colors and formatting.
 - **Map Editor**: Visual-only Catacombs/Kuudra map editing and bulk block replacement.
-- **Waypoints / Shortcuts**: Command-only managers for waypoint groups, ordered routes, import/export, command aliases, argument replacements and keyboard/mouse chords.
+- **Waypoints / Shortcuts**: Command-only managers for waypoint groups, ordered routes, Skyblocker config import, command aliases, argument replacements and keyboard/mouse chords.
 - **Command Tooltips / Snaplook**: Preview chat commands or hold a key to switch perspective.
 - **Offline Mode**: Disconnect all remote synchronization connections. Sharing is disabled, and other players' cosmetics are not shown.
 - Modules: Settings → Module Manager.

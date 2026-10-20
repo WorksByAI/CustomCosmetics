@@ -51,6 +51,33 @@ class WaypointCodecTest {
         assertEquals("A B", result.points().getFirst().name());
         assertEquals(0xff8000, result.points().getFirst().color());
     }
+    @Test void importsSkyblockerConfigFileGroupsByIslandWithoutChangingExistingData() {
+        String json = """
+            [{"name":"Hub route","island":"hub","waypoints":[{"pos":[1,70,-3],"name":"Start",
+               "colorComponents":[1,0,0],"shouldRender":true}]},
+             {"name":"Mining route","island":"mining_3","ordered":true,"renderThroughWalls":false,
+              "waypoints":[{"pos":[9,105,5],"name":{"text":"Ore"},"colorComponents":[0,0.5,1],"shouldRender":false}]}]
+            """;
+        var imported = WaypointCodec.importConfig(json, "hypixel:hub");
+        assertEquals(2, imported.size());
+        assertEquals("hypixel:hub", imported.get(0).scope());
+        assertEquals("hypixel:mining_3", imported.get(1).scope());
+        assertTrue(imported.get(1).ordered());
+        assertFalse(imported.get(1).throughWalls());
+        assertFalse(imported.get(1).points().getFirst().enabled());
+        assertEquals(0x0080ff, imported.get(1).points().getFirst().color());
+        assertNotEquals(imported.get(0).id(), imported.get(1).id());
+    }
+    @Test void invalidSkyblockerConfigDoesNotProducePartialGroups() {
+        String invalid = "[{\"name\":\"One\",\"island\":\"hub\",\"waypoints\":[]}," +
+                "{\"name\":\"Broken\",\"island\":\"hub\",\"waypoints\":[{\"pos\":[1,2],\"name\":\"X\",\"colorComponents\":[1,1,1]}]}]";
+        assertThrows(IllegalArgumentException.class, () -> WaypointCodec.importConfig(invalid, "hypixel:hub"));
+    }
+    @Test void unnamedSkyblockerWaypointsReceiveCoordinateLabels() {
+        String json = "[{\"name\":\"Route\",\"island\":\"mining_3\",\"waypoints\":[{" +
+                "\"pos\":[175,42,-470],\"name\":\"\",\"colorComponents\":[0,1,0]}]}]";
+        assertEquals("Waypoint (175, 42, -470)", WaypointCodec.importConfig(json, "").getFirst().points().getFirst().name());
+    }
     @Test void instanceIslandsBindOnlyToMatchingCurrentIsland() throws Exception {
         Group source = new Group(UUID.randomUUID().toString(), "Mining", "hypixel:crystal_hollows:mini1",
                 true, false, true, example().points());

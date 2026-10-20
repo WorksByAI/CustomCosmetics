@@ -23,7 +23,7 @@ public final class WaypointScreen extends Screen {
         w = Math.min(760, width - 16); h = Math.min(430, height - 16);
         x = (width - w) / 2; y = (height - h) / 2;
         left = Math.clamp((w - 36) / 3, 110, 190); right = x + left + 24; detail = x + w - 12 - right;
-        rows = Math.max(1, (h - 177) / 27);
+        rows = Math.max(1, (h - 205) / 27);
         groups = Waypoints.snapshot().groups();
         here = Waypoints.currentScope();
         group = groups.stream().filter(value -> value.id().equals(selected)).findFirst().orElse(null);
@@ -55,14 +55,16 @@ public final class WaypointScreen extends Screen {
                 })));
             }
         }
-        addRenderableWidget(new Action(x + 12, y + h - 98, left, 22, "New Group", false,
+        addRenderableWidget(new Action(x + 12, y + h - 126, left, 22, "New Group", false,
                 () -> ClientUiAccess.setScreen(minecraft, new WaypointEditScreen(this, null, -1))));
         int half = (detail - 6) / 2;
-        Action editGroup = addRenderableWidget(new Action(right, y + h - 98, half, 22, "Edit Group", false,
+        Action editGroup = addRenderableWidget(new Action(right, y + h - 126, half, 22, "Edit Group", false,
                 () -> ClientUiAccess.setScreen(minecraft, new WaypointEditScreen(this, group, -1))));
-        Action addPoint = addRenderableWidget(new Action(right + half + 6, y + h - 98, detail - half - 6, 22, "Add Waypoint", true,
+        Action addPoint = addRenderableWidget(new Action(right + half + 6, y + h - 126, detail - half - 6, 22, "Add Waypoint", true,
                 () -> ClientUiAccess.setScreen(minecraft, new WaypointEditScreen(this, group, group.points().size()))));
         editGroup.active = group != null; addPoint.active = group != null;
+        addRenderableWidget(new Action(x + 12, y + h - 98, w - 24, 22, "Import Skyblocker waypoints.json", false,
+                () -> ClientUiAccess.setScreen(minecraft, new WaypointImportScreen(this))));
         int third = (w - 36) / 3;
         addRenderableWidget(new Action(x + 12, y + h - 70, third, 22, "Import Clipboard", false, () -> perform(() -> {
             int count = Waypoints.importClipboard(minecraft.keyboardHandler.getClipboard());
@@ -82,7 +84,7 @@ public final class WaypointScreen extends Screen {
     }
     @FunctionalInterface private interface Work { void run() throws Exception; }
     @Override public boolean mouseScrolled(double mx, double my, double horizontal, double vertical) {
-        if (my >= y + 69 && my < y + h - 105 && mx >= x + 12 && mx < x + w - 12) {
+        if (my >= y + 69 && my < y + h - 133 && mx >= x + 12 && mx < x + w - 12) {
             if (mx < right) groupOffset = Math.clamp(groupOffset - (int) Math.signum(vertical) * 3, 0, Math.max(0, groups.size() - rows));
             else if (group != null) pointOffset = Math.clamp(pointOffset - (int) Math.signum(vertical) * 3, 0, Math.max(0, group.points().size() - rows));
             rebuildWidgets(); return true;

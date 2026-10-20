@@ -66,6 +66,7 @@ public final class ConfigManager {
     public static volatile boolean offlineMode = false;
     public static volatile boolean updateCheckEnabled = true;
     public static boolean commandTooltipsEnabled=true;
+    public static boolean accessoryHelperTooltipEnabled=true;
     public static boolean snaplookEnabled=true;
     public static String snaplookPerspective="back";
     public static boolean capeEnabled = true;

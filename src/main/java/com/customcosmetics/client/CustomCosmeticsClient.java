@@ -29,6 +29,7 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
         com.customcosmetics.features.cape.CapeCosmetics.init();
         com.customcosmetics.features.nickname.NicknamePresets.init();
         com.customcosmetics.features.items.ItemCosmetics.init();
+        com.customcosmetics.features.accessoryhelper.AccessoryTooltipHelper.init();
         com.customcosmetics.features.map.MapEditor.init();
         com.customcosmetics.features.camera.Snaplook.init();
         com.customcosmetics.features.skins.LocalSkins.init();

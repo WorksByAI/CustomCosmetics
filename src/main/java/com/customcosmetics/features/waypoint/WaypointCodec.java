@@ -70,9 +70,15 @@ public final class WaypointCodec {
         }
         if (bytes.length > MAX_BYTES) throw new IllegalArgumentException("Decompressed waypoint data exceeds 2 MiB.");
         String decoded = StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(bytes)).toString();
-        checkDepth(decoded);
-        JsonElement parsed = JsonParser.parseString(decoded);
-        if (!parsed.isJsonArray()) throw new IllegalArgumentException("Expected a list of waypoint groups.");
+        return importConfig(decoded, currentScope);
+    }
+
+    /** Skyblocker's config/skyblocker/waypoints.json uses the same group JSON as a V1 share payload. */
+    public static List<Group> importConfig(String json, String currentScope) {
+        checkLength(json);
+        checkDepth(json);
+        JsonElement parsed = JsonParser.parseString(json);
+        if (!parsed.isJsonArray()) throw new IllegalArgumentException("Expected Skyblocker waypoint groups in a JSON array.");
         return parseGroups(parsed.getAsJsonArray(), false, currentScope);
     }
 
@@ -118,8 +124,10 @@ public final class WaypointCodec {
                 JsonArray pos = array(point, "pos"), colors = array(point, "colorComponents");
                 if (pos.size() != 3 || colors.size() != 3) throw new IllegalArgumentException("Position and color need 3 components.");
                 int color = channel(colors.get(0)) << 16 | channel(colors.get(1)) << 8 | channel(colors.get(2));
-                decoded.add(new Point(componentText(point.get("name")), exactInt(pos.get(0)), exactInt(pos.get(1)),
-                        exactInt(pos.get(2)), color, bool(point, "shouldRender", true)));
+                int x = exactInt(pos.get(0)), y = exactInt(pos.get(1)), z = exactInt(pos.get(2));
+                String name = componentText(point.get("name"));
+                if (name.isBlank()) name = "Waypoint (" + x + ", " + y + ", " + z + ")";
+                decoded.add(new Point(name, x, y, z, color, bool(point, "shouldRender", true)));
             }
             String scope;
             if (local) scope = string(group, "scope");

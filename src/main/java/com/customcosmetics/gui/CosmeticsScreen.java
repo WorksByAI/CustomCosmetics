@@ -521,6 +521,17 @@ public final class CosmeticsScreen extends Screen {
     }
 
     private void itemCosmetics() {
+        section("SkyBlock accessories", "See collected tiers when hovering accessories.");
+        toggleRow("Accessory Helper Tooltip", "Open every Accessory Bag page once per profile to record ownership.",
+            () -> ConfigManager.accessoryHelperTooltipEnabled, value -> ConfigManager.accessoryHelperTooltipEnabled = value);
+        fullButton("Clear This Profile's Bag Scan", () -> {
+            boolean cleared = com.customcosmetics.features.accessoryhelper.AccessoryTooltipHelper.clearCurrent();
+            toast(cleared ? "Accessory Bag scan cleared. Reopen every page to refresh." : "No profile scan to clear.");
+            rebuildWidgets();
+        }, false);
+        String accessoryNotice = com.customcosmetics.features.accessoryhelper.AccessoryTooltipHelper.notice();
+        if (!accessoryNotice.isEmpty()) { label(accessoryNotice, contentX, rowY, MUTED, contentWidth); rowY += 16; }
+        section("Item appearance", "Customize names and models on your client.");
         toggleRow("Enabled", "Custom item names and models. Only visible on your client.",
             () -> com.customcosmetics.features.items.ItemCosmetics.store().enabled(),
             value -> com.customcosmetics.features.items.ItemCosmetics.store().enabled(value));

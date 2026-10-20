@@ -7,6 +7,7 @@ import com.customcosmetics.config.ConfigManager;
 import com.customcosmetics.features.waypoint.*;
 import com.customcosmetics.gui.PinkUi;
 import com.customcosmetics.gui.WaypointScreen;
+import com.customcosmetics.gui.WaypointImportScreen;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.nio.file.*;
 import java.util.*;
@@ -38,6 +39,15 @@ public final class WaypointsGameTest implements FabricClientGameTest {
             Path project = Path.of(Objects.requireNonNull(System.getProperty("customcosmetics.testProjectDir"))).toAbsolutePath().normalize();
             Path file = FabricLoader.getInstance().getConfigDir().resolve("customcosmetics/waypoints.json").toAbsolutePath().normalize();
             check(file.startsWith(project.resolve("build")), "Waypoint fixture would write outside the isolated build directory");
+            Path skyblockerFile = FabricLoader.getInstance().getConfigDir().resolve("skyblocker/waypoints.json").toAbsolutePath().normalize();
+            check(skyblockerFile.startsWith(project.resolve("build")), "Skyblocker fixture would write outside the isolated build directory");
+            Files.createDirectories(skyblockerFile.getParent());
+            Files.writeString(skyblockerFile, """
+                [{"name":"Hub","island":"hub","waypoints":[{"pos":[1,70,2],"name":"",
+                    "colorComponents":[1,0,0],"shouldRender":true}]},
+                 {"name":"Mining","island":"mining_3","ordered":true,"waypoints":[
+                    {"pos":[3,100,4],"name":"Ore","colorComponents":[0,1,0],"shouldRender":false}]}]
+                """);
             context.runOnClient(client -> {
                 clipboardBefore.set(client.keyboardHandler.getClipboard());
                 ConfigManager.offlineMode = true; ConfigManager.syncEnabled = false; ConfigManager.disabledModules = -1;
@@ -95,6 +105,27 @@ public final class WaypointsGameTest implements FabricClientGameTest {
                 context.runOnClient(client -> check(Waypoints.snapshot().groups().size() == 2, "GUI import did not append a group"));
                 // The imported copy is identical; remove it before counting render markers.
                 context.runOnClient(client -> Waypoints.removeGroup(Waypoints.snapshot().groups().get(1).id()));
+                click(context, "Import Skyblocker waypoints.json", PinkUi.Action.class);
+                context.runOnClient(client -> check(ClientUiAccess.screen(client) instanceof WaypointImportScreen,
+                        "Skyblocker file import screen did not open"));
+                click(context, "Preview", PinkUi.Action.class);
+                context.waitFor(client -> ClientUiAccess.screen(client) instanceof WaypointImportScreen &&
+                        ClientUiAccess.screen(client).children().stream().filter(AbstractWidget.class::isInstance)
+                            .map(AbstractWidget.class::cast).anyMatch(widget -> widget.active && widget.getMessage().getString().equals("Import")));
+                context.takeScreenshot("skyblocker-file-import-preview");
+                click(context, "Import", PinkUi.Action.class);
+                context.runOnClient(client -> {
+                    var imported = Waypoints.snapshot().groups();
+                    check(imported.size() == 3, "Skyblocker file import did not append both groups");
+                    check(imported.get(1).scope().equals("hypixel:hub") && imported.get(2).scope().equals("hypixel:mining_3"),
+                            "Imported Skyblocker islands were not separated");
+                    check(imported.get(1).points().getFirst().name().startsWith("Waypoint ("), "Unnamed Skyblocker point was lost");
+                    check(!imported.get(2).points().getFirst().enabled(), "Disabled Skyblocker point became enabled");
+                });
+                click(context, "Back", PinkUi.Action.class);
+                context.runOnClient(client -> {
+                    for (var imported : List.copyOf(Waypoints.snapshot().groups()).subList(1, 3)) Waypoints.removeGroup(imported.id());
+                });
                 command(context, "ccos waypoint");
                 context.getInput().resizeWindow(640, 480); context.waitTicks(4);
                 assertControlsInside(context); context.takeScreenshot("waypoint-manager-compact");

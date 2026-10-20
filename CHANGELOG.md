@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.1
+
+- Add a SkyBlock accessory tooltip with collected, upgrade, upgradable, downgrade and missing states after a complete Accessory Bag scan.
+- Import Skyblocker's `waypoints.json` directly while preserving island groups and existing waypoints.
+
 ## 1.8.0
 
 - Add waypoint groups, ordered routes and Skyblocker V1 import/export.

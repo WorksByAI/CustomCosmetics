@@ -109,7 +109,9 @@ public final class Waypoints {
         ROUTES.remove(id);
     }
     public static int importClipboard(String text) throws IOException {
-        var imported = WaypointCodec.importGroups(text, currentScope());
+        return importGroups(WaypointCodec.importGroups(text, currentScope()));
+    }
+    public static int importGroups(List<Group> imported) {
         var groups = new ArrayList<>(snapshot().groups());
         groups.addAll(imported);
         replace(new Snapshot(data.enabled(), groups));

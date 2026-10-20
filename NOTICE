@@ -155,6 +155,14 @@ by CustomCosmetics contributors, Copyright (C) 2026, AGPL-3.0-or-later.
 No Lunar Client, Badlion or Essential models or textures are included.
 The material atlas can be reproduced with tools/generate-accessory-materials.py.
 
+SkyBlock accessory metadata
+---------------------------
+The client bundles factual item IDs, family names and tier numbers derived from
+the public Skyblocker accessory endpoint, https://hysky.de/api/accessories,
+retrieved 2026-10-20. Skyblocker source: https://github.com/SkyblockerMod/Skyblocker
+No Skyblocker Java implementation or assets are included. The tooltip and local
+Accessory Bag scanner are independently implemented by CustomCosmetics.
+
 Original Baity notice (preserved verbatim)
 -----------------------------------------
 
