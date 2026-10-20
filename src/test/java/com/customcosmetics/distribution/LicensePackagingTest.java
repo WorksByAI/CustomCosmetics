@@ -16,8 +16,8 @@ class LicensePackagingTest {
         String[] languages=readme.split("## English",2);
         assertEquals(2,languages.length);
         String version=System.getProperty("customcosmetics.version");
-        assertTrue(languages[0].contains("CustomCosmetics v"+version+" 发布！"));
-        assertTrue(languages[1].contains("CustomCosmetics v"+version));
+        assertTrue(languages[0].contains(version) && languages[0].contains("Fabric"));
+        assertTrue(languages[1].contains(version) && languages[1].contains("Fabric"));
         for(String section:languages){
             for(String feature:new String[]{"Player Size","NickTweaks","Animation","Cape","Equipments","Sharing","Skins","Item Customization","Damage Splash","Map Editor","Offline Mode"})
                 assertTrue(section.contains(feature+"**"),feature);

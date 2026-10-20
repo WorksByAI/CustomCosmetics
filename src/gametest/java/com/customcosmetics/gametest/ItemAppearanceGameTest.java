@@ -18,7 +18,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 
 final class ItemAppearanceGameTest {
-    private static final String A="12345678-1234-1234-1234-123456789abc",B="12345678-1234-1234-1234-123456789abd";
+    private static final String A="12345678-1234-1234-1234-123456789abc",B="12345678-1234-1234-1234-123456789abd",C="12345678-1234-1234-1234-123456789abe";
     static void check(ClientGameTestContext context,TestSingleplayerContext world){
         world.getServer().runCommand("item replace entity @a weapon.mainhand with minecraft:blaze_rod[minecraft:custom_data={id:\"HYPERION\",uuid:\""+A+"\"}]");
         world.getServer().runCommand("item replace entity @a weapon.offhand with minecraft:blaze_rod[minecraft:custom_data={id:\"HYPERION\",uuid:\""+B+"\"}]");
@@ -130,6 +130,45 @@ final class ItemAppearanceGameTest {
         context.takeScreenshot("item-cosmetics-compact-editor-scrolled");click(context,"Select Model");click(context,"Back");
         click(context,"Reset Item");context.runOnClient(client->{if(!ItemCosmetics.store().get(A).empty())throw new AssertionError("Reset kept the override");});
         click(context,"Done");context.waitTicks(3);
+        world.getServer().runCommand("item replace entity @a armor.head with minecraft:player_head[minecraft:custom_data={id:\"WARDEN_HELMET\",uuid:\""+C+"\"}]");
+        context.waitFor(client->ItemCosmetics.uuid(client.player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD)).equals(C));
+        context.runOnClient(client->ClientUiAccess.setScreen(client,new ItemAppearanceScreen(null)));
+        context.waitTicks(2);chooseInventoryItem(context,C);
+        context.getInput().setCursorPos(600,250);
+        for(int i=0;i<7;i++){context.getInput().scroll(-1);context.waitTicks(1);}
+        click(context,"Use Leather");
+        context.runOnClient(client->field(client,"Armor Color").setValue("#357ACB"));
+        click(context,"Apply");
+        context.runOnClient(client->{
+            var saved=ItemCosmetics.store().get(C);
+            if(!saved.armorModel().equals("minecraft:leather")||!Integer.valueOf(0x357ACB).equals(saved.armorColor()))
+                throw new AssertionError("Armor editor did not save the leather model and tint");
+        });
+        click(context,"Done");context.waitTicks(2);
+        context.runOnClient(client->{
+            var real=client.player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD);
+            var originalHead=real.copy();
+            if(!ArmorAppearance.available("minecraft:leather",net.minecraft.world.entity.EquipmentSlot.HEAD))
+                throw new AssertionError("Vanilla leather armor asset was unavailable");
+            var state=new net.minecraft.client.renderer.entity.state.HumanoidRenderState();
+            net.minecraft.client.renderer.entity.HumanoidMobRenderer.extractHumanoidRenderState(client.player,state,0,client.getItemModelResolver());
+            if(!state.headEquipment.is(net.minecraft.world.item.Items.LEATHER_HELMET)||!ItemCosmetics.uuid(state.headEquipment).equals(C))
+                throw new AssertionError("The Warden-like player head did not become a leather render proxy");
+            if(!ArmorAppearance.model(state.headEquipment,net.minecraft.world.item.equipment.EquipmentAssets.IRON,
+                    net.minecraft.client.resources.model.EquipmentClientInfo.LayerType.HUMANOID).equals(net.minecraft.world.item.equipment.EquipmentAssets.LEATHER))
+                throw new AssertionError("The configured armor model did not reach the equipment renderer");
+            if(net.minecraft.world.item.component.DyedItemColor.getOrDefault(state.headEquipment,0)!=0xFF357ACB)
+                throw new AssertionError("The leather helmet did not receive its selected tint");
+            if(!ItemStack.isSameItemSameComponents(real,originalHead))throw new AssertionError("Armor styling changed the real player head");
+            ItemCosmetics.store().enabled(false);
+            if(ArmorAppearance.headProxy(real,net.minecraft.world.entity.EquipmentSlot.HEAD)!=real)
+                throw new AssertionError("Disabling item customization left the head override active");
+            ItemCosmetics.store().enabled(true);
+        });
+        context.runOnClient(client->client.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_FRONT));
+        context.waitTicks(5);context.takeScreenshot("item-cosmetics-warden-head-leather-armor");
+        context.runOnClient(client->{client.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);ItemCosmetics.store().put(C,new ItemAppearanceStore.Appearance("",""));ItemCosmetics.save();});
+        world.getServer().runCommand("item replace entity @a armor.head with minecraft:air");
         System.out.println("ITEM_APPEARANCE_GAME_TEST_OK");
     }
     private static PinkUi.Field field(net.minecraft.client.Minecraft client,String title){
@@ -171,7 +210,7 @@ final class ItemAppearanceGameTest {
         context.runOnClient(client->{
             var search=(PinkUi.Field)ClientUiAccess.screen(client).children().stream().filter(PinkUi.Field.class::isInstance).findFirst().orElseThrow();
             search.setValue(uuid);
-        });context.waitTicks(2);click(context,"Blaze Rod");
+        });context.waitTicks(2);click(context,uuid.equals(C)?"Player Head":"Blaze Rod");
         context.runOnClient(client->{
             try{
                 var selected=ItemAppearanceScreen.class.getDeclaredField("uuid");selected.setAccessible(true);

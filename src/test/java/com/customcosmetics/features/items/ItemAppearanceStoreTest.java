@@ -25,6 +25,18 @@ class ItemAppearanceStoreTest {
         assertEquals(original.get(A),loaded.get(A));assertEquals(original.get(B),loaded.get(B));assertFalse(loaded.enabled());assertFalse(loaded.dirty());
         assertFalse(Files.readString(path).contains("sync")||Files.readString(path).contains("token"));
     }
+    @Test void armorModelAndDyeRemainPerItemAndLegacyFilesStillLoad() throws Exception {
+        var path=directory.resolve("armor.json");var store=new ItemAppearanceStore(path);
+        store.put(A,new ItemAppearanceStore.Appearance("","","minecraft:leather",0x57A2E6));
+        store.put(B,new ItemAppearanceStore.Appearance("Old name",""));
+        assertTrue(store.hasArmorModels());assertTrue(store.hasArmorColors());store.save();
+        var restored=new ItemAppearanceStore(path);restored.load();
+        assertEquals("minecraft:leather",restored.get(A).armorModel());assertEquals(0x57A2E6,restored.get(A).armorColor());
+        assertNull(restored.get(B).armorColor());assertEquals("",restored.get(B).armorModel());
+        restored.put(A,new ItemAppearanceStore.Appearance("",""));
+        assertFalse(restored.hasArmorModels());assertFalse(restored.hasArmorColors());
+        assertEquals("Old name",restored.get(B).name());
+    }
     @Test void normalizedItemUuidRejectsMalformedOrOtherIdentityFormats(){
         assertEquals(A,ItemAppearanceStore.key("12345678123412341234123456789ABC"));
         for(String value:new String[]{"", "HYPERION","minecraft:blaze_rod","1-2-3-4-5","../file",""})assertEquals("",ItemAppearanceStore.key(value));
@@ -58,6 +70,9 @@ class ItemAppearanceStoreTest {
         for(String id:new String[]{"https://model.test","minecraft:UPPERCASE","minecraft:model?param","../model"})
             assertThrows(IllegalArgumentException.class,()->new ItemAppearanceStore.Appearance("Name",id));
         assertDoesNotThrow(()->new ItemAppearanceStore.Appearance("&d"+"x".repeat(254),"hypixel:weapons/hyperion"));
+        assertThrows(IllegalArgumentException.class,()->new ItemAppearanceStore.Appearance("","","../leather",null));
+        assertThrows(IllegalArgumentException.class,()->new ItemAppearanceStore.Appearance("","","minecraft:leather",-1));
+        assertThrows(IllegalArgumentException.class,()->new ItemAppearanceStore.Appearance("","","minecraft:leather",0x1000000));
     }
     @Test void aMissingFileDoesNotCreateOrChangeOtherConfiguration() throws Exception {
         var path=directory.resolve("items.json");var store=new ItemAppearanceStore(path);store.load();store.save();

@@ -10,8 +10,10 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ItemVisualOnlyTest {
     @Test void itemEditingCannotUseGameActionsOrEitherNetworkTransport() throws Exception {
-        for(String type:List.of("features/items/ItemCosmetics","features/items/ItemModelVisibility","features/items/ItemAppearanceStore","features/items/ItemNameText",
-            "gui/ItemAppearanceScreen","gui/ItemChoiceScreen","gui/ItemChoiceScreen$Row","mixin/ItemAppearanceMixin$Names","mixin/ItemAppearanceMixin$Models")){
+        for(String type:List.of("features/items/ItemCosmetics","features/items/ArmorAppearance","features/items/ItemModelVisibility","features/items/ItemAppearanceStore","features/items/ItemNameText",
+            "gui/ItemAppearanceScreen","gui/ItemChoiceScreen","gui/ItemChoiceScreen$Row","mixin/ItemAppearanceMixin$Names","mixin/ItemAppearanceMixin$Models",
+            "mixin/ArmorAppearanceMixin$Assets","mixin/ArmorAppearanceMixin$HeadEquipment","mixin/ArmorAppearanceMixin$HideOriginalHead",
+            "mixin/ArmorAppearanceMixin$Model","mixin/ArmorAppearanceMixin$Color")){
             try(var input=getClass().getClassLoader().getResourceAsStream("com/customcosmetics/"+type+".class")){
                 assertNotNull(input);var model=ClassFile.of().parse(input.readAllBytes());
                 for(var method:model.methods())for(var instruction:method.code().map(code->code.elementStream().toList()).orElse(List.of())){

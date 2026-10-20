@@ -23,11 +23,12 @@ public final class ItemAppearanceScreen extends Screen {
     private final List<Placement> body=new ArrayList<>();
     private record Placement(AbstractWidget widget,int y){}
     private ItemStack item=ItemStack.EMPTY;
-    private String uuid="",draftName="",draftModel="",status="";
+    private String uuid="",draftName="",draftModel="",draftArmorModel="",draftArmorColor="",status="";
     private int x,y,w,h,previewWidth,scroll,bodyTop,bodyBottom;
     private boolean draggingScrollbar;
     private int scrollbarGrabOffset;
-    private PinkUi.Field nameField,modelField;
+    private PinkUi.Field nameField,modelField,armorModelField,armorColorField;
+    private PinkUi.ColorPicker armorPicker;
     public ItemAppearanceScreen(Screen parent){
         super(Component.literal("Item Customization"));this.parent=parent;
         var player=net.minecraft.client.Minecraft.getInstance().player;
@@ -35,7 +36,9 @@ public final class ItemAppearanceScreen extends Screen {
     }
     private void select(ItemStack stack){
         item=stack.copy();uuid=ItemCosmetics.uuid(item);
-        var appearance=ItemCosmetics.store().get(uuid);draftName=appearance.name();draftModel=appearance.model();status="";
+        var appearance=ItemCosmetics.store().get(uuid);
+        draftName=appearance.name();draftModel=appearance.model();draftArmorModel=appearance.armorModel();
+        draftArmorColor=appearance.armorColor()==null?"":hex(appearance.armorColor());status="";scroll=0;
     }
     @Override protected void init(){
         controls.clear();body.clear();w=Math.min(620,width-16);h=Math.min(370,height-16);x=(width-w)/2;y=(height-h)/2;
@@ -48,11 +51,34 @@ public final class ItemAppearanceScreen extends Screen {
         modelField=new PinkUi.Field(font,fx,y+174,fw,"Model ID");modelField.setMaxLength(256);modelField.setValue(draftModel);
         modelField.setHint(Component.literal("Empty = original model"));modelField.setResponder(value->{draftModel=value;status="";CosmeticsScreen.childInteraction();});body.add(new Placement(addWidget(modelField),modelField.getY()));
         var selectModel=action(fx,y+209,fw,"Select Model",this::chooseModel);controls.remove(selectModel);body.add(new Placement(selectModel,selectModel.getY()));
+        armorModelField=new PinkUi.Field(font,fx,y+266,fw,"Armor Model ID");armorModelField.setMaxLength(256);
+        armorModelField.setValue(draftArmorModel);armorModelField.setHint(Component.literal("e.g. minecraft:leather"));
+        armorModelField.setResponder(value->{draftArmorModel=value;status="";CosmeticsScreen.childInteraction();});
+        body.add(new Placement(addWidget(armorModelField),armorModelField.getY()));
+        int half=(fw-6)/2;
+        var leather=action(fx,y+296,half,"Use Leather",()->{draftArmorModel="minecraft:leather";armorModelField.setValue(draftArmorModel);});
+        controls.remove(leather);body.add(new Placement(leather,leather.getY()));
+        var original=action(fx+half+6,y+296,fw-half-6,"Original Armor",()->{draftArmorModel="";armorModelField.setValue("");});
+        controls.remove(original);body.add(new Placement(original,original.getY()));
+        armorColorField=new PinkUi.Field(font,fx,y+360,fw,"Armor Color");armorColorField.setMaxLength(7);
+        armorColorField.setValue(draftArmorColor);armorColorField.setHint(Component.literal("Empty = original color"));
+        armorColorField.setResponder(value->{
+            draftArmorColor=value;status="";
+            if(value.matches("#?[0-9a-fA-F]{6}"))armorPicker.setColor(Integer.parseInt(value.replace("#",""),16));
+            CosmeticsScreen.childInteraction();
+        });
+        body.add(new Placement(addWidget(armorColorField),armorColorField.getY()));
+        armorPicker=new PinkUi.ColorPicker(fx,y+391,fw,82,draftArmorColor.matches("#?[0-9a-fA-F]{6}")
+            ?Integer.parseInt(draftArmorColor.replace("#",""),16):0xA06540,
+            color->armorColorField.setValue(hex(color)));
+        body.add(new Placement(addWidget(armorPicker),armorPicker.getY()));
         int part=(w-44)/3;
         action(x+16,y+h-38,part,"Reset Item",this::reset);
         action(x+22+part,y+h-38,part,"Apply",this::apply);
         action(x+28+part*2,y+h-38,part,"Done",this::onClose);
         nameField.active=modelField.active=!uuid.isEmpty();
+        boolean armorEditable=!uuid.isEmpty()&&ArmorAppearance.editable(item);
+        armorModelField.active=armorColorField.active=armorPicker.active=leather.active=original.active=armorEditable;
         positionBody();
     }
     private PinkUi.Action action(int bx,int by,int bw,String label,Runnable callback){
@@ -80,16 +106,28 @@ public final class ItemAppearanceScreen extends Screen {
     private void apply(){
         if(uuid.isEmpty()){status="Select an item with a unique SkyBlock item UUID.";return;}
         try{
-            var value=new ItemAppearanceStore.Appearance(draftName,draftModel);
+            boolean armorEditable=ArmorAppearance.editable(item);
+            String armorModel=draftArmorModel.strip();
+            String rgb=draftArmorColor.strip();
+            Integer color=rgb.isEmpty()?null:rgb.matches("#?[0-9a-fA-F]{6}")?Integer.parseInt(rgb.replace("#",""),16):null;
+            if(!rgb.isEmpty()&&color==null){armorColorField.invalid(true);status="Use a six-digit armor color such as #FF8844.";return;}
+            if((!armorModel.isEmpty()||color!=null)&&!armorEditable){status="Armor options require a head or armor item.";return;}
+            if(!armorModel.isEmpty()&&!ArmorAppearance.available(armorModel,ArmorAppearance.slot(item))){
+                armorModelField.invalid(true);status="Armor asset has no usable model for this slot.";return;
+            }
+            if(item.is(net.minecraft.world.item.Items.PLAYER_HEAD)&&color!=null&&armorModel.isEmpty()){
+                status="Choose an armor model for a player head before setting its color.";return;
+            }
+            var value=new ItemAppearanceStore.Appearance(draftName,draftModel,armorModel,color);
             if(!value.model().isEmpty()&&!ItemCosmetics.renderable(item,Identifier.tryParse(value.model()))){modelField.invalid(true);status="This model has no usable texture. Choose another model or clear the field.";return;}
-            ItemCosmetics.store().put(uuid,value);modelField.invalid(false);
+            ItemCosmetics.store().put(uuid,value);modelField.invalid(false);armorModelField.invalid(false);armorColorField.invalid(false);
             status=ItemCosmetics.save()?"Saved. Only visible on your client.":"Could not save. Please try again.";
         }catch(IllegalArgumentException|IllegalStateException error){status=error.getMessage();}
     }
     private void reset(){
         if(uuid.isEmpty())return;
         ItemCosmetics.store().put(uuid,new ItemAppearanceStore.Appearance("",""));ItemCosmetics.save();
-        draftName=draftModel="";rebuildWidgets();status="Original name and model restored.";
+        draftName=draftModel=draftArmorModel=draftArmorColor="";rebuildWidgets();status="Original appearance restored.";
     }
     private ItemStack preview(){
         var model=Identifier.tryParse(draftModel.strip());
@@ -113,11 +151,15 @@ public final class ItemAppearanceScreen extends Screen {
         }
         text(g,font,"Custom Name",fx,y+85,TEXT,fw);text(g,font,"Colors: &0–&f, &r, &#RRGGBB",fx,y+135,MUTED,fw);
         text(g,font,"Model ID",fx,y+159,TEXT,fw);
+        text(g,font,"Worn Armor Model ID",fx,y+250,TEXT,fw);
+        text(g,font,"Armor Color (#RRGGBB)",fx,y+344,TEXT,fw);
+        if(ArmorAppearance.editable(item)&&!draftArmorColor.isEmpty()&&draftArmorColor.matches("#?[0-9a-fA-F]{6}"))
+            rounded(g,x+24,y+229,24,8,2,0xFF000000|Integer.parseInt(draftArmorColor.replace("#",""),16));
         g.pose().popMatrix();for(var placement:body)if(placement.widget().visible)placement.widget().extractRenderState(g,mx,my,delta);g.disableScissor();
         if(maxScroll()>0){var bar=scrollbar();rounded(g,x+w-10,bodyTop,3,bodyBottom-bodyTop,1,BORDER);rounded(g,x+w-10,bar.thumbStart(scroll),3,bar.thumbLength(),1,PINK);}
         text(g,font,status.isEmpty()?(uuid.isEmpty()?"Select a SkyBlock item with a unique item UUID.":"Click Apply to save changes to this item."):status,x+16,y+h-61,MUTED,w-32);
     }
-    private int maxScroll(){return Math.max(0,y+239-bodyBottom);}
+    private int maxScroll(){return Math.max(0,y+482-bodyBottom);}
     private ScrollBarLayout scrollbar(){int viewport=Math.max(0,bodyBottom-bodyTop);return ScrollBarLayout.of(bodyTop,viewport,viewport,viewport+maxScroll(),maxScroll());}
     private void positionBody(){for(var p:body){p.widget().setY(p.y()-scroll);p.widget().visible=p.widget().getY()+p.widget().getHeight()>bodyTop&&p.widget().getY()<bodyBottom;}}
     @Override public boolean mouseScrolled(double mx,double my,double horizontal,double vertical){
@@ -143,4 +185,5 @@ public final class ItemAppearanceScreen extends Screen {
     @Override public boolean isPauseScreen(){return false;}
     @Override public void removed(){ItemCosmetics.save();}
     @Override public void onClose(){ClientUiAccess.setScreen(minecraft,parent);}
+    private static String hex(int color){return String.format(Locale.ROOT,"#%06X",color&0xFFFFFF);}
 }

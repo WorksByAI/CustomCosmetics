@@ -1,0 +1,73 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+package com.customcosmetics.mixin;
+
+import com.customcosmetics.features.items.ArmorAppearance;
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.llamalad7.mixinextras.injector.ModifyReturnValue;
+import com.llamalad7.mixinextras.sugar.Local;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.entity.HumanoidMobRenderer;
+import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
+import net.minecraft.client.renderer.entity.layers.CustomHeadLayer;
+import net.minecraft.client.renderer.entity.layers.EquipmentLayerRenderer;
+import net.minecraft.client.renderer.entity.state.HumanoidRenderState;
+import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
+import net.minecraft.client.resources.model.EquipmentAssetManager;
+import net.minecraft.client.resources.model.EquipmentClientInfo;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.DyedItemColor;
+import net.minecraft.world.item.equipment.EquipmentAsset;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.gen.Accessor;
+
+public final class ArmorAppearanceMixin {
+    @Mixin(EntityRenderDispatcher.class)
+    public interface Assets extends ArmorAppearance.AssetAccess {
+        @Override @Accessor("equipmentAssets") EquipmentAssetManager customcosmetics$equipmentAssets();
+    }
+
+    @Mixin(HumanoidMobRenderer.class)
+    public static class HeadEquipment {
+        @ModifyExpressionValue(method = "getEquipmentIfRenderable", at = @At(value = "INVOKE",
+                target = "Lnet/minecraft/world/entity/LivingEntity;getItemBySlot(Lnet/minecraft/world/entity/EquipmentSlot;)Lnet/minecraft/world/item/ItemStack;"))
+        private static ItemStack customcosmetics$headArmorProxy(ItemStack original, @Local(argsOnly = true) EquipmentSlot slot) {
+            return ArmorAppearance.headProxy(original, slot);
+        }
+    }
+
+    @Mixin(CustomHeadLayer.class)
+    public static class HideOriginalHead {
+        @Inject(method = "submit(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;ILnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;FF)V",
+                at = @At("HEAD"), cancellable = true)
+        private void customcosmetics$hideHeadForArmor(PoseStack pose, SubmitNodeCollector collector, int light,
+                LivingEntityRenderState state, float yaw, float pitch, CallbackInfo ci) {
+            if (state instanceof HumanoidRenderState humanoid && ArmorAppearance.hidesHead(humanoid.headEquipment, state.wornHeadType != null))
+                ci.cancel();
+        }
+    }
+
+    @Mixin(EquipmentLayerRenderer.class)
+    public static class Model {
+        @ModifyVariable(method = "renderLayers(Lnet/minecraft/client/resources/model/EquipmentClientInfo$LayerType;Lnet/minecraft/resources/ResourceKey;Lnet/minecraft/client/model/Model;Ljava/lang/Object;Lnet/minecraft/world/item/ItemStack;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;ILnet/minecraft/resources/Identifier;II)V",
+                at = @At("HEAD"), argsOnly = true)
+        private ResourceKey<EquipmentAsset> customcosmetics$armorAsset(ResourceKey<EquipmentAsset> original,
+                @Local(argsOnly = true) ItemStack stack, @Local(argsOnly = true) EquipmentClientInfo.LayerType layer) {
+            return ArmorAppearance.model(stack, original, layer);
+        }
+    }
+
+    @Mixin(DyedItemColor.class)
+    public static class Color {
+        @ModifyReturnValue(method = "getOrDefault", at = @At("RETURN"))
+        private static int customcosmetics$armorTint(int original, ItemStack stack, int defaultColor) {
+            return ArmorAppearance.color(stack, original);
+        }
+    }
+}

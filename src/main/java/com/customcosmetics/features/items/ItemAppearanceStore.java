@@ -16,24 +16,40 @@ public final class ItemAppearanceStore {
     private static final java.util.regex.Pattern COMPACT_UUID = java.util.regex.Pattern.compile("[a-f0-9]{32}");
     private static final java.util.regex.Pattern FULL_UUID = java.util.regex.Pattern.compile("[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}");
     private static final int MAX_FILE_BYTES = 2 * 1024 * 1024;
-    public record Appearance(String name, String model) {
+    public record Appearance(String name, String model, String armorModel, Integer armorColor) {
+        public Appearance(String name, String model) { this(name, model, "", null); }
         public Appearance {
             name = name == null ? "" : name;
             model = model == null ? "" : model.strip();
+            armorModel = armorModel == null ? "" : armorModel.strip();
             if (name.length() > MAX_NAME || name.codePoints().anyMatch(Character::isISOControl))
                 throw new IllegalArgumentException("Use at most 256 characters without control characters.");
-            if (!model.isEmpty() && (!model.matches("[a-z0-9_.-]+:[a-z0-9_.-][a-z0-9/._-]*") || model.length() > 256))
+            if (!validIdentifier(model))
                 throw new IllegalArgumentException("Invalid model ID.");
+            if (!validIdentifier(armorModel)) throw new IllegalArgumentException("Invalid armor model ID.");
+            if (armorColor != null && (armorColor < 0 || armorColor > 0xFFFFFF))
+                throw new IllegalArgumentException("Armor color must be #RRGGBB.");
         }
-        public boolean empty() { return name.isEmpty() && model.isEmpty(); }
+        public boolean empty() { return name.isEmpty() && model.isEmpty() && armorModel.isEmpty() && armorColor == null; }
+    }
+    private static boolean validIdentifier(String id) {
+        return id.isEmpty() || id.length() <= 256 && id.matches("[a-z0-9_.-]+:[a-z0-9_.-][a-z0-9/._-]*");
     }
     private final Path path;
     private final Map<String, Appearance> entries = new TreeMap<>();
     private boolean enabled = true, dirty;
-    private int models,names;
+    private int models,names,armorModels,armorColors;
     public boolean hasModels(){return models!=0;}
     public boolean hasNames(){return names!=0;}
-    private void count(Appearance value,int change){if(value==null)return;if(!value.model().isEmpty())models+=change;if(!value.name().isEmpty())names+=change;}
+    public boolean hasArmorModels(){return armorModels!=0;}
+    public boolean hasArmorColors(){return armorColors!=0;}
+    private void count(Appearance value,int change){
+        if(value==null)return;
+        if(!value.model().isEmpty())models+=change;
+        if(!value.name().isEmpty())names+=change;
+        if(!value.armorModel().isEmpty())armorModels+=change;
+        if(value.armorColor()!=null)armorColors+=change;
+    }
     public ItemAppearanceStore(Path path) { this.path = path; }
     public static String key(String raw) {
         if (raw == null) return "";
@@ -72,12 +88,14 @@ public final class ItemAppearanceStore {
                 try {
                     var data = entry.getValue().getAsJsonObject();
                     var appearance = new Appearance(data.has("name") ? data.get("name").getAsString() : "",
-                        data.has("model") ? data.get("model").getAsString() : "");
+                        data.has("model") ? data.get("model").getAsString() : "",
+                        data.has("armorModel") ? data.get("armorModel").getAsString() : "",
+                        data.has("armorColor") ? data.get("armorColor").getAsInt() : null);
                     if (!appearance.empty()) loaded.put(key, appearance);
                 } catch (RuntimeException malformedEntry) { /* An invalid override must not break other items. */ }
             }
             boolean newEnabled = !root.has("enabled") || root.get("enabled").getAsBoolean();
-            entries.clear(); entries.putAll(loaded);models=names=0;for(var value:loaded.values())count(value,1); enabled = newEnabled; dirty = false;
+            entries.clear(); entries.putAll(loaded);models=names=armorModels=armorColors=0;for(var value:loaded.values())count(value,1); enabled = newEnabled; dirty = false;
         } catch (RuntimeException malformed) { throw new IOException("Invalid item appearance format.", malformed); }
     }
     public void save() throws IOException {
@@ -86,6 +104,8 @@ public final class ItemAppearanceStore {
         var items = new JsonObject();
         for (var entry : entries.entrySet()) {
             var value = new JsonObject(); value.addProperty("name", entry.getValue().name()); value.addProperty("model", entry.getValue().model());
+            if (!entry.getValue().armorModel().isEmpty()) value.addProperty("armorModel", entry.getValue().armorModel());
+            if (entry.getValue().armorColor() != null) value.addProperty("armorColor", entry.getValue().armorColor());
             items.add(entry.getKey(), value);
         }
         root.add("items", items);

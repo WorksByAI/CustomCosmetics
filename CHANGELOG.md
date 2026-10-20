@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.2-dev.1
+
+- Add per-item worn armor model and color overrides, including leather helmet styling for player heads.
+
 ## 1.8.1
 
 - Add a SkyBlock accessory tooltip with collected, upgrade, upgradable, downgrade and missing states after a complete Accessory Bag scan.
