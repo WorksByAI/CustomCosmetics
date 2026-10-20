@@ -3,6 +3,9 @@
 ## 1.8.2-dev.1
 
 - Add per-item worn armor model and color overrides, including leather helmet styling for player heads.
+- Let shortcuts override server commands while protecting `/ccos` and `/customcosmetics`.
+- Bind SkyBlock waypoints to islands, with an Unknown bucket and island-specific management.
+- Refresh accessory metadata from Skyblocker's public API instead of a bundled snapshot.
 
 ## 1.8.1
 

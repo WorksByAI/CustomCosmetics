@@ -6,7 +6,6 @@ import com.customcosmetics.config.CosmeticsConfigDir;
 import com.customcosmetics.gui.ShortcutsScreen;
 import com.customcosmetics.utils.MessageUtils;
 import com.mojang.blaze3d.platform.InputConstants;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
@@ -33,7 +32,7 @@ public final class Shortcuts {
         initialized = true;
         store = new ShortcutStore(CosmeticsConfigDir.getCosmeticsConfigDir().resolve("shortcuts.json"));
         reload();
-        ClientSendMessageEvents.ALLOW_COMMAND.register(Shortcuts::allowCommand);
+        ClientSendMessageEvents.MODIFY_COMMAND.register(Shortcuts::modifyCommand);
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> keys.clear());
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (opening) { opening = false; ClientUiAccess.setScreen(client, new ShortcutsScreen(null)); }
@@ -54,9 +53,7 @@ public final class Shortcuts {
         }
     }
     public static void save(ShortcutStore.Data next) throws IOException {
-        // A server may add a command that conflicts with a previously saved alias.
-        // Turning the entire tool off must still be possible in that situation.
-        ShortcutRules.validate(next.entries(), next.enabled() ? reservedCommands() : Set.of());
+        ShortcutRules.validate(next.entries(), Set.of());
         compileKeys(next); // Validate key names before touching the file.
         store.save(next);
         apply(next);
@@ -83,31 +80,14 @@ public final class Shortcuts {
         }
         return new ShortcutKeyState<>(bindings);
     }
-    public static Set<String> reservedCommands() {
-        Set<String> names = new HashSet<>();
-        var dispatcher = ClientCommands.getActiveDispatcher();
-        if (dispatcher != null) for (var node : dispatcher.getRoot().getChildren()) names.add(node.getName());
-        var connection = Minecraft.getInstance().getConnection();
-        if (connection != null) for (var node : connection.getCommands().getRoot().getChildren()) names.add(node.getName());
-        return names;
-    }
-    private static boolean reserved(String command) {
-        String root = ShortcutRules.first(command);
-        var dispatcher = ClientCommands.getActiveDispatcher();
-        if (dispatcher != null && dispatcher.getRoot().getChild(root) != null) return true;
-        var connection = Minecraft.getInstance().getConnection();
-        return connection != null && connection.getCommands().getRoot().getChild(root) != null;
-    }
-    private static boolean allowCommand(String command) {
-        if (dispatching || rules.empty()) return true;
-        // Existing game/mod commands retain ownership if a saved alias conflicts after a server change.
-        if (rules.hasAlias(command) && reserved(command)) return true;
+    private static String modifyCommand(String command) {
+        if (dispatching || rules.empty()) return command;
         try {
-            String expanded = rules.expand(command);
-            if (expanded.equals(command)) return true;
-            send(expanded);
-        } catch (IllegalArgumentException error) { MessageUtils.sendMessage("Shortcuts: " + error.getMessage()); }
-        return false;
+            return rules.expand(command);
+        } catch (IllegalArgumentException error) {
+            MessageUtils.sendMessage("Shortcuts: " + error.getMessage());
+            return command;
+        }
     }
     private static boolean connected(Minecraft client) {
         return client.player != null && client.level != null && client.getConnection() != null
@@ -140,7 +120,7 @@ public final class Shortcuts {
         if (command == null) return false;
         try {
             String raw = ShortcutRules.withoutSlash(command);
-            send(rules.hasAlias(raw) && reserved(raw) ? raw : rules.expand(raw));
+            send(rules.expand(raw));
         } catch (IllegalArgumentException error) { MessageUtils.sendMessage("Shortcuts: " + error.getMessage()); }
         return true;
     }

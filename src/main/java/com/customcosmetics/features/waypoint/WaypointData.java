@@ -62,17 +62,16 @@ public final class WaypointData {
         return value.strip();
     }
 
-    /** Randomly generated / personal islands deliberately require an instance-specific binding. */
-    public static boolean instanceScoped(String island) {
-        return switch (island) {
-            case "dynamic", "garden", "dungeon", "crystal_hollows", "mineshaft" -> true;
-            default -> false;
-        };
+    public static String hypixelScope(String island, String instance) {
+        return "hypixel:" + SkyblockIslands.normalize(island);
     }
 
-    public static String hypixelScope(String island, String instance) {
-        if (island == null || island.isBlank()) return "";
-        String base = "hypixel:" + island;
-        return instanceScoped(island) ? base + ":" + (instance == null || instance.isBlank() ? "unbound" : instance) : base;
+    /** Existing instance-bound waypoint files remain usable after switching to island scopes. */
+    public static String normalizeScope(String scope) {
+        if (scope.startsWith("hypixel:")) {
+            String id = scope.substring(8).split(":", 2)[0];
+            return hypixelScope(id, "");
+        }
+        return scope;
     }
 }

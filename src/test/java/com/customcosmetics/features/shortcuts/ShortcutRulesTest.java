@@ -44,13 +44,15 @@ class ShortcutRulesTest {
         var untrusted = new ShortcutRules(List.of(alias("a", "/b"), alias("b", "/a")));
         assertThrows(IllegalArgumentException.class, () -> untrusted.expand("a"));
     }
-    @Test void refusesDuplicateAliasesAndCommandOwnershipConflicts() {
+    @Test void protectsOwnCommandsButAllowsServerCommandOverrides() {
         assertThrows(IllegalArgumentException.class, () -> validate(List.of(alias("a", "/warp home"),
             new Entry("different", Kind.ALIAS, "a", "/hub", false)), Set.of()));
         assertThrows(IllegalArgumentException.class, () -> validate(List.of(alias("ccos", "/hub")), Set.of()));
         assertThrows(IllegalArgumentException.class, () -> validate(List.of(alias("customcosmetics", "/hub")), Set.of()));
-        assertThrows(IllegalArgumentException.class, () -> validate(List.of(alias("tp", "/hub")), Set.of("tp")));
-        assertThrows(IllegalArgumentException.class, () -> validate(List.of(argument("/tp", "/hub")), Set.of("tp")));
+        assertDoesNotThrow(() -> validate(List.of(alias("tp", "/hub")), Set.of("tp")));
+        assertDoesNotThrow(() -> validate(List.of(argument("/v", "/visit")), Set.of("v")));
+        assertThrows(IllegalArgumentException.class, () -> validate(List.of(argument("/ccos", "/hub")), Set.of()));
+        assertThrows(IllegalArgumentException.class, () -> validate(List.of(argument("/customcosmetics", "/hub")), Set.of()));
         assertThrows(IllegalArgumentException.class, () -> validate(List.of(alias("v", "/hub"), argument("/v", "/visit")), Set.of()));
         assertDoesNotThrow(() -> validate(List.of(new Entry("a", Kind.ALIAS, "tp", "/hub", false)), Set.of("tp")));
         assertDoesNotThrow(() -> validate(List.of(alias("base", "/tp 1 2 3")), Set.of("tp")));

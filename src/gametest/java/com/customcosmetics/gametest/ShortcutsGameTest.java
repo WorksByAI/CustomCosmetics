@@ -107,13 +107,21 @@ public final class ShortcutsGameTest implements FabricClientGameTest {
                 check(ClientSendMessageEvents.ALLOW_COMMAND.invoker().allowSendCommandMessage("cctestalias unchanged"),
                     "Disabled shortcuts still rewrote a command");
                 save(new ShortcutStore.Data(true, entries()));
-                boolean conflict = false;
+                var next = new ArrayList<>(entries());
+                next.add(new ShortcutRules.Entry("server", ShortcutRules.Kind.ARGUMENT, "/say", "/help", true));
+                next.add(new ShortcutRules.Entry("visit", ShortcutRules.Kind.ARGUMENT, "/v", "/visit", true));
+                save(new ShortcutStore.Data(true, next));
+                check(ClientSendMessageEvents.MODIFY_COMMAND.invoker().modifySendCommandMessage("say hello").equals("help hello"),
+                        "An existing server command was not replaced");
+                check(ClientSendMessageEvents.MODIFY_COMMAND.invoker().modifySendCommandMessage("v @friend").equals("visit Alice"),
+                        "The /v server command was not replaced with /visit");
+                boolean protectedOwnCommand = false;
                 try {
-                    var next = new ArrayList<>(entries());
-                    next.add(new ShortcutRules.Entry("native", ShortcutRules.Kind.ALIAS, PROBE, "/help", true));
+                    next.add(new ShortcutRules.Entry("own", ShortcutRules.Kind.ARGUMENT, "/ccos", "/help", true));
                     save(new ShortcutStore.Data(true, next));
-                } catch (IllegalArgumentException expected) { conflict = true; }
-                check(conflict, "A shortcut shadowed an existing client command");
+                } catch (IllegalArgumentException expected) { protectedOwnCommand = true; }
+                check(protectedOwnCommand, "The shortcut manager command could be overridden");
+                save(new ShortcutStore.Data(true, entries()));
             });
             for (int[] size : new int[][]{{640, 480}, {1600, 1000}}) {
                 context.getInput().resizeWindow(size[0], size[1]); context.waitTicks(3);

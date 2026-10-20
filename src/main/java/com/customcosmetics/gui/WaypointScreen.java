@@ -13,9 +13,11 @@ import static com.customcosmetics.gui.PinkUi.*;
 /** Standalone manager reached through /customcosmetics waypoint or /ccos waypoint. */
 public final class WaypointScreen extends Screen {
     private final Screen parent;
-    private String selected = "", message = "", here = "";
+    private String selected = "", message = "", here = "", island = "";
+    private boolean followCurrent = true;
+    private int screenTicks;
     private int x, y, w, h, left, right, detail, rows, groupOffset, pointOffset;
-    private List<Group> groups = List.of();
+    private List<Group> allGroups = List.of(), groups = List.of();
     private Group group;
     public WaypointScreen(Screen parent) { super(Component.literal("Waypoints")); this.parent = parent; }
 
@@ -24,15 +26,21 @@ public final class WaypointScreen extends Screen {
         x = (width - w) / 2; y = (height - h) / 2;
         left = Math.clamp((w - 36) / 3, 110, 190); right = x + left + 24; detail = x + w - 12 - right;
         rows = Math.max(1, (h - 205) / 27);
-        groups = Waypoints.snapshot().groups();
+        allGroups = Waypoints.snapshot().groups();
         here = Waypoints.currentScope();
+        if (island.isBlank()) island = here.isBlank() ? "hypixel:unknown" : here;
+        groups = allGroups.stream().filter(value -> value.scope().equals(island)).toList();
         group = groups.stream().filter(value -> value.id().equals(selected)).findFirst().orElse(null);
         if (group == null && !groups.isEmpty()) { group = groups.getFirst(); selected = group.id(); }
         groupOffset = Math.clamp(groupOffset, 0, Math.max(0, groups.size() - rows));
         pointOffset = Math.clamp(pointOffset, 0, Math.max(0, group == null ? 0 : group.points().size() - rows));
         addRenderableWidget(new Action(x + w - 111, y + 10, 99, 22,
                 Waypoints.snapshot().enabled() ? "Markers: On" : "Markers: Off", false,
-                () -> perform(() -> Waypoints.replace(new Snapshot(!Waypoints.snapshot().enabled(), groups)))));
+                () -> perform(() -> Waypoints.replace(new Snapshot(!Waypoints.snapshot().enabled(), allGroups)))));
+        addRenderableWidget(new Action(x + 12, y + 37, 25, 22, "<", false, () -> changeIsland(-1)));
+        addRenderableWidget(new Action(x + 42, y + 37, Math.min(250, w - 96), 22,
+                "Island: " + SkyblockIslands.name(island), false, () -> changeIsland(1)));
+        addRenderableWidget(new Action(x + Math.min(297, w - 49), y + 37, 25, 22, ">", false, () -> changeIsland(1)));
         for (int i = 0; i < rows; i++) {
             int groupIndex = groupOffset + i, pointIndex = pointOffset + i;
             if (groupIndex < groups.size()) {
@@ -56,7 +64,7 @@ public final class WaypointScreen extends Screen {
             }
         }
         addRenderableWidget(new Action(x + 12, y + h - 126, left, 22, "New Group", false,
-                () -> ClientUiAccess.setScreen(minecraft, new WaypointEditScreen(this, null, -1))));
+                () -> ClientUiAccess.setScreen(minecraft, new WaypointEditScreen(this, null, -1, island))));
         int half = (detail - 6) / 2;
         Action editGroup = addRenderableWidget(new Action(right, y + h - 126, half, 22, "Edit Group", false,
                 () -> ClientUiAccess.setScreen(minecraft, new WaypointEditScreen(this, group, -1))));
@@ -77,6 +85,24 @@ public final class WaypointScreen extends Screen {
         export.active = group != null;
         addRenderableWidget(new Action(x + 24 + third * 2, y + h - 70, w - 36 - third * 2, 22, "Back", false, this::onClose));
     }
+    private void changeIsland(int direction) {
+        followCurrent = false;
+        island = SkyblockIslands.nextScope(island, direction);
+        selected = ""; groupOffset = pointOffset = 0; message = "";
+        rebuildWidgets();
+    }
+    @Override public void tick() {
+        super.tick();
+        if (++screenTicks % 20 != 0) return;
+        String current = Waypoints.currentScope();
+        if (!current.equals(here)) {
+            here = current;
+            if (followCurrent && !current.isBlank()) {
+                island = current; selected = ""; groupOffset = pointOffset = 0;
+            }
+            rebuildWidgets();
+        }
+    }
     private void perform(Work work) {
         try { work.run(); }
         catch (Exception failure) { message = failure.getMessage() == null ? "Waypoint operation failed." : failure.getMessage(); }
@@ -94,8 +120,9 @@ public final class WaypointScreen extends Screen {
     @Override public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
         outline(g, x, y, w, h, 10, BORDER, PANEL);
         text(g, font, "Waypoints", x + 12, y + 16, PINK, w - 140);
-        text(g, font, "Here: " + (here.isBlank() ? "Join a world / wait for island data" : here), x + 12, y + 41, MUTED, w - 24);
-        text(g, font, "Groups · " + groups.size(), x + 12, y + 58, TEXT, left);
+        if (w >= 600) text(g, font, "Current: " + (here.isBlank() ? "Waiting for island data" : SkyblockIslands.name(here)),
+                x + 334, y + 43, MUTED, w - 346);
+        text(g, font, "Groups on this island · " + groups.size(), x + 12, y + 58, TEXT, left);
         text(g, font, group == null ? "Create a group to begin" : group.name() + " · " + group.points().size() +
                 (group.scope().equals(here) ? " · Here" : " · Other area"), right, y + 58, TEXT, detail);
         if (groups.isEmpty()) text(g, font, "No groups yet", x + 16, y + 81, MUTED, left - 8);

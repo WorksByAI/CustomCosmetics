@@ -129,7 +129,8 @@ public final class Waypoints {
     }
 
     private static void tick(Minecraft client) {
-        // No location lookup, collection allocation, or IO while unused / disabled.
+        // Island detection stays available for the manager even before the first group is created.
+        WaypointWorld.tick(client);
         if (!data.enabled() || data.groups().isEmpty()) return;
         tick++;
         if (client.level != level) {

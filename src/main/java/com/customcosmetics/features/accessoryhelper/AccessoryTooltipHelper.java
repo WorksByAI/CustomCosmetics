@@ -8,6 +8,10 @@ import com.customcosmetics.config.FeatureModules;
 import com.customcosmetics.features.animations.PresenceWorld;
 import com.customcosmetics.features.blocking.SwordItems;
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -21,6 +25,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.time.Duration;
 import java.util.regex.Pattern;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -31,11 +36,13 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.item.ItemStack;
 
-/** Client-only ownership helper. No server requests or per-hover inventory scans. */
+/** Client-only ownership helper with asynchronous, cached public accessory metadata. */
 public final class AccessoryTooltipHelper {
     private static final Pattern BAG_TITLE = Pattern.compile("^Accessory Bag(?: \\((\\d+)/(\\d+)\\))?$");
     private static final int MAX_CACHE_BYTES = 1024 * 1024;
     private static final Path PATH = CosmeticsConfigDir.getCosmeticsConfigDir().resolve("accessory-helper.json");
+    private static final Path CATALOG_PATH = CosmeticsConfigDir.getCosmeticsConfigDir().resolve("accessory-catalog.json");
+    private static final URI CATALOG_URI = URI.create("https://hysky.de/api/accessories");
     private static final ExecutorService WRITER = Executors.newSingleThreadExecutor(task -> {
         Thread thread = new Thread(task, "CustomCosmetics-accessory-save"); thread.setDaemon(true); return thread;
     });
@@ -47,6 +54,8 @@ public final class AccessoryTooltipHelper {
     private static String profileKey = "", notice = "";
     private static Object lastScreen;
     private static int screenFirstTick, bagFingerprint, ticks;
+    private static long lastRefresh;
+    private static boolean refreshing;
     private AccessoryTooltipHelper() {}
 
     public static void init() {
@@ -64,10 +73,16 @@ public final class AccessoryTooltipHelper {
     private static void load() {
         if (loaded) return;
         loaded = true;
-        catalog = AccessoryCatalog.bundled();
+        catalog = AccessoryCatalog.empty();
+        if (Files.exists(CATALOG_PATH)) try {
+            byte[] bytes = Files.readAllBytes(CATALOG_PATH);
+            if (bytes.length > MAX_CACHE_BYTES) throw new IOException("Accessory catalog exceeds 1 MiB.");
+            catalog = AccessoryCatalog.parse(new String(bytes, StandardCharsets.UTF_8));
+        } catch (Exception invalid) {
+            notice = "Cached accessory metadata is invalid; refreshing online.";
+        }
         index = new AccessoryBagIndex(catalog);
-        if (Files.notExists(PATH)) return;
-        try {
+        if (Files.exists(PATH)) try {
             byte[] bytes;
             try (var input = Files.newInputStream(PATH)) { bytes = input.readNBytes(MAX_CACHE_BYTES + 1); }
             if (bytes.length > MAX_CACHE_BYTES) throw new IOException("Accessory cache exceeds 1 MiB.");
@@ -77,10 +92,47 @@ public final class AccessoryTooltipHelper {
             notice = "Accessory cache is invalid; the original file was preserved.";
             CustomCosmeticsClient.LOGGER.warn("Could not load accessory cache: {}", invalid.getMessage());
         }
+        refreshCatalog();
+    }
+    private static void refreshCatalog() {
+        if (refreshing || WRITER.isShutdown() || System.currentTimeMillis() - lastRefresh < Duration.ofHours(24).toMillis()) return;
+        refreshing = true;
+        lastRefresh = System.currentTimeMillis();
+        WRITER.execute(() -> {
+            try {
+                var request = HttpRequest.newBuilder(CATALOG_URI).timeout(Duration.ofSeconds(8)).GET().build();
+                var response = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5))
+                        .followRedirects(HttpClient.Redirect.NORMAL).build()
+                        .send(request, HttpResponse.BodyHandlers.ofInputStream());
+                if (response.statusCode() != 200) throw new IOException("HTTP " + response.statusCode());
+                byte[] bytes;
+                try (var input = response.body()) { bytes = input.readNBytes(MAX_CACHE_BYTES + 1); }
+                if (bytes.length > MAX_CACHE_BYTES) throw new IOException("Accessory metadata exceeds 1 MiB.");
+                String json = new String(bytes, StandardCharsets.UTF_8);
+                AccessoryCatalog next = AccessoryCatalog.parse(json);
+                if (next.size() < 100) throw new IOException("Accessory metadata is incomplete.");
+                Files.createDirectories(CATALOG_PATH.getParent());
+                Path temporary = CATALOG_PATH.resolveSibling(CATALOG_PATH.getFileName() + ".tmp");
+                Files.writeString(temporary, json, StandardCharsets.UTF_8);
+                try { Files.move(temporary, CATALOG_PATH, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING); }
+                catch (AtomicMoveNotSupportedException ignored) { Files.move(temporary, CATALOG_PATH, StandardCopyOption.REPLACE_EXISTING); }
+                Minecraft.getInstance().execute(() -> {
+                    catalog = next; index.refreshCatalog(next); notice = ""; refreshing = false;
+                });
+            } catch (Exception failure) {
+                Minecraft.getInstance().execute(() -> {
+                    notice = "Accessory metadata refresh failed; cached data remains in use.";
+                    lastRefresh = System.currentTimeMillis() - Duration.ofHours(24).toMillis() + Duration.ofMinutes(10).toMillis();
+                    refreshing = false;
+                });
+                CustomCosmeticsClient.LOGGER.warn("Could not refresh accessory metadata", failure);
+            }
+        });
     }
     private static void tick(Minecraft client) {
         if (!enabled()) { onSkyblock = false; profileKey = ""; lastScreen = null; return; }
         if (!loaded) load();
+        if (ticks % 1200 == 0) refreshCatalog();
         if (++ticks % 20 == 0) updateProfile(client);
         if (!onSkyblock || !writable) { lastScreen = null; return; }
         Object currentScreen = com.customcosmetics.compatibility.ClientUiAccess.screen(client);
@@ -106,7 +158,7 @@ public final class AccessoryTooltipHelper {
         var ids = new HashSet<String>();
         for (int i = 0; i < slots; i++) {
             String id = SwordItems.skyblockId(menu.slots.get(i).getItem()).orElse("");
-            if (catalog.get(id) != null) ids.add(id);
+            if (!id.isEmpty()) ids.add(id);
         }
         if (index.update(profileKey, page, total, ids)) queueSave();
     }

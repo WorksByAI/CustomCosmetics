@@ -26,8 +26,12 @@ public final class AccessoryBagIndex {
         }
     }
     private final Map<String, Bag> profiles = new HashMap<>();
-    private final AccessoryCatalog catalog;
+    private AccessoryCatalog catalog;
     public AccessoryBagIndex(AccessoryCatalog catalog) { this.catalog = catalog; }
+    public void refreshCatalog(AccessoryCatalog next) {
+        catalog = next;
+        profiles.values().forEach(bag -> bag.rebuild(next));
+    }
     public View view(String profile) {
         Bag bag = profiles.get(profile);
         return bag == null ? View.EMPTY : bag.view;
@@ -37,7 +41,7 @@ public final class AccessoryBagIndex {
             throw new IllegalArgumentException("Invalid accessory bag page or profile.");
         if (ids.size() > 500) throw new IllegalArgumentException("Too many accessory IDs on a page.");
         var filtered = new HashSet<String>();
-        for (String id : ids) if (catalog.get(id) != null) filtered.add(id);
+        for (String id : ids) if (id != null && id.matches("[A-Z0-9_;-]{2,100}")) filtered.add(id);
         Bag bag = profiles.get(profile);
         if (bag == null || bag.total != total) {
             bag = new Bag(total);

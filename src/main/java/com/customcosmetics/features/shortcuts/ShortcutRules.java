@@ -54,16 +54,16 @@ public final class ShortcutRules {
             if (entry.kind() == Kind.ALIAS) {
                 if (!trigger.matches("[A-Za-z0-9_:-]+"))
                     throw new IllegalArgumentException("Alias names use letters, numbers, _, : or - without /.");
-                if (OWN_COMMANDS.contains(trigger) || entry.enabled() && reservedCommands.contains(trigger))
-                    throw new IllegalArgumentException("/" + trigger + " is already a client or server command.");
+                if (OWN_COMMANDS.contains(trigger))
+                    throw new IllegalArgumentException("/" + trigger + " is reserved for CustomCosmetics shortcut management.");
                 if (!commandTriggers.add(trigger)) throw new IllegalArgumentException("That command shortcut is already used.");
             } else if (entry.kind() == Kind.ARGUMENT) {
                 if (trigger.chars().anyMatch(Character::isWhitespace))
                     throw new IllegalArgumentException("An argument shortcut replaces one complete token.");
                 if (PLACEHOLDER.matcher(entry.command()).find())
                     throw new IllegalArgumentException("Argument replacements use literal text, without $ placeholders.");
-                if (trigger.startsWith("/") && (OWN_COMMANDS.contains(trigger.substring(1)) || entry.enabled() && reservedCommands.contains(trigger.substring(1))))
-                    throw new IllegalArgumentException(trigger + " is already a client or server command.");
+                if (trigger.startsWith("/") && OWN_COMMANDS.contains(trigger.substring(1)))
+                    throw new IllegalArgumentException(trigger + " is reserved for CustomCosmetics shortcut management.");
                 if (trigger.startsWith("/") && !commandTriggers.add(trigger.substring(1)))
                     throw new IllegalArgumentException("That command shortcut is already used.");
             } else {

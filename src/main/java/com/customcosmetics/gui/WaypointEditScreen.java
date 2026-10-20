@@ -23,11 +23,14 @@ final class WaypointEditScreen extends Screen {
     private Field nameField, xField, yField, zField, colorField;
 
     WaypointEditScreen(Screen parent, Group group, int pointIndex) {
+        this(parent, group, pointIndex, Waypoints.currentScope());
+    }
+    WaypointEditScreen(Screen parent, Group group, int pointIndex, String selectedScope) {
         super(Component.literal(pointIndex < 0 ? "Waypoint Group" : "Waypoint"));
         this.parent = parent; original = group; this.pointIndex = pointIndex; groupMode = pointIndex < 0;
         existing = group != null && (groupMode || pointIndex < group.points().size());
         name = groupMode ? group == null ? "New Group" : group.name() : "Waypoint " + (pointIndex + 1);
-        scope = group == null ? Waypoints.currentScope() : group.scope();
+        scope = group == null ? selectedScope : group.scope();
         if (groupMode && group != null) { enabled = group.enabled(); ordered = group.ordered(); throughWalls = group.throughWalls(); }
         if (!groupMode) {
             orderIndex = pointIndex;
@@ -137,7 +140,7 @@ final class WaypointEditScreen extends Screen {
             text(g, font, "Scope: " + (scope.isBlank() ? "Not set" : scope), x + 12, y + (compact() ? 122 : 139), TEXT, w - 24);
             if (!compact()) {
             text(g, font, "Groups appear only in their bound world or island.", x + 12, y + 194, MUTED, w - 24);
-            text(g, font, "Random / personal islands bind to the current server instance.", x + 12, y + 208, MUTED, w - 24);
+            text(g, font, "SkyBlock waypoints follow their island across server instances.", x + 12, y + 208, MUTED, w - 24);
             text(g, font, "Ordered: previous (red), current (white), next (green).", x + 12, y + 222, MUTED, w - 24);
             text(g, font, "Reach the next point within 1.5 blocks to advance.", x + 12, y + 236, MUTED, w - 24);
             }

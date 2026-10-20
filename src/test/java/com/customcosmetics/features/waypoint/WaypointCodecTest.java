@@ -78,18 +78,21 @@ class WaypointCodecTest {
                 "\"pos\":[175,42,-470],\"name\":\"\",\"colorComponents\":[0,1,0]}]}]";
         assertEquals("Waypoint (175, 42, -470)", WaypointCodec.importConfig(json, "").getFirst().points().getFirst().name());
     }
-    @Test void instanceIslandsBindOnlyToMatchingCurrentIsland() throws Exception {
+    @Test void importedAndPreviouslySavedInstanceScopesFollowTheIsland() throws Exception {
         Group source = new Group(UUID.randomUUID().toString(), "Mining", "hypixel:crystal_hollows:mini1",
                 true, false, true, example().points());
         String share = WaypointCodec.exportGroups(List.of(source));
-        assertEquals("hypixel:crystal_hollows:mini2", WaypointCodec.importGroups(share, "hypixel:crystal_hollows:mini2").getFirst().scope());
-        assertEquals("hypixel:crystal_hollows:unbound", WaypointCodec.importGroups(share, "hypixel:hub").getFirst().scope());
+        assertEquals("hypixel:crystal_hollows", WaypointCodec.importGroups(share, "hypixel:crystal_hollows:mini2").getFirst().scope());
+        assertEquals("hypixel:crystal_hollows", WaypointCodec.importGroups(share, "hypixel:hub").getFirst().scope());
+        assertEquals("hypixel:crystal_hollows", WaypointCodec.decode(WaypointCodec.encode(new Snapshot(true, List.of(source)))).groups().getFirst().scope());
     }
-    @Test void unknownIslandUsesExplicitCurrentWorldBinding() throws Exception {
+    @Test void unknownIslandStaysInUnknownBucket() throws Exception {
         Group source = new Group(UUID.randomUUID().toString(), "Local", "local:world1", true, false, true, List.of());
         String share = WaypointCodec.exportGroups(List.of(source));
-        assertEquals("server:example|overworld", WaypointCodec.importGroups(share, "server:example|overworld").getFirst().scope());
-        assertEquals("unbound", WaypointCodec.importGroups(share, "").getFirst().scope());
+        assertEquals("hypixel:unknown", WaypointCodec.importGroups(share, "server:example|overworld").getFirst().scope());
+        assertEquals("hypixel:unknown", WaypointCodec.importGroups(share, "").getFirst().scope());
+        assertEquals("hypixel:unknown", hypixelScope("future_island", "mini1"));
+        assertEquals("hypixel:hub", hypixelScope("hub", "mini1"));
     }
     @Test void rejectsFractionsOutOfRangeColorAndInvalidGroupIds() throws Exception {
         String valid = """

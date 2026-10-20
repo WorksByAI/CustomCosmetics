@@ -35,10 +35,10 @@ class WaypointRouteTest {
         route.tick(List.of(), 0, 0, 0);
         assertEquals(0, route.current());
     }
-    @Test void randomizedAndPersonalIslandsNeverGetABroadCrossInstanceScope() {
+    @Test void skyblockWaypointsFollowIslandAcrossServerInstances() {
         assertEquals("hypixel:hub", hypixelScope("hub", "mini1"));
-        assertEquals("hypixel:dynamic:mini1", hypixelScope("dynamic", "mini1"));
-        assertEquals("hypixel:crystal_hollows:unbound", hypixelScope("crystal_hollows", ""));
-        assertEquals("", hypixelScope("", "mini1"));
+        assertEquals("hypixel:dynamic", hypixelScope("dynamic", "mini1"));
+        assertEquals("hypixel:crystal_hollows", hypixelScope("crystal_hollows", ""));
+        assertEquals("hypixel:unknown", hypixelScope("", "mini1"));
     }
 }

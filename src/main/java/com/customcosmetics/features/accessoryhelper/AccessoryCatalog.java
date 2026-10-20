@@ -3,13 +3,10 @@ package com.customcosmetics.features.accessoryhelper;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
-/** Factual SkyBlock item IDs, accessory families and tier order bundled for offline tooltip lookup. */
+/** SkyBlock accessory-family metadata refreshed from Skyblocker's public data feed. */
 public final class AccessoryCatalog {
     public enum Status { COLLECTED, UPGRADE, UPGRADABLE, DOWNGRADE, MISSING }
     public record Entry(String id, String family, int tier, int highestTier) {}
@@ -17,12 +14,8 @@ public final class AccessoryCatalog {
     private final Map<String, Entry> entries;
 
     private AccessoryCatalog(Map<String, Entry> entries) { this.entries = Map.copyOf(entries); }
-    public static AccessoryCatalog bundled() {
-        try (var input = AccessoryCatalog.class.getResourceAsStream("/assets/customcosmetics/skyblock-accessories.json")) {
-            if (input == null) throw new IllegalStateException("Missing accessory catalog");
-            return parse(JsonParser.parseReader(new InputStreamReader(input, StandardCharsets.UTF_8)).getAsJsonObject());
-        } catch (IOException error) { throw new IllegalStateException("Could not read accessory catalog", error); }
-    }
+    public static AccessoryCatalog empty() { return new AccessoryCatalog(Map.of()); }
+    public static AccessoryCatalog parse(String json) { return parse(JsonParser.parseString(json).getAsJsonObject()); }
     static AccessoryCatalog parse(JsonObject root) {
         var tiers = new HashMap<String, Integer>();
         var basic = new HashMap<String, Entry>();

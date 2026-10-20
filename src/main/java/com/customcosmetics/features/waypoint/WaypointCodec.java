@@ -130,12 +130,10 @@ public final class WaypointCodec {
                 decoded.add(new Point(name, x, y, z, color, bool(point, "shouldRender", true)));
             }
             String scope;
-            if (local) scope = string(group, "scope");
+            if (local) scope = normalizeScope(string(group, "scope"));
             else {
                 String island = string(group, "island");
-                if (island.equals("unknown")) scope = currentScope.isBlank() ? "unbound" : currentScope;
-                else if (instanceScoped(island) && currentScope.startsWith("hypixel:" + island + ":")) scope = currentScope;
-                else scope = hypixelScope(island, "");
+                scope = hypixelScope(island, "");
             }
             groups.add(new Group(local ? string(group, "id") : UUID.randomUUID().toString(), string(group, "name"),
                     scope, local ? bool(group, "enabled", true) : true, bool(group, "ordered", false),

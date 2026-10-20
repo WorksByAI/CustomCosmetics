@@ -99,7 +99,7 @@ public final class WaypointsGameTest implements FabricClientGameTest {
                 click(context, "Export Group", PinkUi.Action.class);
                 context.runOnClient(client -> {
                     Group copy = WaypointCodec.importGroups(minecraftClipboard(client), Waypoints.currentScope()).getFirst();
-                    check(copy.points().equals(first().points()) && copy.scope().equals(first().scope()), "GUI share round trip changed data");
+                    check(copy.points().equals(first().points()) && copy.scope().equals("hypixel:unknown"), "Skyblocker share did not use the Unknown island");
                 });
                 click(context, "Import Clipboard", PinkUi.Action.class);
                 context.runOnClient(client -> check(Waypoints.snapshot().groups().size() == 2, "GUI import did not append a group"));
@@ -226,10 +226,15 @@ public final class WaypointsGameTest implements FabricClientGameTest {
                 context.runOnClient(client -> check(!Waypoints.currentScope().equals(saved.get().scope()), "Independent saves share the same waypoint scope"));
                 checkVisible(context, 0);
                 command(context, "ccos waypoint");
-                click(context, "Edit Group", PinkUi.Action.class);
-                click(context, "Delete", PinkUi.Action.class);
-                click(context, "Confirm Delete", PinkUi.Action.class);
-                context.runOnClient(client -> { check(Waypoints.snapshot().groups().isEmpty(), "Group delete failed"); ClientUiAccess.setScreen(client, null); });
+                context.runOnClient(client -> {
+                    check(ClientUiAccess.screen(client).children().stream().filter(AbstractWidget.class::isInstance)
+                            .map(AbstractWidget.class::cast).noneMatch(widget -> widget.active &&
+                                    widget.getMessage().getString().equals("Edit Group")),
+                            "A group from another world was editable in the current island list");
+                    Waypoints.removeGroup(saved.get().id());
+                    check(Waypoints.snapshot().groups().isEmpty(), "Group delete failed");
+                    ClientUiAccess.setScreen(client, null);
+                });
                 context.waitFor(client -> Waypoints.status().isEmpty());
                 check(new WaypointStore(file).load().groups().isEmpty(), "Deleted group remained on disk");
             }
