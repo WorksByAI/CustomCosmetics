@@ -18,7 +18,9 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
     public static final Logger LOGGER = LoggerFactory.getLogger("CustomCosmetics");
     public static boolean openGuiNextTick;
     public static CosmeticsScreen.Page openGuiPageNextTick=CosmeticsScreen.Page.MAIN;
-    public static void requestGui(CosmeticsScreen.Page page){openGuiPageNextTick=page;openGuiNextTick=true;}
+    private static java.util.function.Supplier<net.minecraft.client.gui.screens.Screen> requestedScreen;
+    public static void requestGui(CosmeticsScreen.Page page){requestedScreen=null;openGuiPageNextTick=page;openGuiNextTick=true;}
+    public static void requestScreen(java.util.function.Supplier<net.minecraft.client.gui.screens.Screen> screen){requestedScreen=screen;openGuiNextTick=true;}
 
     @Override
     public void onInitializeClient() {
@@ -34,6 +36,8 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
         com.customcosmetics.features.party.PartyFeatures.init();
         com.customcosmetics.features.damage.DamageSplash.init();
         com.customcosmetics.update.UpdateChecker.init();
+        com.customcosmetics.features.waypoint.Waypoints.init();
+        com.customcosmetics.features.shortcuts.Shortcuts.init();
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) -> SyncCommands.register(dispatcher));
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (com.customcosmetics.sync.RemoteAccess.online()) com.customcosmetics.features.animations.PresenceWorld.init();
@@ -56,7 +60,8 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
             com.customcosmetics.features.blocking.VisualBlockhit.tick(client);
             if (openGuiNextTick) {
                 var page=openGuiPageNextTick;openGuiPageNextTick=CosmeticsScreen.Page.MAIN;
-                com.customcosmetics.compatibility.ClientUiAccess.setScreen(client, new CosmeticsScreen(null, page));
+                var screen=requestedScreen;requestedScreen=null;
+                com.customcosmetics.compatibility.ClientUiAccess.setScreen(client, screen==null?new CosmeticsScreen(null, page):screen.get());
                 openGuiNextTick = false;
             }
         });

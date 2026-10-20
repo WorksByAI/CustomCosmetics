@@ -58,7 +58,24 @@ public final class SyncCommands {
             .then(ClientCommands.literal("status").executes(context->SyncDebug.status())));
         root.then(PlayerBlockCommands.command());
         root.then(com.customcosmetics.features.map.MapCommands.command());
-        dispatcher.register(root);
+        var waypoint = ClientCommands.literal("waypoint").executes(context -> {
+            com.customcosmetics.client.CustomCosmeticsClient.requestScreen(()->new com.customcosmetics.gui.WaypointScreen(null));
+            return 1;
+        });
+        var ordered = ClientCommands.literal("ordered");
+        for (String action : new String[]{"next","previous","first","reset"}) {
+            var command = ClientCommands.literal(action).executes(context -> {
+                if (com.customcosmetics.features.waypoint.Waypoints.orderedAction(action)) return 1;
+                MessageUtils.sendMessage("Waypoints: enable an ordered group in this area first.");
+                return 0;
+            });
+            waypoint.then(command); ordered.then(command);
+        }
+        waypoint.then(ordered);
+        root.then(waypoint);
+        root.then(ClientCommands.literal("shortcuts").executes(context -> com.customcosmetics.features.shortcuts.Shortcuts.openNextTick()));
+        var registered = dispatcher.register(root);
+        dispatcher.register(ClientCommands.literal("ccos").executes(registered.getCommand()).redirect(registered));
     }
 
     private static int showNotificationState() {

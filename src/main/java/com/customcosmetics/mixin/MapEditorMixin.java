@@ -23,7 +23,7 @@ public final class MapEditorMixin {
     public static class Indigo {
         @Shadow private BlockPos pos;
         @Inject(method="shouldCullFace",at=@At("HEAD"),cancellable=true)
-        private void adjacent(net.minecraft.core.Direction face,CallbackInfoReturnable<Boolean> cir){if(face!=null&&MapEditor.revealsFace(pos.relative(face)))cir.setReturnValue(false);}
+        private void adjacent(net.minecraft.core.Direction face,CallbackInfoReturnable<Boolean> cir){if(!MapEditor.visible().isEmpty()&&face!=null&&MapEditor.revealsFace(pos.relative(face)))cir.setReturnValue(false);}
         @WrapMethod(method="tesselateBlock")
         private void material(net.fabricmc.fabric.api.client.renderer.v1.mesh.QuadEmitter output,float x,float y,float z,BlockAndTintGetter world,BlockPos p,BlockState state,BlockStateModel model,long seed,Operation<Void> original){original.call(output,x,y,z,world,p,state,MapEditor.wrap(model,p),seed);}
     }
@@ -47,7 +47,7 @@ public final class MapEditorMixin {
     @Mixin(net.minecraft.client.renderer.block.BlockModelLighter.class)
     public static class Lighting {
         @Inject(method={"prepareQuadAmbientOcclusion","prepareQuadFlat"},at=@At("HEAD"),cancellable=true)
-        private void exposed(CallbackInfo ci,@com.llamalad7.mixinextras.sugar.Local(argsOnly=true) BlockAndTintGetter world,@com.llamalad7.mixinextras.sugar.Local(argsOnly=true) BlockPos p,@com.llamalad7.mixinextras.sugar.Local(argsOnly=true) net.minecraft.client.resources.model.geometry.BakedQuad quad,@com.llamalad7.mixinextras.sugar.Local(argsOnly=true) com.mojang.blaze3d.vertex.QuadInstance output){var neighbor=p.relative(quad.direction());if(MapEditor.revealsFace(neighbor)){output.setLightCoords(MapEditor.visualLight(world,neighbor));output.setColor(net.minecraft.util.ARGB.gray(world.cardinalLighting().byFace(quad.direction())));ci.cancel();}}
+        private void exposed(CallbackInfo ci,@com.llamalad7.mixinextras.sugar.Local(argsOnly=true) BlockAndTintGetter world,@com.llamalad7.mixinextras.sugar.Local(argsOnly=true) BlockPos p,@com.llamalad7.mixinextras.sugar.Local(argsOnly=true) net.minecraft.client.resources.model.geometry.BakedQuad quad,@com.llamalad7.mixinextras.sugar.Local(argsOnly=true) com.mojang.blaze3d.vertex.QuadInstance output){if(MapEditor.visible().isEmpty())return;var neighbor=p.relative(quad.direction());if(MapEditor.revealsFace(neighbor)){output.setLightCoords(MapEditor.visualLight(world,neighbor));output.setColor(net.minecraft.util.ARGB.gray(world.cardinalLighting().byFace(quad.direction())));ci.cancel();}}
     }
     @Pseudo @Mixin(targets="net.fabricmc.fabric.impl.client.indigo.renderer.aocalc.AoCalculator",remap=false)
     public static class IndigoLighting {
@@ -56,7 +56,7 @@ public final class MapEditorMixin {
         @Shadow @Final public float[] ao;
         @Shadow @Final public int[] light;
         @Inject(method="compute",at=@At("HEAD"),cancellable=true)
-        private void exposed(@org.spongepowered.asm.mixin.injection.Coerce net.fabricmc.fabric.api.client.renderer.v1.mesh.QuadView quad,boolean vanilla,CallbackInfo ci){var neighbor=pos.relative(quad.lightFace());if(MapEditor.revealsFace(neighbor)){java.util.Arrays.fill(ao,level.cardinalLighting().byFace(quad.lightFace()));java.util.Arrays.fill(light,MapEditor.visualLight(level,neighbor));ci.cancel();}}
+        private void exposed(@org.spongepowered.asm.mixin.injection.Coerce net.fabricmc.fabric.api.client.renderer.v1.mesh.QuadView quad,boolean vanilla,CallbackInfo ci){if(MapEditor.visible().isEmpty())return;var neighbor=pos.relative(quad.lightFace());if(MapEditor.revealsFace(neighbor)){java.util.Arrays.fill(ao,level.cardinalLighting().byFace(quad.lightFace()));java.util.Arrays.fill(light,MapEditor.visualLight(level,neighbor));ci.cancel();}}
     }
     @Pseudo @Mixin(targets="net.caffeinemc.mods.sodium.client.model.light.data.LightDataAccess",remap=false)
     public static class SodiumLighting {
@@ -71,7 +71,7 @@ public final class MapEditorMixin {
     public static class SodiumFaces {
         @Shadow protected BlockPos pos;
         @Inject(method="shouldDrawSide",at=@At("HEAD"),cancellable=true)
-        private void adjacent(net.minecraft.core.Direction face,CallbackInfoReturnable<Boolean> cir){if(MapEditor.revealsFace(pos.relative(face)))cir.setReturnValue(true);}
+        private void adjacent(net.minecraft.core.Direction face,CallbackInfoReturnable<Boolean> cir){if(!MapEditor.visible().isEmpty()&&MapEditor.revealsFace(pos.relative(face)))cir.setReturnValue(true);}
     }
     @Pseudo @Mixin(targets="net.caffeinemc.mods.sodium.client.render.chunk.compile.tasks.ChunkBuilderMeshingTask",remap=false)
     public static class SodiumVisibility {

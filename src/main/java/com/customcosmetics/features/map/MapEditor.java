@@ -26,6 +26,8 @@ public final class MapEditor {
     public static final RoomLayouts ROOMS=new RoomLayouts();
     private static final RoomSaveQueue roomSaves=new RoomSaveQueue();
     private static final RoomRestorer restorer=new RoomRestorer();
+    private static final SectionUpdateQueue sectionUpdates=new SectionUpdateQueue();
+    private static final Direction[] LIGHT_DIRECTIONS=Direction.values();
     private static java.util.concurrent.CompletableFuture<Void> operation;
     private static java.util.concurrent.CompletableFuture<?> workerFence,pendingImport;
     public static boolean busy(){return operation!=null&&!operation.isDone();}
@@ -95,6 +97,9 @@ public final class MapEditor {
         com.customcosmetics.client.CustomCosmeticsClient.LOGGER.info("Map area detector: forcedDungeon={}; forcedKuudra={}; dungeon={}; kuudra={}; objective={}; title={}; floor={}; rows={}",forceDungeon,forceKuudra,sidebar.detected(),sidebar.kuudra(),sidebar.objective(),sidebar.title(),sidebar.floor(),sidebar.raw());
     }
     public static void tick(Minecraft client){
+        // Cleanup still runs after disabling the module so already-built visual sections are restored.
+        sectionUpdates.context(client.level);
+        drainSectionUpdates(client.level);
         if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.MAP)){
             if(level!=null){saveRoomEdits();if(!visible.isEmpty()){visible=Map.of();dirty(DATA.snapshot().keySet());}DungeonRooms.reset();DungeonSidebarReader.clearCache();restorer.reset();MaterialReplacement.cancel();MapRegionFill.cancel();level=null;}
             return;
@@ -111,10 +116,29 @@ public final class MapEditor {
     private static void refresh(Collection<MapEdits.Position> changes){visible=enabled&&allowed(Minecraft.getInstance())?DATA.snapshot():Map.of();dirty(changes);save();}
     private static void dirty(Collection<MapEdits.Position> positions){
         var target=level;if(target==null||positions.isEmpty())return;
-        if(positions.size()>4096){java.util.concurrent.CompletableFuture.supplyAsync(()->sections(positions),MapWork.EXECUTOR).thenAccept(changed->Minecraft.getInstance().execute(()->{if(level==target)for(var p:changed)target.setSectionDirtyWithNeighbors(p.x(),p.y(),p.z());}));return;}
-        for(var p:sections(positions))target.setSectionDirtyWithNeighbors(p.x(),p.y(),p.z());
+        if(positions.size()>4096){java.util.concurrent.CompletableFuture.supplyAsync(()->sections(positions),MapWork.EXECUTOR).thenAccept(changed->Minecraft.getInstance().execute(()->queueSectionUpdates(target,changed)));return;}
+        queueSectionUpdates(target,sections(positions));
     }
-    private static Set<MapEdits.Position> sections(Collection<MapEdits.Position> positions){var sections=new HashSet<MapEdits.Position>();for(var p:positions)sections.add(new MapEdits.Position(p.x()>>4,p.y()>>4,p.z()>>4));return sections;}
+    private static it.unimi.dsi.fastutil.longs.LongSet sections(Collection<MapEdits.Position> positions){
+        var sections=new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+        for(var p:positions)sections.add(SectionPos.asLong(p.x()>>4,p.y()>>4,p.z()>>4));
+        return sections;
+    }
+    private static void queueSectionUpdates(ClientLevel target,it.unimi.dsi.fastutil.longs.LongCollection sections){
+        if(Minecraft.getInstance().level!=target)return;
+        // Local edits must not wait behind a large restore that is already queued.
+        if(sections.size()<=8){var iterator=sections.iterator();while(iterator.hasNext())updateSection(target,iterator.nextLong());return;}
+        sectionUpdates.context(target);sectionUpdates.add(target,sections);
+    }
+    private static void drainSectionUpdates(ClientLevel target){
+        if(target==null||sectionUpdates.size()==0)return;
+        sectionUpdates.drain(64,1_000_000,System::nanoTime,section->updateSection(target,section));
+    }
+    private static void updateSection(ClientLevel target,long section){
+        int x=SectionPos.x(section),y=SectionPos.y(section),z=SectionPos.z(section);
+        if(target.getChunkSource().getChunk(x,z,net.minecraft.world.level.chunk.status.ChunkStatus.FULL,false)!=null)
+            target.setSectionDirtyWithNeighbors(x,y,z);
+    }
     public static BlockState realState(BlockPos p){return Minecraft.getInstance().level.getBlockState(p);}
     /** ClientLevel.hasChunkAt can accept an absent chunk; never substitute its empty placeholder. */
     public static boolean loaded(BlockPos p){var world=Minecraft.getInstance().level;return world!=null&&world.getChunkSource().getChunk(p.getX()>>4,p.getZ()>>4,net.minecraft.world.level.chunk.status.ChunkStatus.FULL,false)!=null;}
@@ -122,13 +146,14 @@ public final class MapEditor {
     /** Renderer-only neighbor/section culling. Never change collision, mining or world state. */
     public static boolean revealsFace(BlockPos p){if(visible.isEmpty())return false;var edit=visible.get(position(p));if(edit==null)return false;var target=state(edit.material());return target!=null&&!target.canOcclude();}
     /** Approximate light at a newly exposed render surface without relighting or changing the world. */
-    public static int visualLight(net.minecraft.world.level.BlockAndLightGetter world,BlockPos p){int block=world.getBrightness(net.minecraft.world.level.LightLayer.BLOCK,p),sky=world.getBrightness(net.minecraft.world.level.LightLayer.SKY,p);for(var face:Direction.values()){var q=p.relative(face);block=Math.max(block,world.getBrightness(net.minecraft.world.level.LightLayer.BLOCK,q));sky=Math.max(sky,world.getBrightness(net.minecraft.world.level.LightLayer.SKY,q));}return block<<4|sky<<20;}
+    public static int visualLight(net.minecraft.world.level.BlockAndLightGetter world,BlockPos p){int block=world.getBrightness(net.minecraft.world.level.LightLayer.BLOCK,p),sky=world.getBrightness(net.minecraft.world.level.LightLayer.SKY,p);for(var face:LIGHT_DIRECTIONS){var q=p.relative(face);block=Math.max(block,world.getBrightness(net.minecraft.world.level.LightLayer.BLOCK,q));sky=Math.max(sky,world.getBrightness(net.minecraft.world.level.LightLayer.SKY,q));}return block<<4|sky<<20;}
     public static BlockState state(String id){if(id==null)return null;var cached=materialStates.get(id);if(cached!=null)return cached;var result=parseState(id);if(result!=null)materialStates.putIfAbsent(id,result);return result;}
     private static BlockState parseState(String id){try{int bracket=id.indexOf('[');String name=bracket<0?id:id.substring(0,bracket);var key=Identifier.tryParse(name);var result=key==null?null:BuiltInRegistries.BLOCK.getOptional(key).map(Block::defaultBlockState).orElse(null);if(result==null)return null;if(bracket>=0){if(!id.endsWith("]"))return null;var seen=new HashSet<String>();for(String part:id.substring(bracket+1,id.length()-1).split(",")){String[] pair=part.split("=",-1);if(pair.length!=2||!seen.add(pair[0]))return null;var property=result.getBlock().getStateDefinition().getProperty(pair[0]);if(property==null)return null;result=withProperty(result,property,pair[1]);if(result==null)return null;}}return result;}catch(RuntimeException error){return null;}}
     private static <T extends Comparable<T>> BlockState withProperty(BlockState state,net.minecraft.world.level.block.state.properties.Property<T> property,String value){return property.getValue(value).map(v->state.setValue(property,v)).orElse(null);}
     public static String rotateMaterial(String id,int turns){var state=state(id);if(state==null)return id;var rotated=state.rotate(Rotation.values()[Math.floorMod(turns,4)]);String name=BuiltInRegistries.BLOCK.getKey(rotated.getBlock()).toString();if(rotated.getProperties().isEmpty())return name;var props=new TreeMap<String,String>();rotated.getProperties().forEach(p->props.put(p.getName(),propertyName(p,rotated.getValue(p))));return name+"["+String.join(",",props.entrySet().stream().map(e->e.getKey()+"="+e.getValue()).toList())+"]";}
     @SuppressWarnings({"rawtypes","unchecked"}) private static String propertyName(net.minecraft.world.level.block.state.properties.Property property,Comparable value){return property.getName(value);}
     public static BlockStateModel wrap(BlockStateModel model,BlockPos p){
+        if(visible.isEmpty())return model;
         if(model instanceof MaterialModel)return model;
         var edit=visible.get(position(p));if(edit==null)return model;
         var target=state(edit.material());if(target==null)return model;
@@ -161,7 +186,7 @@ public final class MapEditor {
     private static void validateMaterial(String id){if(state(id)==null)throw new IllegalArgumentException("Unknown block: "+id);}
     public static boolean selectable(String id){var state=state(id);return state!=null&&!state.isAir();}
     public static net.minecraft.world.item.ItemStack icon(BlockState state){if(state.is(Blocks.WATER))return new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.WATER_BUCKET);if(state.is(Blocks.LAVA))return new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.LAVA_BUCKET);return new net.minecraft.world.item.ItemStack(state.getBlock());}
-    public static boolean hideBlockEntity(net.minecraft.world.level.block.entity.BlockEntity entity){var client=Minecraft.getInstance();var p=entity.getBlockPos();return client.level!=null&&visible.containsKey(position(p))&&client.level.getBlockEntity(p)==entity;}
+    public static boolean hideBlockEntity(net.minecraft.world.level.block.entity.BlockEntity entity){if(visible.isEmpty())return false;var client=Minecraft.getInstance();var p=entity.getBlockPos();return client.level!=null&&visible.containsKey(position(p))&&client.level.getBlockEntity(p)==entity;}
     public static void favorite(String id){if(!favorites.remove(id)&&selectable(id)&&favorites.size()<256)favorites.add(id);save();}
     public static void put(BlockPos p,String id){var client=Minecraft.getInstance();validateMaterial(id);var old=DATA.snapshot().get(position(p));DATA.put(new MapEdits.Edit(position(p),id,old==null?client.level.getBlockState(p).isAir():old.originallyAir()));}
     static void applyBatch(Map<MapEdits.Position,MapEdits.Edit> before,Map<MapEdits.Position,MapEdits.Edit> next){
@@ -197,7 +222,7 @@ public final class MapEditor {
     private static void applyRooms(){if(busy())return;var frames=new HashSet<>(DungeonRooms.frames());var current=currentRoom();if(current!=null)frames.add(current);restorer.request(frames);restorer.tick();}
     static void restored(Map<MapEdits.Position,MapEdits.Edit> before,Map<MapEdits.Position,MapEdits.Edit> result,Set<MapEdits.Position> sections){
         if(DATA.snapshot()!=before)return;DATA.replace(result);visible=enabled&&allowed(Minecraft.getInstance())?DATA.snapshot():Map.of();
-        if(level!=null)for(var p:sections)if(loaded(blockPos(p).multiply(16)))level.setSectionDirtyWithNeighbors(p.x(),p.y(),p.z());
+        if(level!=null){var packed=new it.unimi.dsi.fastutil.longs.LongOpenHashSet();for(var p:sections)packed.add(SectionPos.asLong(p.x(),p.y(),p.z()));queueSectionUpdates(level,packed);}
     }
     public static void undo(){var before=DATA.snapshot();var changes=DATA.undoPositions();if(!DATA.undo())return;
         if(changes==null){remember(before);dirty(before.keySet());refresh();}else{var updates=new HashMap<MapEdits.Position,Optional<String>>();for(var p:changes){var edit=DATA.snapshot().get(p);updates.put(p,Optional.ofNullable(edit==null?null:edit.material()));}persist(updates,true);refresh(changes);}

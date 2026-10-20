@@ -458,3 +458,14 @@ tasks.register('clientLoadProbe', JavaExec) {
         ? 'net.minecraft.client.renderer.FirstPersonHandsAndItemsRenderer'
         : 'net.minecraft.client.renderer.ItemInHandRenderer'
 }
+
+if (providers.gradleProperty('utilities_game_only').getOrElse('false').toBoolean()) {
+    sourceSets.gametest.java.include '**/UtilitiesGameTest.java', '**/WaypointsGameTest.java', '**/ShortcutsGameTest.java',
+        '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
+    tasks.named('processGametestResources') {
+        inputs.property 'utilities_game_only', true
+        inputs.file('build.gradle')
+        filesMatching('fabric.mod.json') { filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.UtilitiesGameTest') } }
+        filesMatching('customcosmetics-test.mixins.json') { filter { line -> line.contains('"client":') ? '  "client": ["UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line } }
+    }
+}

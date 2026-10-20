@@ -6,6 +6,14 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ItemNameTextTest {
+    @Test void unchangedRenderedNamesReuseParsedComponentsWithoutMixingFormats() {
+        var pink = ItemNameText.cached("&dSaved sword");
+        assertSame(pink, ItemNameText.cached("&dSaved sword"));
+        var blue = ItemNameText.cached("&bSaved sword");
+        assertNotSame(pink, blue);
+        assertEquals(ItemNameText.parse("&bSaved sword"), blue);
+        assertEquals(0xff55ff, pink.getSiblings().getFirst().getStyle().getColor().getValue());
+    }
     @Test void legacyCodesAndHexColorsProduceLiteralDisplayOnlyText(){
         var text=ItemNameText.parse("&dPink &lBold &rNormal &#12abEFHex §aGreen");
         assertEquals("Pink Bold Normal Hex Green",text.getString());

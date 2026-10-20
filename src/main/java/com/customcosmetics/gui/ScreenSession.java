@@ -5,10 +5,10 @@ package com.customcosmetics.gui;
 public final class ScreenSession {
     public static final long IDLE_MILLIS = 60_000;
     public record Position(String page, double scroll) {}
-    private Position position = new Position("SIZE",0);
+    private Position position = new Position("MAIN",0);
     private long lastInteraction = Long.MIN_VALUE;
     public Position open(long now) {
-        if (lastInteraction == Long.MIN_VALUE || now - lastInteraction >= IDLE_MILLIS) position = new Position("SIZE",0);
+        if (lastInteraction == Long.MIN_VALUE || now - lastInteraction >= IDLE_MILLIS) position = new Position("MAIN",0);
         lastInteraction = now;
         return position;
     }

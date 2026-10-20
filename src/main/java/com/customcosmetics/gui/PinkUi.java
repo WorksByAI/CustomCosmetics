@@ -50,16 +50,22 @@ public final class PinkUi {
         r = Math.min(r, Math.min(w, h) / 2);
         // Draw the border as a ring so translucent fills do not reveal a solid border underneath.
         rounded(g, x + 1, y + 1, w - 2, h - 2, Math.max(0, r - 1), fill);
-        for (int row = 0; row < h; row++) {
-            int edge = Math.min(row, h - 1 - row);
+        int curvedRows = Math.max(1, r);
+        for (int row = 0; row < Math.min(h, curvedRows * 2); row++) {
+            int actualRow = row < curvedRows ? row : h - curvedRows * 2 + row;
+            int edge = Math.min(actualRow, h - 1 - actualRow);
             int outer = roundedInset(r, edge);
-            if (row == 0 || row == h - 1) {
-                g.fill(x + outer, y + row, x + w - outer, y + row + 1, border);
+            if (actualRow == 0 || actualRow == h - 1) {
+                g.fill(x + outer, y + actualRow, x + w - outer, y + actualRow + 1, border);
             } else {
                 int inner = 1 + roundedInset(Math.max(0, r - 1), edge - 1);
-                g.fill(x + outer, y + row, x + inner, y + row + 1, border);
-                g.fill(x + w - inner, y + row, x + w - outer, y + row + 1, border);
+                g.fill(x + outer, y + actualRow, x + inner, y + actualRow + 1, border);
+                g.fill(x + w - inner, y + actualRow, x + w - outer, y + actualRow + 1, border);
             }
+        }
+        if (h > curvedRows * 2) {
+            g.fill(x, y + curvedRows, x + 1, y + h - curvedRows, border);
+            g.fill(x + w - 1, y + curvedRows, x + w, y + h - curvedRows, border);
         }
     }
 
@@ -82,6 +88,7 @@ public final class PinkUi {
     }
 
     public static void text(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color, int maxWidth) {
+        if (maxWidth <= 0) return;
         String result = font.width(text) > maxWidth ? font.plainSubstrByWidth(text, Math.max(0, maxWidth - font.width("…"))) + "…" : text;
         g.text(font, result, x, y, color, false);
     }
@@ -90,6 +97,10 @@ public final class PinkUi {
         private final Runnable action;
         private final boolean primary;
         private BooleanSupplier selected = () -> false;
+        private boolean leftAligned;
+        private String cachedLabel;
+        private int cachedWidth = -1, cachedLabelWidth;
+        private Component cachedMessage;
 
         public Action(int x, int y, int w, int h, String text, boolean primary, Runnable action) {
             super(x, y, w, h, Component.literal(text));
@@ -98,6 +109,7 @@ public final class PinkUi {
         }
 
         public Action selected(BooleanSupplier selected) { this.selected = selected; return this; }
+        public Action leftAligned() { leftAligned = true; return this; }
 
         @Override protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
             boolean hot = isHoveredOrFocused() && active;
@@ -105,8 +117,16 @@ public final class PinkUi {
             int bg = primary ? (hot ? 0xFFFFB6D0 : PINK) : chosen ? PINK_DARK : hot ? 0x27FFFFFF : CARD;
             outline(g, getX(), getY(), width, height, 6, chosen || isFocused() ? PINK : BORDER, active ? bg : PANEL);
             Font font = Minecraft.getInstance().font;
-            String label = font.plainSubstrByWidth(getMessage().getString(), width - 12);
-            g.text(font, label, getX() + (width - font.width(label)) / 2, getY() + (height - 9) / 2,
+            if (cachedMessage != getMessage() || cachedWidth != width) {
+                cachedMessage = getMessage(); cachedWidth = width;
+                String original = getMessage().getString();
+                int available = Math.max(0, width - (leftAligned ? 22 : 12));
+                cachedLabel = font.width(original) <= available ? original
+                    : font.plainSubstrByWidth(original, Math.max(0, available - font.width("…"))) + "…";
+                cachedLabelWidth = font.width(cachedLabel);
+            }
+            if (chosen && leftAligned) rounded(g, getX() + 3, getY() + 6, 2, height - 12, 1, PINK);
+            g.text(font, cachedLabel, getX() + (leftAligned ? 11 : (width - cachedLabelWidth) / 2), getY() + (height - 9) / 2,
                 !active ? DIM : primary ? INK : chosen ? PINK : TEXT, false);
         }
 
@@ -126,19 +146,27 @@ public final class PinkUi {
         private final BooleanSupplier enabled;
         private float position;
         private long lastFrame;
+        private final Component onMessage, offMessage;
+        private Boolean lastEnabled;
 
         public Toggle(int x, int y, String name, BooleanSupplier enabled, Runnable change) {
             super(x, y, 34, 18, name, false, change);
             this.enabled = enabled;
             position = enabled.getAsBoolean() ? 1 : 0;
+            onMessage = Component.literal(name + ": On");
+            offMessage = Component.literal(name + ": Off");
         }
 
         @Override protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
             long now = System.nanoTime();
             double elapsed = lastFrame == 0 ? 1 : Math.min(1, (now - lastFrame) / 90_000_000.0);
             lastFrame = now;
-            position += ((enabled.getAsBoolean() ? 1 : 0) - position) * (float) elapsed;
-            setMessage(Component.literal(getMessage().getString().replaceAll(": (On|Off)$", "") + (enabled.getAsBoolean() ? ": On" : ": Off")));
+            boolean value = enabled.getAsBoolean();
+            position += ((value ? 1 : 0) - position) * (float) elapsed;
+            if (lastEnabled == null || lastEnabled != value) {
+                lastEnabled = value;
+                setMessage(value ? onMessage : offMessage);
+            }
             outline(g, getX(), getY(), width, height, 9, isFocused() ? TEXT : BORDER, mix(0xFF555962, PINK, position));
             rounded(g, getX() + 3 + Math.round(position * 16), getY() + 3, 12, 12, 6, TEXT);
         }

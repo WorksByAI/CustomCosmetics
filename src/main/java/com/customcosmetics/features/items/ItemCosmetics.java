@@ -112,7 +112,7 @@ public final class ItemCosmetics {
         var preview = PREVIEWS.get(stack);
         if (preview != null) return preview;
         if (store == null || !store.enabled()) return original;
-        String raw = store.get(uuid(stack)).model();
+        String raw = store.getCanonical(uuid(stack)).model();
         Identifier selected = raw.isEmpty() ? null : Identifier.tryParse(raw);
         return hasModel(selected) && validated(stack, selected) ? selected : original;
     }
@@ -121,8 +121,8 @@ public final class ItemCosmetics {
         if(store==null||!store.hasNames())return original;
         // The integrated server shares ItemStack classes but must retain its original names.
         if (store == null || !store.enabled() || !Minecraft.getInstance().isSameThread()) return original;
-        String raw = store.get(uuid(stack)).name();
-        return raw.isEmpty() ? original : ItemNameText.parse(raw);
+        String raw = store.getCanonical(uuid(stack)).name();
+        return raw.isEmpty() ? original : ItemNameText.cached(raw);
     }
     public static void tick() {
         if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ITEMS))return;

@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /** Inspect the compiled screen without starting Minecraft or creating a graphics context. */
 class CosmeticsScreenTest {
     @Test void damageAndSearchAreLocalAndNeverMutateGameplayEntities()throws Exception{
-        for(String type:List.of("features/damage/DamageSplash","features/damage/DamageText","features/damage/DamageAnimation","gui/SettingsSearch")){
+        for(String type:List.of("features/damage/DamageSplash","features/damage/DamageText","features/damage/DamageAnimation","gui/SettingsSearch","gui/SettingsSearch$Index","gui/SettingsCatalog")){
             var calls=read("com/customcosmetics/"+type).methods().stream().flatMap(method->instructions(method).stream()).filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast).toList();
             assertTrue(calls.stream().noneMatch(call->call.owner().name().stringValue().startsWith("java/net/")||call.owner().name().stringValue().startsWith("com/customcosmetics/sync/")));
             assertTrue(calls.stream().noneMatch(call->Set.of("remove","discard","setCustomName","setHealth","setPos","send","sendPacket","sendImmediately").contains(call.name().stringValue())&&call.owner().name().stringValue().startsWith("net/minecraft/")));
@@ -25,8 +25,14 @@ class CosmeticsScreenTest {
         var metadata=read("com/customcosmetics/mixin/DamageSplashMixin$Metadata");
         assertTrue(metadata.methods().stream().flatMap(method->instructions(method).stream()).filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast).noneMatch(call->call.name().stringValue().equals("cancel")));
         var screen=read("com/customcosmetics/gui/CosmeticsScreen");
-        assertTrue(pageReferences(code(screen,"init")).contains("DAMAGE"));
-        for(String name:List.of("damageSplash","damageColor","buildSearchIndex","searchResults"))assertTrue(code(screen,name).stream().filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast).noneMatch(call->call.owner().name().stringValue().startsWith("java/net/")||call.owner().name().stringValue().startsWith("com/customcosmetics/sync/")));
+        assertTrue(pageReferences(code(screen,"buildNavigation")).contains("DAMAGE"));
+        for(String name:List.of("damageSplash","damageColor","searchResults"))assertTrue(code(screen,name).stream().filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast).noneMatch(call->call.owner().name().stringValue().startsWith("java/net/")||call.owner().name().stringValue().startsWith("com/customcosmetics/sync/")));
+        for (String type : List.of("gui/SettingsCatalog", "gui/SettingsSearch", "gui/SettingsSearch$Index"))
+            assertTrue(read("com/customcosmetics/" + type).methods().stream().flatMap(method -> instructions(method).stream())
+                .filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast).noneMatch(call ->
+                    call.owner().name().stringValue().endsWith("Screen") || call.owner().name().stringValue().contains("ConfigManager")
+                        || call.name().stringValue().equals("store")),
+                "Searching must not instantiate screens, read feature stores or alter configuration");
     }
     @Test void itemCustomizationHasOneVisibleNameAndOdinFooterIsRemoved()throws Exception{
         for(String type:List.of("com/customcosmetics/gui/CosmeticsScreen","com/customcosmetics/gui/ItemAppearanceScreen")){
@@ -49,10 +55,10 @@ class CosmeticsScreenTest {
         var screen=read(SCREEN);
         var sync=code(screen,"sync");
         var strings=sync.stream().filter(ConstantInstruction.class::isInstance).map(ConstantInstruction.class::cast).map(ConstantInstruction::constantValue).toList();
-        String hint="If you don't know what these settings do, leave them blank.";
-        assertTrue(strings.containsAll(List.of("DEV","Disable P2P Connections",hint)));
+        String hint="Leave these settings unchanged unless you use a custom network configuration.";
+        assertTrue(strings.containsAll(List.of("Advanced connections","Disable P2P Connections",hint)));
         assertFalse(strings.contains("If you don't know what this button does, leave it off."));
-        assertTrue(strings.indexOf("DEV")<strings.indexOf(hint));
+        assertTrue(strings.indexOf("Advanced connections")<strings.indexOf(hint));
         assertTrue(strings.indexOf(hint)<strings.indexOf("Disable P2P Connections"));
         assertTrue(strings.indexOf("Proxy Auth")<strings.indexOf("Disable P2P Connections"));
         assertTrue(strings.indexOf("Disable P2P Connections")<strings.indexOf("P2P UDP Port"));
@@ -63,9 +69,11 @@ class CosmeticsScreenTest {
     }
     @Test void sharingPageSeparatesPartyAndLocationSettings()throws Exception{
         var strings=code(read(SCREEN),"party").stream().filter(ConstantInstruction.class::isInstance).map(ConstantInstruction.class::cast).map(ConstantInstruction::constantValue).toList();
-        assertTrue(strings.containsAll(List.of("Party Sharing","Location Sharing","Share My Position")));
-        assertTrue(strings.indexOf("Party Sharing")<strings.indexOf("Party ESP"));
-        assertTrue(strings.indexOf("Location Sharing")<strings.indexOf("Share My Position"));
+        assertTrue(strings.containsAll(List.of("Party visuals","Party chat","Markers & names","Location sharing","Share My Position")));
+        assertTrue(strings.indexOf("Party visuals")<strings.indexOf("Party ESP"));
+        assertTrue(strings.indexOf("Party chat")<strings.indexOf("IRC For Party Members"));
+        assertTrue(strings.indexOf("Markers & names")<strings.indexOf("Max Display Distance (blocks)"));
+        assertTrue(strings.indexOf("Location sharing")<strings.indexOf("Share My Position"));
         var titles=code(read(SCREEN),"pageTitle").stream().filter(ConstantInstruction.class::isInstance).map(ConstantInstruction.class::cast).map(ConstantInstruction::constantValue).toList();
         assertTrue(titles.containsAll(List.of("Sharing","Equipments (Beta)")));assertFalse(titles.contains("Party"));assertFalse(titles.contains("Accessories"));
     }
@@ -87,12 +95,18 @@ class CosmeticsScreenTest {
         assertTrue(calls.stream().noneMatch(call->{String owner=call.owner().name().stringValue();return owner.startsWith("java/net/")||owner.startsWith("com/customcosmetics/sync/");}));
         assertTrue(calls.stream().anyMatch(call->call.owner().name().stringValue().equals("com/customcosmetics/config/ConfigManager")&&call.name().stringValue().equals("requestSave")));
     }
-    @Test void sidebarHeaderUsesTwoPinkLinesAndSmolPreviewUsesTheSamePink() throws Exception {
+    @Test void sidebarHeaderAndPreviewKeepThePinkThemeAndNavigationIsGrouped() throws Exception {
         var screen = read(SCREEN);
         var render = code(screen, "extractRenderState").stream().filter(ConstantInstruction.class::isInstance)
             .map(ConstantInstruction.class::cast).map(ConstantInstruction::constantValue).toList();
-        assertTrue(render.containsAll(List.of("Custom", "Cosmetics"))); assertFalse(render.contains("CustomCosmetics"));
-        assertTrue(render.stream().filter(Integer.valueOf(PinkUi.PINK)::equals).count() >= 2);
+        assertTrue(render.containsAll(List.of("CUSTOM", "COSMETICS"))); assertFalse(render.contains("CustomCosmetics"));
+        assertTrue(render.contains(Integer.valueOf(PinkUi.PINK)));
+        var navigation = code(screen, "buildNavigation").stream().filter(ConstantInstruction.class::isInstance)
+            .map(ConstantInstruction.class::cast).map(ConstantInstruction::constantValue).toList();
+        assertTrue(navigation.containsAll(List.of("Overview", "APPEARANCE", "GAMEPLAY", "CONNECTIONS")));
+        assertTrue(navigation.indexOf("APPEARANCE") < navigation.indexOf("NickTweaks"));
+        assertTrue(navigation.indexOf("GAMEPLAY") < navigation.indexOf("Animations"));
+        assertTrue(navigation.indexOf("CONNECTIONS") < navigation.indexOf("Sharing"));
         assertTrue(code(screen,"playerPreview").stream().filter(ConstantInstruction.class::isInstance)
             .map(ConstantInstruction.class::cast).anyMatch(value -> Integer.valueOf(PinkUi.PINK).equals(value.constantValue())));
     }
@@ -105,7 +119,7 @@ class CosmeticsScreenTest {
             .map(ConstantInstruction::constantValue).filter(String.class::isInstance)
             .map(String.class::cast).collect(Collectors.toSet());
         assertTrue(strings.containsAll(Set.of("Automatic Sync", "Refresh Interval (seconds)", "Notifications", "Sync Now")));
-        assertTrue(strings.containsAll(Set.of("DEV","If you don't know what these settings do, leave them blank.","Proxy Host","Proxy Port","Proxy Auth","Fallback Direct")));
+        assertTrue(strings.containsAll(Set.of("Advanced connections","Leave these settings unchanged unless you use a custom network configuration.","Proxy Host","Proxy Port","Proxy Auth","Fallback Direct")));
         assertTrue(strings.stream().noneMatch(Set.of("Server Address", "Server Port", "Use HTTPS", "Save Address")::contains));
         // All GUI actions must leave the saved connection fields alone, including Sync Now.
         assertTrue(screen.methods().stream().flatMap(method -> instructions(method).stream())
@@ -156,7 +170,7 @@ class CosmeticsScreenTest {
     @Test
     void animationsAndRepositoryLinkRemainInTheSidebar() throws Exception {
         var screen = read(SCREEN);
-        assertTrue(pageReferences(code(screen, "init")).contains("ANIMATIONS"));
+        assertTrue(pageReferences(code(screen, "buildNavigation")).contains("ANIMATIONS"));
         assertTrue(code(screen, "init").stream().filter(InvokeInstruction.class::isInstance)
             .map(InvokeInstruction.class::cast).anyMatch(call -> call.owner().name().stringValue()
                 .equals("com/customcosmetics/gui/RepositoryButton") && call.name().stringValue().equals("<init>")));

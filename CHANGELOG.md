@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.0
+
+- Add waypoint groups, ordered routes and Skyblocker V1 import/export.
+- Add command aliases, argument replacements, keyboard/mouse shortcuts and `/ccos`.
+- Redesign settings with grouped navigation, an overview and responsive layouts.
+- Reduce idle render allocations, repeated parsing and sharing work; budget large map refreshes.
+
 ## 1.6.0
 
 - Reduce text, player-model and map-processing overhead.

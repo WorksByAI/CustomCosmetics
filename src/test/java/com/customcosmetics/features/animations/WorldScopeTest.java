@@ -11,6 +11,22 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class WorldScopeTest {
+    @Test void hostAndInstanceValidationPreservesServerBoundaries() {
+        for (String host : List.of("hypixel.net", "MC.HYPIXEL.NET:25565", "a.b.hypixel.net"))
+            assertTrue(WorldScope.isHypixelHost(host), host);
+        for (String host : List.of("nothypixel.net", "hypixel.net.evil.test", "mc.hypixel.net:", "mc.hypixel.net:x", "[::1]:25565"))
+            assertFalse(WorldScope.isHypixelHost(host), host);
+        assertFalse(WorldScope.isHypixelHost(null));
+        for (String instance : List.of("", "with space", "mini\n1", "中", "x".repeat(65)))
+            assertEquals("", WorldScope.hypixelKey(0, instance));
+        assertEquals("$hypixel0:mini_1-~", WorldScope.hypixelKey(0, "MINI_1-~"));
+    }
+    @Test void visibleMembershipDeduplicatesWithoutSortingOrLimiting() {
+        UUID id = UUID.randomUUID();
+        assertEquals(Set.of(id), WorldScope.visible(List.of(new WorldScope.Candidate(id, 4),
+            new WorldScope.Candidate(id, 1), new WorldScope.Candidate(UUID.randomUUID(), -1),
+            new WorldScope.Candidate(UUID.randomUUID(), Double.POSITIVE_INFINITY)), 2));
+    }
     @Test void realOfficialApiHelloAndLocationChangeInstanceWithoutChatCommands() {
         var env = new AtomicInteger(-1); var instance = new AtomicReference<String>();
         assertTrue(HypixelLocationBridge.register(getClass().getClassLoader(), env::set, instance::set));

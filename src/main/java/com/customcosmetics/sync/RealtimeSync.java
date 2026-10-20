@@ -29,7 +29,7 @@ public final class RealtimeSync {
         if(live!=null)return live.diagnostics();
         return List.of("Realtime: "+(authenticating?"Waiting for Minecraft authentication":identity==null?"No authenticated realtime session":"Waiting to connect; retry in "+Math.max(0,nextAttempt-System.currentTimeMillis())+"ms"));
     }
-    public static void disconnect(){generation++;if(live!=null)live.close();live=null;endpoint="";identity=null;nextAttempt=0;authenticating=false;}
+    public static void disconnect(){if(live==null&&endpoint.isEmpty()&&identity==null&&!authenticating&&nextAttempt==0)return;generation++;if(live!=null)live.close();live=null;endpoint="";identity=null;nextAttempt=0;authenticating=false;}
     public static void onSettingsClosed(){if(live!=null&&live.requestedUdpPort()!=ConfigManager.getSyncP2pPort())disconnect();}
     public static void tick(Minecraft client){
         boolean blocking=(ConfigManager.swordBlockingEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ANIMATIONS))&&ConfigManager.swordBlockingSyncEnabled&&ConfigManager.syncEnabled;

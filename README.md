@@ -1,4 +1,4 @@
-# CustomCosmetics v1.6.0 发布！
+# CustomCosmetics v1.8.0 发布！
 
 这是一个支持玩家间同步的自定义外观模组，支持 26.1～26.3 Fabric，并跟随 Hypixel SkyBlock 版本更新。
 
@@ -14,39 +14,39 @@
 - **Item Customization**：自定义物品名称与模型，支持资源包中的自定义模型。
 - **Damage Splash**：自定义伤害数字的动画、双色渐变／流动彩虹配色、大小与数字格式。
 - **Map Editor**：地牢／Kuudra 纯视觉改图、批量方块替换。
+- **Waypoints / Shortcuts**：独立命令打开的坐标分组、路线、导入导出，以及命令别名、参数替换和键鼠组合键。
 - **Command Tooltips / Snaplook**：查看聊天指令；按住快捷键临时切换视角。
 - **Offline Mode**：断开所有远程同步连接，不使用共享功能，也无法看见别人的装饰品。
-- **Module Manager**：在 Settings 中独立开关功能，或一键全部开关，保留详细设置。
+- 模块：Settings → Module Manager。
 
-输入 `/customcosmetics` 打开设置。需要 Java 25、Fabric Loader 0.19.5+ 和对应版本的 Fabric API。
+输入 `/ccos` 或 `/customcosmetics` 打开重新排版的设置。使用 `/ccos waypoint`、`/ccos shortcuts` 打开独立工具。需要 Java 25、Fabric Loader 0.19.5+ 和对应版本的 Fabric API。
 共享功能需安装 [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api)。
 
 ## English
 
-CustomCosmetics v1.6.0
+CustomCosmetics v1.8.0
 
-A Fabric mod for customizable cosmetics with player-to-player synchronization. Supports Minecraft 26.1–26.3 on Fabric and is updated alongside SkyBlock.
+A Fabric mod for customizable, synchronized cosmetics. Supports Minecraft 26.1–26.3 on Fabric.
 
-All current features ([√] means visible to other players who also have the mod installed):
+Features ([√] visible to other mod users):
 
-- **[√] Player Size**: Adjust your character's size or use the adorable miniature player model ported from Baity.
-- **[√] NickTweaks**: Customize nicknames with segmented gradients, shimmer and color effects. You can also block other players' custom nicknames.
-- **[√] Animation**: Restore 1.7-style sword blocking, with weapon blacklists and whitelists. Adjust held-item size, position, rotation and swing speed.
-- **[√] Cape**: Customize capes with image cropping and previews, or upload vanilla-format capes. Online sharing requires approval; local capes are visible only to you.
-- **[√] Equipments**: Original accessories with mix-and-match styles, colors, sizes and fine position adjustments.
+- **[√] Player Size**: Adjustable proportions and Baity's miniature player model.
+- **[√] NickTweaks**: Nicknames, segmented gradients, shimmer and independent blocking.
+- **[√] Animation**: 1.7-style blocking, weapon filters, held-item transforms and swing adjustments.
+- **[√] Cape**: Import, crop and preview capes. Online sharing requires approval.
+- **[√] Equipments**: Accessories with configurable colors, sizes and offsets.
 - **[√] Sharing**: Hypixel party member displays, distant markers, tracers and IRC. Optionally share your position publicly within the same world or with selected players (off by default).
 - **[√] Skins**: Import skins up to 1024×1024 pixels. Shared skins are visible to other players only after a direct P2P connection is established.
-- **Item Customization**: Customize item names and models, including custom models from resource packs.
-- **Damage Splash**: Customize damage-number animations, gradients or animated rainbow colors, sizes and number formatting.
+- **Item Customization**: Local item names and models, including resource-pack models.
+- **Damage Splash**: Damage-number animations, gradients, rainbow colors and formatting.
 - **Map Editor**: Visual-only Catacombs/Kuudra map editing and bulk block replacement.
+- **Waypoints / Shortcuts**: Command-only managers for waypoint groups, ordered routes, import/export, command aliases, argument replacements and keyboard/mouse chords.
 - **Command Tooltips / Snaplook**: Preview chat commands or hold a key to switch perspective.
 - **Offline Mode**: Disconnect all remote synchronization connections. Sharing is disabled, and other players' cosmetics are not shown.
-- **Module Manager**: Toggle individual features or all modules in Settings while keeping their preferences.
+- Modules: Settings → Module Manager.
 
-Use `/customcosmetics` to open settings. Requires Java 25, Fabric Loader 0.19.5+ and Fabric API for your Minecraft version.
+Use `/ccos` or `/customcosmetics` to open the redesigned settings. Open the standalone tools with `/ccos waypoint` and `/ccos shortcuts`. Requires Java 25, Fabric Loader 0.19.5+ and Fabric API for your Minecraft version.
 Sharing modules requires [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api).
-
-
 
 采用 / Licensed under **AGPL-3.0-or-later**。部分代码移植自 / Portions ported from [Baity](https://github.com/raueyhs/Baity), originally authored by raueyhs. See [LICENSE](https://github.com/WorksByAI/CustomCosmetics/blob/main/LICENSE) and [NOTICE](https://github.com/WorksByAI/CustomCosmetics/blob/main/NOTICE).
 

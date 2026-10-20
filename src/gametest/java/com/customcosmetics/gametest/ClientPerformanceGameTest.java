@@ -43,6 +43,13 @@ public final class ClientPerformanceGameTest implements FabricClientGameTest {
                     ConfigManager.smolpeopleMode=false;check(once!=sources.invoke(null,client),"Local small-model changes did not invalidate sources");
                 }catch(ReflectiveOperationException error){throw new AssertionError(error);}
                 FeatureModules.all(false);NickRenderUtils.invalidateLocalTargetsCache();
+                check(MapEditor.visible().isEmpty(),"Disabled fixture must start without visible edits");
+                // Null sentinels prove the idle hook returns before touching a block position/model/entity.
+                for(int i=0;i<100_000;i++){
+                    check(MapEditor.wrap(null,null)==null,"Idle map wrapping changed the vanilla model");
+                    check(!MapEditor.hideBlockEntity(null),"Idle map hook inspected a block entity");
+                    check(!MapEditor.revealsFace(null),"Idle map hook inspected a neighbor");
+                }
                 FormattedCharSequence poison=sink->{throw new AssertionError("Disabled nickname module traversed glyphs");};
                 check(NickRenderUtils.handleCharSequence(poison)==poison&&NickRenderUtils.measureGradient(poison,client.font)==poison,"Disabled text path was not inert");
                 check(!SmolPlayers.shouldApplySmolTo(client.player.getId()),"Disabled small model is still active");

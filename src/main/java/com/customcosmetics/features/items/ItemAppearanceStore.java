@@ -46,6 +46,8 @@ public final class ItemAppearanceStore {
     public boolean enabled() { return enabled; }
     public void enabled(boolean value) { if (enabled != value) { enabled = value; dirty = true; } }
     public Appearance get(String uuid) { return entries.getOrDefault(key(uuid), ORIGINAL); }
+    /** The renderer already normalizes identities once per immutable CustomData object. */
+    Appearance getCanonical(String uuid) { return entries.getOrDefault(uuid, ORIGINAL); }
     public int size() { return entries.size(); }
     public boolean dirty() { return dirty; }
     public void put(String uuid, Appearance value) {

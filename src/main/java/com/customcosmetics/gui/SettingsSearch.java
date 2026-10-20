@@ -3,10 +3,33 @@ package com.customcosmetics.gui;
 
 import java.text.Normalizer;
 import java.util.*;
+import java.util.regex.Pattern;
 
-/** Search data comes from the actual controls, so labels and destinations stay in step. */
+/** Immutable search data; screen widgets are created only when opening a result. */
 public final class SettingsSearch {
     public record Entry(String section, String title, String description, String page, int offset) {}
+    private record Prepared(Entry entry, String title, String haystack) {}
+    private static final Pattern SEPARATORS = Pattern.compile("[\\p{Punct}\\s]+");
+    public static final class Index {
+        private final List<Prepared> entries;
+        public Index(Collection<Entry> entries) {
+            this.entries = entries.stream().distinct().map(entry -> new Prepared(entry, fold(entry.title()),
+                fold(entry.section() + " " + entry.title() + " " + entry.description()))).toList();
+        }
+        public List<Entry> find(String query) {
+            if(query==null||query.isBlank())return List.of();
+            String normalized=fold(query.length()>128?query.substring(0,128):query);
+            for(var alias:ALIASES.entrySet())normalized=normalized.replace(alias.getKey()," "+alias.getValue()+" ");
+            String needle=fold(normalized);if(needle.isEmpty())return List.of();
+            String[] terms=needle.split("\\s+");
+            return entries.stream().filter(entry -> {
+                for (String term : terms) if (!entry.haystack().contains(term)) return false;
+                return true;
+            }).sorted(Comparator.comparingInt((Prepared entry) -> entry.title().equals(needle)?0:entry.title().startsWith(needle)?1:2)
+                .thenComparing(entry -> entry.entry().section()).thenComparing(entry -> entry.entry().title()))
+                .map(Prepared::entry).toList();
+        }
+    }
     private static final Map<String,String> ALIASES=Map.ofEntries(
         Map.entry("伤害","damage"),Map.entry("暴击","critical"),Map.entry("大小","size"),Map.entry("颜色","color"),
         Map.entry("昵称","nick"),Map.entry("名字","name"),Map.entry("披风","cape"),Map.entry("追踪","tracer"),
@@ -14,17 +37,15 @@ public final class SettingsSearch {
         Map.entry("代理","proxy"),Map.entry("流光","shimmer"),Map.entry("鎏金","shimmer"),Map.entry("预设","preset"),Map.entry("同步","sync"),Map.entry("队伍","party"),
         Map.entry("装备","equipment"),Map.entry("物品","item"),Map.entry("字体","bold"),Map.entry("动画","animation"),
         Map.entry("地图","map"),Map.entry("替换","replace"),Map.entry("材质","material"),
-        Map.entry("提示音","notification sound"),Map.entry("声音","sound"),Map.entry("音量","volume"),Map.entry("音高","pitch"));
+        Map.entry("提示音","notification sound"),Map.entry("声音","sound"),Map.entry("音量","volume"),Map.entry("音高","pitch"),
+        Map.entry("模块","module"),Map.entry("开关","enabled"),Map.entry("视角","view"),Map.entry("更新","update"));
     private SettingsSearch() {}
-    private static String fold(String value){return Normalizer.normalize(value,Normalizer.Form.NFKC).toLowerCase(Locale.ROOT).replaceAll("[\\p{Punct}\\s]+"," ").strip();}
+    private static String fold(String value){return SEPARATORS.matcher(Normalizer.normalize(value,Normalizer.Form.NFKC).toLowerCase(Locale.ROOT)).replaceAll(" ").strip();}
+    public static boolean sameSetting(String actual, String catalogue) {
+        return fold(settingName(actual)).equals(fold(settingName(catalogue)));
+    }
+    private static String settingName(String title) { int colon = title.indexOf(':'); return colon < 0 ? title : title.substring(0, colon); }
     public static List<Entry> find(Collection<Entry> entries,String query){
-        if(query==null||query.isBlank())return List.of();
-        String normalized=fold(query.length()>128?query.substring(0,128):query);
-        for(var alias:ALIASES.entrySet())normalized=normalized.replace(alias.getKey()," "+alias.getValue()+" ");
-        String needle=fold(normalized);if(needle.isEmpty())return List.of();
-        var terms=needle.split("\\s+");
-        return entries.stream().distinct().filter(entry->{String haystack=fold(entry.section()+" "+entry.title()+" "+entry.description());return Arrays.stream(terms).allMatch(haystack::contains);})
-            .sorted(Comparator.comparingInt((Entry e)->fold(e.title()).equals(needle)?0:fold(e.title()).startsWith(needle)?1:2)
-                .thenComparing(Entry::section).thenComparing(Entry::title)).toList();
+        return new Index(entries).find(query);
     }
 }

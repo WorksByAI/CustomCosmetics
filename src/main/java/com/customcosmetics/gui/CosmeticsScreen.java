@@ -30,11 +30,19 @@ public final class CosmeticsScreen extends Screen {
     private final Screen parent;
     private Page page;
     private final List<AbstractWidget> navigation = new ArrayList<>();
+    private final List<Placement> sidebarControls = new ArrayList<>();
+    private final List<Consumer<GuiGraphicsExtractor>> sidebarArt = new ArrayList<>();
     private final List<Placement> controls = new ArrayList<>();
     private final List<Consumer<GuiGraphicsExtractor>> art = new ArrayList<>();
     private final List<Consumer<GuiGraphicsExtractor>> pinnedArt = new ArrayList<>();
     private int panelX, panelY, panelWidth, panelHeight, sideWidth;
     private int contentX, contentWidth, viewTop, viewBottom, rowY, contentBottom;
+    private int playerPreviewHeight;
+    private int navTop, navBottom, navContentBottom, navRowY, navScroll, scrollGrabOffset;
+    private boolean draggingNavigation;
+    private String connectionSummary = "";
+    private List<String> connectionLines = List.of();
+    private String connectionRosterTitle = "", connectionRosterSource = "";
     private double scroll;
     private int selectedEndpoint;
     private int mouseX, mouseY;
@@ -53,10 +61,8 @@ public final class CosmeticsScreen extends Screen {
     private String blockedPlayerSearch = "";
     private boolean pinnedNickname, pinnedSize, pinnedAccessories, draggingScroll;
     private final List<SettingsSearch.Entry> searchOptions=new ArrayList<>();
-    private List<SettingsSearch.Entry> searchIndex;
     private String searchQuery="";
     private PinkUi.Field searchField;
-    private int searchIndexWidth,searchIndexHeight;
     private record Placement(AbstractWidget widget, int y) {}
 
     public CosmeticsScreen(Screen parent, Page page) {
@@ -69,58 +75,33 @@ public final class CosmeticsScreen extends Screen {
     }
 
     @Override protected void init() {
-        navigation.clear(); controls.clear(); art.clear(); pinnedArt.clear();
+        navigation.clear(); sidebarControls.clear(); sidebarArt.clear(); controls.clear(); art.clear(); pinnedArt.clear();
         searchOptions.clear();
-        if(searchIndexWidth!=width||searchIndexHeight!=height){searchIndex=null;searchIndexWidth=width;searchIndexHeight=height;}
         hexField = null; picker = null;
         refreshIntervalField = null; syncNowButton = null;
         blockingMode = null;
         blockingStyle = null;
-        panelWidth = Math.min(740, width - 16);
-        panelHeight = Math.min(436, height - 16);
-        panelX = (width - panelWidth) / 2;
-        panelY = (height - panelHeight) / 2;
-        sideWidth = panelWidth < 360 ? 112 : 134;
-        contentX = panelX + sideWidth + 18;
-        contentWidth = panelWidth - sideWidth - 36;
-        viewTop = panelY + 52;
-        viewBottom = panelY + panelHeight - 18;
+        var layout = StudioLayout.of(width, height);
+        panelWidth = layout.width(); panelHeight = layout.height();
+        panelX = layout.x(); panelY = layout.y(); sideWidth = layout.sidebarWidth();
+        contentX = layout.contentX(); contentWidth = layout.contentWidth();
+        viewTop = layout.contentTop(); viewBottom = layout.contentBottom();
+        navTop = layout.navigationTop(); navBottom = layout.navigationBottom();
         rowY = viewTop;
-
-        Page[] pages = {Page.ANIMATIONS, Page.DAMAGE, Page.ACCESSORIES, Page.ITEMS, Page.MAP, Page.NICK, Page.SIZE, Page.PARTY, Page.SKINS};
-        String[] names = {"Animations", "Damage Splash", "Equipments (Beta)", "Item Customization", "Map Editor", "NickTweaks", "Player Size", "Sharing", "Skins"};
-        int navTop = panelHeight < 300 ? 52 : 64;
-        int navGap = Math.clamp((panelHeight - navTop - 52) / (pages.length+1), 12, 31);
-        for (int i = 0; i < pages.length; i++) {
-            Page target = pages[i];
-            int slot = i < 1 ? i : i + 1;
-            if (i == 1) {
-                navigation.add(addWidget(new PinkUi.Action(panelX+10,panelY+navTop+navGap,sideWidth-20,navGap-4,"Cape",false,
-                    ()->com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,new CapeScreen(this)))));
-            }
-            PinkUi.Action action = new PinkUi.Action(panelX + 10, panelY + navTop + slot * navGap,
-                sideWidth - 20, navGap - 4, names[i], false, () -> open(target));
-            action.selected(() -> target == page
-                || target == Page.ACCESSORIES && page == Page.BLOCKED_ACCESSORIES
-                || target == Page.PARTY && page == Page.POSITION_RECIPIENTS
-                || target == Page.NICK && (page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS || page == Page.BLOCKED_NICKS));
-            navigation.add(addWidget(action));
-        }
+        buildNavigation();
         navigation.add(addWidget(new RepositoryButton(panelX + 12, panelY + panelHeight - 42)));
         navigation.add(addWidget(new PinkUi.Action(panelX+47,panelY+panelHeight-42,sideWidth-55,30,"Settings",false,()->open(Page.SYNC)).selected(()->page==Page.SYNC)));
-        navigation.add(addWidget(new PinkUi.Action(panelX + panelWidth - 32, panelY + 15, 20, 20, "×", false, this::onClose)));
-        int searchWidth=Math.min(170,contentWidth/2);
-        searchField=new PinkUi.Field(font,contentX+contentWidth-searchWidth-24,panelY+16,searchWidth,"Search Settings",22);
+        navigation.add(addWidget(new PinkUi.Action(panelX + panelWidth - 32, panelY + 14, 20, 20, "×", false, this::onClose)));
+        searchField=new PinkUi.Field(font,contentX,panelY+54,contentWidth,"Search Settings",24);
         searchField.setMaxLength(128);searchField.setHint(Component.literal("Search settings..."));searchField.setValue(searchQuery);
         searchField.setResponder(value->{
             searchQuery=value;scroll=0;activity();
-            if(searchIndex==null)searchIndex=buildSearchIndex();
             page=Page.SEARCH;rebuildWidgets();setFocused(searchField);searchField.moveCursorToEnd(false);
         });
         navigation.add(addWidget(searchField));
-        pinnedNickname = panelHeight >= 360 && (page == Page.NICK || page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS);
-        pinnedSize = panelHeight >= 360 && page == Page.SIZE;
-        pinnedAccessories = panelHeight >= 360 && page == Page.ACCESSORIES;
+        pinnedNickname = panelHeight >= 390 && (page == Page.NICK || page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS);
+        pinnedSize = panelHeight >= 430 && page == Page.SIZE;
+        pinnedAccessories = panelHeight >= 410 && page == Page.ACCESSORIES;
         if(pinnedAccessories){accessoryPreview();pinnedArt.addAll(art);art.clear();viewTop=rowY;}
         if (pinnedSize) {
             playerPreview();
@@ -137,7 +118,8 @@ public final class CosmeticsScreen extends Screen {
             viewTop = rowY;
         }
         switch (page) {
-            case MAIN, SIZE -> playerSize();
+            case MAIN -> overview();
+            case SIZE -> playerSize();
             case NICK -> nickname();
             case COLOR -> colors();
             case CHROMA -> chroma();
@@ -163,7 +145,8 @@ public final class CosmeticsScreen extends Screen {
 
     private String pageTitle() {
         return switch (page) {
-            case MAIN, SIZE -> "Player Size";
+            case MAIN -> "Overview";
+            case SIZE -> "Player Size";
             case NICK, COLOR, CHROMA, PRESETS, BLOCKED_NICKS -> "NickTweaks";
             case ANIMATIONS -> "Animations";
             case DAMAGE -> "Damage Splash";
@@ -179,33 +162,117 @@ public final class CosmeticsScreen extends Screen {
         };
     }
 
-    private List<SettingsSearch.Entry> buildSearchIndex(){
-        var entries=new ArrayList<SettingsSearch.Entry>();
-        for(var target:List.of(Page.SIZE,Page.NICK,Page.COLOR,Page.CHROMA,Page.PRESETS,Page.ANIMATIONS,Page.DAMAGE,Page.ITEMS,Page.MAP,Page.ACCESSORIES,Page.PARTY,Page.SKINS,Page.SYNC)){
-            var screen=new CosmeticsScreen(null,target);screen.width=width;screen.height=height;screen.init();entries.addAll(screen.searchOptions);
+    private String pageDescription() {
+        return switch (page) {
+            case MAIN -> "Your look, your settings, all in one place.";
+            case SIZE -> "Proportions and the SmolPeople model.";
+            case NICK, COLOR, CHROMA, PRESETS, BLOCKED_NICKS -> "Names, colors and animated gradients.";
+            case ANIMATIONS -> "Hand poses, item placement and swing timing.";
+            case DAMAGE -> "Style your local damage numbers.";
+            case ITEMS -> "Custom names and models for your items.";
+            case MAP -> "Visual layouts, room presets and editing tools.";
+            case SKINS -> "Local imports and direct P2P sharing.";
+            case ACCESSORIES, BLOCKED_ACCESSORIES -> "Build an outfit and adjust its placement.";
+            case PARTY, POSITION_RECIPIENTS -> "Party chat, positions and teammate visuals.";
+            case SYNC -> "Preferences, connections and advanced settings.";
+            case MODULES -> "Pause whole features while keeping your settings.";
+            case BLOCKED_CAPES -> "Choose whose capes you see.";
+            case SEARCH -> "Find a setting and jump straight to it.";
+        };
+    }
+
+    private void buildNavigation() {
+        navRowY = navTop;
+        navItem("Overview", Page.MAIN);
+        navSection("APPEARANCE");
+        navItem("NickTweaks", Page.NICK); navItem("Player Size", Page.SIZE);
+        navItem("Skins", Page.SKINS); navItem("Equipments (Beta)", Page.ACCESSORIES);
+        navAction("Cape", () -> ClientUiAccess.setScreen(minecraft, new CapeScreen(this)), () -> page == Page.BLOCKED_CAPES);
+        navSection("GAMEPLAY");
+        navItem("Animations", Page.ANIMATIONS); navItem("Damage Splash", Page.DAMAGE);
+        navItem("Item Customization", Page.ITEMS); navItem("Map Editor", Page.MAP);
+        navSection("CONNECTIONS");
+        navItem("Sharing", Page.PARTY);
+        navContentBottom = navRowY;
+        navScroll = Math.clamp(navScroll, 0, maxNavScroll());
+        positionNavigation();
+    }
+
+    private void navSection(String title) {
+        int y = navRowY + 7;
+        sidebarArt.add(g -> text(g, font, title, panelX + 15, y, DIM, sideWidth - 26));
+        navRowY += 21;
+    }
+    private void navItem(String name, Page target) {
+        navAction(name, () -> open(target), () -> target == page
+            || target == Page.ACCESSORIES && page == Page.BLOCKED_ACCESSORIES
+            || target == Page.PARTY && page == Page.POSITION_RECIPIENTS
+            || target == Page.NICK && (page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS || page == Page.BLOCKED_NICKS));
+    }
+    private void navAction(String name, Runnable callback, BooleanSupplier selected) {
+        var widget = new PinkUi.Action(panelX + 8, navRowY, sideWidth - 18, 23, name, false, callback).leftAligned().selected(selected);
+        widget.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(name)));
+        sidebarControls.add(new Placement(addWidget(widget), navRowY)); navRowY += 26;
+    }
+    private int maxNavScroll() { return Math.max(0, navContentBottom - navBottom); }
+    private void positionNavigation() {
+        for (var placement : sidebarControls) {
+            var widget = placement.widget(); widget.setY(placement.y() - navScroll);
+            widget.visible = widget.getBottom() > navTop && widget.getY() < navBottom;
         }
-        entries.add(new SettingsSearch.Entry("Cape","Show Custom Capes","Cape visibility 披风", "CAPE",0));
-        entries.add(new SettingsSearch.Entry("Cape","Choose Image & Crop","Import local cape image", "CAPE",0));
-        entries.add(new SettingsSearch.Entry("Cape","Choose Cape + Elytra","Import cape texture", "CAPE",0));
-        entries.add(new SettingsSearch.Entry("Cape","Submit for Review","Upload cape for approval", "CAPE",0));
-        if(!"shimmer".equals(ConfigManager.nickTweaksGradientStyle))for(String title:List.of("Shimmer Size","Shimmer Speed","Shimmer Interval"))
-            entries.add(new SettingsSearch.Entry("NickTweaks",title,"Requires Shimmer: select the Shimmer gradient style first.",Page.COLOR.name(),0));
-        if(!ConfigManager.animationDisableSwing)entries.add(new SettingsSearch.Entry("Animations","Terminator Only","Requires Disable Swing Animation to be enabled.",Page.ANIMATIONS.name(),0));
-        if(ConfigManager.animationDisableSwing&&!ConfigManager.animationTerminatorOnly)for(String title:List.of("Swing Speed","Ignore Haste"))
-            entries.add(new SettingsSearch.Entry("Animations",title,"Requires swing animation: turn off Disable Swing Animation first.",Page.ANIMATIONS.name(),0));
-        return List.copyOf(entries);
+    }
+    private void overview() {
+        int total = com.customcosmetics.config.FeatureModules.Feature.values().length;
+        int enabled = total - Integer.bitCount(ConfigManager.disabledModules & com.customcosmetics.config.FeatureModules.ALL);
+        section("Make it yours", enabled + " of " + total + " modules enabled. Choose a section or search for a setting.");
+        int columns = contentWidth >= 400 ? 2 : 1, gap = 10, cellWidth = (contentWidth - gap * (columns - 1)) / columns;
+        String[] titles = {"Your appearance", "In-game visuals", "Play together", "Module Manager"};
+        String[] descriptions = {"Names, proportions, skins, capes and equipment.", "Animations, damage numbers, items and visual maps.",
+            "Party chat, shared positions and teammate markers.", "Turn off unused features and keep your saved preferences."};
+        Page[] targets = {Page.NICK, Page.ANIMATIONS, Page.PARTY, Page.MODULES};
+        for (int i = 0; i < titles.length; i++) {
+            int x = contentX + i % columns * (cellWidth + gap), y = rowY;
+            var lines = font.split(Component.literal(descriptions[i]), Math.max(1, cellWidth - 24));
+            int height = 90;
+            art.add(g -> outline(g, x, y, cellWidth, height, 8, BORDER, CARD));
+            label(titles[i], x + 12, y + 12, PINK, cellWidth - 24);
+            for (int j = 0; j < Math.min(3, lines.size()); j++) { var line = lines.get(j); int ly = y + 28 + j * 11; art.add(g -> g.text(font, line, x + 12, ly, MUTED, false)); }
+            Page target = targets[i];
+            add(new PinkUi.Action(x + 10, y + height - 28, cellWidth - 20, 21, "Open " + titles[i], false, () -> open(target)).leftAligned());
+            if (i % columns == columns - 1 || i == titles.length - 1) rowY += height + gap;
+        }
+        section("Command tools", "Additional tools open from chat:");
+        paragraph("/ccos waypoint", PINK);
+        paragraph("/ccos shortcuts", PINK);
+        paragraph("The /customcosmetics command is also available.", DIM);
+    }
+
+    private void section(String title, String description) {
+        rowY += 7; label(title, contentX, rowY, PINK, contentWidth); rowY += 17;
+        if (!description.isBlank()) paragraph(description, MUTED);
+        rowY += 3;
+    }
+    private void paragraph(String text, int color) {
+        for (var line : font.split(Component.literal(text), Math.max(1, contentWidth))) {
+            int y = rowY; art.add(g -> g.text(font, line, contentX, y, color, false)); rowY += 12;
+        }
+        rowY += 5;
     }
     private void indexOption(String title,String description,int y){searchOptions.add(new SettingsSearch.Entry(pageTitle(),title,description,page.name(),Math.max(0,y-viewTop)));}
     private void searchResults(){
-        if(searchIndex==null)searchIndex=buildSearchIndex();
-        var results=SettingsSearch.find(searchIndex,searchQuery);
+        var results=SettingsCatalog.find(searchQuery);
         label(searchQuery.isBlank()?"Type a setting name to search.":results.size()+" results",contentX,rowY+4,MUTED,contentWidth);rowY+=24;
         for(var result:results){
             int y=rowY;
             var action=fullButton(result.title(),()->{
                 if(result.page().equals("CAPE")){com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,new CapeScreen(this));return;}
-                open(Page.valueOf(result.page()));scroll=Math.clamp(result.offset(),0,maxScroll());positionControls();
-                if(result.description().startsWith("Requires "))toast(result.description());
+                if (result.title().equals("Shimmer Colors")) editingShimmerColors = true;
+                else if (result.title().equals("Gradient Colors")) editingShimmerColors = false;
+                open(Page.valueOf(result.page()));
+                var anchor = searchOptions.stream().filter(option -> SettingsSearch.sameSetting(option.title(), result.title())).findFirst();
+                if (anchor.isPresent()) scroll = Math.clamp(anchor.get().offset(), 0, maxScroll());
+                else if (result.description().startsWith("Requires ")) toast(result.description());
+                positionControls();
             },false);
             action.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(result.section()+" · "+result.title())));
             label(result.section(),contentX+8,y+29,DIM,contentWidth-16);rowY+=14;
@@ -275,9 +342,10 @@ public final class CosmeticsScreen extends Screen {
     }
 
     private void party(){
-        label("Party Sharing",contentX,rowY+2,PINK,contentWidth);rowY+=20;
+        section("Party visuals", "Control how teammates appear in your world.");
         toggleRow("Party ESP","Highlight your teammates and share your position.",()->ConfigManager.partyEspEnabled,v->ConfigManager.partyEspEnabled=v);
         toggleRow("Chams","See loaded shared players through walls with their original skin, armor, cape and equipment.",()->ConfigManager.sharingChamsEnabled,v->ConfigManager.sharingChamsEnabled=v);
+        section("Party chat", "Messages and notification sounds for connected teammates.");
         toggleRow("IRC For Party Members","Send messages to your connected party members.",()->ConfigManager.partyChatEnabled,v->ConfigManager.partyChatEnabled=v);
         toggleRow("Chat Notification Sound","Play a sound for other party members' IRC messages.",()->ConfigManager.partyChatSoundEnabled,v->ConfigManager.partyChatSoundEnabled=v);
         fullButton("Chat Sound: "+com.customcosmetics.features.party.PartyChatSound.label(ConfigManager.partyChatSound),()->ClientUiAccess.setScreen(minecraft,new PartyChatSoundScreen(this)),false,"Choose a notification sound, including sounds from your resource pack.");
@@ -292,6 +360,7 @@ public final class CosmeticsScreen extends Screen {
             activity();boolean valid=value.equals(com.customcosmetics.features.party.PartyChatRules.prefix(value));prefixField.invalid(!valid);
             if(valid){ConfigManager.partyChatPrefix=value;changed();}
         });
+        section("Markers & names", "Colors, distance limits and labels.");
         var distanceField=fieldRow("Max Display Distance (blocks)","Max Display Distance",String.format(Locale.ROOT,"%.0f",ConfigManager.partyMaxDisplayDistance),8,"0 = unlimited",100,value->{});
         distanceField.setResponder(value->{
             activity();boolean valid=value.matches("[0-9]{1,8}")&&Double.parseDouble(value)<=com.customcosmetics.features.party.PartyDisplayRange.MAX;distanceField.invalid(!valid);
@@ -323,7 +392,7 @@ public final class CosmeticsScreen extends Screen {
         sliderRow("Nametag Size","",()->ConfigManager.partyNametagSize,.5,3,.1,1,v->ConfigManager.partyNametagSize=v);
         toggleRow("Distant Markers","Requires Hypixel Mod API and both players sharing positions.",()->ConfigManager.partyFarMarkers,v->ConfigManager.partyFarMarkers=v);
         label("Without Mod API: /p list for nearby ESP and chat.",contentX,rowY+4,DIM,contentWidth);rowY+=24;
-        rowY+=12;label("Location Sharing",contentX,rowY+4,PINK,contentWidth);rowY+=26;
+        section("Location sharing", "Choose who can see your position.");
         toggleRow("Share My Position","Hypixel only. Replaces the Party audience while enabled.",()->ConfigManager.positionSharingEnabled,v->ConfigManager.positionSharingEnabled=v);
         fullButton("Audience: "+("public".equals(ConfigManager.positionSharingMode)?"Public · Same World":"Selected Players"),()->{
             ConfigManager.positionSharingMode="public".equals(ConfigManager.positionSharingMode)?"selected":"public";changed();rebuildWidgets();
@@ -401,7 +470,9 @@ public final class CosmeticsScreen extends Screen {
     }
 
     private void playerPreview() {
-        int y = card(184);
+        int height = PreviewLayout.playerCardHeight(viewBottom - viewTop, pinnedSize);
+        playerPreviewHeight = height;
+        int y = card(height);
         label("Preview", contentX + 12, y + 12, PINK, contentWidth - 24);
         art.add(g -> {
             if (minecraft.player == null) {
@@ -424,8 +495,8 @@ public final class CosmeticsScreen extends Screen {
             g.pose().pushMatrix();
             g.pose().translate(0, (float) previewScroll);
             InventoryScreen.extractEntityInInventoryFollowsMouse(g,
-                contentX + 4, top + 51, contentX + contentWidth - 4, top + 178,
-                52, 0.0625f, mouseX, mouseY, minecraft.player);
+                contentX + 4, top + 51, contentX + contentWidth - 4, top + height - 6,
+                PreviewLayout.playerModelScale(height), 0.0625f, mouseX, mouseY, minecraft.player);
             g.pose().popMatrix();
         });
     }
@@ -460,6 +531,7 @@ public final class CosmeticsScreen extends Screen {
     }
 
     private void animations() {
+        section("Sword blocking", "Choose a pose and decide when to use it.");
         toggleRow("Sword Blocking", "Hold Use with a sword. Visual effect only.",
             () -> ConfigManager.swordBlockingEnabled, v -> ConfigManager.swordBlockingEnabled = v);
         fullButton("Adjust Blocking", () -> com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,
@@ -476,6 +548,7 @@ public final class CosmeticsScreen extends Screen {
             () -> ConfigManager.swordBlockingListsApplyToOthers, v -> ConfigManager.swordBlockingListsApplyToOthers = v);
         toggleRow("Share Blocking", "Show other players and share your pose. Requires Automatic Sync ENABLED.",
             () -> ConfigManager.swordBlockingSyncEnabled, v -> ConfigManager.swordBlockingSyncEnabled = v);
+        section("View model", "Position, scale and rotation of your held item.");
         toggleRow("View Model", "", () -> ConfigManager.animationsEnabled, v -> ConfigManager.animationsEnabled = v);
         var numbers = new ArrayList<NumericSetting>(List.of(
             new NumericSetting("Item Scale", () -> ConfigManager.animationItemScale, 0.1, 2.5, 0.05, 1, v -> ConfigManager.animationItemScale = v),
@@ -491,6 +564,7 @@ public final class CosmeticsScreen extends Screen {
         if (!ConfigManager.animationDisableSwing || ConfigManager.animationTerminatorOnly)
             numbers.add(new NumericSetting("Swing Speed", () -> ConfigManager.animationSwingSpeed, -2, 1, 0.05, 0, v -> ConfigManager.animationSwingSpeed = v));
         sliderGrid(numbers);
+        section("Movement & swing", "");
         toggleRow("Disable Hand Movement", "", () -> ConfigManager.animationDisableHandMove, v -> ConfigManager.animationDisableHandMove = v);
         toggleRow("Disable Equip Animation", "", () -> ConfigManager.animationDisableEquip, v -> ConfigManager.animationDisableEquip = v);
         toggleRow("Disable Swing Animation", "", () -> ConfigManager.animationDisableSwing, v -> { ConfigManager.animationDisableSwing = v; rebuildWidgets(); });
@@ -499,19 +573,21 @@ public final class CosmeticsScreen extends Screen {
         if (!ConfigManager.animationDisableSwing || ConfigManager.animationTerminatorOnly) {
             toggleRow("Ignore Haste", "Use normal swing timing instead of potion timing.", () -> ConfigManager.animationIgnoreHaste, v -> ConfigManager.animationIgnoreHaste = v);
         }
-        add(new PinkUi.Action(contentX,rowY,132,26,"Reset View Model",false,() -> { ConfigManager.resetAnimations(); changed(); rebuildWidgets(); }));
+        indexOption("Reset View Model", "Reset held item placement", rowY);
+        add(new PinkUi.Action(contentX,rowY,Math.min(132, contentWidth),26,"Reset View Model",false,() -> { ConfigManager.resetAnimations(); changed(); rebuildWidgets(); }));
         rowY += 32;
     }
 
     private void tabs() {
         String[] labels = {"General", "Gradient", "Chroma", "Presets"};
         Page[] pages = {Page.NICK, Page.COLOR, Page.CHROMA, Page.PRESETS};
-        int w = (contentWidth - 12) / 4;
+        int columns = contentWidth < 240 ? 2 : 4;
+        int w = (contentWidth - (columns - 1) * 4) / columns;
         for (int i = 0; i < pages.length; i++) {
             Page target = pages[i];
-            add(new PinkUi.Action(contentX + i * (w + 4), rowY, w, 25, labels[i], false, () -> open(target)).selected(() -> page == target));
+            add(new PinkUi.Action(contentX + (i % columns) * (w + 4), rowY + (i / columns) * 29, w, 25, labels[i], false, () -> open(target)).selected(() -> page == target));
         }
-        rowY += 31;
+        rowY += (pages.length / columns) * 29 + 6;
     }
 
     private void nickname() {
@@ -712,6 +788,7 @@ public final class CosmeticsScreen extends Screen {
     }
 
     private void modules(){
+        paragraph("Disabled modules skip their main work. Detailed preferences are kept for the next time you enable them.", MUTED);
         fullButton("Enable All Modules",()->{int before=ConfigManager.disabledModules;com.customcosmetics.config.FeatureModules.all(true);moduleChanged(before);},false);
         fullButton("Disable All Modules",()->{int before=ConfigManager.disabledModules;com.customcosmetics.config.FeatureModules.all(false);moduleChanged(before);},false);
         for(var feature:com.customcosmetics.config.FeatureModules.Feature.values())
@@ -727,6 +804,7 @@ public final class CosmeticsScreen extends Screen {
         rebuildWidgets();
     }
     private void sync() {
+        section("General", "Preferences and feature availability.");
         fullButton("Module Manager",()->open(Page.MODULES),false,"Enable or disable whole features without losing their settings.");
         toggleRow("Check for Updates","Check GitHub for new releases and show a chat notification. Enabled by default.",()->ConfigManager.updateCheckEnabled,v->ConfigManager.updateCheckEnabled=v);
         toggleRow("Command Tooltips","Show the actual command when hovering clickable text. Preserves existing text, item and entity tooltips.",()->ConfigManager.commandTooltipsEnabled,v->ConfigManager.commandTooltipsEnabled=v);
@@ -735,6 +813,7 @@ public final class CosmeticsScreen extends Screen {
             ConfigManager.snaplookPerspective=switch(com.customcosmetics.features.camera.Snaplook.normalize(ConfigManager.snaplookPerspective)){case "front"->"back";case "back"->"first";default->"front";};changed();rebuildWidgets();
         },false);
         fullButton("Snaplook Keybind…",()->ClientUiAccess.setScreen(minecraft,new net.minecraft.client.gui.screens.options.controls.KeyBindsScreen(this,minecraft.options)),false,"Assign Snaplook under CustomCosmetics: Camera. Unbound by default.");
+        section("Connections", "Choose how your cosmetics and teammates stay in sync.");
         fullButton("Mode: "+(ConfigManager.offlineMode?"Offline":"Online"),()->{
             com.customcosmetics.config.CosmeticsMode.setOffline(!ConfigManager.offlineMode);activity();rebuildWidgets();
         },false).setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal("Offline: local cosmetics only. No remote connections.")));
@@ -755,12 +834,7 @@ public final class CosmeticsScreen extends Screen {
             updateSyncNowButton();
         }, true);
         updateSyncNowButton();
-        rowY += 24;
-        int devY=rowY,hintX=contentX+font.width("DEV")+12;
-        label("DEV",contentX,devY,PINK,font.width("DEV"));
-        var hintLines=font.split(Component.literal("If you don't know what these settings do, leave them blank."),Math.max(1,contentX+contentWidth-hintX));
-        for(int i=0;i<hintLines.size();i++){var line=hintLines.get(i);int lineY=devY+i*12;art.add(g->g.text(font,line,hintX,lineY,MUTED,false));}
-        rowY+=Math.max(20,hintLines.size()*12+8);
+        section("Advanced connections", "Leave these settings unchanged unless you use a custom network configuration.");
         connectionStatus();
         proxyText("Proxy Host",ConfigManager.syncProxyHost,value -> ConfigManager.syncProxyHost = value);
         var port = fieldRow("Proxy Port","Proxy Port",ConfigManager.syncProxyPort == 0 ? "" : Integer.toString(ConfigManager.syncProxyPort),5,"",100,value -> {});
@@ -782,6 +856,7 @@ public final class CosmeticsScreen extends Screen {
         });
         toggleRow("Fallback Direct","Retry without the proxy if it fails.",() -> ConfigManager.syncProxyFallbackDirect,
             value -> { ConfigManager.syncProxyFallbackDirect = value; proxyChanged(); });
+        indexOption("Proxy Source", "Advanced connection proxy source none manual auto", rowY);
         add(new PinkUi.Action(contentX,rowY,contentWidth,28,"Proxy Source: " + ConfigManager.syncProxySource,false,() -> {
             var sources = List.of("none","manual","auto");
             ConfigManager.syncProxySource = sources.get((sources.indexOf(ConfigManager.syncProxySource) + 1) % sources.size());
@@ -827,14 +902,20 @@ public final class CosmeticsScreen extends Screen {
     }
 
     private void connectionStatus(){
+        updateConnectionStatus();
         int y=card(108);
         art.add(g->{
-            var roster=com.customcosmetics.features.party.PartyFeatures.roster();
-            text(g,font,roster.title(),contentX+12,y+12,PINK,contentWidth-24);
-            text(g,font,roster.sourceLabel(),contentX+12,y+28,MUTED,contentWidth-24);
-            var lines=com.customcosmetics.sync.RealtimeSync.connectionStatus().lines().toList();
-            for(int i=0;i<lines.size();i++)text(g,font,lines.get(i),contentX+12,y+48+i*12,MUTED,contentWidth-24);
+            if (y - scroll >= viewBottom || y + 108 - scroll <= viewTop) return;
+            text(g,font,connectionRosterTitle,contentX+12,y+12,PINK,contentWidth-24);
+            text(g,font,connectionRosterSource,contentX+12,y+28,MUTED,contentWidth-24);
+            for(int i=0;i<connectionLines.size();i++)text(g,font,connectionLines.get(i),contentX+12,y+48+i*12,MUTED,contentWidth-24);
         });
+    }
+    private void updateConnectionStatus() {
+        var roster = com.customcosmetics.features.party.PartyFeatures.roster();
+        connectionRosterTitle = roster.title(); connectionRosterSource = roster.sourceLabel();
+        String status = com.customcosmetics.sync.RealtimeSync.connectionStatus();
+        if (!status.equals(connectionSummary)) { connectionSummary = status; connectionLines = status.lines().toList(); }
     }
 
     private PinkUi.Field proxyText(String title,String value,Consumer<String> setter) {
@@ -851,10 +932,10 @@ public final class CosmeticsScreen extends Screen {
         NumericSetting(String title,DoubleSupplier getter,double min,double max,double step,double defaultValue,DoubleConsumer setter){this(title,getter,min,max,step,defaultValue,setter,"");}
     }
     private void sliderGrid(List<NumericSetting> settings){
-        int columns=contentWidth>=360?2:1,cellWidth=(contentWidth-(columns-1)*6)/columns;
+        int columns=contentWidth>=400?2:1,cellWidth=(contentWidth-(columns-1)*10)/columns;
         for(int i=0;i<settings.size();i++){
-            sliderCell(settings.get(i),contentX+(i%columns)*(cellWidth+6),rowY,cellWidth);
-            if(i%columns==columns-1||i==settings.size()-1)rowY+=56;
+            sliderCell(settings.get(i),contentX+(i%columns)*(cellWidth+10),rowY,cellWidth);
+            if(i%columns==columns-1||i==settings.size()-1)rowY+=60;
         }
     }
     private void sliderCell(NumericSetting setting,int x,int y,int width) {
@@ -905,17 +986,24 @@ public final class CosmeticsScreen extends Screen {
     private int card(int height) {
         int y = rowY;
         art.add(g -> outline(g, contentX, y, contentWidth, height, 8, BORDER, CARD));
-        rowY += height + 6;
+        rowY += height + 8;
         return y;
     }
-    private void label(String label, int x, int y, int color, int width) { art.add(g -> text(g, font, label, x, y, color, width)); }
+    private void label(String label, int x, int y, int color, int width) {
+        if (width <= 0) return;
+        String fitted = font.width(label) <= width ? label
+            : font.plainSubstrByWidth(label, Math.max(0, width - font.width("…"))) + "…";
+        art.add(g -> g.text(font, fitted, x, y, color, false));
+    }
     private void toggleRow(String title, String description, BooleanSupplier getter, Consumer<Boolean> setter) {
         indexOption(title,description,rowY);
-        var lines = description.isEmpty() ? List.<net.minecraft.util.FormattedCharSequence>of() : font.split(Component.literal(description),contentWidth - 24);
-        int y = card(description.isEmpty() ? 30 : 25 + lines.size() * 11);
-        label(title, contentX + 10, y + (description.isEmpty() ? 11 : 8), TEXT, contentWidth - 62);
-        for (int i = 0; i < lines.size(); i++) { var line = lines.get(i); int ty = y + 23 + i * 11; art.add(g -> g.text(font,line,contentX + 10,ty,MUTED,false)); }
-        add(new PinkUi.Toggle(contentX + contentWidth - 44, y + (description.isEmpty() ? 6 : 5), title, getter, () -> { setter.accept(!getter.getAsBoolean()); changed(); }));
+        var titleLines = font.split(Component.literal(title), Math.max(1, contentWidth - 66));
+        var lines = description.isEmpty() ? List.<net.minecraft.util.FormattedCharSequence>of() : font.split(Component.literal(description),Math.max(1, contentWidth - 24));
+        int titleHeight = Math.max(18, titleLines.size() * 11);
+        int y = card(Math.max(36, 18 + titleHeight + (lines.isEmpty() ? 0 : 4 + lines.size() * 11)));
+        for (int i = 0; i < titleLines.size(); i++) { var line = titleLines.get(i); int ty = y + 11 + i * 11; art.add(g -> g.text(font, line, contentX + 12, ty, TEXT, false)); }
+        for (int i = 0; i < lines.size(); i++) { var line = lines.get(i); int ty = y + 12 + titleHeight + i * 11; art.add(g -> g.text(font,line,contentX + 12,ty,MUTED,false)); }
+        add(new PinkUi.Toggle(contentX + contentWidth - 46, y + 9, title, getter, () -> { setter.accept(!getter.getAsBoolean()); changed(); }));
     }
 
     private void sliderRow(String title, String description, DoubleSupplier getter, double min, double max, double step, double defaultValue, DoubleConsumer setter) {
@@ -924,15 +1012,19 @@ public final class CosmeticsScreen extends Screen {
 
     private PinkUi.Field fieldRow(String title,String name,String value,int maximum,String hint,int preferredWidth,Consumer<String> setter){
         indexOption(title,name+" "+hint,rowY);
-        boolean inline=contentWidth>=360;
+        boolean inline=contentWidth>=400;
         int fieldWidth=inline?Math.min(preferredWidth,contentWidth/2):contentWidth-20;
         int textWidth=inline?contentWidth-fieldWidth-30:contentWidth-20;
-        var lines=hint.isEmpty()?List.<net.minecraft.util.FormattedCharSequence>of():font.split(Component.literal(hint),textWidth);
-        int height=inline?Math.max(34,23+lines.size()*11):50+lines.size()*11;
+        var titles=font.split(Component.literal(title), Math.max(1, textWidth));
+        var lines=hint.isEmpty()?List.<net.minecraft.util.FormattedCharSequence>of():font.split(Component.literal(hint),Math.max(1,textWidth));
+        int titleHeight = titles.size() * 11;
+        int fieldTop = inline ? 9 : 10 + titleHeight + 4;
+        int hintTop = inline ? 10 + titleHeight + 4 : fieldTop + 28;
+        int height=Math.max(inline ? 40 : fieldTop + 30, hintTop + lines.size() * 11 + 9);
         int y=card(height);
-        label(title,contentX+10,y+(inline&&lines.isEmpty()?13:8),TEXT,textWidth);
-        for(int i=0;i<lines.size();i++){var line=lines.get(i);int lineY=y+(inline?23:49)+i*11;art.add(g->g.text(font,line,contentX+10,lineY,MUTED,false));}
-        return input(inline?contentX+contentWidth-fieldWidth-10:contentX+10,y+(inline?(height-22)/2:22),fieldWidth,name,value,maximum,setter);
+        for(int i=0;i<titles.size();i++){var line=titles.get(i);int lineY=y+10+i*11;art.add(g->g.text(font,line,contentX+10,lineY,TEXT,false));}
+        for(int i=0;i<lines.size();i++){var line=lines.get(i);int lineY=y+hintTop+i*11;art.add(g->g.text(font,line,contentX+10,lineY,MUTED,false));}
+        return input(inline?contentX+contentWidth-fieldWidth-10:contentX+10,y+(inline?(height-22)/2:fieldTop),fieldWidth,name,value,maximum,setter);
     }
     private PinkUi.Field input(int x, int y, int width, String name, String value, int maximum, Consumer<String> setter) {
         PinkUi.Field field = new PinkUi.Field(font, x, y, width, name,22);
@@ -944,13 +1036,13 @@ public final class CosmeticsScreen extends Screen {
     }
     private PinkUi.Action fullButton(String text,Runnable callback,boolean primary,String description){
         indexOption(text,description,rowY);
-        PinkUi.Action button = add(new PinkUi.Action(contentX, rowY, contentWidth, 26, text, primary, callback));
-        if(!description.isEmpty())button.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(description)));
-        rowY += 32;
+        PinkUi.Action button = add(new PinkUi.Action(contentX, rowY, contentWidth, 28, text, primary, callback).leftAligned());
+        button.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(description.isEmpty() ? text : description)));
+        rowY += 36;
         return button;
     }
     private <T extends AbstractWidget> T add(T widget) { controls.add(new Placement(widget, widget.getY())); return addWidget(widget); }
-    private void open(Page page) { this.page = page == Page.MAIN ? Page.SIZE : page; searchQuery="";searchIndex=null;scroll = 0; activity(); setFocused(null); rebuildWidgets(); }
+    private void open(Page page) { this.page = page; searchQuery="";scroll = 0; activity(); setFocused(null); rebuildWidgets(); }
     private void selectEndpoint(int index) { selectedEndpoint = index; rebuildWidgets(); }
     private int color(int endpoint) {
         if (editingShimmerColors) return endpoint == 0 ? ConfigManager.nickTweaksShimmerColor : ConfigManager.nickTweaksShimmerHighlightColor;
@@ -980,12 +1072,16 @@ public final class CosmeticsScreen extends Screen {
         }
     }
 
-    @Override public void tick() { updateSyncNowButton(); }
+    @Override public void tick() { updateSyncNowButton(); if (page == Page.SYNC) updateConnectionStatus(); }
 
     @Override public boolean mouseScrolled(double mx, double my, double horizontal, double vertical) {
         activity();
         if (blockingMode != null) blockingMode.closeMenu();
         if (blockingStyle != null) blockingStyle.closeMenu();
+        if (StudioLayout.contains(mx, my, panelX + 1, navTop, panelX + sideWidth, navBottom)) {
+            navScroll = Math.clamp((int) Math.round(navScroll - vertical * 36), 0, maxNavScroll());
+            positionNavigation(); return true;
+        }
         if (mx < contentX || mx > contentX + contentWidth + 10 || my < viewTop || my > viewBottom) return super.mouseScrolled(mx, my, horizontal, vertical);
         scroll = Math.clamp(scroll - vertical * 48, 0, maxScroll()); positionControls();
         if (getFocused() instanceof AbstractWidget widget && !widget.visible) setFocused(null);
@@ -999,8 +1095,22 @@ public final class CosmeticsScreen extends Screen {
             && event.x() < panelX + panelWidth - 12 && event.y() >= panelY + 15 && event.y() < panelY + 35;
         if (!closing) activity();
         positionControls();
+        positionNavigation();
+        if (event.button() == ClientInput.MOUSE_LEFT && maxNavScroll() > 0
+            && StudioLayout.contains(event.x(), event.y(), panelX + sideWidth - 8, navTop, panelX + sideWidth, navBottom)) {
+            var bar = navigationScrollbar();
+            int thumb = bar.thumbStart(navScroll);
+            scrollGrabOffset = event.y() >= thumb && event.y() < thumb + bar.thumbLength()
+                ? (int) event.y() - thumb : bar.thumbLength() / 2;
+            draggingNavigation = true; navScroll = bar.offsetAtPointer(event.y(), scrollGrabOffset);
+            positionNavigation(); return true;
+        }
         if (event.button() == com.customcosmetics.compatibility.ClientInput.MOUSE_LEFT && maxScroll() > 0 && event.x() >= contentX + contentWidth + 2
                 && event.x() <= contentX + contentWidth + 12 && event.y() >= viewTop && event.y() <= viewBottom) {
+            var bar = contentScrollbar();
+            int thumb = bar.thumbStart((int) Math.round(scroll));
+            scrollGrabOffset = event.y() >= thumb && event.y() < thumb + bar.thumbLength()
+                ? (int) event.y() - thumb : bar.thumbLength() / 2;
             draggingScroll = true;
             scrollToMouse(event.y());
             return true;
@@ -1008,25 +1118,37 @@ public final class CosmeticsScreen extends Screen {
         if (event.y() < viewTop || event.y() >= viewBottom) {
             for (Placement placement : controls) placement.widget().visible = false;
         }
+        if (event.y() < navTop || event.y() >= navBottom) {
+            for (Placement placement : sidebarControls) placement.widget().visible = false;
+        }
         try { return super.mouseClicked(event, doubleClick); }
-        finally { positionControls(); }
+        finally { positionControls(); positionNavigation(); }
     }
 
+    private ScrollBarLayout contentScrollbar() {
+        int visible = Math.max(0, viewBottom - viewTop);
+        return ScrollBarLayout.of(viewTop, visible, visible, visible + (int) Math.ceil(maxScroll()), (int) Math.ceil(maxScroll()));
+    }
+    private ScrollBarLayout navigationScrollbar() {
+        int visible = Math.max(0, navBottom - navTop);
+        return ScrollBarLayout.of(navTop, visible, visible, visible + maxNavScroll(), maxNavScroll());
+    }
     private void scrollToMouse(double y) {
-        int track = viewBottom - viewTop;
-        int thumb = Math.max(20, (int) (track * track / (double) (track + maxScroll())));
-        scroll = Math.clamp((y - viewTop - thumb / 2.0) / Math.max(1, track - thumb), 0, 1) * maxScroll();
+        scroll = contentScrollbar().offsetAtPointer(y, scrollGrabOffset);
         positionControls();
     }
 
     @Override public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
         activity();
+        if (draggingNavigation) {
+            navScroll = navigationScrollbar().offsetAtPointer(event.y(), scrollGrabOffset); positionNavigation(); return true;
+        }
         if (draggingScroll) { scrollToMouse(event.y()); return true; }
         return super.mouseDragged(event, dx, dy);
     }
 
     @Override public boolean mouseReleased(MouseButtonEvent event) {
-        if (draggingScroll) { draggingScroll = false; return true; }
+        if (draggingScroll || draggingNavigation) { draggingScroll = false; draggingNavigation = false; return true; }
         return super.mouseReleased(event);
     }
 
@@ -1036,6 +1158,12 @@ public final class CosmeticsScreen extends Screen {
         if (event.key() != ClientInput.ESCAPE) activity();
         boolean handled = super.keyPressed(event);
         if (getFocused() instanceof AbstractWidget focused) {
+            for (Placement placement : sidebarControls) {
+                if (placement.widget() != focused) continue;
+                if (focused.getY() < navTop) navScroll -= navTop - focused.getY();
+                else if (focused.getBottom() > navBottom) navScroll += focused.getBottom() - navBottom;
+                navScroll = Math.clamp(navScroll, 0, maxNavScroll()); positionNavigation(); break;
+            }
             for (Placement placement : controls) {
                 if (placement.widget() != focused) continue;
                 int inset = focused instanceof PinkUi.Field field ? field.insetY() : 0;
@@ -1062,10 +1190,27 @@ public final class CosmeticsScreen extends Screen {
             outline(g, panelX, panelY, panelWidth, panelHeight, 11, BORDER, PANEL);
             rounded(g, panelX + 1, panelY + 1, sideWidth, panelHeight - 2, 10, SIDEBAR);
             g.fill(panelX + sideWidth, panelY + 1, panelX + sideWidth + 1, panelY + panelHeight - 1, BORDER);
-            text(g, font, "Custom", panelX + 16, panelY + 22, PINK, sideWidth - 30);
-            int cosmeticsX = Math.max(panelX + 16, panelX + sideWidth - 14 - font.width("Cosmetics"));
-            text(g, font, "Cosmetics", cosmeticsX, panelY + 35, PINK, panelX + sideWidth - 14 - cosmeticsX);
-            text(g, font, pageTitle(), contentX, panelY + 23, TEXT, searchField.getX()-contentX-8);
+            text(g, font, "CUSTOM", panelX + 15, panelY + 19, PINK, sideWidth - 26);
+            text(g, font, "COSMETICS", panelX + 15, panelY + 33, TEXT, sideWidth - 26);
+            g.pose().pushMatrix(); g.pose().translate(contentX, panelY + 18); g.pose().scale(1.2f, 1.2f);
+            text(g, font, pageTitle(), 0, 0, TEXT, (int) ((contentWidth - 24) / 1.2f));
+            g.pose().popMatrix();
+            text(g, font, pageDescription(), contentX, panelY + 35, MUTED, contentWidth);
+            g.fill(contentX, panelY + 83, contentX + contentWidth, panelY + 84, BORDER);
+            positionNavigation();
+            g.enableScissor(panelX + 1, navTop, panelX + sideWidth - 6, navBottom);
+            g.pose().pushMatrix(); g.pose().translate(0, -navScroll);
+            for (var draw : sidebarArt) draw.accept(g);
+            g.pose().popMatrix();
+            for (var placement : sidebarControls) if (placement.widget().visible)
+                placement.widget().extractRenderState(g, mx, my >= navTop && my < navBottom ? my : Integer.MIN_VALUE, dt);
+            g.disableScissor();
+            if (maxNavScroll() > 0) {
+                var bar = navigationScrollbar();
+                rounded(g, panelX + sideWidth - 5, navTop, 2, navBottom - navTop, 1, BORDER);
+                rounded(g, panelX + sideWidth - 5, bar.thumbStart(navScroll), 2, bar.thumbLength(), 1, PINK);
+            }
+            g.fill(panelX + 12, panelY + panelHeight - 50, panelX + sideWidth - 12, panelY + panelHeight - 49, BORDER);
             for (Consumer<GuiGraphicsExtractor> draw : pinnedArt) draw.accept(g);
             for (AbstractWidget widget : navigation) widget.extractRenderState(g, mx, my, dt);
 
@@ -1075,14 +1220,13 @@ public final class CosmeticsScreen extends Screen {
             g.pose().translate(0, -(float) Math.round(scroll));
             for (Consumer<GuiGraphicsExtractor> draw : art) draw.accept(g);
             g.pose().popMatrix();
-            for (Placement p : controls) if (p.widget().visible) p.widget().extractRenderState(g, mx, my, dt);
+            for (Placement p : controls) if (p.widget().visible)
+                p.widget().extractRenderState(g, mx, my >= viewTop && my < viewBottom ? my : Integer.MIN_VALUE, dt);
             g.disableScissor();
             if (maxScroll() > 0) {
-                int track = viewBottom - viewTop;
-                int thumb = Math.max(20, (int) (track * track / (double) (track + maxScroll())));
-                int y = viewTop + (int) ((track - thumb) * scroll / maxScroll());
-                rounded(g, contentX + contentWidth + 6, viewTop, 3, track, 1, BORDER);
-                rounded(g, contentX + contentWidth + 6, y, 3, thumb, 1, PINK);
+                var bar = contentScrollbar();
+                rounded(g, contentX + contentWidth + 6, viewTop, 3, viewBottom - viewTop, 1, BORDER);
+                rounded(g, contentX + contentWidth + 6, bar.thumbStart((int) Math.round(scroll)), 3, bar.thumbLength(), 1, PINK);
             }
             if (System.currentTimeMillis() < noticeUntil) {
                 int tw = Math.min(contentWidth, font.width(notice) + 24);

@@ -7,7 +7,12 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 
 public final class ItemNameText {
+    private static final java.util.Map<String, Component> CACHE = new java.util.LinkedHashMap<>(64, .75f, true) {
+        @Override protected boolean removeEldestEntry(java.util.Map.Entry<String, Component> entry) { return size() > 1024; }
+    };
     private ItemNameText() {}
+    /** Client-thread display cache; formatted names do not depend on the frame or world. */
+    public static Component cached(String raw) { return CACHE.computeIfAbsent(raw, ItemNameText::parse); }
     /** Formatting is display-only; no click events, commands or markup are evaluated. */
     public static Component parse(String raw) {
         MutableComponent result = Component.empty(); Style style = Style.EMPTY.withItalic(false);

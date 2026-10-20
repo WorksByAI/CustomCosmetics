@@ -170,7 +170,7 @@ class LicensePackagingTest {
     void fullSourceContainsBuildAndInstallationInputsWithoutRuntimeData() throws Exception {
         try (var zip = new ZipFile(System.getProperty("customcosmetics.fullSourceZip"))) {
             String prefix = "CustomCosmetics-" + System.getProperty("customcosmetics.version") + "/";
-            for (String file : new String[] { "LICENSE", "NOTICE", "LICENSES/Oklab-MIT.txt",
+            for (String file : new String[] { ".gitignore", ".gitattributes", "LICENSE", "NOTICE", "LICENSES/Oklab-MIT.txt",
                 "LICENSES/Apache-2.0.txt", "LICENSES/SwordBlocking-MIT.txt", "build.gradle", "settings.gradle", "gradle.properties",
                 "gradlew", "gradlew.bat", "gradle/wrapper/gradle-wrapper.jar",
                 "gradle/wrapper/gradle-wrapper.properties", "src/main/resources/fabric.mod.json",
