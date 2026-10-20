@@ -37,6 +37,15 @@ class ItemAppearanceStoreTest {
         assertFalse(restored.hasArmorModels());assertFalse(restored.hasArmorColors());
         assertEquals("Old name",restored.get(B).name());
     }
+    @Test void shorthandModelIdsUseTheSameDefaultNamespaceAsThePreview() throws Exception {
+        var path=directory.resolve("shorthand.json");var store=new ItemAppearanceStore(path);
+        store.put(A,new ItemAppearanceStore.Appearance("Manual model"," golden_axe "," leather ",0x57A2E6));
+        assertEquals("minecraft:golden_axe",store.get(A).model());
+        assertEquals("minecraft:leather",store.get(A).armorModel());
+        store.save();var restored=new ItemAppearanceStore(path);restored.load();
+        assertEquals(store.get(A),restored.get(A));
+        assertEquals("custom:weapons/axe",new ItemAppearanceStore.Appearance(""," custom:weapons/axe ").model());
+    }
     @Test void normalizedItemUuidRejectsMalformedOrOtherIdentityFormats(){
         assertEquals(A,ItemAppearanceStore.key("12345678123412341234123456789ABC"));
         for(String value:new String[]{"", "HYPERION","minecraft:blaze_rod","1-2-3-4-5","../file",""})assertEquals("",ItemAppearanceStore.key(value));

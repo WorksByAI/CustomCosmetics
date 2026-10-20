@@ -16,7 +16,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 import static com.customcosmetics.gui.PinkUi.*;
 
-/** Draft changes stay in the editor until Apply; actual inventory components are never changed. */
+/** Apply and Done save drafts; actual inventory components are never changed. */
 public final class ItemAppearanceScreen extends Screen {
     private final Screen parent;
     private final List<AbstractWidget> controls=new ArrayList<>();
@@ -49,7 +49,7 @@ public final class ItemAppearanceScreen extends Screen {
         nameField=new PinkUi.Field(font,fx,y+99,fw,"Custom Name");nameField.setMaxLength(ItemAppearanceStore.MAX_NAME);nameField.setValue(draftName);
         nameField.setHint(Component.literal("Empty = original name"));nameField.setResponder(value->{draftName=value;status="";CosmeticsScreen.childInteraction();});body.add(new Placement(addWidget(nameField),nameField.getY()));
         modelField=new PinkUi.Field(font,fx,y+174,fw,"Model ID");modelField.setMaxLength(256);modelField.setValue(draftModel);
-        modelField.setHint(Component.literal("Empty = original model"));modelField.setResponder(value->{draftModel=value;status="";CosmeticsScreen.childInteraction();});body.add(new Placement(addWidget(modelField),modelField.getY()));
+        modelField.setHint(Component.literal("e.g. golden_axe or namespace:model"));modelField.setResponder(value->{draftModel=value;status="";CosmeticsScreen.childInteraction();});body.add(new Placement(addWidget(modelField),modelField.getY()));
         var selectModel=action(fx,y+209,fw,"Select Model",this::chooseModel);controls.remove(selectModel);body.add(new Placement(selectModel,selectModel.getY()));
         armorModelField=new PinkUi.Field(font,fx,y+266,fw,"Armor Model ID");armorModelField.setMaxLength(256);
         armorModelField.setValue(draftArmorModel);armorModelField.setHint(Component.literal("e.g. minecraft:leather"));
@@ -75,7 +75,7 @@ public final class ItemAppearanceScreen extends Screen {
         int part=(w-44)/3;
         action(x+16,y+h-38,part,"Reset Item",this::reset);
         action(x+22+part,y+h-38,part,"Apply",this::apply);
-        action(x+28+part*2,y+h-38,part,"Done",this::onClose);
+        action(x+28+part*2,y+h-38,part,"Done",this::done);
         nameField.active=modelField.active=!uuid.isEmpty();
         boolean armorEditable=!uuid.isEmpty()&&ArmorAppearance.editable(item);
         armorModelField.active=armorColorField.active=armorPicker.active=leather.active=original.active=armorEditable;
@@ -103,26 +103,31 @@ public final class ItemAppearanceScreen extends Screen {
             .map(value->new ItemChoiceScreen.Choice(value.label(),value.id().toString(),value.icon())).toList();
         ClientUiAccess.setScreen(minecraft,new ItemChoiceScreen(this,"Select Model",choices,choice->{draftModel=choice.id();rebuildWidgets();}));
     }
-    private void apply(){
-        if(uuid.isEmpty()){status="Select an item with a unique SkyBlock item UUID.";return;}
+    private boolean apply(){
+        if(uuid.isEmpty()){status="Select an item with a unique SkyBlock item UUID.";return false;}
         try{
             boolean armorEditable=ArmorAppearance.editable(item);
             String armorModel=draftArmorModel.strip();
             String rgb=draftArmorColor.strip();
             Integer color=rgb.isEmpty()?null:rgb.matches("#?[0-9a-fA-F]{6}")?Integer.parseInt(rgb.replace("#",""),16):null;
-            if(!rgb.isEmpty()&&color==null){armorColorField.invalid(true);status="Use a six-digit armor color such as #FF8844.";return;}
-            if((!armorModel.isEmpty()||color!=null)&&!armorEditable){status="Armor options require a head or armor item.";return;}
+            if(!rgb.isEmpty()&&color==null){armorColorField.invalid(true);status="Use a six-digit armor color such as #FF8844.";return false;}
+            if((!armorModel.isEmpty()||color!=null)&&!armorEditable){status="Armor options require a head or armor item.";return false;}
             if(!armorModel.isEmpty()&&!ArmorAppearance.available(armorModel,ArmorAppearance.slot(item))){
-                armorModelField.invalid(true);status="Armor asset has no usable model for this slot.";return;
+                armorModelField.invalid(true);status="Armor asset has no usable model for this slot.";return false;
             }
             if(item.is(net.minecraft.world.item.Items.PLAYER_HEAD)&&color!=null&&armorModel.isEmpty()){
-                status="Choose an armor model for a player head before setting its color.";return;
+                status="Choose an armor model for a player head before setting its color.";return false;
             }
             var value=new ItemAppearanceStore.Appearance(draftName,draftModel,armorModel,color);
-            if(!value.model().isEmpty()&&!ItemCosmetics.renderable(item,Identifier.tryParse(value.model()))){modelField.invalid(true);status="This model has no usable texture. Choose another model or clear the field.";return;}
+            if(!value.model().isEmpty()&&!ItemCosmetics.renderable(item,Identifier.tryParse(value.model()))){modelField.invalid(true);status="This model has no usable texture. Choose another model or clear the field.";return false;}
             ItemCosmetics.store().put(uuid,value);modelField.invalid(false);armorModelField.invalid(false);armorColorField.invalid(false);
-            status=ItemCosmetics.save()?"Saved. Only visible on your client.":"Could not save. Please try again.";
-        }catch(IllegalArgumentException|IllegalStateException error){status=error.getMessage();}
+            boolean saved=ItemCosmetics.save();
+            status=saved?"Saved. Only visible on your client.":"Could not save. Please try again.";
+            return saved;
+        }catch(IllegalArgumentException|IllegalStateException error){status=error.getMessage();return false;}
+    }
+    private void done(){
+        if(uuid.isEmpty()||apply())onClose();
     }
     private void reset(){
         if(uuid.isEmpty())return;
@@ -157,7 +162,7 @@ public final class ItemAppearanceScreen extends Screen {
             rounded(g,x+24,y+229,24,8,2,0xFF000000|Integer.parseInt(draftArmorColor.replace("#",""),16));
         g.pose().popMatrix();for(var placement:body)if(placement.widget().visible)placement.widget().extractRenderState(g,mx,my,delta);g.disableScissor();
         if(maxScroll()>0){var bar=scrollbar();rounded(g,x+w-10,bodyTop,3,bodyBottom-bodyTop,1,BORDER);rounded(g,x+w-10,bar.thumbStart(scroll),3,bar.thumbLength(),1,PINK);}
-        text(g,font,status.isEmpty()?(uuid.isEmpty()?"Select a SkyBlock item with a unique item UUID.":"Click Apply to save changes to this item."):status,x+16,y+h-61,MUTED,w-32);
+        text(g,font,status.isEmpty()?(uuid.isEmpty()?"Select a SkyBlock item with a unique item UUID.":"Apply saves changes; Done saves and closes."):status,x+16,y+h-61,MUTED,w-32);
     }
     private int maxScroll(){return Math.max(0,y+482-bodyBottom);}
     private ScrollBarLayout scrollbar(){int viewport=Math.max(0,bodyBottom-bodyTop);return ScrollBarLayout.of(bodyTop,viewport,viewport,viewport+maxScroll(),maxScroll());}

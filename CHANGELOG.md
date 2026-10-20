@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.2-dev.3
+
+- Accept shorthand item and armor model IDs; save valid item edits when pressing Done.
+
 ## 1.8.2-dev.2
 
 - Fix waypoint text crashes with distance labels disabled, including when leaving the editor with Escape.

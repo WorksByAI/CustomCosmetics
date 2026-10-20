@@ -20,8 +20,8 @@ public final class ItemAppearanceStore {
         public Appearance(String name, String model) { this(name, model, "", null); }
         public Appearance {
             name = name == null ? "" : name;
-            model = model == null ? "" : model.strip();
-            armorModel = armorModel == null ? "" : armorModel.strip();
+            model = canonicalIdentifier(model);
+            armorModel = canonicalIdentifier(armorModel);
             if (name.length() > MAX_NAME || name.codePoints().anyMatch(Character::isISOControl))
                 throw new IllegalArgumentException("Use at most 256 characters without control characters.");
             if (!validIdentifier(model))
@@ -32,8 +32,16 @@ public final class ItemAppearanceStore {
         }
         public boolean empty() { return name.isEmpty() && model.isEmpty() && armorModel.isEmpty() && armorColor == null; }
     }
+    private static String canonicalIdentifier(String raw) {
+        String id = raw == null ? "" : raw.strip();
+        return id.isEmpty() || id.indexOf(':') >= 0 ? id : "minecraft:" + id;
+    }
     private static boolean validIdentifier(String id) {
-        return id.isEmpty() || id.length() <= 256 && id.matches("[a-z0-9_.-]+:[a-z0-9_.-][a-z0-9/._-]*");
+        if (id.isEmpty()) return true;
+        if (id.length() > 256 || !id.matches("[a-z0-9_.-]+:[a-z0-9_.-][a-z0-9/._-]*")) return false;
+        for (String segment : id.substring(id.indexOf(':') + 1).split("/"))
+            if (segment.equals(".") || segment.equals("..")) return false;
+        return true;
     }
     private final Path path;
     private final Map<String, Appearance> entries = new TreeMap<>();

@@ -63,6 +63,31 @@ final class ItemAppearanceGameTest {
         context.getInput().resizeWindow(1600,1000);context.waitTicks(3);
         click(context,"Customize Items");context.waitTicks(2);
         chooseInventoryItem(context,B);chooseInventoryItem(context,A);
+        click(context,"Model ID");context.getInput().typeChars("golden_axe");context.waitTicks(2);
+        context.runOnClient(client->{
+            try{
+                var method=ItemAppearanceScreen.class.getDeclaredMethod("preview");method.setAccessible(true);
+                var preview=(ItemStack)method.invoke(ClientUiAccess.screen(client));
+                if(!Identifier.parse("minecraft:golden_axe").equals(preview.get(DataComponents.ITEM_MODEL)))
+                    throw new AssertionError("Manually typed shorthand did not resolve in the preview");
+            }catch(ReflectiveOperationException error){throw new AssertionError(error);}
+        });
+        context.takeScreenshot("item-cosmetics-manual-shorthand-preview");click(context,"Apply");
+        context.runOnClient(client->{
+            if(!ItemCosmetics.store().get(A).model().equals("minecraft:golden_axe"))
+                throw new AssertionError("Apply rejected the same shorthand model shown in the preview");
+            field(client,"Custom Name").setValue("Saved with Done");field(client,"Model ID").setValue("iron_axe");
+        });
+        click(context,"Done");
+        context.runOnClient(client->{
+            if(ClientUiAccess.screen(client) instanceof ItemAppearanceScreen)
+                throw new AssertionError("Done did not close after saving a valid draft");
+            var restored=new ItemAppearanceStore(com.customcosmetics.config.CosmeticsConfigDir.getCosmeticsConfigDir().resolve("item-appearances.json"));
+            try{restored.load();}catch(java.io.IOException error){throw new AssertionError(error);}
+            if(!restored.get(A).model().equals("minecraft:iron_axe")||!restored.get(A).name().equals("Saved with Done"))
+                throw new AssertionError("Done discarded a draft without an earlier Apply");
+        });
+        click(context,"Customize Items");context.waitTicks(2);
         context.runOnClient(client->{
             field(client,"Custom Name").setValue("&dMy Hyperion");field(client,"Model ID").setValue("minecraft:diamond_sword");
         });
@@ -79,7 +104,10 @@ final class ItemAppearanceGameTest {
         });
         context.runOnClient(client -> field(client,"Model ID").setValue("customcosmetics:appearance_bad_texture"));
         click(context,"Apply");
+        click(context,"Done");
         context.runOnClient(client -> {
+            if(!(ClientUiAccess.screen(client) instanceof ItemAppearanceScreen))
+                throw new AssertionError("Done closed the editor despite an invalid model");
             if(!ItemCosmetics.store().get(A).model().equals("minecraft:diamond_sword"))
                 throw new AssertionError("Typing a loaded but broken model bypassed validation");
             field(client,"Model ID").setValue("minecraft:diamond_sword");
