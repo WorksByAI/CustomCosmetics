@@ -111,6 +111,11 @@ public final class PresenceSync {
         if(!RemoteAccess.online())return PlayerSizeSettings.NORMAL;
         var user=remoteSnapshot.users().get(uuid);return user==null||user.stale()?PlayerSizeSettings.NORMAL:user.playerSize();
     }
+    public static String getRemoteCreatureModel(UUID uuid){
+        if(!RemoteAccess.online())return "player";
+        var user=remoteSnapshot.users().get(uuid);
+        return user==null||user.stale()?"player":user.creatureModel();
+    }
 
     public static void init() {
         System.setProperty("java.net.preferIPv4Stack", "true");
@@ -286,7 +291,7 @@ public final class PresenceSync {
                     nowIsoToEpochMs(nowIso),
                     false,
                     local.gradientStyle(),
-                    local.shimmerSpeed(), local.shimmerColor(), local.shimmerHighlightColor(), local.shimmerSize(),local.shimmerInterval(),local.segments(),local.playerSize(),local.accessories()
+                    local.shimmerSpeed(), local.shimmerColor(), local.shimmerHighlightColor(), local.shimmerSize(),local.shimmerInterval(),local.segments(),local.playerSize(),local.accessories(),local.creatureModel()
             ));
 
             JsonObject root = new JsonObject();
@@ -363,6 +368,7 @@ public final class PresenceSync {
 
         features.add("playerSize",state.playerSize().json());
         features.add("accessories",state.accessories().json());
+        features.addProperty("creatureModel",state.creatureModel());
         userObj.add("features", features);
 
         JsonObject meta = new JsonObject();
@@ -655,7 +661,9 @@ public final class PresenceSync {
             Double.isFinite(ConfigManager.nickTweaksShimmerSpeed) ? clamp(ConfigManager.nickTweaksShimmerSpeed, 0, 4) : 1,
             ConfigManager.nickTweaksShimmerColor & 0xFFFFFF, ConfigManager.nickTweaksShimmerHighlightColor & 0xFFFFFF, ConfigManager.nickTweaksShimmerSize,ConfigManager.nickTweaksShimmerInterval,
             nickTweaksEnabled && customNickColorEnabled && !chromaEnabled && ConfigManager.nickTweaksGradientStyle.equals("segmented")
-                ? NicknameSegments.normalize(ConfigManager.nickTweaksGradientSegments) : List.of(),PlayerSizeSettings.local().active(),com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.EQUIPMENT)?ConfigManager.accessories.active():AccessoriesSettings.NONE
+                ? NicknameSegments.normalize(ConfigManager.nickTweaksGradientSegments) : List.of(),PlayerSizeSettings.local().active(),com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.EQUIPMENT)?ConfigManager.accessories.active():AccessoriesSettings.NONE,
+            com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.CREATURE_MODEL)
+                ? com.customcosmetics.features.creature.CreatureModels.parse(ConfigManager.creatureModel).id : "player"
         );
         return state;
     }
@@ -712,6 +720,7 @@ public final class PresenceSync {
         features.add("smolPeople", smol);
         features.add("playerSize",state.playerSize().json());
         features.add("accessories",state.accessories().json());
+        features.addProperty("creatureModel",state.creatureModel());
         user.add("features", features);
 
         JsonObject meta = new JsonObject();
@@ -944,7 +953,8 @@ public final class PresenceSync {
                 lastSeenEpochMs,
                 stale,
                 gradientStyle,
-                shimmerSpeed, shimmerColor, shimmerHighlightColor, shimmerSize, shimmerInterval,segments,PlayerSizeSettings.parse(features==null?null:features.get("playerSize")),AccessoriesSettings.parse(features==null?null:features.get("accessories"))
+                shimmerSpeed, shimmerColor, shimmerHighlightColor, shimmerSize, shimmerInterval,segments,PlayerSizeSettings.parse(features==null?null:features.get("playerSize")),AccessoriesSettings.parse(features==null?null:features.get("accessories")),
+                com.customcosmetics.features.creature.CreatureModels.parse(getAsString(features,"creatureModel","player")).id
             );
             newUsers.put(uuid, state);
             if (nickTweaksEnabled) {
@@ -995,7 +1005,7 @@ public final class PresenceSync {
             + "|" + (r.gradientStart() & 0xFFFFFF) + "|" + (r.gradientEnd() & 0xFFFFFF)
             + "|" + r.boldEnabled() + "|" + r.customNickColorEnabled() + "|" + (r.nickChanger() == null ? "" : r.nickChanger())
             + "|" + r.gradientStyle() + "|" + r.shimmerSpeed() + "|" + r.shimmerColor() + "|" + r.shimmerHighlightColor() + "|" + r.shimmerSize() + "|" + r.shimmerInterval()
-            + "|" + r.segments() + "|" + r.playerSize() + "|" + r.accessories() + "|" + java.util.Arrays.toString(r.chromaPalette() == null ? new int[0] : r.chromaPalette()));
+            + "|" + r.segments() + "|" + r.playerSize() + "|" + r.accessories() + "|" + r.creatureModel() + "|" + java.util.Arrays.toString(r.chromaPalette() == null ? new int[0] : r.chromaPalette()));
     }
 
 
@@ -1174,9 +1184,10 @@ public final class PresenceSync {
             double shimmerInterval,
             List<NicknameSegments.Segment> segments,
             PlayerSizeSettings playerSize,
-            AccessoriesSettings accessories
+            AccessoriesSettings accessories,
+            String creatureModel
     ) {
-        public RemoteUserState{playerSize=playerSize==null?PlayerSizeSettings.NORMAL:playerSize.active();accessories=accessories==null?AccessoriesSettings.NONE:accessories.active();}
+        public RemoteUserState{playerSize=playerSize==null?PlayerSizeSettings.NORMAL:playerSize.active();accessories=accessories==null?AccessoriesSettings.NONE:accessories.active();creatureModel=com.customcosmetics.features.creature.CreatureModels.parse(creatureModel).id;}
     }
 
     private record LocalUserState(
@@ -1204,15 +1215,16 @@ public final class PresenceSync {
             double shimmerInterval,
             List<NicknameSegments.Segment> segments,
             PlayerSizeSettings playerSize,
-            AccessoriesSettings accessories
+            AccessoriesSettings accessories,
+            String creatureModel
     ) {
-        private LocalUserState{playerSize=playerSize==null?PlayerSizeSettings.NORMAL:playerSize.active();accessories=accessories==null?AccessoriesSettings.NONE:accessories.active();}
+        private LocalUserState{playerSize=playerSize==null?PlayerSizeSettings.NORMAL:playerSize.active();accessories=accessories==null?AccessoriesSettings.NONE:accessories.active();creatureModel=com.customcosmetics.features.creature.CreatureModels.parse(creatureModel).id;}
         String signature() {
             return uuid + "|" + name + "|" + nickTweaksEnabled + "|" + chromaEnabled + "|" + smolEnabled + "|" + smolLimbSwingSpeed + "|" + chromaSpeed
                     + "|" + chromaSize + "|" + chromaAmount + "|" + chromaLightness
                     + "|" + gradientStart + "|" + gradientEnd + "|" + boldSelf + "|" + customNickColorEnabled + "|" + nickChanger
                     + "|" + gradientStyle + "|" + shimmerSpeed + "|" + shimmerColor + "|" + shimmerHighlightColor + "|" + shimmerSize + "|" + shimmerInterval
-                    + "|" + segments + "|" + playerSize + "|" + accessories + "|" + java.util.Arrays.toString(chromaPalette);
+                    + "|" + segments + "|" + playerSize + "|" + accessories + "|" + creatureModel + "|" + java.util.Arrays.toString(chromaPalette);
         }
     }
 }

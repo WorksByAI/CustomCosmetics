@@ -44,6 +44,7 @@ public final class ConfigManager {
     public static java.util.List<PlayerBlocklist.Entry> accessoriesBlockedPlayers = java.util.List.of();
     public static boolean playerSizeEnabled=false;
     public static double playerSizeX=1,playerSizeY=1,playerSizeZ=1;
+    public static String creatureModel="player";
     public static boolean nickTweaksEnabled = false;
     public static String nickTweaksNickChanger = "";
     public static java.util.List<com.customcosmetics.config.PlayerBlocklist.Entry> nickTweaksBlockedPlayers = java.util.List.of();
@@ -184,6 +185,7 @@ public final class ConfigManager {
             playerSizeX=com.customcosmetics.features.playersize.PlayerSizeSettings.bounded(playerSizeX);
             playerSizeY=com.customcosmetics.features.playersize.PlayerSizeSettings.bounded(playerSizeY);
             playerSizeZ=com.customcosmetics.features.playersize.PlayerSizeSettings.bounded(playerSizeZ);
+            creatureModel=com.customcosmetics.features.creature.CreatureModels.parse(creatureModel).id;
             syncRefreshIntervalSeconds = getSyncRefreshIntervalSeconds();
             syncP2pPort=getSyncP2pPort();
             nickTweaksChromaSpeed = Math.clamp(nickTweaksChromaSpeed, 0.0, 8.0);

@@ -18,7 +18,7 @@ public final class SettingsCatalog {
     private static List<SettingsSearch.Entry> create() {
         var entries = new ArrayList<SettingsSearch.Entry>();
         add(entries, "Player Size", "SIZE", "Proportions scale body",
-            "Enabled|Size X|Size Y|Size Z|Reset Player Size|SmolPeople|Limb Swing Speed");
+            "Enabled|Size X|Size Y|Size Z|Reset Player Size|SmolPeople|Limb Swing Speed|Creature Model|Player|Zombie|Skeleton|Creeper|Enderman|Blaze|Iron Golem|Villager|Cow|Pig|Sheep|Chicken");
         add(entries, "NickTweaks", "NICK", "Nickname name color codes",
             "Enabled|Nick Changer|Bold Self Nick|Blocked Nicknames");
         add(entries, "NickTweaks", "COLOR", "Nickname gradient start end color picker HEX",
@@ -65,7 +65,7 @@ public final class SettingsCatalog {
         add(entries, "Settings", "SYNC", "Advanced connections proxy",
             "Proxy Host|Proxy Port|Proxy Auth|Disable P2P Connections|P2P UDP Port|Fallback Direct|Proxy Source");
         add(entries, "Module Manager", "MODULES", "Module master switch enabled disabled settings",
-            "Enable All Modules|Disable All Modules|Animations|Cape|Damage Splash|Equipments|Item Customization|Map Editor|NickTweaks|Player Size|SmolPeople|Sharing|Skins|Snaplook|Command Tooltips");
+            "Enable All Modules|Disable All Modules|Animations|Cape|Damage Splash|Equipments|Item Customization|Map Editor|NickTweaks|Player Size|SmolPeople|Sharing|Skins|Snaplook|Command Tooltips|Creature Model");
         return List.copyOf(entries);
     }
     private static void add(List<SettingsSearch.Entry> entries, String section, String page, String description, String titles) {

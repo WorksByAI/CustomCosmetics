@@ -5,6 +5,7 @@
 目前模组所有功能（[√] 表示其他安装本模组的玩家可见）：
 
 - **[√] Player Size**：调整人物大小，以及移植自 Baity 的非常可爱的小人模型。
+- **[√] Creature Model**：把自己的可见模型切换成原版生物，并同步给安装模组的玩家；只改变画面，不改变碰撞。
 - **[√] NickTweaks**：自定义昵称，分段渐变、流光和彩色效果。可屏蔽其他玩家的 Nick。
 - **[√] Animation**：还原 1.7 防砍格挡，可添加武器是否格挡的黑／白名单。同时可调整手持物品大小、位置、旋转和挥动速度。
 - **[√] Cape**：自定义披风，支持图片裁剪与预览，也可上传原版格式的披风；在线共享需审核，本地披风仅自己可见。
@@ -31,6 +32,7 @@ Fabric cosmetics for Minecraft 26.1–26.3, with optional player sync.
 Features ([√] visible to other mod users):
 
 - **[√] Player Size**: Adjustable proportions and Baity's miniature player model.
+- **[√] Creature Model**: Choose a vanilla mob appearance shared with other mod users; collisions remain unchanged.
 - **[√] NickTweaks**: Nicknames, segmented gradients, shimmer and independent blocking.
 - **[√] Animation**: 1.7-style blocking, weapon filters, held-item transforms and swing adjustments.
 - **[√] Cape**: Import, crop and preview capes. Online sharing requires approval.

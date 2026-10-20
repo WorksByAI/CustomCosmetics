@@ -6,7 +6,7 @@ public final class FeatureModules {
     public enum Feature {
         ANIMATIONS("Animations"),CAPE("Cape"),DAMAGE("Damage Splash"),EQUIPMENT("Equipments"),ITEMS("Item Customization"),
         MAP("Map Editor"),NICK("NickTweaks"),PLAYER_SIZE("Player Size"),SMOL("SmolPeople"),SHARING("Sharing"),
-        SKINS("Skins"),SNAPLOOK("Snaplook"),COMMAND_TOOLTIPS("Command Tooltips");
+        SKINS("Skins"),SNAPLOOK("Snaplook"),COMMAND_TOOLTIPS("Command Tooltips"),CREATURE_MODEL("Creature Model");
         public final String label;
         Feature(String label){this.label=label;}
         public int bit(){return 1<<ordinal();}

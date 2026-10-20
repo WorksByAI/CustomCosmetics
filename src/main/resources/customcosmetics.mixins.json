@@ -25,6 +25,7 @@
     "ChamsMixin$Players",
     "ChamsMixin$World",
     "ChamsMixin$Targets",
+    "CreatureModelMixin",
     "DamageSplashMixin$Metadata",
     "DamageSplashMixin$State",
     "DamageSplashMixin$Renderer",

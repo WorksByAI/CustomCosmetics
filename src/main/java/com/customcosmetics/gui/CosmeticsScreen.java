@@ -467,6 +467,12 @@ public final class CosmeticsScreen extends Screen {
             new NumericSetting("Size Z",()->ConfigManager.playerSizeZ,.1,3,.05,1,v->ConfigManager.playerSizeZ=v)));
         fullButton("Reset Player Size",()->{ConfigManager.playerSizeX=ConfigManager.playerSizeY=ConfigManager.playerSizeZ=1;changed();rebuildWidgets();},false);
         rowY+=6;smol();
+        section("Creature Model", "Choose a visual model for yourself. Mod users can see your choice after sync.");
+        for (var choice : com.customcosmetics.features.creature.CreatureModels.Choice.values()) {
+            var model = choice;
+            fullButton((ConfigManager.creatureModel.equals(choice.id) ? "✓ " : "") + choice.label,
+                () -> {com.customcosmetics.features.creature.CreatureModels.select(model);changed();rebuildWidgets();},false);
+        }
     }
 
     private void playerPreview() {
@@ -488,7 +494,7 @@ public final class CosmeticsScreen extends Screen {
             g.pose().scale(nameScale, nameScale);
             g.text(font, name, 0, 0, TEXT, false);
             g.pose().popMatrix();
-            // Use vanilla's inventory renderer, including skin, equipped items and SmolPeople mixins.
+            // The inventory preview uses the same selected creature as world rendering.
             // Entity bounds are screen coordinates; draw outside the scrolling pose.
             int previewScroll = pinnedSize ? 0 : (int) Math.round(scroll);
             int top = y - previewScroll;
@@ -496,7 +502,8 @@ public final class CosmeticsScreen extends Screen {
             g.pose().translate(0, (float) previewScroll);
             InventoryScreen.extractEntityInInventoryFollowsMouse(g,
                 contentX + 4, top + 51, contentX + contentWidth - 4, top + height - 6,
-                PreviewLayout.playerModelScale(height), 0.0625f, mouseX, mouseY, minecraft.player);
+                PreviewLayout.playerModelScale(height), 0.0625f, mouseX, mouseY,
+                com.customcosmetics.features.creature.CreatureModels.previewEntity(minecraft.player));
             g.pose().popMatrix();
         });
     }

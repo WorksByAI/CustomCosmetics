@@ -19,9 +19,9 @@ class LicensePackagingTest {
         assertTrue(languages[0].contains(version) && languages[0].contains("Fabric"));
         assertTrue(languages[1].contains(version) && languages[1].contains("Fabric"));
         for(String section:languages){
-            for(String feature:new String[]{"Player Size","NickTweaks","Animation","Cape","Equipments","Sharing","Skins","Item Customization","Damage Splash","Map Editor","Offline Mode"})
+            for(String feature:new String[]{"Player Size","Creature Model","NickTweaks","Animation","Cape","Equipments","Sharing","Skins","Item Customization","Damage Splash","Map Editor","Offline Mode"})
                 assertTrue(section.contains(feature+"**"),feature);
-            assertEquals(7,section.lines().filter(line->line.startsWith("- **[√] ")).count());
+            assertEquals(8,section.lines().filter(line->line.startsWith("- **[√] ")).count());
             for(String local:new String[]{"Item Customization","Damage Splash","Map Editor","Offline Mode"})
                 assertTrue(section.contains("- **"+local+"**"),local);
             assertTrue(section.contains("1024×1024")&&section.contains("P2P")&&section.contains("Kuudra"));
