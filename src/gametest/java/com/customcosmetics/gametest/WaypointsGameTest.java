@@ -156,6 +156,20 @@ public final class WaypointsGameTest implements FabricClientGameTest {
                     widget(client, "Go Backwards", PinkUi.Action.class);
                     widget(client, "Line Color", PinkUi.Field.class);
                 });
+                int lineColorBefore = ConfigManager.waypointLineColor;
+                click(context, "Pick Line Color", PinkUi.Action.class);
+                assertControlsInside(context); context.takeScreenshot("waypoint-line-color-picker-compact");
+                click(context, "Red", PinkUi.Slider.class);
+                click(context, "Cancel", PinkUi.Action.class);
+                context.runOnClient(client -> check(ConfigManager.waypointLineColor == lineColorBefore,
+                        "Cancel applied the route-line color"));
+                click(context, "Pick Line Color", PinkUi.Action.class);
+                click(context, "Red", PinkUi.Slider.class);
+                click(context, "Save", PinkUi.Action.class);
+                context.runOnClient(client -> {
+                    check(ConfigManager.waypointLineColor != lineColorBefore, "Color picker did not save its selection");
+                    ConfigManager.waypointLineColor = lineColorBefore;
+                });
                 click(context, "Names: On", PinkUi.Action.class);
                 context.runOnClient(client -> check(!ConfigManager.waypointShowLabels, "Waypoint label toggle did not apply"));
                 click(context, "Names: Off", PinkUi.Action.class);

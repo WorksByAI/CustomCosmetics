@@ -84,11 +84,8 @@ final class WaypointOptionsScreen extends Screen {
                 ConfigManager.waypointLineColor = (int) Long.parseLong(value, 16);
                 message = ""; changed();
             });
-            addRenderableWidget(new Action(right, y + 138, half, 22, "Reset Route Options", false, () -> {
-                ConfigManager.waypointRenderLine = ConfigManager.waypointAllowSkipping = ConfigManager.waypointAllowBackwards = true;
-                ConfigManager.waypointLineWidth = 5; ConfigManager.waypointLineColor = 0xff00ff00;
-                ConfigManager.waypointActivationRadius = 2; changed(); rebuildWidgets();
-            }));
+            addRenderableWidget(new Action(right, y + 138, half, 22, "Pick Line Color", false,
+                    () -> ClientUiAccess.setScreen(minecraft, new WaypointLineColorScreen(this))));
             addRenderableWidget(new Action(x + 12, y + h - 62, w - 24, 22, "Performance & Extras", false, () -> {
                 performance = true; message = ""; rebuildWidgets();
             }));
