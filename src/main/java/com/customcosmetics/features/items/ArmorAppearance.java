@@ -70,6 +70,7 @@ public final class ArmorAppearance {
     }
     /** A render-state copy for player-head helmets; the inventory stack is never changed. */
     public static ItemStack headProxy(ItemStack original, EquipmentSlot slot) {
+        if (slot == EquipmentSlot.HEAD && HeadSkins.hasOverride(original)) return ItemStack.EMPTY;
         ItemAppearanceStore store = activeStore();
         if (slot != EquipmentSlot.HEAD || store == null || !store.hasArmorModels() || !original.is(Items.PLAYER_HEAD)) return original;
         var appearance = store.getCanonical(ItemCosmetics.uuid(original));

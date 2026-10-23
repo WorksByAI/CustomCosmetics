@@ -22,7 +22,9 @@ public final class ItemCosmetics {
     private static final Map<ItemStack, Identifier> PREVIEWS = new WeakHashMap<>();
     private static final Set<ItemStack> VALIDATING = Collections.newSetFromMap(new IdentityHashMap<>());
     private static final Map<Validation, Boolean> VALIDATED = new LinkedHashMap<>();
+    private static final Map<ItemStack, StackValidation> STACK_VALIDATED = new WeakHashMap<>();
     private record Validation(Identifier model, net.minecraft.world.item.Item item, net.minecraft.core.component.DataComponentPatch components, int count) {}
+    private record StackValidation(Object revision, Validation key, boolean usable) {}
     private static Map<Identifier, ?> validatedModels = Map.of();
     public record ModelChoice(Identifier id, String label, ItemStack icon) {}
     private static ItemAppearanceStore store;
@@ -34,7 +36,14 @@ public final class ItemCosmetics {
         catch (java.io.IOException error) { CustomCosmeticsClient.LOGGER.warn("Could not load local item appearances: {}", error.getMessage()); }
     }
     public static ItemAppearanceStore store() { return store; }
-    public static boolean modelsActive(){return com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ITEMS)&&(!PREVIEWS.isEmpty()||store!=null&&store.enabled()&&store.hasModels());}
+    public static boolean modelsActive(){return com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ITEMS)&&(!PREVIEWS.isEmpty()||store!=null&&store.enabled()&&(store.hasModels()||store.hasHeadTextures()));}
+    public static boolean modelOverrideActive(ItemStack stack){
+        if(!modelsActive())return false;
+        if(PREVIEWS.containsKey(stack))return true;
+        if(store==null||!store.enabled())return false;
+        var appearance=store.getCanonical(uuid(stack));
+        return !appearance.model().isEmpty()||!appearance.headTexture().isEmpty();
+    }
     public static String uuid(CompoundTag data) {
         String direct = ItemAppearanceStore.key(data.getStringOr("uuid", ""));
         if (!direct.isEmpty()) return direct;
@@ -53,6 +62,11 @@ public final class ItemCosmetics {
         return modelChoices(new ItemStack(Items.PAPER)).stream().map(ModelChoice::id).toList();
     }
     public static boolean hasModel(Identifier id) { return id != null && modelMap().containsKey(id); }
+    public static Object catalogIdentity() { return modelMap(); }
+    public static Object componentIdentity(ItemStack stack) {
+        var components=stack.getComponents();
+        return components instanceof ItemComponentIdentity identity ? identity.customcosmetics$componentIdentity() : null;
+    }
     private static Map<Identifier, ?> modelMap() {
         var manager = Minecraft.getInstance().getModelManager();
         if (manager instanceof ItemModelCatalog catalog && catalog.customcosmetics$itemModels() != null)
@@ -102,9 +116,16 @@ public final class ItemCosmetics {
     }
     private static boolean validated(ItemStack source, Identifier id) {
         var models = modelMap();
-        if (models != validatedModels) { VALIDATED.clear(); validatedModels = models; }
+        if (models != validatedModels) { VALIDATED.clear(); STACK_VALIDATED.clear(); validatedModels = models; }
+        Object revision=componentIdentity(source);
+        StackValidation cached=STACK_VALIDATED.get(source);
+        if(cached!=null&&cached.key().model().equals(id)&&cached.key().item()==source.getItem()
+                &&cached.key().count()==source.getCount()&&revision!=null&&cached.revision()==revision)return cached.usable();
         if (VALIDATED.size() >= 256) VALIDATED.clear();
-        return VALIDATED.computeIfAbsent(new Validation(id, source.getItem(), source.getComponentsPatch(), source.getCount()), key -> renderable(source, id));
+        if (STACK_VALIDATED.size() >= 256) STACK_VALIDATED.clear();
+        var key=new Validation(id,source.getItem(),source.getComponentsPatch(),source.getCount());
+        boolean usable=VALIDATED.computeIfAbsent(key, ignored -> renderable(source, id));
+        STACK_VALIDATED.put(source,new StackValidation(revision,key,usable));return usable;
     }
     public static Identifier model(ItemStack stack, Identifier original) {
         if(!modelsActive())return original;
@@ -112,7 +133,9 @@ public final class ItemCosmetics {
         var preview = PREVIEWS.get(stack);
         if (preview != null) return preview;
         if (store == null || !store.enabled()) return original;
-        String raw = store.getCanonical(uuid(stack)).model();
+        var appearance = store.getCanonical(uuid(stack));
+        if (!appearance.headTexture().isEmpty()) return HeadSkins.MODEL;
+        String raw = appearance.model();
         Identifier selected = raw.isEmpty() ? null : Identifier.tryParse(raw);
         return hasModel(selected) && validated(stack, selected) ? selected : original;
     }

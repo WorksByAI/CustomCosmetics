@@ -2,6 +2,7 @@
 package com.customcosmetics.gametest.mixin;
 
 import com.customcosmetics.features.items.ItemCosmetics;
+import com.customcosmetics.features.items.HeadTexture;
 import com.customcosmetics.gametest.RenderAssertions;
 import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.client.renderer.item.ItemModelResolver;
@@ -23,7 +24,15 @@ public class ItemAppearanceProbeMixin {
     private void customcosmetics$observeItemModel(ItemStackRenderState state,ItemStack item,ItemDisplayContext context,
         Level level,ItemOwner owner,int seed,CallbackInfo ci,@Local Identifier model){
         String uuid=ItemCosmetics.uuid(item);
-        if(uuid.equals("12345678-1234-1234-1234-123456789abc")){RenderAssertions.customizedItemModel=model.toString();RenderAssertions.itemModelOverrides.incrementAndGet();}
+        if(uuid.equals("12345678-1234-1234-1234-123456789abc")){
+            RenderAssertions.customizedItemModel=model.toString();RenderAssertions.itemModelOverrides.incrementAndGet();
+            var profile=item.get(net.minecraft.core.component.DataComponents.PROFILE);
+            if(profile!=null){
+                var properties=profile.partialProfile().properties().get("textures");
+                if(!properties.isEmpty())RenderAssertions.customizedHeadTexture=HeadTexture.normalize(properties.iterator().next().value());
+                RenderAssertions.headContexts.add(context.name());
+            }
+        }
         if(uuid.equals("12345678-1234-1234-1234-123456789abd"))RenderAssertions.untouchedItemModel=model.toString();
     }
 }

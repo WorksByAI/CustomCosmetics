@@ -2,6 +2,7 @@
 package com.customcosmetics.mixin;
 
 import com.customcosmetics.features.items.ItemCosmetics;
+import com.customcosmetics.features.items.HeadSkins;
 import com.customcosmetics.features.items.ItemModelVisibility.RenderCall;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
@@ -20,6 +21,11 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 public final class ItemAppearanceMixin {
+    @Mixin(net.minecraft.core.component.PatchedDataComponentMap.class)
+    public static class Components implements com.customcosmetics.features.items.ItemComponentIdentity {
+        @org.spongepowered.asm.mixin.Shadow private it.unimi.dsi.fastutil.objects.Reference2ObjectMap<?,?> patch;
+        @Override public Object customcosmetics$componentIdentity() { return patch; }
+    }
     @Mixin(ItemStack.class)
     public static class Names {
         @ModifyReturnValue(method = "getHoverName", at = @At("RETURN"))
@@ -33,7 +39,8 @@ public final class ItemAppearanceMixin {
         @WrapMethod(method = "appendItemLayers")
         private void customcosmetics$trackModelFallback(ItemStackRenderState state, ItemStack stack, ItemDisplayContext context,
             Level level, ItemOwner owner, int seed, Operation<Void> original) {
-            if(!ItemCosmetics.modelsActive()){original.call(state,stack,context,level,owner,seed);return;}
+            if(!ItemCosmetics.modelOverrideActive(stack)){original.call(state,stack,context,level,owner,seed);return;}
+            stack = HeadSkins.renderProxy(stack);
             var calls = customcosmetics$calls.get(); calls.push(new RenderCall(state, stack));
             try { original.call(state, stack, context, level, owner, seed); }
             finally { calls.pop(); }
@@ -43,9 +50,11 @@ public final class ItemAppearanceMixin {
         private Object customcosmetics$itemModel(Object original, @Local(argsOnly = true) ItemStack stack,
             @Local(argsOnly = true) ItemStackRenderState state) {
             if(!ItemCosmetics.modelsActive())return original;
+            var calls=customcosmetics$calls.get();
+            if(calls.isEmpty()||calls.peek().stack()!=stack)return original;
             // A pack's fallback for this same stack/state must reach the original model, not reselect our override.
             int depth = 0;
-            for (var call : customcosmetics$calls.get()) if (call.state() == state && call.stack() == stack && ++depth > 1) return original;
+            for (var call : calls) if (call.state() == state && call.stack() == stack && ++depth > 1) return original;
             return ItemCosmetics.model(stack, (Identifier) original);
         }
     }

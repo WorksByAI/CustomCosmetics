@@ -101,6 +101,20 @@ final class ItemAppearanceGameTest {
             var store=new ItemAppearanceStore(com.customcosmetics.config.CosmeticsConfigDir.getCosmeticsConfigDir().resolve("item-appearances.json"));
             try{store.load();}catch(java.io.IOException error){throw new AssertionError(error);}
             if(!store.get(A).model().equals("minecraft:diamond_sword"))throw new AssertionError("Apply did not save the local override");
+            if(ItemCosmetics.modelOverrideActive(client.player.getOffhandItem()))throw new AssertionError("Untouched items entered the override tracking path");
+            try{
+                ItemCosmetics.model(held,Identifier.parse("minecraft:blaze_rod"));
+                var field=ItemCosmetics.class.getDeclaredField("STACK_VALIDATED");field.setAccessible(true);
+                var cache=(java.util.Map<?,?>)field.get(null);Object cached=cache.get(held);
+                if(cached==null)throw new AssertionError("Missing item validation cache");
+                var originalModel=Identifier.parse("minecraft:blaze_rod");
+                for(int i=0;i<10000;i++)ItemCosmetics.model(held,originalModel);
+                if(cache.get(held)!=cached)throw new AssertionError("Unchanged model validation allocated new cache entries");
+                var changed=held.copy();ItemCosmetics.model(changed,originalModel);Object before=cache.get(changed);
+                changed.set(DataComponents.CUSTOM_NAME,net.minecraft.network.chat.Component.literal("Changed component"));
+                ItemCosmetics.model(changed,originalModel);
+                if(cache.get(changed)==before)throw new AssertionError("Model validation ignored changed components");
+            }catch(ReflectiveOperationException error){throw new AssertionError(error);}
         });
         context.runOnClient(client -> field(client,"Model ID").setValue("customcosmetics:appearance_bad_texture"));
         click(context,"Apply");
@@ -163,7 +177,7 @@ final class ItemAppearanceGameTest {
         context.runOnClient(client->ClientUiAccess.setScreen(client,new ItemAppearanceScreen(null)));
         context.waitTicks(2);chooseInventoryItem(context,C);
         context.getInput().setCursorPos(600,250);
-        for(int i=0;i<7;i++){context.getInput().scroll(-1);context.waitTicks(1);}
+        scrollTo(context,"Use Leather");
         click(context,"Use Leather");
         context.runOnClient(client->field(client,"Armor Color").setValue("#357ACB"));
         click(context,"Apply");
@@ -196,8 +210,118 @@ final class ItemAppearanceGameTest {
         context.runOnClient(client->client.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_FRONT));
         context.waitTicks(5);context.takeScreenshot("item-cosmetics-warden-head-leather-armor");
         context.runOnClient(client->{client.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);ItemCosmetics.store().put(C,new ItemAppearanceStore.Appearance("",""));ItemCosmetics.save();});
+        checkHeadSkins(context);
         world.getServer().runCommand("item replace entity @a armor.head with minecraft:air");
         System.out.println("ITEM_APPEARANCE_GAME_TEST_OK");
+    }
+    @SuppressWarnings({"unchecked","rawtypes"})
+    private static void checkHeadSkins(ClientGameTestContext context){
+        String diamond="8b115cdc45fd84f21fba7ac0f2bc77bc3b6302be670842f6e11f66eb557f13ee";
+        String gold="1669e0b41da4fd58f625bfd140bb5b24f84d56ede6658b68f124478042cdafe6";
+        var originalHead=new AtomicReference<ItemStack>();
+        context.runOnClient(client->{
+            try(var input=ItemAppearanceGameTest.class.getResourceAsStream("/head-skins-fixture.json")){
+                var cache=com.customcosmetics.config.CosmeticsConfigDir.getCosmeticsConfigDir().resolve("head-skins.json");
+                var build=java.nio.file.Path.of(System.getProperty("customcosmetics.testProjectDir")).toAbsolutePath().resolve("build");
+                if(!cache.toAbsolutePath().startsWith(build))throw new AssertionError("Head fixture would modify a real game instance");
+                java.nio.file.Files.copy(java.util.Objects.requireNonNull(input),cache,java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }catch(java.io.IOException error){throw new AssertionError(error);}
+            originalHead.set(client.player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).copy());
+            ClientUiAccess.setScreen(client,new ItemAppearanceScreen(null));
+        });
+        context.getInput().resizeWindow(1600,1000);context.waitTicks(3);chooseInventoryItem(context,C);
+        scrollTo(context,"Select Head Skin");click(context,"Select Head Skin");
+        context.waitFor(client->HeadSkins.entries().stream().anyMatch(entry->entry.id().equals("DIAMOND_NECRON_HEAD")));
+        context.runOnClient(client->field(client,"Search").setValue("Necron"));context.waitTicks(3);
+        context.takeScreenshot("head-skin-picker-golden-and-diamond-necron");click(context,"Diamond Necron Head");
+        context.runOnClient(client->{
+            if(!ItemCosmetics.store().get(C).headTexture().isEmpty())throw new AssertionError("Choosing a head skin saved the draft before Apply or Done");
+            try{
+                var method=ItemAppearanceScreen.class.getDeclaredMethod("preview");method.setAccessible(true);
+                Object first=method.invoke(ClientUiAccess.screen(client));
+                for(int i=0;i<1000;i++)if(method.invoke(ClientUiAccess.screen(client))!=first)throw new AssertionError("Unchanged preview allocated another stack");
+                if(!((ItemStack)first).get(DataComponents.PROFILE).equals(HeadSkins.profile(diamond)))throw new AssertionError("Head preview used the wrong skin");
+            }catch(ReflectiveOperationException error){throw new AssertionError(error);}
+        });
+        context.takeScreenshot("head-skin-diamond-preview-before-save");click(context,"Done");
+        context.runOnClient(client->{
+            var restored=new ItemAppearanceStore(com.customcosmetics.config.CosmeticsConfigDir.getCosmeticsConfigDir().resolve("item-appearances.json"));
+            try{restored.load();}catch(java.io.IOException error){throw new AssertionError(error);}
+            if(!restored.get(C).headTexture().equals(diamond))throw new AssertionError("Done did not persist the chosen head skin");
+            var renderer=(net.minecraft.client.renderer.entity.LivingEntityRenderer)client.getEntityRenderDispatcher().getRenderer(client.player);
+            var state=(net.minecraft.client.renderer.entity.state.LivingEntityRenderState)renderer.createRenderState(client.player,0);
+            if(state.wornHeadType!=net.minecraft.world.level.block.SkullBlock.Types.PLAYER||!HeadSkins.profile(diamond).equals(state.wornHeadProfile))
+                throw new AssertionError("Equipped head skin did not reach the actual entity render state");
+            if(!ItemStack.isSameItemSameComponents(originalHead.get(),client.player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD)))
+                throw new AssertionError("Head appearance changed the real equipment");
+            ClientUiAccess.setScreen(client,new ItemAppearanceScreen(null));
+        });
+        scrollTo(context,"Select Head Skin");click(context,"Select Head Skin");
+        context.runOnClient(client->field(client,"Search").setValue("Golden Necron"));click(context,"Golden Necron Head");click(context,"Apply");click(context,"Done");
+        context.waitTicks(15);
+        context.runOnClient(client->{
+            if(!RenderAssertions.customizedItemModel.equals("minecraft:player_head")||!RenderAssertions.customizedHeadTexture.equals(gold))
+                throw new AssertionError("Held head texture did not reach the real item renderer");
+            if(!RenderAssertions.headContexts.contains("GUI")||!RenderAssertions.headContexts.contains("FIRST_PERSON_RIGHT_HAND"))
+                throw new AssertionError("Head appearance missed inventory or first-person rendering: "+RenderAssertions.headContexts);
+            var source=client.player.getMainHandItem();var proxy=HeadSkins.renderProxy(source);
+            for(int i=0;i<10000;i++)if(HeadSkins.renderProxy(source)!=proxy)throw new AssertionError("Unchanged item render proxy was reallocated");
+            if(HeadSkins.profile(gold)!=HeadSkins.profile(gold))throw new AssertionError("Head profile cache missed");
+            var changed=source.copy();var beforeCount=HeadSkins.renderProxy(changed);changed.setCount(2);
+            if(HeadSkins.renderProxy(changed)==beforeCount||HeadSkins.renderProxy(changed).getCount()!=2)
+                throw new AssertionError("Head render cache ignored changed stack components / count");
+            var beforeComponent=HeadSkins.renderProxy(changed);
+            changed.set(DataComponents.CUSTOM_NAME,net.minecraft.network.chat.Component.literal("Changed proxy component"));
+            if(HeadSkins.renderProxy(changed)==beforeComponent)throw new AssertionError("Head render cache ignored changed components");
+            com.customcosmetics.config.FeatureModules.set(com.customcosmetics.config.FeatureModules.Feature.ITEMS,false);
+            if(HeadSkins.renderProxy(source)!=source)throw new AssertionError("Disabled item module still transformed heads");
+            var renderer=(net.minecraft.client.renderer.entity.LivingEntityRenderer)client.getEntityRenderDispatcher().getRenderer(client.player);
+            var state=(net.minecraft.client.renderer.entity.state.LivingEntityRenderState)renderer.createRenderState(client.player,0);
+            if(state.wornHeadProfile!=null)throw new AssertionError("Disabled module still changed the equipped skull profile");
+            com.customcosmetics.config.FeatureModules.set(com.customcosmetics.config.FeatureModules.Feature.ITEMS,true);
+            client.player.setXRot(0);client.player.setYRot(180);
+        });
+        context.waitTicks(20);context.takeScreenshot("head-skin-held-golden-necron");
+        context.runOnClient(client->client.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_FRONT));
+        context.waitTicks(20);context.takeScreenshot("head-skin-worn-diamond-necron");
+        context.runOnClient(client->{
+            client.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);
+            ClientUiAccess.setScreen(client,new ItemAppearanceScreen(null));
+        });
+        scrollTo(context,"Original Head Skin");click(context,"Original Head Skin");click(context,"Done");
+        context.runOnClient(client->{
+            if(!ItemCosmetics.store().get(A).headTexture().isEmpty())throw new AssertionError("Original Head Skin did not remove the override");
+            ItemCosmetics.store().put(C,new ItemAppearanceStore.Appearance("",""));ItemCosmetics.save();
+        });
+        var visited=java.util.concurrent.ConcurrentHashMap.<Integer>newKeySet();
+        context.runOnClient(client->{
+            var choices=java.util.stream.IntStream.range(0,5000).mapToObj(i->new ItemChoiceScreen.Choice("Head "+i,"HEAD_"+i,
+                    ()->{visited.add(i);return HeadSkins.icon(gold);})).toList();
+            ClientUiAccess.setScreen(client,new ItemChoiceScreen(null,"Head Icon Budget",choices,ignored->{}));
+        });
+        context.waitTicks(4);
+        if(visited.isEmpty()||visited.size()>32)throw new AssertionError("Head picker generated icons beyond the visible rows: "+visited.size());
+        context.getInput().pressKey(ClientInput.ESCAPE);context.waitTicks(2);
+        System.out.println("HEAD_SKINS_PICKER_PREVIEW_SAVE_ITEM_WORN_DISABLE_AND_CACHE_OK");
+    }
+    private static void scrollTo(ClientGameTestContext context,String label){
+        var ready=new java.util.concurrent.atomic.AtomicBoolean();
+        var cursor=new AtomicReference<double[]>();
+        for(int i=0;i<24;i++){
+            context.runOnClient(client->{
+                try{
+                    var screen=ClientUiAccess.screen(client);int top=intField(screen,"bodyTop"),bottom=intField(screen,"bodyBottom");
+                    double scale=client.getWindow().getGuiScale();
+                    cursor.set(new double[]{(intField(screen,"x")+intField(screen,"w")*.75)*scale,(top+bottom)*.5*scale});
+                    ready.set(screen.children().stream().filter(AbstractWidget.class::isInstance).map(AbstractWidget.class::cast)
+                        .anyMatch(widget->widget.visible&&widget.active&&widget.getMessage().getString().startsWith(label)
+                            &&widget.getY()+widget.getHeight()/2>=top&&widget.getY()+widget.getHeight()/2<bottom));
+                }catch(ReflectiveOperationException error){throw new AssertionError(error);}
+            });
+            if(ready.get())return;
+            context.getInput().setCursorPos(cursor.get()[0],cursor.get()[1]);context.getInput().scroll(-1);context.waitTicks(1);
+        }
+        throw new AssertionError("Could not scroll to "+label);
     }
     private static PinkUi.Field field(net.minecraft.client.Minecraft client,String title){
         return (PinkUi.Field)ClientUiAccess.screen(client).children().stream().filter(PinkUi.Field.class::isInstance)

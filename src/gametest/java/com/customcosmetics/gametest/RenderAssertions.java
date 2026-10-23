@@ -13,6 +13,8 @@ public final class RenderAssertions {
     public static final java.util.Set<Integer> remoteSeen = java.util.concurrent.ConcurrentHashMap.newKeySet();
     public static final AtomicInteger itemModelOverrides = new AtomicInteger();
     public static volatile String customizedItemModel = "", untouchedItemModel = "";
+    public static volatile String customizedHeadTexture = "";
+    public static final java.util.Set<String> headContexts = java.util.concurrent.ConcurrentHashMap.newKeySet();
     public static volatile float swing, equip, blockingSwing, blockingEquip, blockingY;
     public static volatile float forcedBlockingSwing = Float.NaN;
     public static volatile String renderedBlockingStyle;

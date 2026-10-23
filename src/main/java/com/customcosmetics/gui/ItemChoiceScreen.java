@@ -4,6 +4,7 @@ package com.customcosmetics.gui;
 import com.customcosmetics.compatibility.ClientUiAccess;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
@@ -14,11 +15,15 @@ import static com.customcosmetics.gui.PinkUi.*;
 
 /** A bounded, searchable list; only the visible rows submit item models. */
 public final class ItemChoiceScreen extends Screen {
-    public record Choice(String label, String id, ItemStack icon) {
+    public record Choice(String label, String id, Supplier<ItemStack> iconSupplier) {
+        public Choice(String label, String id, ItemStack icon) { this(label, id, () -> icon); }
+        public ItemStack icon() { return iconSupplier.get(); }
         boolean matches(String search) { return label.toLowerCase(Locale.ROOT).contains(search) || id.toLowerCase(Locale.ROOT).contains(search); }
     }
     private final Screen parent;
-    private final List<Choice> choices;
+    private List<Choice> choices;
+    private Supplier<List<Choice>> source;
+    private Supplier<String> emptyMessage = () -> "No matching items";
     private final Consumer<Choice> selected;
     private final List<Row> rows = new ArrayList<>();
     private final List<AbstractWidget> fixed = new ArrayList<>();
@@ -29,6 +34,13 @@ public final class ItemChoiceScreen extends Screen {
     private int scrollbarGrabOffset;
     public ItemChoiceScreen(Screen parent, String title, List<Choice> choices, Consumer<Choice> selected) {
         super(Component.literal(title)); this.parent=parent; this.choices=List.copyOf(choices); this.selected=selected;
+    }
+    public ItemChoiceScreen(Screen parent, String title, Supplier<List<Choice>> source, Consumer<Choice> selected, Supplier<String> emptyMessage) {
+        this(parent, title, source.get(), selected); this.source=source; this.emptyMessage=emptyMessage;
+    }
+    @Override public void tick() {
+        super.tick();
+        if(source!=null){var next=source.get();if(next!=choices){choices=next;refresh();}}
     }
     @Override protected void init() {
         fixed.clear(); rows.clear();
@@ -88,7 +100,7 @@ public final class ItemChoiceScreen extends Screen {
         for(var widget:fixed)widget.extractRenderState(g,mx,my,delta);
         g.enableScissor(x+15,top,x+w-15,bottom);
         for(var row:rows)if(row.visible)row.extractRenderState(g,mx,my,delta);
-        if(filtered.isEmpty())text(g,font,"No matching items",x+28,top+15,MUTED,w-56);
+        if(filtered.isEmpty())text(g,font,emptyMessage.get(),x+28,top+15,MUTED,w-56);
         if(filtered.size()>rows.size()) {
             var bar=scrollbar();
             rounded(g,x+w-21,top,3,bottom-top,1,BORDER);

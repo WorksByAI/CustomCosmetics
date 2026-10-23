@@ -2,12 +2,14 @@
 package com.customcosmetics.mixin;
 
 import com.customcosmetics.features.items.ArmorAppearance;
+import com.customcosmetics.features.items.HeadSkins;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.sugar.Local;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.entity.HumanoidMobRenderer;
+import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import net.minecraft.client.renderer.entity.layers.CustomHeadLayer;
 import net.minecraft.client.renderer.entity.layers.EquipmentLayerRenderer;
@@ -28,6 +30,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
 public final class ArmorAppearanceMixin {
+    @Mixin(LivingEntityRenderer.class)
+    public static class HeadSkin {
+        @Inject(method = "extractRenderState(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;F)V", at = @At("RETURN"))
+        private void customcosmetics$headSkin(net.minecraft.world.entity.LivingEntity entity, LivingEntityRenderState state, float partialTick, CallbackInfo ci) {
+            HeadSkins.worn(entity, state);
+        }
+    }
     @Mixin(EntityRenderDispatcher.class)
     public interface Assets extends ArmorAppearance.AssetAccess {
         @Override @Accessor("equipmentAssets") EquipmentAssetManager customcosmetics$equipmentAssets();

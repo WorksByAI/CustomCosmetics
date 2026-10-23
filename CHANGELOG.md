@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.3-dev.1
+
+- Add searchable head skins with online metadata, saved textures and item / helmet rendering.
+- Cache previews, head profiles and model checks; skip untouched item tracking and load only visible icons.
+
 ## 1.8.2
 
 - Add synced creature models and custom worn armor models and colors.

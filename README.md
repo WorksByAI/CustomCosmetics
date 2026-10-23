@@ -1,6 +1,6 @@
 # CustomCosmetics
 
-最新正式版 v1.8.2；当前源码为 1.8.2。Fabric 客户端外观模组，支持 26.1～26.3，部分功能可在玩家间同步。
+最新正式版 v1.8.2；当前源码为 1.8.3-dev.1。Fabric 客户端外观模组，支持 26.1～26.3，部分功能可在玩家间同步。
 
 目前模组所有功能（[√] 表示其他安装本模组的玩家可见）：
 
@@ -12,7 +12,7 @@
 - **[√] Equipments**：原创饰品，支持自由搭配、调色、大小、位置微调。
 - **[√] Sharing**：Hypixel 队友显示、远处标记、追踪线与 IRC；可向同一世界公开或指定玩家共享位置（默认关闭）。
 - **[√] Skins**：支持导入最高 1024×1024 像素的皮肤，共享仅在 P2P 打洞成功后对其他玩家可见。
-- **Item Customization**：自定义物品名称、图标模型、穿戴护甲模型与颜色；扫描配饰背包后显示收集／升级提示。
+- **Item Customization**：自定义物品名称、图标模型、头颅皮肤及穿戴护甲模型与颜色；扫描护符背包后显示收集／升级提示。
 - **Damage Splash**：自定义伤害数字的动画、双色渐变／流动彩虹配色、大小与数字格式。
 - **Map Editor**：地牢／Kuudra 纯视觉改图、批量方块替换。
 - **Waypoints / Shortcuts**：Hypixel Mod API 识别 SkyBlock 岛屿；支持路点、路线、Skyblocker 导入及命令／键鼠快捷方式。
@@ -25,7 +25,7 @@
 
 ## English
 
-Latest stable release: v1.8.2. Current source: 1.8.2.
+Latest stable release: v1.8.2. Current source: 1.8.3-dev.1.
 
 Fabric cosmetics for Minecraft 26.1–26.3, with optional player sync.
 
@@ -39,7 +39,7 @@ Features ([√] visible to other mod users):
 - **[√] Equipments**: Accessories with configurable colors, sizes and offsets.
 - **[√] Sharing**: Hypixel party member displays, distant markers, tracers and IRC. Optionally share your position publicly within the same world or with selected players (off by default).
 - **[√] Skins**: Import skins up to 1024×1024 pixels. Shared skins are visible to other players only after a direct P2P connection is established.
-- **Item Customization**: Local item names, icon models, worn armor models and colors, plus accessory tooltips after scanning the Accessory Bag.
+- **Item Customization**: Local item names, icon models, head skins, worn armor models and colors, plus accessory tooltips after scanning the Accessory Bag.
 - **Damage Splash**: Damage-number animations, gradients, rainbow colors and formatting.
 - **Map Editor**: Visual-only Catacombs/Kuudra map editing and bulk block replacement.
 - **Waypoints / Shortcuts**: Hypixel Mod API island markers, routes, Skyblocker import, command aliases and key/mouse shortcuts.
