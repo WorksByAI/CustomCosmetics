@@ -188,7 +188,7 @@ public final class CosmeticsScreen extends Screen {
         navItem("NickTweaks", Page.NICK); navItem("Player Size", Page.SIZE);
         navItem("Skins", Page.SKINS); navItem("Equipments (Beta)", Page.ACCESSORIES);
         navAction("Cape", () -> ClientUiAccess.setScreen(minecraft, new CapeScreen(this)), () -> page == Page.BLOCKED_CAPES);
-        navSection("GAMEPLAY");
+        navSection("SKYBLOCK");
         navItem("Animations", Page.ANIMATIONS); navItem("Damage Splash", Page.DAMAGE);
         navItem("Item Customization", Page.ITEMS); navItem("Map Editor", Page.MAP);
         navSection("CONNECTIONS");

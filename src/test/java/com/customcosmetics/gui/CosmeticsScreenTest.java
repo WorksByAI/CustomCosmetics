@@ -103,9 +103,9 @@ class CosmeticsScreenTest {
         assertTrue(render.contains(Integer.valueOf(PinkUi.PINK)));
         var navigation = code(screen, "buildNavigation").stream().filter(ConstantInstruction.class::isInstance)
             .map(ConstantInstruction.class::cast).map(ConstantInstruction::constantValue).toList();
-        assertTrue(navigation.containsAll(List.of("Overview", "APPEARANCE", "GAMEPLAY", "CONNECTIONS")));
+        assertTrue(navigation.containsAll(List.of("Overview", "APPEARANCE", "SKYBLOCK", "CONNECTIONS")));
         assertTrue(navigation.indexOf("APPEARANCE") < navigation.indexOf("NickTweaks"));
-        assertTrue(navigation.indexOf("GAMEPLAY") < navigation.indexOf("Animations"));
+        assertTrue(navigation.indexOf("SKYBLOCK") < navigation.indexOf("Animations"));
         assertTrue(navigation.indexOf("CONNECTIONS") < navigation.indexOf("Sharing"));
         assertTrue(code(screen,"playerPreview").stream().filter(ConstantInstruction.class::isInstance)
             .map(ConstantInstruction.class::cast).anyMatch(value -> Integer.valueOf(PinkUi.PINK).equals(value.constantValue())));

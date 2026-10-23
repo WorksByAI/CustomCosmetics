@@ -1,9 +1,10 @@
 # Changelog
 
-## 1.8.3-dev.1
+## 1.8.3
 
 - Add searchable head skins with online metadata, saved textures and item / helmet rendering.
 - Cache previews, head profiles and model checks; skip untouched item tracking and load only visible icons.
+- Rename the Gameplay navigation group to SkyBlock.
 
 ## 1.8.2
 
