@@ -21,10 +21,12 @@ import java.util.*;
 public final class DamageSplash {
     private static final int MAX_LABELS = 256, MAX_SEEN = 2048;
     private static final Map<UUID, Seen> SEEN = new LinkedHashMap<>();
+    private static final Map<UUID, Seen> REJECTED = new LinkedHashMap<>();
     private static final Deque<Label> LABELS = new ArrayDeque<>();
     private static final Style[][] RAINBOW_STYLES = rainbowStyles();
     private static Object level;
     private static boolean allowed;
+    private static int rejectedTicks;
     private record Seen(int id, String text) {}
     private record Label(Vec3 position, Component text, FormattedCharSequence visual, int characters,
                          boolean critical, long started, double driftX, double driftZ, double phase) {}
@@ -33,18 +35,22 @@ public final class DamageSplash {
 
     public static boolean isSkyblock(Minecraft client) {
         if (client.level == null || client.player == null || client.hasSingleplayerServer()) return false;
-        var server = client.getCurrentServer();
-        boolean hypixel = server != null && server.ip.toLowerCase(Locale.ROOT).matches("(?:.*\\.)?hypixel\\.net(?::[0-9]+)?")
-            || com.customcosmetics.features.animations.PresenceWorld.hasHypixelLocation(client);
-        var objective = client.level.getScoreboard().getDisplayObjective(DisplaySlot.SIDEBAR);
-        return hypixel && objective != null && objective.getDisplayName().getString().replaceAll("§.", "").toUpperCase(Locale.ROOT).contains("SKYBLOCK");
+        return com.customcosmetics.features.animations.PresenceWorld.isHypixel(client)
+            && com.customcosmetics.features.animations.PresenceWorld.isSkyblock(client);
+    }
+
+    public static boolean active() {
+        return allowed && ConfigManager.damageSplashEnabled
+            && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.DAMAGE);
     }
 
     public static void tick(Minecraft client) {
         boolean next = (ConfigManager.damageSplashEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.DAMAGE)) && isSkyblock(client);
-        if (level != client.level || !next) { SEEN.clear(); LABELS.clear(); }
+        if (level != client.level || !next) { SEEN.clear(); REJECTED.clear(); LABELS.clear(); rejectedTicks=0; }
         level = client.level; allowed = next;
         if (!next) return;
+        // Negative results are only an optimization; age them out without scanning all NPCs each tick.
+        if (++rejectedTicks >= 20) { REJECTED.clear(); rejectedTicks=0; }
         SEEN.entrySet().removeIf(entry -> {
             var entity = client.level.getEntity(entry.getValue().id());
             return entity == null || !entity.getUUID().equals(entry.getKey()) || !entity.hasCustomName()
@@ -55,12 +61,19 @@ public final class DamageSplash {
     }
 
     public static boolean capture(ArmorStand stand) {
-        if (!(ConfigManager.damageSplashEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.DAMAGE)) || !allowed || stand.level() != level || !stand.isInvisible() || !stand.hasCustomName()) return false;
+        if (!active() || stand.level() != level || !stand.isInvisible() || !stand.hasCustomName()) return false;
         String name = stand.getCustomName().getString();
         var previous = SEEN.get(stand.getUUID());
         if (previous != null && previous.text().equals(name)) return true;
+        var rejected = REJECTED.get(stand.getUUID());
+        if (rejected != null && rejected.id()==stand.getId() && rejected.text().equals(name)) return false;
         var hit = DamageText.parse(name);
-        if (hit == null) return false;
+        if (hit == null) {
+            REJECTED.put(stand.getUUID(),new Seen(stand.getId(),name));
+            if(REJECTED.size()>MAX_SEEN)REJECTED.remove(REJECTED.keySet().iterator().next());
+            return false;
+        }
+        REJECTED.remove(stand.getUUID());
         SEEN.put(stand.getUUID(), new Seen(stand.getId(), name));
         if (SEEN.size() > MAX_SEEN) SEEN.remove(SEEN.keySet().iterator().next());
         var random = java.util.concurrent.ThreadLocalRandom.current();
@@ -114,18 +127,21 @@ public final class DamageSplash {
         if (!(ConfigManager.damageSplashEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.DAMAGE)) || !allowed || level != Minecraft.getInstance().level || LABELS.isEmpty()) return;
         var client = Minecraft.getInstance(); var camera = context.levelState().cameraRenderState;
         long now = System.nanoTime();
+        var pose = new PoseStack();
+        var rotation = new org.joml.Matrix4f().rotation(camera.orientation);
         for (var label : LABELS) {
             double p = progress(label.started(), now);
             if (p >= 1 || label.position().distanceToSqr(camera.pos) > 128*128) continue;
             var frame = DamageAnimation.frame(ConfigManager.damageSplashStyle, p, label.critical(), label.driftX(), label.driftZ(), label.phase());
             if (frame.alpha() <= .01f) continue;
-            var relative = label.position().add(frame.x(), frame.y(), frame.z()).subtract(camera.pos);
-            var pose = new PoseStack(); pose.translate(relative.x, relative.y, relative.z);
-            pose.mulPose(new org.joml.Matrix4f().rotation(camera.orientation));
+            pose.pushPose();
+            pose.translate(label.position().x+frame.x()-camera.pos.x,label.position().y+frame.y()-camera.pos.y,label.position().z+frame.z()-camera.pos.z);
+            pose.mulPose(rotation);
             float scale = (float) (.0325*DamageAnimation.bounded(ConfigManager.damageSplashSize, 1, .25, 3)*frame.scale());
             pose.scale(scale, -scale, scale);
             context.submitNodeCollector().submitText(pose, -client.font.width(label.text())/2f, 0, coloredSequence(label.visual(), label.characters(), label.critical(), now / 1_000_000_000.0),
                 ConfigManager.damageSplashShadow, Font.DisplayMode.NORMAL, 0xF000F0, ((int) (frame.alpha()*255) << 24) | 0xFFFFFF, 0, 0);
+            pose.popPose();
         }
     }
 }

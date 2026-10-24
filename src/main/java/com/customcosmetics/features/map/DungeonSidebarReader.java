@@ -30,7 +30,8 @@ public final class DungeonSidebarReader {
         long revision=(Object)board instanceof SidebarRevision tracker?tracker.customcosmetics$sidebarRevision():Long.MIN_VALUE;
         long now=System.nanoTime();
         if(!diagnostics&&cached!=null&&cachedLevel==client.level&&cachedConnection==client.getConnection()&&cachedBoard==board
-            &&cachedTeam==client.player.getTeam()&&cachedObjective==objective&&cachedRevision==revision&&now-cachedAt<50_000_000)return cached;
+            &&cachedTeam==client.player.getTeam()&&cachedObjective==objective&&cachedRevision==revision
+            &&(revision!=Long.MIN_VALUE||now-cachedAt<50_000_000))return cached;
         Snapshot result;
         if(objective==null)result=snapshot(client,"","",List.of(),List.of());
         else result=readObjective(client,board,objective,diagnostics);

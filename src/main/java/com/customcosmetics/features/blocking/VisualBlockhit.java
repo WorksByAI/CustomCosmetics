@@ -16,15 +16,17 @@ public final class VisualBlockhit {
         if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ANIMATIONS))return;
         if (world != client.level) { world = client.level; clock = new BlockhitClock(); }
         if (client.isPaused()) return;
-        clock.tick(active(client), ViewModelAnimations.swingDuration(client));
+        boolean held=hand(client)!=BlockHand.NONE;
+        clock.tick(held,held?ViewModelAnimations.swingDuration(client):1);
     }
-    private static boolean active(Minecraft client) {
-        return client != null && SwordBlocking.localHand() != BlockHand.NONE && client.options.keyAttack.isDown()
-            && client.hitResult != null && client.hitResult.getType() == HitResult.Type.BLOCK;
+    private static BlockHand hand(Minecraft client) {
+        if(client==null||!client.options.keyAttack.isDown()||client.hitResult==null||client.hitResult.getType()!=HitResult.Type.BLOCK)return BlockHand.NONE;
+        return SwordBlocking.localHand();
     }
     public static boolean matches(InteractionHand hand) {
         var client = Minecraft.getInstance();
-        return active(client) && (SwordBlocking.localHand() == BlockHand.MAIN) == (hand == InteractionHand.MAIN_HAND);
+        var blocking=hand(client);
+        return blocking!=BlockHand.NONE&&(blocking==BlockHand.MAIN)==(hand==InteractionHand.MAIN_HAND);
     }
     public static float progress(float partial) { return clock.progress(partial); }
 }

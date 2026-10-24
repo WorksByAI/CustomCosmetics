@@ -30,6 +30,7 @@ public final class CapeGameTest implements FabricClientGameTest {
     @Override public void runTest(ClientGameTestContext context){
         context.runOnClient(client->{ConfigManager.syncEnabled=false;ConfigManager.swordBlockingSyncEnabled=false;});
         try(var world=context.worldBuilder().create()){
+            try{
             world.getServer().runCommand("time set noon");world.getServer().runCommand("weather clear");
             context.waitTicks(10);context.getInput().resizeWindow(1600,1000);
             if(Files.exists(CosmeticsConfigDir.getCosmeticsConfigDir().resolve("cape-local.png"))){
@@ -85,6 +86,13 @@ public final class CapeGameTest implements FabricClientGameTest {
             testFileDialog(context,atlasFile);
             testTraffic(context);
             System.out.println("CAPE_NATIVE_PREVIEW_CROP_OFFLINE_ISOLATION_AND_EXPLICIT_REVIEW_OK");
+            }catch(Exception|Error failure){
+                System.err.println("CAPE_FIXTURE_FAILED_BEFORE_WORLD_CLOSE");failure.printStackTrace();throw failure;
+            }finally{
+                // Flush while Fabric's test client/server tick coordination is still connected.
+                context.runOnClient(client->ClientUiAccess.setScreen(client,null));context.waitTicks(5);
+                world.getServer().runCommand("save-all flush");
+            }
         }catch(Exception failure){throw new AssertionError(failure);}
     }
     private void checkPlayerBlocks(ClientGameTestContext context){
@@ -154,8 +162,14 @@ public final class CapeGameTest implements FabricClientGameTest {
             context.runOnClient(client->{
                 ConfigManager.syncServerIp="127.0.0.1";ConfigManager.syncServerPort=server.getAddress().getPort();ConfigManager.syncServerHttps=false;ConfigManager.syncProxySource="none";
                 CosmeticsMode.setOffline(false);String base="http://127.0.0.1:"+server.getAddress().getPort();
-                var field=PresenceSync.class.getDeclaredField("authSession");field.setAccessible(true);var account=client.getUser();
-                field.set(null,new PresenceAuthClient.Session("a".repeat(64),account.getProfileId(),account.getName(),System.currentTimeMillis()+3600000,base));
+                var account=client.getUser();
+                var session=new PresenceAuthClient.Session("a".repeat(64),account.getProfileId(),account.getName(),System.currentTimeMillis()+3600000,base);
+                // Seed the shared cache after the online transition resets it, under its production monitor.
+                var sessionsField=PresenceSync.class.getDeclaredField("SESSIONS");sessionsField.setAccessible(true);var sessions=sessionsField.get(null);
+                var sessionField=sessions.getClass().getDeclaredField("session");sessionField.setAccessible(true);
+                synchronized(sessions){sessionField.set(sessions,session);}
+                var cached=PresenceSync.authenticatedSession();
+                if(!cached.isDone()||cached.join()!=session)throw new AssertionError("Cape traffic fixture did not reuse the shared authenticated session");
                 var old=client.player.getSkin();if(old.cape()!=null&&old.cape().texturePath().equals(CapeCosmetics.preview()))throw new AssertionError("Unreviewed local cape leaked into online rendering");
                 ClientUiAccess.setScreen(client,new CapeScreen(null));
             });context.waitTicks(5);
@@ -171,7 +185,7 @@ public final class CapeGameTest implements FabricClientGameTest {
             click(context,"Submit for Review");context.waitTicks(4);if(writes.get()!=1)throw new AssertionError("Daily cape submission cooldown was bypassed");
             context.runOnClient(client->{CosmeticsMode.setOffline(true);ClientUiAccess.setScreen(client,null);});
             if(reads.get()!=1)throw new AssertionError("Submission or ordinary buttons fetched data outside the explicit test sync");
-        }finally{context.runOnClient(client->{ConfigManager.syncServerIp="cc.toryhi.com";ConfigManager.syncServerPort=443;ConfigManager.syncServerHttps=true;ConfigManager.syncEnabled=false;});server.stop(0);executor.shutdownNow();}
+        }finally{context.runOnClient(client->{CosmeticsMode.setOffline(true);ConfigManager.syncServerIp="cc.toryhi.com";ConfigManager.syncServerPort=443;ConfigManager.syncServerHttps=true;ConfigManager.syncEnabled=false;});server.stop(0);executor.shutdownNow();}
     }
     private static Object read(Object object,String name){try{var field=object.getClass().getDeclaredField(name);field.setAccessible(true);return field.get(object);}catch(Exception failure){throw new AssertionError(failure);}}
     private static void click(ClientGameTestContext context,String name)throws Exception{

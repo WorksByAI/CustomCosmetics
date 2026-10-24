@@ -10,6 +10,24 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class RemoteServerConfigTest {
     @TempDir Path directory;
+    private static java.util.concurrent.CompletableFuture<?> startPoll()throws Exception{
+        var deadline=RemoteServerConfig.class.getDeclaredField("nextCheck");deadline.setAccessible(true);deadline.setLong(null,0);
+        assertFalse(RemoteServerConfig.reload(false));
+        var pending=RemoteServerConfig.class.getDeclaredField("pending");pending.setAccessible(true);
+        return (java.util.concurrent.CompletableFuture<?>)pending.get(null);
+    }
+    @Test void pollingAppliesOnlyOnCallerAndForcedReloadDiscardsAnOlderRead()throws Exception{
+        var path=directory.resolve("async.json");RemoteServerConfig.init(path);
+        Files.writeString(path,"{\"syncServerPort\":30001}");startPoll().get(5,java.util.concurrent.TimeUnit.SECONDS);
+        assertEquals(RemoteServerConfig.DEFAULT.port(),ConfigManager.syncServerPort);
+        assertTrue(RemoteServerConfig.reload(false));assertEquals(30001,ConfigManager.syncServerPort);
+        Files.writeString(path,"{\"syncServerPort\":30002}");startPoll().get(5,java.util.concurrent.TimeUnit.SECONDS);
+        Files.writeString(path,"{\"syncServerPort\":30003}");assertTrue(RemoteServerConfig.reload(true));
+        assertFalse(RemoteServerConfig.reload(false));assertEquals(30003,ConfigManager.syncServerPort);
+        Files.writeString(path,"{");startPoll().get(5,java.util.concurrent.TimeUnit.SECONDS);
+        assertFalse(RemoteServerConfig.reload(false));assertEquals(30003,ConfigManager.syncServerPort);
+    }
+
     private RemoteServerConfig.Endpoint previous;
     @BeforeEach void snapshot() { previous = RemoteServerConfig.current(); }
     @AfterEach void restore() {

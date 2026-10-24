@@ -8,8 +8,13 @@ import static com.customcosmetics.features.accessories.AccessoryGeometry.*;
 public final class AccessoryMeshes {
     public record Mesh(ModelPart primary,ModelPart accent,ModelPart details,ModelPart highlights,ModelPart sleeves,ModelPart cuffs,ModelPart skirt,ModelPart hem,Bounds bounds){}
     private static final Map<String,Mesh> CACHE=new HashMap<>();
+    private static final Map<AccessoryCatalog.Style,Mesh> BY_STYLE=new IdentityHashMap<>();
     private AccessoryMeshes(){}
-    public static Mesh get(AccessoryCatalog.Style style){return CACHE.computeIfAbsent(style.collection().id+":"+style.kind()+":"+style.variant(),ignored->style.collection()==AccessoryCatalog.Collection.DETAILED?DetailedAccessoryMeshes.build(style):build(style));}
+    public static Mesh get(AccessoryCatalog.Style style){
+        var mesh=BY_STYLE.get(style);if(mesh!=null)return mesh;
+        mesh=CACHE.computeIfAbsent(style.collection().id+":"+style.kind()+":"+style.variant(),ignored->style.collection()==AccessoryCatalog.Collection.DETAILED?DetailedAccessoryMeshes.build(style):build(style));
+        if(BY_STYLE.size()>=256)BY_STYLE.clear();BY_STYLE.put(style,mesh);return mesh;
+    }
     private static class Shape {
         final Builder main=new Builder(),trim=new Builder(),detail=new Builder(),shine=new Builder();int detailPieces,shinePieces;
         void box(boolean accent,float x,float y,float z,float w,float h,float d){box(accent,x,y,z,w,h,d,0,0,0);}

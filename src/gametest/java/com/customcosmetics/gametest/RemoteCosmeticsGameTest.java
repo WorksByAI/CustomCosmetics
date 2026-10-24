@@ -2,6 +2,7 @@
 package com.customcosmetics.gametest;
 
 import com.customcosmetics.config.ConfigManager;
+import com.customcosmetics.config.FeatureModules;
 import com.customcosmetics.features.blocking.BlockHand;
 import com.customcosmetics.features.blocking.SwordBlocking;
 import com.customcosmetics.features.smolpeople.SmolPlayers;
@@ -23,9 +24,30 @@ final class RemoteCosmeticsGameTest {
         String publicData;
         try { publicData = Files.readString(Path.of(System.getProperty("customcosmetics.testProjectDir"), "build/audit/sync-integration-public.json")); }
         catch (java.io.IOException error) { throw new AssertionError("Run the authenticated two-client integration test first", error); }
+        var previous = new LinkedHashMap<String, Object>();
+        context.runOnClient(client -> {
+            for (String name : List.of("offlineMode", "syncServerIp", "syncEnabled", "swordBlockingSyncEnabled",
+                    "swordBlockingEnabled", "syncBlockingTransport", "positionSharingEnabled", "positionSharingReceive",
+                    "disabledModules", "swordBlockingListsApplyToOthers", "swordBlockingListMode",
+                    "swordBlockingWhitelist", "swordBlockingBlacklist", "smolpeopleMode", "nickTweaksBlockedPlayers"))
+                previous.put(name, ConfigManager.class.getField(name).get(null));
+        });
+        try {
         context.runOnClient(client -> {
             ConfigManager.syncServerIp = ""; ConfigManager.syncEnabled = true; ConfigManager.swordBlockingSyncEnabled = true;
+            ConfigManager.swordBlockingEnabled = true;
+            // This fixture injects the legacy transport's received map, not a live WSS session.
+            // Keep its endpoint empty so actual receive/render consumers run without network I/O.
+            ConfigManager.syncBlockingTransport = "udp";
+            ConfigManager.positionSharingEnabled = false; ConfigManager.positionSharingReceive = false;
+            FeatureModules.set(FeatureModules.Feature.ANIMATIONS, true);
+            FeatureModules.set(FeatureModules.Feature.SMOL, true);
+            FeatureModules.set(FeatureModules.Feature.NICK, true);
+            ConfigManager.nickTweaksBlockedPlayers = List.of();
+            RemoteAccess.offline(false); BlockingSync.disconnect();
             PresenceSync.onServerAddressChanged();
+            if (!RemoteAccess.online() || RealtimeSync.enabled())
+                throw new AssertionError("Remote fixture did not select its injected legacy receiver");
             var apply = PresenceSync.class.getDeclaredMethod("applyPayload", String.class, boolean.class);
             apply.setAccessible(true); apply.invoke(null, publicData, false);
             // Use the local skin type so all three players share exactly the same renderer/model.
@@ -97,14 +119,15 @@ final class RemoteCosmeticsGameTest {
             poses.set(null, Map.of(alice, new BlockingTransport.Pose(BlockHand.MAIN, 0, "skyblock:HYPERION")));
             if (SwordBlocking.hand(a) != BlockHand.NONE) throw new AssertionError("Expired remote state was rendered");
         });
-        context.runOnClient(client -> {
-            client.level.removeEntity(-1001, Entity.RemovalReason.DISCARDED);
-            client.level.removeEntity(-1002, Entity.RemovalReason.DISCARDED);
-            var poses = BlockingSync.class.getDeclaredField("remote"); poses.setAccessible(true); poses.set(null, Map.of());
-            ConfigManager.syncEnabled = false; ConfigManager.swordBlockingSyncEnabled = false;
-            ConfigManager.swordBlockingListsApplyToOthers = false;
-        });
         System.out.println("REMOTE_NICK_SMOL_BLOCKING_RENDER_OK REMOTE_BLOCKING_LISTS_OK FRIENDS_REMOVED_OK");
+        } finally {
+            context.runOnClient(client -> {
+                for (int id : new int[]{-1001, -1002, -1003}) client.level.removeEntity(id, Entity.RemovalReason.DISCARDED);
+                RemoteAccess.offline((boolean) previous.get("offlineMode")); BlockingSync.disconnect();
+                for (var entry : previous.entrySet()) ConfigManager.class.getField(entry.getKey()).set(null, entry.getValue());
+                PresenceSync.onServerAddressChanged(); SmolPlayers.clearCache();
+            });
+        }
     }
     private static void checkFirstPersonSleeves(ClientGameTestContext context) {
         var originalHand = new java.util.concurrent.atomic.AtomicReference<net.minecraft.world.entity.HumanoidArm>();

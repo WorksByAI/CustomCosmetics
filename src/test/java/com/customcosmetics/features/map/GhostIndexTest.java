@@ -10,8 +10,10 @@ class GhostIndexTest {
     }
     @Test void individualGhostChangesUpdateOnlyTheirSection(){
         var p=new MapEdits.Position(-17,30,-1);var index=new GhostIndex(List.of());var ghost=new MapEdits.Edit(p,"minecraft:gold_block",true);
-        index.update(p,ghost);assertEquals(1,index.size());var found=new ArrayList<MapEdits.Edit>();index.nearby(-17,30,-1,8,found::add);assertEquals(List.of(ghost),found);
-        index.update(p,new MapEdits.Edit(p,"minecraft:stone",false));assertEquals(0,index.size());index.update(p,ghost);index.update(p,null);assertEquals(0,index.size());
+        index.update(p,null,ghost);assertEquals(1,index.size());var found=new ArrayList<MapEdits.Edit>();index.nearby(-17,30,-1,8,found::add);assertEquals(List.of(ghost),found);
+        var ordinary=new MapEdits.Edit(p,"minecraft:stone",false);
+        index.update(p,ghost,ordinary);assertEquals(0,index.size());assertTrue(index.hasOrdinaryEdits(-2,-1));
+        index.update(p,ordinary,ghost);assertFalse(index.hasOrdinaryEdits(-2,-1));index.update(p,ghost,null);assertEquals(0,index.size());
     }
     @Test void denseOrdinaryReplacementsNeverBecomeStandaloneRenderCandidates(){
         var edits=new ArrayList<MapEdits.Edit>();
@@ -26,5 +28,29 @@ class GhostIndexTest {
         var real=new MapEdits.Edit(new MapEdits.Position(-17,30,-2),"minecraft:stone",false);
         var index=new GhostIndex(List.of(near,far,high,real));var found=new ArrayList<MapEdits.Edit>();
         index.nearby(-16.5,30.5,-.5,96,found::add);assertEquals(List.of(near),found);assertEquals(3,index.size());
+    }
+    @Test void removingOneOrdinaryEditKeepsTheOtherContainerCandidateInItsChunk(){
+        var a=new MapEdits.Edit(new MapEdits.Position(-17,30,-1),"minecraft:gold_block",false);
+        var b=new MapEdits.Edit(new MapEdits.Position(-18,31,-2),"minecraft:gold_block",false);
+        var index=new GhostIndex(List.of(a,b));assertTrue(index.hasOrdinaryEdits(-2,-1));assertFalse(index.hasOrdinaryEdits(-1,-1));
+        index.update(a.position(),a,null);assertTrue(index.hasOrdinaryEdits(-2,-1));
+        index.update(b.position(),b,null);assertFalse(index.hasOrdinaryEdits(-2,-1));
+    }
+    @Test void warmedMovingQueriesDoNotAllocateOneCoordinatePerVisitedSection(){
+        var edits=new ArrayList<MapEdits.Edit>();
+        for(int x=-64;x<=64;x+=16)for(int y=0;y<=128;y+=16)for(int z=-64;z<=64;z+=16)
+            edits.add(new MapEdits.Edit(new MapEdits.Position(x,y,z),"minecraft:stone",true));
+        var index=new GhostIndex(edits);var counter=new int[1];java.util.function.Consumer<MapEdits.Edit> consume=e->counter[0]++;
+        for(int i=0;i<1000;i++)index.nearby(i%8*.25,64,i%7*.25,96,4096,consume);
+        var bean=java.lang.management.ManagementFactory.getThreadMXBean();
+        org.junit.jupiter.api.Assumptions.assumeTrue(bean instanceof com.sun.management.ThreadMXBean);
+        var allocation=(com.sun.management.ThreadMXBean)bean;
+        org.junit.jupiter.api.Assumptions.assumeTrue(allocation.isThreadAllocatedMemorySupported());
+        if(!allocation.isThreadAllocatedMemoryEnabled())allocation.setThreadAllocatedMemoryEnabled(true);
+        long thread=Thread.currentThread().threadId(),before=allocation.getThreadAllocatedBytes(thread);
+        for(int i=0;i<1000;i++)index.nearby(i%8*.25,64,i%7*.25,96,4096,consume);
+        long bytes=allocation.getThreadAllocatedBytes(thread)-before;
+        assertTrue(counter[0]>1000);assertTrue(bytes<131072,"Moving ghost query allocated "+bytes+" bytes");
+        System.out.println("MAP_GHOST_1000_MOVING_QUERIES_ALLOCATED_BYTES="+bytes);
     }
 }

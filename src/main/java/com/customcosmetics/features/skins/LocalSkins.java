@@ -5,7 +5,6 @@ import com.customcosmetics.sync.*;
 import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.core.ClientAsset;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.*;
 import java.util.*;
@@ -19,6 +18,7 @@ public final class LocalSkins {
     private static final LinkedHashMap<String,Identifier> textures=new LinkedHashMap<>(16,.75f,true);
     private static final Map<UUID,Ready> remote=new HashMap<>();private static final Map<UUID,String> pending=new HashMap<>();
     private static Set<UUID> direct=Set.of();private static int decoding;
+    private static final PlayerSkinCache skinCache=new PlayerSkinCache();
     private LocalSkins(){}
     private static final SkinTransfer.Source SOURCE=new SkinTransfer.Source(){
         public SkinTransfer.Document local(){return (ConfigManager.localSkinEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS))&&(ConfigManager.skinP2pSharing && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS))?local:null;}
@@ -58,9 +58,8 @@ public final class LocalSkins {
         if(self){var document=local;if(!(ConfigManager.localSkinEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS))||document==null)return original;hash=document.hash();slim=document.slim();}
         else{var ready=remote.get(id);if(!(ConfigManager.skinP2pReceiving && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS))||!RemoteAccess.online()||!direct.contains(id)||ready==null)return original;hash=ready.textureHash;slim=ready.slim;}
         var texture=textures.get(hash);if(texture==null)return original;
-        ClientAsset.Texture asset=new ClientAsset.Texture(){public Identifier id(){return texture;}public Identifier texturePath(){return texture;}};
-        return new PlayerSkin(asset,original.cape(),original.elytra(),slim?PlayerModelType.SLIM:PlayerModelType.WIDE,false);
+        return skinCache.body(id,original,texture,slim?PlayerModelType.SLIM:PlayerModelType.WIDE);
     }
-    public static void close(){for(var texture:textures.values())Minecraft.getInstance().getTextureManager().release(texture);textures.clear();remote.clear();pending.clear();direct=Set.of();}
+    public static void close(){for(var texture:textures.values())Minecraft.getInstance().getTextureManager().release(texture);textures.clear();remote.clear();pending.clear();direct=Set.of();skinCache.clear();}
     private static void notice(String text){com.customcosmetics.features.cape.CapeCosmetics.notice(text);}
 }

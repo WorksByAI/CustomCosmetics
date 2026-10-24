@@ -126,15 +126,17 @@ final class SettingsGuiGameTest {
             ConfigManager.syncProxyHost = ""; ConfigManager.syncProxyPort = 0; ConfigManager.syncProxyAuth = "";
             ConfigManager.syncProxyFallbackDirect = true; ConfigManager.syncProxySource = "none";
             ConfigManager.saveConfig();
-            var file = CosmeticsConfigDir.getCosmeticsConfigDir();
-            var settings = JsonParser.parseString(Files.readString(file.resolve("config.json"))).getAsJsonObject().getAsJsonObject("settings");
-            for (String key : new String[]{"smolFriendList","smolFriendsEnabled","syncServerIp","syncServerPort","syncServerHttps","syncServerSni","syncUdpHost","syncUdpPort"})
-                if (settings.has(key)) throw new AssertionError("Main configuration still writes " + key);
-            var overrides = JsonParser.parseString(Files.readString(file.resolve("customremoteserver.json"))).getAsJsonObject();
-            if (overrides.size() != 7 || overrides.entrySet().stream().anyMatch(entry -> !entry.getValue().getAsString().isEmpty()))
-                throw new AssertionError("Custom server template is not blank");
-            ClientUiAccess.setScreen(client,null);
         });
+        // Disk assertions run after the asynchronous writer drains, never on the client thread.
+        ConfigManager.awaitPendingSaves();
+        var file = CosmeticsConfigDir.getCosmeticsConfigDir();
+        var settings = JsonParser.parseString(Files.readString(file.resolve("config.json"))).getAsJsonObject().getAsJsonObject("settings");
+        for (String key : new String[]{"smolFriendList","smolFriendsEnabled","syncServerIp","syncServerPort","syncServerHttps","syncServerSni","syncUdpHost","syncUdpPort"})
+            if (settings.has(key)) throw new AssertionError("Main configuration still writes " + key);
+        var overrides = JsonParser.parseString(Files.readString(file.resolve("customremoteserver.json"))).getAsJsonObject();
+        if (overrides.size() != 7 || overrides.entrySet().stream().anyMatch(entry -> !entry.getValue().getAsString().isEmpty()))
+            throw new AssertionError("Custom server template is not blank");
+        context.runOnClient(client -> ClientUiAccess.setScreen(client,null));
         checkStudioRedesign(context);
         context.getInput().resizeWindow(854,480); context.waitTicks(3);
         System.out.println("SETTINGS_GUI_MEMORY_DEV_LAYOUT_AND_FILES_OK");
@@ -188,6 +190,7 @@ final class SettingsGuiGameTest {
                     throw new AssertionError("Setting missing from lightweight catalogue: " + page + " / " + option.title());
             });
         }
+        checkSelectedCreatureSearch(context);
         context.runOnClient(client -> ClientUiAccess.setScreen(client, new CosmeticsScreen(null, CosmeticsScreen.Page.SIZE)));
         type(context, "Search Settings", "Location Tracer Color");
         click(context, "Location Tracer Color", PinkUi.Action.class);
@@ -220,6 +223,30 @@ final class SettingsGuiGameTest {
         context.takeScreenshot("studio-search-destination");
         context.runOnClient(client -> ClientUiAccess.setScreen(client, null));
         System.out.println("STUDIO_OVERVIEW_RESPONSIVE_NAVIGATION_AND_LIGHTWEIGHT_SEARCH_OK");
+    }
+    private static void checkSelectedCreatureSearch(ClientGameTestContext context) throws Exception {
+        String previous = context.computeOnClient(client -> ConfigManager.creatureModel);
+        try {
+            context.runOnClient(client -> {
+                ConfigManager.creatureModel = "chicken";
+                ClientUiAccess.setScreen(client, new CosmeticsScreen(null, CosmeticsScreen.Page.SYNC));
+            });
+            type(context, "Search Settings", "Chicken");
+            click(context, "Chicken", PinkUi.Action.class);
+            context.runOnClient(client -> {
+                var screen = ClientUiAccess.screen(client);
+                var target = widget(client, "✓ Chicken", PinkUi.Action.class);
+                if (read(screen, "page") != CosmeticsScreen.Page.SIZE || (Double) read(screen, "scroll") <= 0
+                    || !target.visible || target.getY() < (Integer) read(screen, "viewTop")
+                    || target.getBottom() > (Integer) read(screen, "viewBottom"))
+                    throw new AssertionError("Search did not reveal the currently selected creature model");
+            });
+        } finally {
+            context.runOnClient(client -> {
+                ConfigManager.creatureModel = previous;
+                ClientUiAccess.setScreen(client, null);
+            });
+        }
     }
     private static Object read(Object object,String name) throws Exception {
         var field = object.getClass().getDeclaredField(name); field.setAccessible(true); return field.get(object);

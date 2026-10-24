@@ -59,6 +59,19 @@ public final class NickRenderUtils {
         }
     };
 
+    private static long matchCacheVersion = Long.MIN_VALUE;
+    private static TargetMatch[] cachedMatch(long version, String text) {
+        synchronized (MATCH_CACHE_LOCK) {
+            if (matchCacheVersion != version) { MATCH_CACHE.clear(); matchCacheVersion = version; }
+            return MATCH_CACHE.get(text);
+        }
+    }
+    private static void cacheMatch(long version, String text, TargetMatch[] matches) {
+        synchronized (MATCH_CACHE_LOCK) {
+            if (matchCacheVersion == version) MATCH_CACHE.put(text, matches);
+        }
+    }
+
     private static final int REPLACEMENT_CACHE_MAX = 512;
     private static final Object REPLACEMENT_CACHE_LOCK = new Object();
     private static final LinkedHashMap<String, List<ReplacementCodepoint>> REPLACEMENT_CACHE = new LinkedHashMap<>(16, 0.75f, true) {
@@ -81,12 +94,13 @@ public final class NickRenderUtils {
     private static volatile long renderFrame;
     private static final class TextCaches {
         final IdentityFrameCache<FormattedCharSequence,FormattedCharSequence> resolved=new IdentityFrameCache<>(4096),measured=new IdentityFrameCache<>(4096);
-        void begin(){long version=TARGET_VERSION.get();resolved.begin(renderFrame,version);measured.begin(renderFrame,version);}
+        final IdentityFrameCache<FormattedText,FormattedText> formatted=new IdentityFrameCache<>(4096);
+        void begin(){long version=TARGET_VERSION.get();resolved.begin(renderFrame,version);measured.begin(renderFrame,version);formatted.begin(renderFrame,version);}
     }
     private static final class ScopedTextCaches {
         final TextCaches[] contexts=new TextCaches[com.customcosmetics.features.nickname.RankText.Context.values().length];
         TextCaches current(){int context=com.customcosmetics.features.nickname.RankDisplayContext.current().ordinal();var cache=contexts[context];if(cache==null)contexts[context]=cache=new TextCaches();return cache;}
-        void clear(){for(var cache:contexts)if(cache!=null){cache.resolved.begin(Long.MIN_VALUE,Long.MIN_VALUE);cache.measured.begin(Long.MIN_VALUE,Long.MIN_VALUE);}}
+        void clear(){for(var cache:contexts)if(cache!=null){cache.resolved.begin(Long.MIN_VALUE,Long.MIN_VALUE);cache.measured.begin(Long.MIN_VALUE,Long.MIN_VALUE);cache.formatted.begin(Long.MIN_VALUE,Long.MIN_VALUE);}}
     }
     private static final ThreadLocal<ScopedTextCaches> TEXT_CACHES=ThreadLocal.withInitial(ScopedTextCaches::new);
     public static void beginFrame(){renderFrame++;com.customcosmetics.features.nickname.RankAppearance.beginFrame();}
@@ -208,12 +222,8 @@ public final class NickRenderUtils {
     static String renderString(String text, List<Target> targets) {
         if (targets.isEmpty()) return text;
         long version = TARGET_VERSION.get();
-        String cacheKey = version + "|" + text;
-        TargetMatch[] matchByIndex;
+        TargetMatch[] matchByIndex = cachedMatch(version, text);
         int[] codePoints = null;
-        synchronized (MATCH_CACHE_LOCK) {
-            matchByIndex = MATCH_CACHE.get(cacheKey);
-        }
 
         if (matchByIndex == null) {
             String lower = text.toLowerCase(Locale.ROOT);
@@ -224,14 +234,12 @@ public final class NickRenderUtils {
                 matchingTargets.add(target);
             }
             if (matchingTargets == null || matchingTargets.isEmpty()) {
-                synchronized(MATCH_CACHE_LOCK){MATCH_CACHE.put(cacheKey,NO_MATCH);}return text;
+                cacheMatch(version, text, NO_MATCH);return text;
             }
 
             codePoints = text.codePoints().toArray();
             matchByIndex = matchTargets(codePoints, matchingTargets);
-            synchronized (MATCH_CACHE_LOCK) {
-                MATCH_CACHE.put(cacheKey, matchByIndex);
-            }
+            cacheMatch(version, text, matchByIndex);
         }
 
         boolean matched = false;
@@ -269,50 +277,30 @@ public final class NickRenderUtils {
     public static FormattedText handleFormattedText(FormattedText text) {
         if (text == null) return null;
         if (shouldSkipNickTweakSubstitution()) return text;
-        if(com.customcosmetics.features.nickname.RankAppearance.active()){
+        var targets=collectTargets();
+        boolean rank=com.customcosmetics.features.nickname.RankAppearance.active();
+        if(targets.isEmpty()&&!rank)return text;
+        var caches=TEXT_CACHES.get().current();caches.begin();var cached=caches.formatted.get(text);if(cached!=null)return cached;
+        var original=text;
+        if(rank){
             var source=com.customcosmetics.features.nickname.RankText.sequence(text);
             var sequence=com.customcosmetics.features.nickname.RankAppearance.apply(source);
             if(sequence!=source)text=com.customcosmetics.features.nickname.RankText.component(sequence);
         }
-        return renderFormattedText(text, collectTargets());
+        var result=renderFormattedText(text,targets);caches.formatted.put(original,result);return result;
     }
 
     static FormattedText renderFormattedText(FormattedText text, List<Target> targets) {
         if (targets.isEmpty()) return text;
-        StringBuilder sbPlain = new StringBuilder();
-        List<Glyph> originalGlyphs = new ArrayList<>();
-        try {
-            text.visit((style, str) -> {
-                if (str == null || str.isEmpty()) return java.util.Optional.empty();
-                for (int i = 0; i < str.length();) {
-                    int cp = str.codePointAt(i);
-                    sbPlain.appendCodePoint(cp);
-                    originalGlyphs.add(new Glyph(cp, style));
-                    i += Character.charCount(cp);
-                }
-                return java.util.Optional.empty();
-            }, Style.EMPTY);
-        } catch (Throwable ignore) {
-            String plainFallback = text.toString();
-            for (int i = 0; i < plainFallback.length();) {
-                int cp = plainFallback.codePointAt(i);
-                sbPlain.appendCodePoint(cp);
-                originalGlyphs.add(new Glyph(cp, Style.EMPTY));
-                i += Character.charCount(cp);
-            }
-        }
-        String plain = sbPlain.toString();
+        String plain;
+        boolean fallback = false;
+        try { plain = text.getString(); }
+        catch (RuntimeException malformed) { plain = text.toString(); fallback = true; }
         if (plain.isEmpty()) return text;
 
         long version = TARGET_VERSION.get();
-        String cacheKey = version + "|" + plain;
-        TargetMatch[] matchByIndex;
-        synchronized (MATCH_CACHE_LOCK) {
-            matchByIndex = MATCH_CACHE.get(cacheKey);
-        }
+        TargetMatch[] matchByIndex = cachedMatch(version, plain);
         if (matchByIndex == null) {
-            int[] codePoints = plain.codePoints().toArray();
-            if (codePoints.length == 0) return text;
             String lower = plain.toLowerCase(Locale.ROOT);
             List<Target> matchingTargets = null;
             for (Target target : targets) {
@@ -320,11 +308,11 @@ public final class NickRenderUtils {
                 if (matchingTargets == null) matchingTargets = new ArrayList<>();
                 matchingTargets.add(target);
             }
-            if (matchingTargets == null || matchingTargets.isEmpty()) return text;
-            matchByIndex = matchTargets(codePoints, matchingTargets);
-            synchronized (MATCH_CACHE_LOCK) {
-                MATCH_CACHE.put(cacheKey, matchByIndex);
+            if (matchingTargets == null || matchingTargets.isEmpty()) {
+                cacheMatch(version, plain, NO_MATCH);return text;
             }
+            matchByIndex = matchTargets(plain.codePoints().toArray(), matchingTargets);
+            cacheMatch(version, plain, matchByIndex);
         }
         boolean matched = false;
         for (TargetMatch value : matchByIndex) {
@@ -335,6 +323,17 @@ public final class NickRenderUtils {
         }
         if (!matched) return text;
 
+        // Most text contains no customized player name. Only expand styled glyphs after a match.
+        List<Glyph> originalGlyphs = new ArrayList<>(plain.length());
+        if (fallback) appendGlyphs(originalGlyphs, plain, Style.EMPTY);
+        else try {
+            text.visit((style, str) -> {
+                if (str != null) appendGlyphs(originalGlyphs, str, style);
+                return java.util.Optional.empty();
+            }, Style.EMPTY);
+        } catch (RuntimeException malformed) {
+            originalGlyphs.clear();appendGlyphs(originalGlyphs,plain,Style.EMPTY);
+        }
         List<Glyph> outGlyphs = applyReplacementAndStyle(originalGlyphs, matchByIndex, System.currentTimeMillis());
         if (outGlyphs.isEmpty()) return text;
 
@@ -355,6 +354,12 @@ public final class NickRenderUtils {
             result = result.append(Component.literal(run.toString()).setStyle(current));
         }
         return result;
+    }
+
+    private static void appendGlyphs(List<Glyph> glyphs, String text, Style style) {
+        for (int i = 0; i < text.length();) {
+            int cp = text.codePointAt(i);glyphs.add(new Glyph(cp, style));i += Character.charCount(cp);
+        }
     }
 
     public static Component handleComponent(Component component) {
@@ -422,11 +427,7 @@ public final class NickRenderUtils {
         if (plain.isEmpty()) return original;
 
         long version = TARGET_VERSION.get();
-        String cacheKey = version + "|" + plain;
-        TargetMatch[] matchByIndex;
-        synchronized (MATCH_CACHE_LOCK) {
-            matchByIndex = MATCH_CACHE.get(cacheKey);
-        }
+        TargetMatch[] matchByIndex = cachedMatch(version, plain);
 
         if (matchByIndex == null) {
             String lower = plain.toLowerCase(Locale.ROOT);
@@ -437,14 +438,12 @@ public final class NickRenderUtils {
                 matchingTargets.add(target);
             }
             if (matchingTargets == null || matchingTargets.isEmpty()) {
-                synchronized(MATCH_CACHE_LOCK){MATCH_CACHE.put(cacheKey,NO_MATCH);}return original;
+                cacheMatch(version, plain, NO_MATCH);return original;
             }
 
             int[] codePoints = plain.codePoints().toArray();
             matchByIndex = matchTargets(codePoints, matchingTargets);
-            synchronized (MATCH_CACHE_LOCK) {
-                MATCH_CACHE.put(cacheKey, matchByIndex);
-            }
+            cacheMatch(version, plain, matchByIndex);
         }
 
         boolean matched = false;
@@ -575,7 +574,7 @@ public final class NickRenderUtils {
                 if (cp.explicitColor() != null) {
                     style = style.withColor(cp.explicitColor());
                 } else {
-                    int rgb = segmentPaints == null ? target.colorAt(len == 1 ? 0.0 : (double) idx / (len - 1), nowMs) : segmentPaints.get(idx).color(nowMs);
+                    int rgb = segmentPaints == null ? target.colorAt(len == 1 ? 0.0 : (double) idx / (len - 1), nowMs, gradient) : segmentPaints.get(idx).color(nowMs);
                     if (rgb >= 0) {
                         style = style.withColor(rgb);
                     }
@@ -834,8 +833,8 @@ public final class NickRenderUtils {
             );
         }
 
-        int colorAt(double progress, long nowMs) {
-            NicknameGradient gradient = gradient();
+        int colorAt(double progress, long nowMs) { return colorAt(progress, nowMs, gradient()); }
+        private int colorAt(double progress, long nowMs, NicknameGradient gradient) {
             if (gradient != null) return gradient.color(progress, 0.5, nowMs);
             if (!local) {
                 if (remoteChromaEnabled && palette.length > 0) {

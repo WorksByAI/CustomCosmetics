@@ -8,10 +8,12 @@ public final class BlockingRules {
     public enum Mode {
         OFF("Off"), BLACKLIST("Blacklist"), WHITELIST("Whitelist");
         public final String label;
-        Mode(String label) { this.label = label; }
-        public String value() { return name().toLowerCase(Locale.ROOT); }
+        private final String value;
+        private static final Mode[] OPTIONS = values();
+        Mode(String label) { this.label = label; this.value = name().toLowerCase(Locale.ROOT); }
+        public String value() { return value; }
         public static Mode parse(String value) {
-            if (value != null) for (Mode mode : values()) if (mode.value().equalsIgnoreCase(value.strip())) return mode;
+            if (value != null) { value=value.strip();for (Mode mode : OPTIONS) if (mode.value.equalsIgnoreCase(value)) return mode; }
             return OFF;
         }
     }
@@ -21,10 +23,19 @@ public final class BlockingRules {
         value = value.strip();
         if (value.regionMatches(true, 0, "skyblock:", 0, 9)) {
             String id = value.substring(9).toUpperCase(Locale.ROOT);
-            return id.matches("[A-Z0-9_]{1,128}") ? "skyblock:" + id : "";
+            return validPath(id, true) ? "skyblock:" + id : "";
         }
         value = value.toLowerCase(Locale.ROOT);
-        return value.matches("minecraft:[a-z0-9_./-]{1,128}") ? value : "";
+        return value.startsWith("minecraft:") && validPath(value.substring(10), false) ? value : "";
+    }
+    private static boolean validPath(String value,boolean skyblock){
+        if(value.isEmpty()||value.length()>128)return false;
+        for(int i=0;i<value.length();i++){
+            char c=value.charAt(i);
+            if(c>='0'&&c<='9'||c=='_'||(skyblock?c>='A'&&c<='Z':c>='a'&&c<='z'||c=='.'||c=='/'||c=='-'))continue;
+            return false;
+        }
+        return true;
     }
     public static String identity(Optional<String> skyblock, String vanilla) {
         return skyblock.isPresent() ? normalize("skyblock:" + skyblock.get()) : normalize(vanilla);

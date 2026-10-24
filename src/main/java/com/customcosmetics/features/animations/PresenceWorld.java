@@ -93,11 +93,26 @@ public final class PresenceWorld {
         }
         cachedLevel=client.level;cachedPlayer=client.player;cachedTick=client.player.tickCount;cachedDistance=distance;
         if (world.isEmpty()) return cachedScope = EMPTY;
-        var visible = new HashSet<UUID>();
         double maximum = distance * 16.0; maximum *= maximum;
-        for (var player : client.level.players())
-            if (player != client.player && client.player.distanceToSqr(player) <= maximum) visible.add(player.getUUID());
-        Set<UUID> players = cachedScope != null && cachedScope.players().equals(visible) ? cachedScope.players() : Set.copyOf(visible);
+        Set<UUID> players = cachedScope == null ? Set.of() : cachedScope.players();
+        int visibleCount = 0;
+        boolean changed = false;
+        var loaded = client.level.players();
+        for (int i=0;i<loaded.size();i++) {
+            var player=loaded.get(i);
+            if (player != client.player && client.player.distanceToSqr(player) <= maximum) {
+                visibleCount++;
+                if (!players.contains(player.getUUID())) changed = true;
+            }
+        }
+        if (changed || visibleCount != players.size()) {
+            var visible = new HashSet<UUID>();
+            for (int i=0;i<loaded.size();i++) {
+                var player=loaded.get(i);
+                if (player != client.player && client.player.distanceToSqr(player) <= maximum) visible.add(player.getUUID());
+            }
+            players = Set.copyOf(visible);
+        }
         if (cachedScope != null && cachedScope.world().equals(world) && cachedScope.players() == players) return cachedScope;
         return cachedScope = new Scope(world, players);
     }

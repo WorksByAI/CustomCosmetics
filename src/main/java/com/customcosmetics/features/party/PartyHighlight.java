@@ -20,28 +20,33 @@ public final class PartyHighlight{
         public Target(UUID uuid,String name,AABB box,boolean loaded){this(uuid,name,box,loaded,true);}
     }
     private static final Map<UUID,PartyPositionTrack> TRACKS=new HashMap<>();private static Object level;
+    private record SimpleLabel(String name,long meters,Component text) {}
+    private static final LinkedHashMap<UUID,SimpleLabel> LABELS=new LinkedHashMap<>(16,.75f,true);
     private PartyHighlight(){}
     public static void init(){LevelRenderEvents.COLLECT_SUBMITS.register(PartyHighlight::render);}
     public static List<Target> targets(Minecraft client){
-        if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SHARING)){if(level!=null){level=null;TRACKS.clear();}return List.of();}
-        if(level!=client.level){level=client.level;TRACKS.clear();}
+        if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SHARING)){if(level!=null){level=null;TRACKS.clear();LABELS.clear();}return List.of();}
+        if(level!=client.level){level=client.level;TRACKS.clear();LABELS.clear();}
         boolean partyPositions=PartyFeatures.sharingPositions(),shared=PositionSharing.receiving(client);
+        // Chams use loaded entity rendering directly; they need no marker candidates.
+        if(!ConfigManager.partyEspEnabled&&!ConfigManager.partyTracersEnabled&&!shared){TRACKS.clear();return List.of();}
         if((!partyPositions&&!shared)||!RemoteAccess.online()||client.level==null||client.player==null){TRACKS.clear();return List.of();}
         var roster=PartyFeatures.roster();var targets=new LinkedHashMap<UUID,Target>();
         float partial=client.getDeltaTracker().getGameTimeDeltaPartialTick(false);
         var origin=client.player.getPosition(partial);var active=new HashSet<UUID>();
+        long now=System.currentTimeMillis(),renderTime=System.nanoTime()/1_000_000;
         for(var player:client.level.players())if(partyPositions&&player!=client.player&&roster.contains(player.getUUID(),player.getGameProfile().name())){
             var pos=player.getPosition(partial);targets.put(player.getUUID(),new Target(player.getUUID(),player.getGameProfile().name(),player.getBoundingBox().move(pos.subtract(player.position())),true));
         }
         if(shared||ConfigManager.partyFarMarkers||ConfigManager.partyTracersEnabled)for(var entry:PartySync.teammates().values()){
             boolean party=partyPositions&&roster.contains(entry.uuid(),entry.name());
-            if(entry.expiresAt()<=System.currentTimeMillis()||entry.uuid().equals(client.player.getUUID())||!party&&!shared||targets.containsKey(entry.uuid()))continue;
+            if(entry.expiresAt()<=now||entry.uuid().equals(client.player.getUUID())||!party&&!shared||targets.containsKey(entry.uuid()))continue;
             if(party&&!ConfigManager.partyFarMarkers&&!ConfigManager.partyTracersEnabled)continue;
             var loaded=client.level.getPlayerByUUID(entry.uuid());
             if(loaded!=null){var pos=loaded.getPosition(partial);targets.put(entry.uuid(),new Target(entry.uuid(),entry.name(),loaded.getBoundingBox().move(pos.subtract(loaded.position())),true,party));continue;}
             var raw=entry.position();
             if(!PartyDisplayRange.visible(ConfigManager.partyMaxDisplayDistance,origin.distanceToSqr(raw.x(),raw.y(),raw.z())))continue;
-            active.add(entry.uuid());var p=TRACKS.computeIfAbsent(entry.uuid(),ignored->new PartyPositionTrack()).render(entry,System.nanoTime()/1000000);
+            active.add(entry.uuid());var p=TRACKS.computeIfAbsent(entry.uuid(),ignored->new PartyPositionTrack()).render(entry,renderTime);
             targets.put(entry.uuid(),new Target(entry.uuid(),entry.name(),new AABB(p.x()-p.width()/2,p.y(),p.z()-p.width()/2,p.x()+p.width()/2,p.y()+p.height(),p.z()+p.width()/2),false,party));
         }
         TRACKS.keySet().retainAll(active);
@@ -88,8 +93,16 @@ public final class PartyHighlight{
             var pose=new PoseStack();pose.translate(rel.x,rel.y,rel.z);pose.mulPose(new org.joml.Matrix4f().rotation(camera.orientation));
             float scale=PartyNametagScale.scale(ConfigManager.partyNametagMode,ConfigManager.partyNametagSize,length,Math.min(length,range));pose.scale(scale,-scale,scale);
             boolean vanilla="vanilla".equals(ConfigManager.partyNametagStyle);
-            var label=vanilla?SharingNametag.label(Minecraft.getInstance(),target.uuid(),target.name()):Component.literal(target.name()+" · "+Math.round(distance)+"m");
+            var label=vanilla?SharingNametag.label(Minecraft.getInstance(),target.uuid(),target.name()):simpleLabel(target,Math.round(distance));
             queue.submitText(pose,-font.width(label)/2f,0,label.getVisualOrderText(),false,Font.DisplayMode.SEE_THROUGH,0xF000F0,vanilla?0xFFFFFFFF:0xFF000000|color,0x40000000,0);
         }
+    }
+    private static Component simpleLabel(Target target,long meters){
+        var cached=LABELS.get(target.uuid());
+        if(cached!=null&&cached.meters()==meters&&cached.name().equals(target.name()))return cached.text();
+        var text=Component.literal(target.name()+" · "+meters+"m");
+        LABELS.put(target.uuid(),new SimpleLabel(target.name(),meters,text));
+        if(LABELS.size()>512)LABELS.remove(LABELS.keySet().iterator().next());
+        return text;
     }
 }

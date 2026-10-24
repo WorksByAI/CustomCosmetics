@@ -105,8 +105,22 @@ public final class AccessoriesGameTest implements FabricClientGameTest {
         var combination=AccessoriesSettings.NONE;for(var slot:AccessoryCatalog.slots())combination=combination.with(slot.id(),combination.part(slot.id()).enabled(true));var outfit=combination;
         context.runOnClient(client->{ConfigManager.accessories=outfit;ClientUiAccess.setScreen(client,new WardrobeScreen(null));});context.waitTicks(3);check(self,58);context.takeScreenshot("wardrobe-all-parts-combined");
         context.runOnClient(client->{
-            var physical=client.player.getBoundingBox();var method=net.minecraft.client.renderer.entity.LivingEntityRenderer.class.getDeclaredMethod("getBoundingBoxForCulling",net.minecraft.world.entity.LivingEntity.class);method.setAccessible(true);var renderer=client.getEntityRenderDispatcher().getRenderer(client.player);var expanded=(net.minecraft.world.phys.AABB)method.invoke(renderer,client.player);
+            var physical=client.player.getBoundingBox();java.lang.reflect.Method method;
+            try{method=net.minecraft.client.renderer.entity.LivingEntityRenderer.class.getDeclaredMethod("getBoundingBoxForCulling",net.minecraft.world.entity.LivingEntity.class);}
+            catch(NoSuchMethodException modern){method=net.minecraft.client.renderer.entity.LivingEntityRenderer.class.getDeclaredMethod("getBoundingBoxForCulling",net.minecraft.world.entity.LivingEntity.class,float.class);}
+            method.setAccessible(true);var renderer=client.getEntityRenderDispatcher().getRenderer(client.player);
+            Object[] arguments=method.getParameterCount()==1?new Object[]{client.player}:new Object[]{client.player,0f};
+            var expanded=(net.minecraft.world.phys.AABB)method.invoke(renderer,arguments);
             if(expanded.getXsize()<=physical.getXsize()||expanded.getYsize()<=physical.getYsize())throw new AssertionError("Large accessories can be culled at the viewport edge");if(!client.player.getBoundingBox().equals(physical))throw new AssertionError("Cosmetic culling changed a gameplay hitbox");
+            int modules=ConfigManager.disabledModules;var saved=ConfigManager.accessories;
+            try{
+                com.customcosmetics.config.FeatureModules.set(com.customcosmetics.config.FeatureModules.Feature.EQUIPMENT,false);
+                var disabled=(net.minecraft.world.phys.AABB)method.invoke(renderer,arguments);
+                ConfigManager.accessories=AccessoriesSettings.NONE;
+                com.customcosmetics.config.FeatureModules.set(com.customcosmetics.config.FeatureModules.Feature.EQUIPMENT,true);
+                var noParts=(net.minecraft.world.phys.AABB)method.invoke(renderer,arguments);
+                if(!disabled.equals(noParts))throw new AssertionError("Disabled accessories still expand culling bounds");
+            }finally{ConfigManager.disabledModules=modules;ConfigManager.accessories=saved;}
         });
         context.runOnClient(client->{client.options.guiScale().set(3);});context.getInput().resizeWindow(1280,720);context.waitTicks(3);
         context.runOnClient(client->{var screen=ClientUiAccess.screen(client);for(var child:screen.children())if(child instanceof net.minecraft.client.gui.components.AbstractWidget widget&&widget.visible&&(widget.getY()<0||widget.getBottom()>screen.height||widget.getX()<0||widget.getRight()>screen.width))throw new AssertionError("Compact wardrobe control exceeds viewport: "+widget.getMessage().getString());});context.takeScreenshot("wardrobe-compact-viewport");

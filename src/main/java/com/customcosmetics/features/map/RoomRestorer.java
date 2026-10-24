@@ -14,13 +14,13 @@ final class RoomRestorer {
         Work(RoomLayouts.Frame frame,Map<MapEdits.Position,String> source){this.frame=frame;this.source=source;sections=source.size()<8192?CompletableFuture.completedFuture(index(frame,source)):CompletableFuture.supplyAsync(()->index(frame,source),MapWork.EXECUTOR);}
     }
     private record Selected(Work work,Section section,boolean knownOnly){}
-    private final Map<String,Work> works=new HashMap<>();private Job job;private long nextSectionCheck;
+    private final Map<RoomLayouts.Frame,Work> works=new HashMap<>();private Job job;private long nextSectionCheck;
     void reset(){works.clear();job=null;nextSectionCheck=0;}
     void cancel(){job=null;}
     void request(Collection<RoomLayouts.Frame> frames){
-        var wanted=new HashSet<String>();for(var frame:frames){var source=MapEditor.ROOMS.edits(frame.key());String id=frame.key()+"@"+frame.origin()+":"+frame.turns();wanted.add(id);var old=works.get(id);
-            if(source.isEmpty())works.remove(id);else if(old==null||old.source!=source){works.put(id,new Work(frame,source));nextSectionCheck=0;}}
-        works.keySet().retainAll(wanted);
+        for(var frame:frames){var source=MapEditor.ROOMS.edits(frame.key());var old=works.get(frame);
+            if(source.isEmpty())works.remove(frame);else if(old==null||old.source!=source){works.put(frame,new Work(frame,source));nextSectionCheck=0;}}
+        works.keySet().retainAll(frames);
     }
     private static List<Section> index(RoomLayouts.Frame frame,Map<MapEdits.Position,String> source){
         var sections=new HashMap<MapEdits.Position,List<Map.Entry<MapEdits.Position,String>>>();
@@ -30,7 +30,7 @@ final class RoomRestorer {
     void tick(){
         var client=Minecraft.getInstance();if(client.level==null)return;
         works.values().removeIf(w->MapEditor.ROOMS.edits(w.frame.key())!=w.source);
-        if(job!=null&&(MapEditor.DATA.snapshot()!=job.before||job.selected.stream().anyMatch(s->!works.containsValue(s.work)||MapEditor.ROOMS.edits(s.work.frame.key())!=s.work.source)))job=null;
+        if(job!=null&&(MapEditor.DATA.snapshot()!=job.before||job.selected.stream().anyMatch(s->works.get(s.work.frame)!=s.work||MapEditor.ROOMS.edits(s.work.frame.key())!=s.work.source)))job=null;
         if(job==null){
             long now=System.nanoTime();if(now<nextSectionCheck)return;
             var selected=new ArrayList<Selected>();

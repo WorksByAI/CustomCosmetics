@@ -27,10 +27,12 @@ final class BlockingStyleGameTest {
         context.runOnClient(client -> {
             if (!ConfigManager.swordBlockingStyle.equals("jigsaw")) throw new AssertionError("The dropdown did not select Jigsaw");
             ConfigManager.saveConfig();
-            var settings = com.google.gson.JsonParser.parseString(java.nio.file.Files.readString(
-                CosmeticsConfigDir.getCosmeticsConfigDir().resolve("config.json"))).getAsJsonObject().getAsJsonObject("settings");
-            if (!settings.get("swordBlockingStyle").getAsString().equals("jigsaw")) throw new AssertionError("Style was not saved locally");
         });
+        // Wait on the test thread; file completion must not block the client thread.
+        ConfigManager.awaitPendingSaves();
+        var settings = com.google.gson.JsonParser.parseString(java.nio.file.Files.readString(
+            CosmeticsConfigDir.getCosmeticsConfigDir().resolve("config.json"))).getAsJsonObject().getAsJsonObject("settings");
+        if (!settings.get("swordBlockingStyle").getAsString().equals("jigsaw")) throw new AssertionError("Style was not saved locally");
         context.getInput().pressKey(ClientInput.ESCAPE);
         context.runOnClient(client -> ClientUiAccess.setScreen(client, new CosmeticsScreen(null, CosmeticsScreen.Page.ANIMATIONS)));
         context.waitTicks(2);

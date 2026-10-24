@@ -11,7 +11,8 @@ public final class RemoteAccess {
     private static long generation;
     private static final Set<AutoCloseable> resources = new HashSet<>();
     private RemoteAccess() {}
-    public static synchronized boolean online() { return !ConfigManager.offlineMode; }
+    // The setting is volatile; render checks must not wait behind network-resource bookkeeping.
+    public static boolean online() { return !ConfigManager.offlineMode; }
     public static synchronized long generation() { return generation; }
     public static synchronized void requireOnline() throws IOException {
         if (!online()) throw new IOException("Offline mode is enabled.");
@@ -26,8 +27,15 @@ public final class RemoteAccess {
         for (var resource : closing) try { resource.close(); } catch (Exception ignored) {}
     }
     @FunctionalInterface public interface Factory<T> { T create() throws Exception; }
-    public static synchronized <T extends AutoCloseable> T channel(Factory<T> factory) throws Exception {
-        requireOnline(); T channel = factory.create(); resources.add(channel); return channel;
+    public static <T extends AutoCloseable> T channel(Factory<T> factory) throws Exception {
+        long version;
+        synchronized(RemoteAccess.class) { requireOnline(); version=generation; }
+        T channel = factory.create();
+        synchronized(RemoteAccess.class) {
+            if(online()&&version==generation) { resources.add(channel); return channel; }
+        }
+        try { channel.close(); } catch(Exception ignored) {}
+        throw new IOException("Remote request cancelled.");
     }
     public static synchronized void release(AutoCloseable resource) { resources.remove(resource); }
     public static synchronized HttpURLConnection manage(HttpURLConnection connection) throws IOException {

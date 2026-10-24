@@ -22,6 +22,7 @@ public final class DungeonRooms {
     public static final String KUUDRA_KEY="area:kuudra";
     private static final RoomLayouts.Frame KUUDRA_FRAME=new RoomLayouts.Frame(KUUDRA_KEY,"Kuudra's Hollow",new MapEdits.Position(0,0,0),0);
     private static Object contextLevel;private static boolean dungeon,offlineBoss,kuudra;private static String floor="";private static int scanCursor;
+    private static List<MapEdits.Position> cachedCenters=List.of();private static int centerX,centerZ;
     private DungeonRooms(){}
     public static void init(){
         // Vanilla's flattening table maps legacy block metadata to modern names (no mod registry IDs).
@@ -35,15 +36,17 @@ public final class DungeonRooms {
             for(var row:rows){var room=row.getAsJsonObject();var cores=room.getAsJsonArray("cores");var def=new Definition(room.get("name").getAsString(),cores.get(0).getAsInt());for(var core:cores)definitions.put(core.getAsInt(),def);}
         }catch(Exception error){throw new IllegalStateException("Could not read FunnyMap room catalog",error);}
     }
-    public static void reset(){tiles.clear();frames.clear();nextDiscovery.clear();scanCursor=0;contextLevel=null;dungeon=false;offlineBoss=false;kuudra=false;floor="";}
+    public static void reset(){tiles.clear();frames.clear();nextDiscovery.clear();cachedCenters=List.of();scanCursor=0;contextLevel=null;dungeon=false;offlineBoss=false;kuudra=false;floor="";}
     public static void context(Minecraft client){boolean nextOffline=MapEditor.offlineBoss(client),nextKuudra=MapEditor.inKuudra(client);if(contextLevel!=client.level||offlineBoss!=nextOffline||kuudra!=nextKuudra){tiles.clear();frames.clear();nextDiscovery.clear();}offlineBoss=nextOffline;kuudra=nextKuudra;contextLevel=client.level;dungeon=MapEditor.inMapArea(client);floor=dungeon&&!kuudra?MapEditor.floor():"";}
     private static String cell(int x,int z){return x+":"+z;}
-    private static Collection<MapEdits.Position> scanCenters(){
-        var centers=new LinkedHashSet<MapEdits.Position>();for(int x=-185;x<=-25;x+=32)for(int z=-185;z<=-25;z+=32)centers.add(new MapEdits.Position(x,0,z));
+    private static List<MapEdits.Position> scanCenters(){
         // Recognition must use the same block scan with automatic and forced dungeon context.
         // Only known catalog/imported cores are accepted outside the legacy six-by-six grid.
-        var client=Minecraft.getInstance();var viewer=client.getCameraEntity()==null?client.player:client.getCameraEntity();var p=viewer.blockPosition();int x=Math.round((p.getX()+185)/32f)*32-185,z=Math.round((p.getZ()+185)/32f)*32-185;for(int dx=-2;dx<=2;dx++)for(int dz=-2;dz<=2;dz++)centers.add(new MapEdits.Position(x+dx*32,0,z+dz*32));
-        return centers;
+        var client=Minecraft.getInstance();var viewer=client.getCameraEntity()==null?client.player:client.getCameraEntity();var p=viewer.blockPosition();int x=Math.round((p.getX()+185)/32f)*32-185,z=Math.round((p.getZ()+185)/32f)*32-185;
+        if(!cachedCenters.isEmpty()&&x==centerX&&z==centerZ)return cachedCenters;
+        var centers=new LinkedHashSet<MapEdits.Position>();for(int sx=-185;sx<=-25;sx+=32)for(int sz=-185;sz<=-25;sz+=32)centers.add(new MapEdits.Position(sx,0,sz));
+        for(int dx=-2;dx<=2;dx++)for(int dz=-2;dz<=2;dz++)centers.add(new MapEdits.Position(x+dx*32,0,z+dz*32));
+        centerX=x;centerZ=z;cachedCenters=List.copyOf(centers);return cachedCenters;
     }
     private static Integer core(int x,int z){
         var client=Minecraft.getInstance();if(!MapEditor.loaded(new BlockPos(x,70,z)))return null;
@@ -58,7 +61,7 @@ public final class DungeonRooms {
     /** Visit every loaded room from dungeon entry, distributing discovery across ticks. */
     public static void scanStep(){
         var client=Minecraft.getInstance();context(client);if(!dungeon||offlineBoss||kuudra)return;
-        var centers=new ArrayList<>(scanCenters());long end=System.nanoTime()+250_000,now=System.nanoTime();
+        var centers=scanCenters();long end=System.nanoTime()+250_000,now=System.nanoTime();
         for(int visited=0;visited<centers.size();visited++){
             var center=centers.get(Math.floorMod(scanCursor++,centers.size()));
             String key=cell(center.x(),center.z());

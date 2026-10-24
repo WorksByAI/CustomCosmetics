@@ -15,6 +15,11 @@ public final class RemoteServerConfig {
     private static Path file;
     private static String previousText;
     private static long nextCheck;
+    private static final java.util.concurrent.ExecutorService READER = java.util.concurrent.Executors.newSingleThreadExecutor(task -> {
+        var thread = new Thread(task,"CustomCosmetics-config-reader");thread.setDaemon(true);return thread;
+    });
+    private record Read(String text, Endpoint endpoint, boolean invalid) {}
+    private static java.util.concurrent.CompletableFuture<Read> pending;
     private RemoteServerConfig() {}
 
     public static synchronized void init(Path path) {
@@ -73,19 +78,42 @@ public final class RemoteServerConfig {
         return Boolean.parseBoolean(raw);
     }
     public static synchronized boolean reload(boolean force) {
-        if (file == null || !force && System.nanoTime() < nextCheck) return false;
-        nextCheck = System.nanoTime() + 1_000_000_000L;
+        if (file == null) return false;
+        if (force) {
+            if (pending != null) { pending.cancel(false);pending=null; }
+            nextCheck=System.nanoTime()+1_000_000_000L;
+            return accept(read(file,previousText));
+        }
+        // Apply completed immutable settings on the client thread, but never wait for filesystem I/O.
+        if (pending != null) {
+            if (!pending.isDone()) return false;
+            var result=pending.join();pending=null;
+            return accept(result);
+        }
+        if (System.nanoTime()<nextCheck) return false;
+        nextCheck=System.nanoTime()+1_000_000_000L;
+        Path path=file;String previous=previousText;
+        pending=java.util.concurrent.CompletableFuture.supplyAsync(()->read(path,previous),READER);
+        return false;
+    }
+    private static Read read(Path path,String previous) {
         try {
-            String text = Files.exists(file) ? Files.readString(file,StandardCharsets.UTF_8) : "";
-            if (Objects.equals(text,previousText)) return false;
-            previousText = text;
-            Endpoint parsed = parse(text), old = current();
-            apply(parsed);
-            return !parsed.equals(old);
+            String text = Files.exists(path) ? Files.readString(path,StandardCharsets.UTF_8) : "";
+            if (Objects.equals(text,previous)) return new Read(text,null,false);
+            try { return new Read(text,parse(text),false); }
+            catch (RuntimeException malformed) { return new Read(text,null,true); }
         } catch (java.io.IOException | RuntimeException error) {
+            return new Read(previous,null,true);
+        }
+    }
+    private static boolean accept(Read result) {
+        previousText=result.text();
+        if (result.invalid()) {
             LoggerFactory.getLogger("CustomCosmetics/RemoteServer").warn("Invalid custom remote server file; keeping the last valid connection settings");
             return false;
         }
+        if (result.endpoint()==null) return false;
+        Endpoint old=current();apply(result.endpoint());return !result.endpoint().equals(old);
     }
     public static Endpoint current() { return new Endpoint(ConfigManager.syncServerIp,ConfigManager.syncServerPort,ConfigManager.syncServerHttps,
         ConfigManager.syncServerSni,ConfigManager.syncUdpHost,ConfigManager.syncUdpPort,ConfigManager.syncBlockingTransport); }

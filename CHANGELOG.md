@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.5-dev.1
+
+- Reduce rendering allocations, redundant scans and disabled-module work.
+- Move synchronization decoding and configuration writes off the game thread.
+- Fix settings search navigation and blocking style keywords.
+
 ## 1.8.4
 
 - Add support for changing rank colors.

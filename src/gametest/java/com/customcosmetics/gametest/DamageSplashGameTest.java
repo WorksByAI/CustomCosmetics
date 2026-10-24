@@ -166,8 +166,29 @@ public final class DamageSplashGameTest implements FabricClientGameTest {
         context.getInput().setCursorPos(point.get()[0],point.get()[1]);context.getInput().pressMouse(ClientInput.MOUSE_LEFT);context.getInput().typeChars(value);context.waitTicks(3);
     }
     private static void click(ClientGameTestContext context,String title){
-        var point=new AtomicReference<double[]>();context.runOnClient(client->{var button=ClientUiAccess.screen(client).children().stream().filter(child->child instanceof PinkUi.Action action&&action.getMessage().getString().equals(title)).map(PinkUi.Action.class::cast).findFirst().orElseThrow();double scale=client.getWindow().getGuiScale();point.set(new double[]{(button.getX()+button.getWidth()/2.0)*scale,(button.getY()+button.getHeight()/2.0)*scale});});
-        context.getInput().setCursorPos(point.get()[0],point.get()[1]);context.getInput().pressMouse(ClientInput.MOUSE_LEFT);context.waitTicks(3);
+        var point=new AtomicReference<double[]>();
+        for(int attempt=0;attempt<20;attempt++){
+            context.runOnClient(client->{
+                var screen=ClientUiAccess.screen(client);
+                var button=screen.children().stream().filter(child->child instanceof PinkUi.Action action&&action.getMessage().getString().equals(title)).map(PinkUi.Action.class::cast).findFirst()
+                    .orElseThrow(()->new AssertionError("Missing clickable control '"+title+"' on "+field(screen,"page")+"; actions: "+screen.children().stream().filter(PinkUi.Action.class::isInstance).map(PinkUi.Action.class::cast).map(action->action.getMessage().getString()).toList()));
+                int top=((Number)field(screen,"viewTop")).intValue(),bottom=((Number)field(screen,"viewBottom")).intValue();
+                double scale=client.getWindow().getGuiScale(),x=(button.getX()+button.getWidth()/2.0)*scale;
+                if(button.getY()<top)point.set(new double[]{x,(top+bottom)/2.0*scale,Math.ceil((top-button.getY())/48.0)});
+                else if(button.getBottom()>bottom)point.set(new double[]{x,(top+bottom)/2.0*scale,-Math.ceil((button.getBottom()-bottom)/48.0)});
+                else{
+                    if(!button.visible||!button.active)throw new AssertionError("Control is not interactable: "+title);
+                    point.set(new double[]{x,(button.getY()+button.getHeight()/2.0)*scale,0});
+                }
+            });
+            var target=point.get();context.getInput().setCursorPos(target[0],target[1]);
+            if(target[2]!=0){
+                // Small windows clip later results; use the real scroll input before clicking them.
+                context.getInput().scroll((int)target[2]);context.waitTicks(2);continue;
+            }
+            context.getInput().pressMouse(ClientInput.MOUSE_LEFT);context.waitTicks(3);return;
+        }
+        throw new AssertionError("Could not scroll control into the visible viewport: "+title);
     }
     private static void checkLocationTracers(ClientGameTestContext context){
         context.runOnClient(client->{

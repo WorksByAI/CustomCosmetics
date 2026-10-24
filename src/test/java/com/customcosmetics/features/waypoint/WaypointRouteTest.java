@@ -7,6 +7,20 @@ import static org.junit.jupiter.api.Assertions.*;
 import static com.customcosmetics.features.waypoint.WaypointData.*;
 
 class WaypointRouteTest {
+    @Test void neighbourOnlyRoutesInspectAtMostTwoPointsAndKeepOverlapTieBreak() {
+        var reads=new java.util.concurrent.atomic.AtomicInteger();
+        var point=new Point("Overlap",0,70,0,1,true);
+        List<Point> large=new java.util.AbstractList<>() {
+            @Override public int size(){return 4096;}
+            @Override public Point get(int index){reads.incrementAndGet();return point;}
+        };
+        var route=new WaypointRoute();
+        route.tick(large,.5,70.5,.5,2,false,true);
+        assertEquals(4095,route.current(),"The higher original neighbour index wins an overlap");
+        assertTrue(reads.get()<=4,"Neighbour mode scanned the whole route");
+        reads.set(0);route.reset();route.tick(large,.5,70.5,.5,2,true,false);
+        assertEquals(1,route.current());assertTrue(reads.get()<=2);
+    }
     private final List<Point> points = List.of(new Point("A", 0, 70, 0, 1, true),
             new Point("B", 10, 70, 0, 2, true), new Point("C", 20, 70, 0, 3, true),
             new Point("D", 30, 70, 0, 4, true));

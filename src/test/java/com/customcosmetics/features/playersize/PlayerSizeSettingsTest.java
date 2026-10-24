@@ -6,6 +6,21 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class PlayerSizeSettingsTest {
+    @Test void localRenderCacheTracksEveryAxisAndPreservesDisabledDrafts(){
+        var old=PlayerSizeSettings.local();int modules=com.customcosmetics.config.ConfigManager.disabledModules;
+        try{
+            com.customcosmetics.config.FeatureModules.all(true);
+            com.customcosmetics.config.ConfigManager.playerSizeEnabled=false;
+            com.customcosmetics.config.ConfigManager.playerSizeX=.7;com.customcosmetics.config.ConfigManager.playerSizeY=2;com.customcosmetics.config.ConfigManager.playerSizeZ=Double.NaN;
+            var draft=PlayerSizeSettings.local();assertEquals(new PlayerSizeSettings(false,.7,2,1),draft);assertSame(draft,PlayerSizeSettings.local());
+            com.customcosmetics.config.ConfigManager.playerSizeEnabled=true;var enabled=PlayerSizeSettings.local();assertNotSame(draft,enabled);assertSame(enabled,PlayerSizeSettings.local());
+            com.customcosmetics.config.ConfigManager.playerSizeZ=1.5;assertEquals(1.5,PlayerSizeSettings.local().z());
+            com.customcosmetics.config.FeatureModules.set(com.customcosmetics.config.FeatureModules.Feature.PLAYER_SIZE,false);assertSame(PlayerSizeSettings.NORMAL,PlayerSizeSettings.local());
+        }finally{
+            com.customcosmetics.config.ConfigManager.playerSizeEnabled=old.enabled();com.customcosmetics.config.ConfigManager.playerSizeX=old.x();com.customcosmetics.config.ConfigManager.playerSizeY=old.y();com.customcosmetics.config.ConfigManager.playerSizeZ=old.z();com.customcosmetics.config.ConfigManager.disabledModules=modules;
+        }
+    }
+
     @Test void eachAxisIsIndependentAndInvalidOrExtremeNumbersAreBounded(){
         var value=new PlayerSizeSettings(true,.5,1.5,2);assertEquals(.5,value.x());assertEquals(1.5,value.y());assertEquals(2,value.z());
         var bounded=new PlayerSizeSettings(true,-100,100,Double.NaN);assertEquals(.1,bounded.x());assertEquals(3,bounded.y());assertEquals(1,bounded.z());

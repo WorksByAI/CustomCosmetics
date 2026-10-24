@@ -16,6 +16,7 @@ import net.minecraft.resources.Identifier;
 public final class AccessoryLayer extends RenderLayer<AvatarRenderState,PlayerModel> {
     private static final Identifier WHITE=Identifier.fromNamespaceAndPath("customcosmetics","textures/accessories/materials.png");
     private static final Identifier DETAILED=Identifier.fromNamespaceAndPath("customcosmetics","textures/accessories/detailed-materials.png");
+    private final org.joml.Matrix4f rotation=new org.joml.Matrix4f();
     public AccessoryLayer(RenderLayerParent<AvatarRenderState,PlayerModel> parent){super(parent);}
     @Override public void submit(PoseStack pose,SubmitNodeCollector queue,int light,AvatarRenderState state,float yaw,float pitch){
         var snapshot=(AccessoryRenderState)state;if(snapshot.customcosmetics$hideAccessories()||state.isInvisible)return;
@@ -26,7 +27,7 @@ public final class AccessoryLayer extends RenderLayer<AvatarRenderState,PlayerMo
             var mesh=AccessoryMeshes.get(style);
             var texture=style.collection()==AccessoryCatalog.Collection.DETAILED?DETAILED:WHITE;
             int copies=switch(slot.id()){case "wings","ears","arms","feet","pants"->2;case "particles"->6;default->1;};
-            if(slot.id().equals("wings")&&settings.part("tail").enabled())for(int side:new int[]{-1,1}){
+            if(slot.id().equals("wings")&&settings.part("tail").enabled())for(int side=-1;side<=1;side+=2){
                 double size=AccessoryPlacement.size("wings",p),x=AccessoryPlacement.wingX(settings,mesh.bounds(),size,s->AccessoryMeshes.get(s).bounds());
                 double rear=AccessoryPlacement.wingRear(settings,(AccessoryModelFit.bounds(getParentModel().body).maxZ()+.4+(state.chestEquipment.isEmpty()?0:1.1))/16,s->AccessoryMeshes.get(s).bounds());
                 var mount=AccessoryPlacement.wing(mesh.bounds(),size,rear,state.ageInTicks,p.speed(),side);
@@ -36,8 +37,8 @@ public final class AccessoryLayer extends RenderLayer<AvatarRenderState,PlayerMo
                 int side=copy==0?-1:1;pose.pushPose();offset(pose,p);attach(pose,slot.id(),style,side,copy,state,settings);
                 draw(queue,pose,mesh,light,p,slot.id().equals("halo")||slot.id().equals("particles")||slot.id().equals("head")&&style.variant()==5,texture);pose.popPose();
             }
-            if(mesh.sleeves()!=null)for(int side:new int[]{-1,1}){pose.pushPose();offset(pose,p);AccessoryModelFit.garment(pose,side<0?getParentModel().rightArm:getParentModel().leftArm,p.scale(),state.chestEquipment.isEmpty()?0:1.1,4.8,12.8,4.8,4);part(queue,pose,mesh.sleeves(),light,p.color(),false,texture);part(queue,pose,mesh.cuffs(),light,p.accent(),false,texture);pose.popPose();}
-            if(mesh.skirt()!=null)for(int side:new int[]{-1,1}){pose.pushPose();offset(pose,p);AccessoryModelFit.garment(pose,side<0?getParentModel().rightLeg:getParentModel().leftLeg,p.scale(),state.legsEquipment.isEmpty()?0:.5,4.8,12.8,5.2,6);part(queue,pose,mesh.skirt(),light,p.color(),false,texture);part(queue,pose,mesh.hem(),light,p.accent(),false,texture);pose.popPose();}
+            if(mesh.sleeves()!=null)for(int side=-1;side<=1;side+=2){pose.pushPose();offset(pose,p);AccessoryModelFit.garment(pose,side<0?getParentModel().rightArm:getParentModel().leftArm,p.scale(),state.chestEquipment.isEmpty()?0:1.1,4.8,12.8,4.8,4);part(queue,pose,mesh.sleeves(),light,p.color(),false,texture);part(queue,pose,mesh.cuffs(),light,p.accent(),false,texture);pose.popPose();}
+            if(mesh.skirt()!=null)for(int side=-1;side<=1;side+=2){pose.pushPose();offset(pose,p);AccessoryModelFit.garment(pose,side<0?getParentModel().rightLeg:getParentModel().leftLeg,p.scale(),state.legsEquipment.isEmpty()?0:.5,4.8,12.8,5.2,6);part(queue,pose,mesh.skirt(),light,p.color(),false,texture);part(queue,pose,mesh.hem(),light,p.accent(),false,texture);pose.popPose();}
         }
     }
     private void attach(PoseStack pose,String slot,AccessoryCatalog.Style style,int side,int index,AvatarRenderState state,AccessoriesSettings settings){
@@ -71,7 +72,7 @@ public final class AccessoryLayer extends RenderLayer<AvatarRenderState,PlayerMo
     }
     private static void scale(PoseStack pose,double scale){pose.scale((float)scale,(float)scale,(float)scale);}
     public static void offset(PoseStack pose,AccessoriesSettings.Part part){var offset=part.offset();pose.translate(-offset.x(),-offset.y(),offset.z());}
-    private static void rotate(PoseStack pose,float x,float y,float z){pose.mulPose(new org.joml.Matrix4f().rotationXYZ(x,y,z));}
+    private void rotate(PoseStack pose,float x,float y,float z){pose.mulPose(rotation.rotationXYZ(x,y,z));}
     private static void draw(SubmitNodeCollector queue,PoseStack pose,AccessoryMeshes.Mesh mesh,int light,AccessoriesSettings.Part p,boolean glow,Identifier texture){
         part(queue,pose,mesh.primary(),light,p.color(),false,texture);part(queue,pose,mesh.accent(),glow?0xF000F0:light,p.accent(),glow,texture);
         if(mesh.details()!=null)part(queue,pose,mesh.details(),light,0x302D3B,false,texture);

@@ -24,6 +24,7 @@ public final class DamageSplashMixin {
     public static class Metadata {
         @Inject(method="handleSetEntityData", at=@At("TAIL"))
         private void customcosmetics$damageMetadata(ClientboundSetEntityDataPacket packet, CallbackInfo ci) {
+            if (!DamageSplash.active()) return;
             var client = Minecraft.getInstance();
             if (client.level != null && client.level.getEntity(packet.id()) instanceof ArmorStand stand) DamageSplash.capture(stand);
         }
@@ -42,7 +43,7 @@ public final class DamageSplashMixin {
         }
         @Inject(method="submitNameDisplay(Lnet/minecraft/client/renderer/entity/state/EntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;I)V", at=@At("HEAD"), cancellable=true)
         private void customcosmetics$hideReplacedLabel(EntityRenderState state, PoseStack pose, SubmitNodeCollector collector, CameraRenderState camera, int line, CallbackInfo ci) {
-            if (ConfigManager.damageSplashEnabled && ((DamageRenderState) state).customcosmetics$damageName()) ci.cancel();
+            if (DamageSplash.active() && ((DamageRenderState) state).customcosmetics$damageName()) ci.cancel();
         }
     }
 }

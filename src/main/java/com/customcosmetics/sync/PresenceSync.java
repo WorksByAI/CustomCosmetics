@@ -47,7 +47,9 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.BiConsumer;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -67,6 +69,11 @@ public final class PresenceSync {
     private static final long SOFT_STALE_AFTER_MS = 3L * 24L * 60L * 60L * 1000L;
     private static final long HARD_EXPIRE_AFTER_MS = 3L * 24L * 60L * 60L * 1000L;
     private static final Gson CACHE_GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final ExecutorService CACHE_WRITER = Executors.newSingleThreadExecutor(task -> {
+        var thread = new Thread(task, "CustomCosmetics-presence-cache"); thread.setDaemon(true); return thread;
+    });
+    private static final AtomicReference<Runnable> PENDING_CACHE = new AtomicReference<>();
+    private static final AtomicBoolean CACHE_SCHEDULED = new AtomicBoolean();
 
     private static final AtomicBoolean FETCHING = new AtomicBoolean(false);
     private static final AtomicLong ENDPOINT_VERSION = new AtomicLong();
@@ -255,7 +262,8 @@ public final class PresenceSync {
                     Minecraft.getInstance().submit(() -> {
                         if (endpointVersion != ENDPOINT_VERSION.get()) return;
                         lastReportedSignature = signature;
-                        updateCacheForSelfFromLocalState(state);
+                        var snapshot = remoteSnapshot;
+                        cacheLater(endpointVersion, () -> updateCacheForSelfFromLocalState(state, snapshot, base));
                     }).join();
                 }
             } catch (Exception e) {
@@ -271,10 +279,10 @@ public final class PresenceSync {
         });
     }
 
-    private static void updateCacheForSelfFromLocalState(LocalUserState local) {
+    private static void updateCacheForSelfFromLocalState(LocalUserState local, RemoteSnapshot captured, String base) {
         try {
             String nowIso = java.time.Instant.now().toString();
-            Map<UUID, RemoteUserState> snapshot = new HashMap<>(remoteSnapshot.users());
+            Map<UUID, RemoteUserState> snapshot = new HashMap<>(captured.users());
             snapshot.put(local.uuid(), new RemoteUserState(
                     local.uuid(),
                     local.name(),
@@ -302,19 +310,19 @@ public final class PresenceSync {
             JsonObject usersObj = new JsonObject();
 
             for (RemoteUserState rs : snapshot.values()) {
-                usersObj.add(rs.uuid().toString(), buildUserJsonFromRemote(rs, nowIso));
+                usersObj.add(rs.uuid().toString(), buildUserJsonFromRemote(rs, nowIso, captured.ranks()));
             }
 
             var own=usersObj.getAsJsonObject(local.uuid().toString());
             own.getAsJsonObject("features").getAsJsonObject("nickTweaks").add("rank",local.rank().json());
             var overrides=new JsonObject();
-            for(var rank:remoteSnapshot.rankProfiles())if(rank.administrator()){
+            for(var rank:captured.rankProfiles())if(rank.administrator()){
                 var value=new JsonObject();value.addProperty("name",rank.name());value.addProperty("prefix",rank.prefix());overrides.add(rank.uuid().toString(),value);
             }
             root.add("rankOverrides",overrides);
             root.addProperty("authVersion", 2);
             root.add("users", usersObj);
-            saveCacheToDisk(root.toString());
+            saveCacheToDisk(root.toString(), base);
         } catch (Exception ignored) {
         }
     }
@@ -327,7 +335,7 @@ public final class PresenceSync {
         }
     }
 
-    private static JsonObject buildUserJsonFromRemote(RemoteUserState state, String nowIso) {
+    private static JsonObject buildUserJsonFromRemote(RemoteUserState state, String nowIso, Map<UUID,RankSettings> ranks) {
         JsonObject userObj = new JsonObject();
         userObj.addProperty("name", state.name());
 
@@ -337,7 +345,7 @@ public final class PresenceSync {
         nickTweaks.addProperty("enabled", state.nickTweaksEnabled());
         nickTweaks.addProperty("boldEnabled", state.boldEnabled());
         nickTweaks.addProperty("nickChanger", state.nickChanger());
-        nickTweaks.add("rank", remoteSnapshot.ranks().getOrDefault(state.uuid(),RankSettings.OFF).json());
+        nickTweaks.add("rank", ranks.getOrDefault(state.uuid(),RankSettings.OFF).json());
 
         if (state.nickTweaksEnabled()) {
             nickTweaks.addProperty("chromaEnabled", state.chromaEnabled());
@@ -589,20 +597,27 @@ public final class PresenceSync {
                 if (code >= 200 && code < 300) {
                     try (InputStream stream = connection.getInputStream()) {
                         String json = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+                        JsonObject payload;
+                        RemoteSnapshot decoded;
+                        CapeSync.Snapshot capes;
                         try {
-                            var payload = JsonParser.parseString(json);
-                            if (!payload.isJsonObject() || !payload.getAsJsonObject().has("authVersion")
-                                    || payload.getAsJsonObject().get("authVersion").getAsInt() != 2
-                                    || !payload.getAsJsonObject().has("users") || !payload.getAsJsonObject().get("users").isJsonObject())
+                            var element = JsonParser.parseString(json);
+                            if (!element.isJsonObject() || !element.getAsJsonObject().has("authVersion")
+                                    || element.getAsJsonObject().get("authVersion").getAsInt() != 2
+                                    || !element.getAsJsonObject().has("users") || !element.getAsJsonObject().get("users").isJsonObject())
                                 throw new SyncRequestException(SyncFailure.of(SyncFailure.Reason.INVALID_RESPONSE, SyncFailure.Stage.DOWNLOAD));
+                            payload = element.getAsJsonObject();
+                            decoded = decodePayload(payload);
+                            capes = CapeSync.prepareSnapshot(payload);
                         } catch (RuntimeException e) {
                             throw new SyncRequestException(SyncFailure.of(SyncFailure.Reason.INVALID_RESPONSE, SyncFailure.Stage.DOWNLOAD));
                         }
                         Minecraft.getInstance().submit(() -> {
-                            if (endpointVersion != ENDPOINT_VERSION.get() || !url.equals(resolveFetchUrl())) return;
-                            applyPayload(json, false, forceRemoteSync);
-                            CapeSync.acceptSnapshot(JsonParser.parseString(json).getAsJsonObject(),serviceBaseUrl());
-                            saveCacheToDisk(json);
+                            if (endpointVersion != ENDPOINT_VERSION.get() || !RemoteAccess.online() || !url.equals(resolveFetchUrl())) return;
+                            publishSnapshot(decoded);
+                            String base = serviceBaseUrl();
+                            CapeSync.acceptSnapshot(capes, base);
+                            cacheLater(endpointVersion, () -> saveCacheToDisk(json, base));
                         }).join();
                         LOGGER.info("[PresenceSync] fetch ok, code={}, bytes={}, attempt={}", code, json.length(), attempt + 1);
                         return true;
@@ -853,15 +868,21 @@ public final class PresenceSync {
         if (!RemoteAccess.online()) return;
         JsonElement rootElement = JsonParser.parseString(json);
         if (!rootElement.isJsonObject()) return;
+        var decoded = decodePayload(rootElement.getAsJsonObject());
+        if (decoded == null) return;
+        publishSnapshot(decoded);
+        if (overrideOwnState) tryPushLocalIfRemoteDiffers(forceRemoteSync);
+    }
 
-        JsonObject root = rootElement.getAsJsonObject();
+    /** Worker-side decoding; publishing the resulting immutable maps is a separate client task. */
+    private static RemoteSnapshot decodePayload(JsonObject root) {
         if (!root.has("authVersion") || root.get("authVersion").getAsInt() != 2) throw new IllegalArgumentException("Unverified sync protocol");
         JsonObject users = root.getAsJsonObject("users");
-        if (users == null) return;
+        if (users == null) return null;
         long now = System.currentTimeMillis();
 
-        Map<UUID, RemoteUserState> newUsers = new ConcurrentHashMap<>();
-        Map<String, ChromaProfile> newChromaByName = new ConcurrentHashMap<>();
+        Map<UUID, RemoteUserState> newUsers = new HashMap<>();
+        Map<String, ChromaProfile> newChromaByName = new HashMap<>();
         List<RemoteNickname> newNicknames = new ArrayList<>();
         Map<UUID,RankSettings> newRanks = new HashMap<>();
         List<RemoteRank> newRankProfiles = new ArrayList<>();
@@ -992,13 +1013,13 @@ public final class PresenceSync {
                 if(!prefix.isEmpty()&&name.matches("[A-Za-z0-9_]{1,16}"))newRankProfiles.add(new RemoteRank(id,name,prefix,true));
             }catch(RuntimeException ignored){}
         }
-        remoteSnapshot = new RemoteSnapshot(Map.copyOf(newUsers), Map.copyOf(newChromaByName),
+        return new RemoteSnapshot(Map.copyOf(newUsers), Map.copyOf(newChromaByName),
             List.copyOf(newNicknames), newUsers.values().stream().anyMatch(RemoteUserState::smolPeopleEnabled),Map.copyOf(newRanks),List.copyOf(newRankProfiles));
-        NickRenderUtils.invalidateLocalTargetsCache();
+    }
 
-        if (overrideOwnState) {
-            tryPushLocalIfRemoteDiffers(forceRemoteSync);
-        }
+    private static void publishSnapshot(RemoteSnapshot decoded) {
+        remoteSnapshot = decoded;
+        NickRenderUtils.invalidateLocalTargetsCache();
     }
 
     private static void applyPayload(String json, boolean overrideOwnState) {
@@ -1041,21 +1062,42 @@ public final class PresenceSync {
             String json = Files.readString(cache, StandardCharsets.UTF_8);
             if (json == null || json.isBlank()) return;
             applyPayload(json, false);
-            saveCacheToDisk(json);
+            String base = serviceBaseUrl();
+            cacheLater(ENDPOINT_VERSION.get(), () -> saveCacheToDisk(json, base));
         } catch (Exception ignored) {
         }
     }
 
-    private static void saveCacheToDisk(String json) {
+    private static void cacheLater(long version, Runnable write) {
+        PENDING_CACHE.set(() -> { if (version == ENDPOINT_VERSION.get() && RemoteAccess.online()) write.run(); });
+        scheduleCacheWrite();
+    }
+
+    private static void scheduleCacheWrite() {
+        if (CACHE_SCHEDULED.compareAndSet(false, true)) CACHE_WRITER.execute(() -> {
+            try {
+                Runnable write;
+                while ((write = PENDING_CACHE.getAndSet(null)) != null) write.run();
+            } finally {
+                CACHE_SCHEDULED.set(false);
+                if (PENDING_CACHE.get() != null) scheduleCacheWrite();
+            }
+        });
+    }
+
+    private static void saveCacheToDisk(String json, String base) {
         try {
-            if (json == null || json.isBlank()) return;
-            Path cache = PresenceCache.path(CosmeticsConfigDir.getCosmeticsConfigDir(), serviceBaseUrl());
+            if (json == null || json.isBlank() || base.isBlank()) return;
+            Path cache = PresenceCache.path(CosmeticsConfigDir.getCosmeticsConfigDir(), base);
             Path parent = cache.getParent();
             if (parent != null && !Files.exists(parent)) {
                 Files.createDirectories(parent);
             }
             JsonObject cached = PresenceCache.clean(json);
-            Files.writeString(cache, CACHE_GSON.toJson(cached), StandardCharsets.UTF_8);
+            Path temporary = cache.resolveSibling(cache.getFileName() + ".tmp");
+            Files.writeString(temporary, CACHE_GSON.toJson(cached), StandardCharsets.UTF_8);
+            try { Files.move(temporary, cache, java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE); }
+            catch (java.nio.file.AtomicMoveNotSupportedException unavailable) { Files.move(temporary, cache, java.nio.file.StandardCopyOption.REPLACE_EXISTING); }
         } catch (Exception ignored) {
         }
     }

@@ -10,7 +10,7 @@ public record PartyRoster(Set<UUID> members,Set<String> names,String source){
         var normalized=new HashSet<String>();for(String name:names){if(!name.matches("[A-Za-z0-9_]{3,16}"))throw new IllegalArgumentException("Invalid party name");normalized.add(name.toLowerCase(Locale.ROOT));}
         names=Set.copyOf(normalized);if(members.size()+names.size()>1000)throw new IllegalArgumentException("Party is too large");
     }
-    public boolean contains(UUID id,String name){return members.contains(id)||name!=null&&names.contains(name.toLowerCase(Locale.ROOT));}
+    public boolean contains(UUID id,String name){return members.contains(id)||!names.isEmpty()&&name!=null&&names.contains(name.toLowerCase(Locale.ROOT));}
     public boolean empty(){return members.isEmpty()&&names.isEmpty();}
     public int size(){return members.size()+names.size();}
     public String title(){return "Party: "+size()+(size()==1?" Member.":" Members.");}

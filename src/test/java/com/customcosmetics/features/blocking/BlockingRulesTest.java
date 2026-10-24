@@ -6,6 +6,17 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 class BlockingRulesTest {
+    @Test void allocationFreeValidationPreservesAllAcceptedIdentityCharacters(){
+        var samples=new java.util.ArrayList<String>(java.util.List.of("minecraft:"+"a".repeat(128),"minecraft:"+"a".repeat(129),"skyblock:"+"A".repeat(128),"skyblock:"+"A".repeat(129)," SkyBlock:ß ","minecraft:a/b-c.d_e","minecraft:","skyblock:"));
+        for(int c=0;c<256;c++){samples.add("minecraft:a"+(char)c+"z");samples.add("skyblock:A"+(char)c+"Z");}
+        for(var value:samples){
+            String clean=value.strip(),expected;
+            if(clean.regionMatches(true,0,"skyblock:",0,9)){var id=clean.substring(9).toUpperCase(java.util.Locale.ROOT);expected=id.matches("[A-Z0-9_]{1,128}")?"skyblock:"+id:"";}
+            else{clean=clean.toLowerCase(java.util.Locale.ROOT);expected=clean.matches("minecraft:[a-z0-9_./-]{1,128}")?clean:"";}
+            assertEquals(expected,BlockingRules.normalize(value),value);
+        }
+        for(var mode:BlockingRules.Mode.values()){assertEquals(mode,BlockingRules.Mode.parse(" "+mode.value().toUpperCase(java.util.Locale.ROOT)+" "));assertSame(mode.value(),mode.value());}
+    }
     @Test void receiverOptInFiltersUsingItsOwnSkyblockWhitelist() {
         var white = Set.of("skyblock:HYPERION");
         assertTrue(BlockingRules.allowsRemote(true, BlockingRules.Mode.WHITELIST, "skyblock:HYPERION", Set.of(), white));

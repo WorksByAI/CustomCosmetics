@@ -13,13 +13,32 @@ import org.joml.Matrix3x2fc;
 /** Uses the original glyph texture, geometry, draw order, bounds and shadow. */
 public record GradientGlyph(TextRenderable.Styled original, NicknameGlyphEffect effect,
                             float x, float y, float advance, int foreground) implements InvocationHandler {
+    private static final Class<?>[] STYLED_INTERFACES={TextRenderable.Styled.class};
+    private static final ThreadLocal<RenderBuffers> RENDER_BUFFERS=ThreadLocal.withInitial(RenderBuffers::new);
+    /** Each nested draw owns a separate slot. Nothing here is shared between render threads. */
+    private static final class RenderBuffers {
+        private final GradientVertices[] cached=new GradientVertices[4];
+        private int depth;
+        GradientVertices acquire(VertexConsumer destination,NicknameGlyphEffect effect,float x,float y,float advance,int foreground,long time){
+            int slot=depth++;
+            if(slot>=cached.length)return new GradientVertices(destination,effect,x,y,advance,foreground,time);
+            var vertices=cached[slot];
+            if(vertices==null)cached[slot]=vertices=new GradientVertices(destination,effect,x,y,advance,foreground,time);
+            else vertices.configure(destination,effect,x,y,advance,foreground,time);
+            return vertices;
+        }
+        void release(GradientVertices vertices){vertices.clear();depth--;}
+    }
+    private static GradientVertices acquireVertices(VertexConsumer destination,NicknameGlyphEffect effect,float x,float y,float advance,int foreground,long time){
+        return RENDER_BUFFERS.get().acquire(destination,effect,x,y,advance,foreground,time);
+    }
     /** The foreground is recolored anyway; keep it distinguishable from an identical shadow. */
     public static int foregroundColor(int color, int shadow) {
         return color == shadow ? color ^ 0xFFFFFF : color;
     }
     /** GPU return types moved in 26.3; delegate their runtime interface without linking old types. */
     public TextRenderable.Styled wrapped() {
-        return (TextRenderable.Styled)Proxy.newProxyInstance(TextRenderable.Styled.class.getClassLoader(),new Class<?>[]{TextRenderable.Styled.class},this);
+        return (TextRenderable.Styled)Proxy.newProxyInstance(TextRenderable.Styled.class.getClassLoader(),STYLED_INTERFACES,this);
     }
     public static GradientGlyph unwrap(TextRenderable.Styled glyph) {
         if (Proxy.isProxyClass(glyph.getClass()) && Proxy.getInvocationHandler(glyph) instanceof GradientGlyph gradient) return gradient;
@@ -35,10 +54,12 @@ public record GradientGlyph(TextRenderable.Styled original, NicknameGlyphEffect 
         catch (InvocationTargetException error) { throw error.getCause(); }
     }
     public void render(Matrix4fc pose, VertexConsumer vertices, int light, boolean inverseDepth) {
-        var colors = new GradientVertices(vertices, effect, x, y, advance, foreground, AnimationClock.millis());
-        colors.bulkPose(pose);
-        original.render(pose, colors.optimized(), light, inverseDepth);
-        colors.finish();
+        var colors = acquireVertices(vertices, effect, x, y, advance, foreground, AnimationClock.millis());
+        try {
+            colors.bulkPose(pose);
+            original.render(pose, colors.optimized(), light, inverseDepth);
+            colors.finish();
+        } finally { RENDER_BUFFERS.get().release(colors); }
     }
 
     /** Sub-pixel strips let a narrow highlight travel inside a single Chinese glyph. */
@@ -51,21 +72,34 @@ public record GradientGlyph(TextRenderable.Styled original, NicknameGlyphEffect 
             try { return VertexConsumer.class.getMethod("setUv3",float.class,float.class); }
             catch(NoSuchMethodException older) { return null; }
         }
-        private final VertexConsumer destination;
-        private final NicknameGlyphEffect effect;
-        private final float x, y, advance;
-        private final int foreground;
-        private final long time;
+        private VertexConsumer destination;
+        private NicknameGlyphEffect effect;
+        private float x, y, advance;
+        private int foreground;
+        private long time;
         private final QuadSelector selector;
-        private final Vertex[] quad = new Vertex[4];
+        private final Vertex[] quad = {new Vertex(),new Vertex(),new Vertex(),new Vertex()};
         private final Vertex interpolated = new Vertex();
         private int count;
         private Vertex current;
         private org.joml.Matrix4f bulkInverse;
-        public GradientVertices bulkPose(Matrix4fc pose){bulkInverse=pose==null?null:new org.joml.Matrix4f(pose).invert();return this;}
+        private boolean hasBulkPose;
+        private boolean inverseReady;
+        private org.joml.Vector3f bulkLocal;
+        public GradientVertices bulkPose(Matrix4fc pose){
+            hasBulkPose=pose!=null;inverseReady=false;
+            if(pose!=null){if(bulkInverse==null)bulkInverse=new org.joml.Matrix4f();bulkInverse.set(pose);}
+            return this;
+        }
         public VertexConsumer addBulkVertex(float x,float y,float z){
             addVertex(x,y,z);
-            if(bulkInverse!=null){var local=bulkInverse.transformPosition(x,y,z,new org.joml.Vector3f());current.paintX=local.x;current.paintY=local.y;}
+            if(hasBulkPose){
+                if(!inverseReady){
+                    bulkInverse.invert();inverseReady=true;
+                    if(bulkLocal==null)bulkLocal=new org.joml.Vector3f();
+                }
+                bulkInverse.transformPosition(x,y,z,bulkLocal);current.paintX=bulkLocal.x;current.paintY=bulkLocal.y;
+            }
             return this;
         }
         private VertexConsumer optimized;
@@ -75,20 +109,27 @@ public record GradientGlyph(TextRenderable.Styled original, NicknameGlyphEffect 
         }
 
         public GradientVertices(VertexConsumer destination, NicknameGlyphEffect effect, float x, float y, float advance, int foreground, long time) {
-            this.destination = destination; this.effect = effect; this.x = x; this.y = y;
-            this.advance = Math.max(0.01f, advance); this.foreground = foreground; this.time = time;
             this.selector = null;
+            configure(destination,effect,x,y,advance,foreground,time);
         }
         public GradientVertices(VertexConsumer destination,QuadSelector selector,long time) {
             this.destination=destination;this.selector=selector;this.time=time;
             effect=null;x=y=0;advance=1;foreground=0;
+        }
+        private void configure(VertexConsumer destination,NicknameGlyphEffect effect,float x,float y,float advance,int foreground,long time){
+            this.destination=destination;this.effect=effect;this.x=x;this.y=y;this.advance=Math.max(.01f,advance);this.foreground=foreground;this.time=time;
+        }
+        private void clear(){
+            destination=null;effect=null;hasBulkPose=false;inverseReady=false;count=0;current=null;
+            for(var vertex:quad){vertex.pose=null;vertex.pose2d=null;}
+            interpolated.pose=null;interpolated.pose2d=null;
         }
         @Override public VertexConsumer addVertex(Matrix4fc pose, float x, float y, float z) {
             addVertex(x, y, z); current.pose = pose; return this;
         }
         @Override public VertexConsumer addVertex(float x, float y, float z) {
             if (count == 4) finish();
-            current = new Vertex(); current.x = current.paintX = x; current.y = current.paintY = y; current.z = z; quad[count++] = current;
+            current = quad[count++];current.reset();current.x = current.paintX = x; current.y = current.paintY = y; current.z = z;
             return this;
         }
         @Override public VertexConsumer addVertexWith2DPose(Matrix3x2fc pose,float x,float y) {
@@ -107,39 +148,47 @@ public record GradientGlyph(TextRenderable.Styled original, NicknameGlyphEffect 
         public void finish() {
             if (count == 0) return;
             Sample sample=null;
+            boolean paint=false;
             if(count==4){
-                if(selector==null){if(quad[0].color==foreground)sample=new Sample(effect,x,y,advance,false);}
+                if(selector==null)paint=quad[0].color==foreground;
                 else {
                     float left=Float.POSITIVE_INFINITY,top=left,right=Float.NEGATIVE_INFINITY,bottom=right;
                     for(var vertex:quad){left=Math.min(left,vertex.paintX);top=Math.min(top,vertex.paintY);right=Math.max(right,vertex.paintX);bottom=Math.max(bottom,vertex.paintY);}
                     sample=selector.select(new Quad(left,top,right,bottom,quad[0].color));
+                    paint=sample!=null;
                 }
             }
-            if (sample==null) {
-                for (int i=0;i<count;i++) emit(quad[i], null);
+            if (!paint) {
+                for (int i=0;i<count;i++) emit(quad[i], quad[i].color);
             } else {
                 int strips = Math.clamp((int)Math.ceil(Math.abs(quad[3].paintX - quad[0].paintX) * 2-0.0001f), 1, 64);
+                int leftTop=0,leftBottom=0;
                 for (int strip=0;strip<strips;strip++) {
                     float a = strip/(float)strips, b=(strip+1)/(float)strips;
-                    emit(between(interpolated,quad[0],quad[3],a),sample);
-                    emit(between(interpolated,quad[1],quad[2],a),sample);
-                    emit(between(interpolated,quad[1],quad[2],b),sample);
-                    emit(between(interpolated,quad[0],quad[3],b),sample);
+                    between(interpolated,quad[0],quad[3],a);
+                    if(strip==0)leftTop=color(interpolated,sample);
+                    emit(interpolated,leftTop);
+                    between(interpolated,quad[1],quad[2],a);
+                    if(strip==0)leftBottom=color(interpolated,sample);
+                    emit(interpolated,leftBottom);
+                    between(interpolated,quad[1],quad[2],b);leftBottom=color(interpolated,sample);emit(interpolated,leftBottom);
+                    between(interpolated,quad[0],quad[3],b);leftTop=color(interpolated,sample);emit(interpolated,leftTop);
                 }
             }
             count=0;current=null;
         }
-        private void emit(Vertex vertex, Sample sample) {
+        private int color(Vertex vertex,Sample sample){
+            var paint=sample==null?effect:sample.effect();
+            float originX=sample==null?x:sample.x(),originY=sample==null?y:sample.y(),width=sample==null?advance:sample.advance();
+            double fraction=(vertex.paintX-originX)/Math.max(.01f,width);
+            double position=paint.from()+(paint.to()-paint.from())*fraction;
+            int rgb=paint.gradient().color(position,(vertex.paintY-originY)/8.0,time);
+            if(sample!=null&&sample.shadow())rgb=(rgb&0xFCFCFC)>>>2;
+            return (vertex.color&0xFF000000)|rgb;
+        }
+        private void emit(Vertex vertex, int color) {
             VertexConsumer sink = vertex.pose2d!=null?destination.addVertexWith2DPose(vertex.pose2d,vertex.x,vertex.y)
                 :vertex.pose == null ? destination.addVertex(vertex.x,vertex.y,vertex.z):destination.addVertex(vertex.pose,vertex.x,vertex.y,vertex.z);
-            int color=vertex.color;
-            if (sample!=null) {
-                var paint=sample.effect();double fraction=(vertex.paintX-sample.x())/Math.max(.01f,sample.advance());
-                double position=paint.from()+(paint.to()-paint.from())*fraction;
-                int rgb=paint.gradient().color(position,(vertex.paintY-sample.y())/8.0,time);
-                if(sample.shadow())rgb=(rgb&0xFCFCFC)>>>2;
-                color=(color & 0xFF000000) | rgb;
-            }
             sink.setColor(color).setUv(vertex.u,vertex.v).setLight(vertex.light);
             if(vertex.hasUv3) {
                 try { UV3.invoke(sink,vertex.u3,vertex.v3); }
@@ -160,6 +209,10 @@ public record GradientGlyph(TextRenderable.Styled original, NicknameGlyphEffect 
         }
         private static final class Vertex {
             Matrix4fc pose;Matrix3x2fc pose2d;float x,y,z,paintX,paintY,u,v,u3,v3,nx,ny,nz,lineWidth;int color,light,overlay;boolean hasOverlay,hasUv3,hasNormal,hasLineWidth;
+            void reset(){
+                pose=null;pose2d=null;x=y=z=paintX=paintY=u=v=u3=v3=nx=ny=nz=lineWidth=0;color=light=overlay=0;
+                hasOverlay=hasUv3=hasNormal=hasLineWidth=false;
+            }
         }
     }
 }

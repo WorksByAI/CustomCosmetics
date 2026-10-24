@@ -9,6 +9,16 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ConfigManagerTest {
+    @Test void backgroundSavesCaptureSettingsAndPersistTheLastEdit()throws Exception{
+        var path=directory.resolve("queued.json");
+        for(int i=0;i<30;i++){ConfigManager.nickTweaksNickChanger="Saved"+i;ConfigManager.queueSave(path);}
+        ConfigManager.nickTweaksNickChanger="Unsaved";
+        ConfigManager.awaitPendingSaves();
+        var root=JsonParser.parseString(Files.readString(path)).getAsJsonObject();
+        assertEquals("Saved29",root.getAsJsonObject("settings").get("nickTweaksNickChanger").getAsString());
+        assertFalse(Files.exists(path.resolveSibling("queued.json.tmp")));
+    }
+
     @Test void rankPersistsIndependentlyAndUnknownColorsFallBackToHypixelRed()throws Exception{
         var path=directory.resolve("rank.json");boolean old=ConfigManager.nickTweaksRankEnabled;String color=ConfigManager.nickTweaksRankPlusColor,type=ConfigManager.nickTweaksRankType;
         try{

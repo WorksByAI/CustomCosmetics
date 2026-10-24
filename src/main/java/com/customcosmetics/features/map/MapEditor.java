@@ -90,7 +90,7 @@ public final class MapEditor {
     /** Arena switches can happen without a new ClientLevel. Session edits/undo must never cross arenas. */
     private static void syncArea(Minecraft client){
         boolean next=inKuudra(client);if(next==kuudraContext)return;
-        saveRoomEdits();dirty(DATA.snapshot().keySet());visible=Map.of();DATA.reset();pendingSaves.clear();appliedRooms.clear();appliedLayouts.clear();DungeonRooms.reset();restorer.reset();MaterialReplacement.cancel();anchor=null;first=second=null;editing=false;lastRoom="None";nextScan=0;kuudraContext=next;
+        saveRoomEdits();dirty(DATA.snapshot().keySet());visible=Map.of();DATA.reset();GhostBlocks.reset();pendingSaves.clear();appliedRooms.clear();appliedLayouts.clear();DungeonRooms.reset();restorer.reset();MaterialReplacement.cancel();anchor=null;first=second=null;editing=false;lastRoom="None";nextScan=0;kuudraContext=next;
     }
     public static void reportStatus(){
         notice(status());var sidebar=DungeonSidebarReader.read(Minecraft.getInstance(),true);
@@ -101,10 +101,10 @@ public final class MapEditor {
         sectionUpdates.context(client.level);
         drainSectionUpdates(client.level);
         if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.MAP)){
-            if(level!=null){saveRoomEdits();if(!visible.isEmpty()){visible=Map.of();dirty(DATA.snapshot().keySet());}DungeonRooms.reset();DungeonSidebarReader.clearCache();restorer.reset();MaterialReplacement.cancel();MapRegionFill.cancel();level=null;}
+            if(level!=null){saveRoomEdits();if(!visible.isEmpty()){visible=Map.of();dirty(DATA.snapshot().keySet());}GhostBlocks.reset();DungeonRooms.reset();DungeonSidebarReader.clearCache();restorer.reset();MaterialReplacement.cancel();MapRegionFill.cancel();level=null;}
             return;
         }
-        if(level!=client.level){saveRoomEdits();level=client.level;visible=Map.of();DATA.reset();pendingSaves.clear();appliedRooms.clear();appliedLayouts.clear();DungeonRooms.reset();restorer.reset();anchor=null;first=second=null;editing=false;nextScan=0;lastRoom="None";kuudraContext=inKuudra(client);}
+        if(level!=client.level){saveRoomEdits();level=client.level;visible=Map.of();DATA.reset();GhostBlocks.reset();pendingSaves.clear();appliedRooms.clear();appliedLayouts.clear();DungeonRooms.reset();restorer.reset();anchor=null;first=second=null;editing=false;nextScan=0;lastRoom="None";kuudraContext=inKuudra(client);}
         syncArea(client);DungeonRooms.context(client);MapEditorUi.tick(client);long now=System.currentTimeMillis();if(now>=nextRoomSave){nextRoomSave=now+750;saveRoomEdits();}
         MaterialReplacement.tick(client);MapRegionFill.tick(client);boolean active=enabled&&allowed(client);
         if(!active){restorer.cancel();if(!visible.isEmpty()){visible=Map.of();dirty(DATA.snapshot().keySet());}return;}
@@ -157,7 +157,8 @@ public final class MapEditor {
         if(model instanceof MaterialModel)return model;
         var edit=visible.get(position(p));if(edit==null)return model;
         var target=state(edit.material());if(target==null)return model;
-        return new MaterialModel(model,Minecraft.getInstance().getModelManager().getBlockStateModelSet().get(target),target.isAir());
+        var models=Minecraft.getInstance().getModelManager().getBlockStateModelSet();
+        return MaterialModel.cached(models,model,models.get(target),target.isAir());
     }
     public static BlockHitResult target(){
         var client=Minecraft.getInstance();if(client.player==null)return null;

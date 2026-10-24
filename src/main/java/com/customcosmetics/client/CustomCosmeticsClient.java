@@ -77,7 +77,9 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
             com.customcosmetics.sync.BlockingSync.disconnect();
             com.customcosmetics.sync.PartySync.disconnect();
             ConfigManager.saveConfig();
+            ConfigManager.awaitPendingSaves();
             com.customcosmetics.features.items.ItemCosmetics.save();
+            com.customcosmetics.features.items.ItemCosmetics.flush();
         });
         LOGGER.info("CustomCosmetics initialized");
     }

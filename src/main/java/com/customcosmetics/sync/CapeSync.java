@@ -25,16 +25,30 @@ public final class CapeSync {
     public static long cooldownSeconds(){return Math.max(0,(nextSubmissionAt-System.currentTimeMillis()+999)/1000);}
     public static boolean canSubmit(){return RemoteAccess.online()&&CapeCosmetics.localPng()!=null&&!submitting.get()&&cooldownSeconds()==0;}
     public static void modeChanged(){CapeCosmetics.clearRemote();}
-    public static void acceptSnapshot(JsonObject snapshot,String base){
-        if(!RemoteAccess.online())return;
+    record Snapshot(Map<UUID,String> hashes,int pending,long revision) {}
+    static Snapshot prepareSnapshot(JsonObject snapshot){
         var hashes=new HashMap<UUID,String>();
         if(snapshot.has("capes")&&snapshot.get("capes").isJsonObject())for(var entry:snapshot.getAsJsonObject("capes").entrySet()){
             try{String hash=entry.getValue().getAsString();if(hash.matches("[0-9a-f]{64}"))hashes.put(UUID.fromString(entry.getKey()),hash);}catch(RuntimeException ignored){}
         }
+        int pending=0;long revision=0;
+        if(snapshot.has("capeReview")&&snapshot.get("capeReview").isJsonObject()){
+            try{var review=snapshot.getAsJsonObject("capeReview");pending=review.get("pending").getAsInt();revision=review.get("revision").getAsLong();}
+            catch(RuntimeException ignored){pending=0;revision=0;}
+        }
+        return new Snapshot(Map.copyOf(hashes),pending,revision);
+    }
+    public static void acceptSnapshot(JsonObject snapshot,String base){
+        if(!RemoteAccess.online())return;
+        acceptSnapshot(prepareSnapshot(snapshot),base);
+    }
+    static void acceptSnapshot(Snapshot snapshot,String base){
+        if(!RemoteAccess.online())return;
+        var hashes=snapshot.hashes();
         CapeCosmetics.approved(hashes);
         var client=Minecraft.getInstance();var identity=PresenceSync.actionSession();
-        if(identity!=null&&CapeAdministrators.includes(identity.uuid())&&snapshot.has("capeReview")&&snapshot.get("capeReview").isJsonObject()){
-            var review=snapshot.getAsJsonObject("capeReview");int pending=review.get("pending").getAsInt();long revision=review.get("revision").getAsLong();
+        if(identity!=null&&CapeAdministrators.includes(identity.uuid())){
+            int pending=snapshot.pending();long revision=snapshot.revision();
             if(pending>0&&revision>notifiedRevision){notifiedRevision=revision;CapeCosmetics.reviewNotice(pending,base);}
         }
         var wanted=new LinkedHashSet<String>();if(client.player!=null&&hashes.containsKey(client.player.getUUID()))wanted.add(hashes.get(client.player.getUUID()));

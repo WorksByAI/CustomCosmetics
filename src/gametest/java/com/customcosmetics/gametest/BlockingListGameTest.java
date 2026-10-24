@@ -11,6 +11,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.client.gui.components.AbstractWidget;
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicReference;
 
 final class BlockingListGameTest {
     static void check(ClientGameTestContext context, TestSingleplayerContext world) {
@@ -21,7 +22,7 @@ final class BlockingListGameTest {
             ClientUiAccess.setScreen(client, new CosmeticsScreen(null, CosmeticsScreen.Page.ANIMATIONS));
         });
         context.waitTicks(3);
-        activate(context, "Blocking List:");
+        activate(context, "Blocking List");
         context.takeScreenshot("blocking-list-dropdown");
         context.getInput().pressKey(ClientInput.DOWN);
         context.getInput().pressKey(ClientInput.ENTER);
@@ -59,7 +60,7 @@ final class BlockingListGameTest {
         context.takeScreenshot("blocking-list-whitelist");
         activate(context, "Done");
         context.waitForScreen(CosmeticsScreen.class);
-        activate(context, "Blocking List:");
+        activate(context, "Blocking List");
         context.getInput().pressKey(ClientInput.DOWN);
         context.getInput().pressKey(ClientInput.ENTER);
         context.runOnClient(client -> {
@@ -72,17 +73,60 @@ final class BlockingListGameTest {
         checkHand(context, world, "minecraft:diamond_shovel[minecraft:custom_data={id:\"ASPECT_OF_THE_VOID\"}]", BlockHand.NONE, "blacklisted-aotv");
         checkHand(context, world, "minecraft:diamond_sword", BlockHand.MAIN, "blacklist-ordinary-sword");
         context.runOnClient(client -> ConfigManager.swordBlockingListMode = "off");
+        context.runOnClient(client -> {
+            var sword=client.player.getMainHandItem();var copy=sword.copy();
+            String vanilla=com.customcosmetics.features.blocking.BlockingItems.identity(copy);
+            var tag=new net.minecraft.nbt.CompoundTag();tag.putString("id","TERMINATOR");
+            copy.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA,net.minecraft.world.item.component.CustomData.of(tag));
+            String skyblock=com.customcosmetics.features.blocking.BlockingItems.identity(copy);
+            if(vanilla.equals(skyblock)||!skyblock.equals("skyblock:TERMINATOR"))throw new AssertionError("Blocking identity cache retained old item components");
+            tag.putString("id","invalid!");copy.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA,net.minecraft.world.item.component.CustomData.of(tag));
+            if(!com.customcosmetics.features.blocking.BlockingItems.identity(copy).isEmpty())throw new AssertionError("Invalid SkyBlock identity fell back to vanilla material");
+            ConfigManager.swordBlockingEnabled=false;
+            if(SwordBlocking.localHand()!=BlockHand.NONE)throw new AssertionError("Disabled sword blocking retained a sampled hand");
+            ConfigManager.swordBlockingEnabled=true;
+        });
         System.out.println("BLOCKING_LIST_GUI_AND_RENDER_OK");
     }
     private static void activate(ClientGameTestContext context, String prefix) {
-        context.runOnClient(client -> {
-            var screen = ClientUiAccess.screen(client);
-            var widget = screen.children().stream().filter(child -> child instanceof AbstractWidget)
-                .map(child -> (AbstractWidget) child).filter(child -> child.visible && child.active && child.getMessage().getString().startsWith(prefix))
-                .findFirst().orElseThrow(() -> new AssertionError("Missing control: " + prefix));
-            screen.setFocused(widget);
-        });
-        context.getInput().pressKey(ClientInput.ENTER); context.waitTicks(2);
+        var scroll = new AtomicReference<double[]>();
+        for (int attempt = 0; attempt < 20; attempt++) {
+            context.runOnClient(client -> {
+                scroll.set(null);
+                var screen = ClientUiAccess.screen(client);
+                var widget = screen.children().stream().filter(AbstractWidget.class::isInstance)
+                    .map(AbstractWidget.class::cast).filter(child -> child.getMessage().getString().startsWith(prefix))
+                    .findFirst().orElseThrow(() -> new AssertionError("Missing control: " + prefix + "; controls: "
+                        + screen.children().stream().filter(AbstractWidget.class::isInstance).map(AbstractWidget.class::cast)
+                            .map(child -> child.getMessage().getString()).toList()));
+                if (screen instanceof CosmeticsScreen) {
+                    int top = studioInt(screen, "viewTop"), bottom = studioInt(screen, "viewBottom");
+                    double steps = widget.getY() < top ? Math.ceil((top - widget.getY()) / 48.0)
+                        : widget.getBottom() > bottom ? -Math.ceil((widget.getBottom() - bottom) / 48.0) : 0;
+                    if (steps != 0) {
+                        double scale = client.getWindow().getGuiScale();
+                        scroll.set(new double[]{(widget.getX() + widget.getWidth() / 2.0) * scale, (top + bottom) / 2.0 * scale, steps});
+                        return;
+                    }
+                }
+                if (!widget.visible || !widget.active) throw new AssertionError("Control is not interactable: " + prefix);
+                screen.setFocused(widget);
+            });
+            var target = scroll.get();
+            if (target != null) {
+                context.getInput().setCursorPos(target[0], target[1]);
+                context.getInput().scroll((int) target[2]); context.waitTicks(2);
+                continue;
+            }
+            context.getInput().pressKey(ClientInput.ENTER); context.waitTicks(2); return;
+        }
+        throw new AssertionError("Could not scroll control into the visible viewport: " + prefix);
+    }
+    private static int studioInt(Object screen, String name) {
+        try {
+            var field = CosmeticsScreen.class.getDeclaredField(name); field.setAccessible(true);
+            return field.getInt(screen);
+        } catch (ReflectiveOperationException error) { throw new AssertionError(error); }
     }
     private static void search(ClientGameTestContext context, String query) {
         context.runOnClient(client -> {

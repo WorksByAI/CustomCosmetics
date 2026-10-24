@@ -3,15 +3,46 @@ package com.customcosmetics.features.nickname;
 
 /** Immutable, client-rendered gradient; elapsed time never requires a remote update. */
 public record NicknameGradient(String style, int start, int end, double speed, int shimmerColor, int shimmerHighlightColor, double shimmerSize, double shimmerInterval) {
-    private record Blend(int from,int to,float hue,float saturation,float value,double deltaHue,double deltaSaturation,double deltaValue) {}
-    private static final ThreadLocal<Blend[]> BLENDS=ThreadLocal.withInitial(()->new Blend[4]);
+    private static final class Blend {
+        final float hue,saturation,value;
+        final double deltaHue,deltaSaturation,deltaValue;
+        final it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap colors=new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap(128);
+        Blend(float hue,float saturation,float value,double deltaHue,double deltaSaturation,double deltaValue){
+            this.hue=hue;this.saturation=saturation;this.value=value;this.deltaHue=deltaHue;this.deltaSaturation=deltaSaturation;this.deltaValue=deltaValue;
+            colors.defaultReturnValue(-1);
+        }
+    }
+    /** Exact-input caches: no color quantization and no change to the animation clock. */
+    private static final ThreadLocal<PaintContext> PAINT=ThreadLocal.withInitial(PaintContext::new);
+    private static final class PaintContext {
+        NicknameGradient gradient;
+        Blend blend;
+        long time;
+        boolean initialized,shimmering;
+        double sweep;
+        void prepare(NicknameGradient next,long nextTime){
+            boolean changed=gradient!=next&&!next.equals(gradient);
+            if(changed)blend=NicknameGradient.blend(next.start,next.end);
+            gradient=next;
+            if(initialized&&!changed&&time==nextTime)return;
+            initialized=true;time=nextTime;shimmering=false;
+            if(!next.style.equals("shimmer")||next.speed==0)return;
+            long moving=next.motionMillis(),elapsed=Math.floorMod(nextTime,next.periodMillis());
+            if(elapsed>=moving)return;
+            shimmering=true;
+            sweep=-next.shimmerSize-0.065+elapsed/(double)moving*(1+2*next.shimmerSize+0.13);
+        }
+    }
+    private static final ThreadLocal<it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap<Blend>> BLENDS=
+        ThreadLocal.withInitial(()->new it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap<>(256));
     private static Blend blend(int from,int to){
         var entries=BLENDS.get();
-        for(int i=0;i<entries.length;i++){var found=entries[i];if(found!=null&&found.from==from&&found.to==to){if(i!=0){entries[i]=entries[0];entries[0]=found;}return found;}}
+        long key=((long)from<<32)|(to&0xffffffffL);
+        var found=entries.getAndMoveToFirst(key);if(found!=null)return found;
         float[] a=hsv(from),b=hsv(to);if(a[1]<.001)a[0]=b[0];if(b[1]<.001)b[0]=a[0];
         double delta=b[0]-a[0];if(delta>.5)delta-=1;if(delta<-.5)delta+=1;
-        var result=new Blend(from,to,a[0],a[1],a[2],delta,b[1]-a[1],b[2]-a[2]);
-        System.arraycopy(entries,0,entries,1,entries.length-1);entries[0]=result;return result;
+        var result=new Blend(a[0],a[1],a[2],delta,b[1]-a[1],b[2]-a[2]);
+        entries.putAndMoveToFirst(key,result);if(entries.size()>256)entries.removeLast();return result;
     }
     public static final int PRESET_START = 0x24CFDF;
     public static final int PRESET_END = 0xEA78C5;
@@ -51,32 +82,32 @@ public record NicknameGradient(String style, int start, int end, double speed, i
     public boolean smooth() { return !style.equals("character"); }
 
     public int color(double position, double height, long timeMs) {
+        var paint=PAINT.get();paint.prepare(this,timeMs);
         double x = Math.clamp(Double.isFinite(position) ? position : 0, 0, 1);
-        int base = hueBlend(start, end, x);
-        if (!style.equals("shimmer") || speed == 0) return base;
+        int base = hueBlend(paint.blend, x);
+        if (!paint.shimmering) return base;
         // A short, diagonal colored sweep followed by a quiet gap, as in the reference.
-        long moving = motionMillis();
-        long elapsed = Math.floorMod(timeMs, periodMillis());
-        if (elapsed >= moving) return base;
-        double sweep = -shimmerSize - 0.065 + elapsed / (double)moving * (1 + 2*shimmerSize + 0.13);
-        double distance = Math.abs(x + (Math.clamp(Double.isFinite(height) ? height : 0.5, 0, 1) - 0.5) * 0.13 - sweep);
+        double distance = Math.abs(x + (Math.clamp(Double.isFinite(height) ? height : 0.5, 0, 1) - 0.5) * 0.13 - paint.sweep);
         double intensity = Math.max(0, 1 - distance / shimmerSize);
         intensity = intensity * intensity * (3 - 2 * intensity);
         int shine = rgbBlend(shimmerColor, shimmerHighlightColor, intensity);
         return rgbBlend(base, shine, intensity * 0.96);
     }
 
-    private static int hueBlend(int from, int to, double t) {
-        var blend=blend(from,to);
+    private static int hueBlend(Blend blend, double t) {
+        long key=Double.doubleToLongBits(t);
+        int cached=blend.colors.get(key);if(cached!=-1)return cached;
         double hue = blend.hue + blend.deltaHue * t;
         hue -= Math.floor(hue);
         double s = blend.saturation + blend.deltaSaturation * t;
         double v = blend.value + blend.deltaValue * t;
         double h = hue * 6, f = h - Math.floor(h), p = v * (1 - s), q = v * (1 - f * s), r = v * (1 - (1 - f) * s);
-        return switch ((int) h % 6) {
+        int color=switch ((int) h % 6) {
             case 0 -> rgb(v, r, p); case 1 -> rgb(q, v, p); case 2 -> rgb(p, v, r);
             case 3 -> rgb(p, q, v); case 4 -> rgb(r, p, v); default -> rgb(v, p, q);
         };
+        if(blend.colors.size()>=512)blend.colors.clear();
+        blend.colors.put(key,color);return color;
     }
 
     private static float[] hsv(int rgb) {

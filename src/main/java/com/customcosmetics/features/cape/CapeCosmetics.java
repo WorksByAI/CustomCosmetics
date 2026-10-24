@@ -6,7 +6,6 @@ import com.customcosmetics.sync.RemoteAccess;
 import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.core.ClientAsset;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.PlayerSkin;
 import java.util.*;
@@ -19,6 +18,7 @@ public final class CapeCosmetics {
     private static volatile Map<UUID,String> approved=Map.of();
     private static int previewDepth;
     private static long textureRetry;
+    private static final com.customcosmetics.features.skins.PlayerSkinCache skinCache=new com.customcosmetics.features.skins.PlayerSkinCache();
     private CapeCosmetics(){}
     public static void init(){textureRetry=0;try{local=new LocalCapeStore(CosmeticsConfigDir.getCosmeticsConfigDir());}catch(Exception e){notice("Could not load local cape: "+e.getMessage());}}
     public static void tick(){if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.CAPE))return;if(local!=null&&local.hash()!=null&&!loaded(local.hash())&&System.currentTimeMillis()>=textureRetry){textureRetry=System.currentTimeMillis()+5000;try{texture(local.copy());}catch(IOException ignored){}}}
@@ -48,8 +48,7 @@ public final class CapeCosmetics {
         String hash=CapeVisibility.hash(uuid,self,RemoteAccess.online(),(ConfigManager.capeEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.CAPE)),previewDepth>0,local==null?null:local.hash(),approved);
         Identifier id=hash==null?null:textures.get(hash);
         if(id==null)return original;
-        ClientAsset.Texture asset=new ClientAsset.Texture(){public Identifier id(){return id;}public Identifier texturePath(){return id;}};
-        return new PlayerSkin(original.body(),asset,asset,original.model(),original.secure());
+        return skinCache.cape(uuid,original,id);
     }
     public static void beginPreview(){previewDepth++;}public static void endPreview(){previewDepth=Math.max(0,previewDepth-1);}
     public static void notice(String text){var client=Minecraft.getInstance();client.execute(()->{if(client.player!=null)com.customcosmetics.compatibility.ClientUiAccess.chat(client).addClientSystemMessage(com.customcosmetics.utils.MessageUtils.createMessageWithPrefix(net.minecraft.network.chat.Component.literal(text)));});}
@@ -60,5 +59,5 @@ public final class CapeCosmetics {
             com.customcosmetics.compatibility.ClientUiAccess.chat(client).addClientSystemMessage(com.customcosmetics.utils.MessageUtils.createMessageWithPrefix(net.minecraft.network.chat.Component.literal(count+" cape submission(s) await review. ").append(link)));
         });
     }
-    public static synchronized void close(){for(var id:textures.values())Minecraft.getInstance().getTextureManager().release(id);textures.clear();approved=Map.of();}
+    public static synchronized void close(){for(var id:textures.values())Minecraft.getInstance().getTextureManager().release(id);textures.clear();approved=Map.of();skinCache.clear();}
 }

@@ -7,6 +7,37 @@ import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ItemAppearanceStoreTest {
+    @Test void backgroundSavesCoalesceAndOnlyWriteImmutableRequestedSnapshots()throws Exception{
+        var tasks=new java.util.ArrayDeque<Runnable>();var path=directory.resolve("async.json");
+        var store=new ItemAppearanceStore(path,tasks::add);
+        store.put(A,new ItemAppearanceStore.Appearance("first",""));var completion=store.requestSave();
+        store.put(A,new ItemAppearanceStore.Appearance("second",""));assertSame(completion,store.requestSave());
+        assertEquals(1,tasks.size());assertFalse(Files.exists(path));assertFalse(completion.isDone());
+        // An edit after the last requested snapshot must remain dirty, even when the earlier write finishes.
+        store.put(B,new ItemAppearanceStore.Appearance("not queued yet",""));tasks.removeFirst().run();completion.join();
+        var restored=new ItemAppearanceStore(path);restored.load();assertEquals("second",restored.get(A).name());assertTrue(restored.get(B).empty());assertTrue(store.dirty());
+        var finalSave=store.requestSave();tasks.removeFirst().run();finalSave.join();assertFalse(store.dirty());
+        restored.load();assertEquals("not queued yet",restored.get(B).name());
+    }
+    @Test void failedBackgroundWriteKeepsChangesForRetryAndDurableSaveFlushes()throws Exception{
+        var tasks=new java.util.ArrayDeque<Runnable>();var blocked=directory.resolve("blocked");Files.writeString(blocked,"file");
+        var path=blocked.resolve("items.json");var store=new ItemAppearanceStore(path,tasks::add);
+        store.put(A,new ItemAppearanceStore.Appearance("retained",""));var failed=store.requestSave();tasks.removeFirst().run();
+        assertThrows(java.util.concurrent.CompletionException.class,failed::join);assertTrue(store.dirty());assertEquals("retained",store.get(A).name());
+        Files.delete(blocked);var retry=store.requestSave();tasks.removeFirst().run();retry.join();store.save();
+        assertFalse(store.dirty());var restored=new ItemAppearanceStore(path);restored.load();assertEquals("retained",restored.get(A).name());
+    }
+    @Test void reloadWaitsForTheLatestQueuedWrite()throws Exception{
+        var tasks=new java.util.ArrayDeque<Runnable>();var store=new ItemAppearanceStore(directory.resolve("reload.json"),tasks::add);
+        store.put(A,new ItemAppearanceStore.Appearance("first",""));store.requestSave();
+        var started=new java.util.concurrent.CountDownLatch(1);
+        var reload=java.util.concurrent.CompletableFuture.runAsync(()->{
+            started.countDown();try{store.load();}catch(java.io.IOException error){throw new java.util.concurrent.CompletionException(error);}
+        });
+        assertTrue(started.await(5,java.util.concurrent.TimeUnit.SECONDS));assertFalse(reload.isDone());
+        store.put(A,new ItemAppearanceStore.Appearance("latest",""));store.requestSave();tasks.removeFirst().run();
+        reload.get(5,java.util.concurrent.TimeUnit.SECONDS);assertEquals("latest",store.get(A).name());assertFalse(store.dirty());
+    }
     @Test void overrideFastPathsTrackReplacementsRemovalAndReload()throws Exception{
         var path=directory.resolve("fast-path.json");var store=new ItemAppearanceStore(path);
         assertFalse(store.hasModels());assertFalse(store.hasNames());

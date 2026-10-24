@@ -23,12 +23,14 @@ public final class ItemCosmetics {
     private static final Set<ItemStack> VALIDATING = Collections.newSetFromMap(new IdentityHashMap<>());
     private static final Map<Validation, Boolean> VALIDATED = new LinkedHashMap<>();
     private static final Map<ItemStack, StackValidation> STACK_VALIDATED = new WeakHashMap<>();
+    private static final LinkedHashMap<String, Identifier> MODEL_IDS = new LinkedHashMap<>(16,.75f,true);
     private record Validation(Identifier model, net.minecraft.world.item.Item item, net.minecraft.core.component.DataComponentPatch components, int count) {}
     private record StackValidation(Object revision, Validation key, boolean usable) {}
     private static Map<Identifier, ?> validatedModels = Map.of();
     public record ModelChoice(Identifier id, String label, ItemStack icon) {}
     private static ItemAppearanceStore store;
     private static long lastSave;
+    private static java.util.concurrent.CompletableFuture<Void> observedSave;
     private ItemCosmetics() {}
     public static void init() {
         store = new ItemAppearanceStore(CosmeticsConfigDir.getCosmeticsConfigDir().resolve("item-appearances.json"));
@@ -62,6 +64,17 @@ public final class ItemCosmetics {
         return modelChoices(new ItemStack(Items.PAPER)).stream().map(ModelChoice::id).toList();
     }
     public static boolean hasModel(Identifier id) { return id != null && modelMap().containsKey(id); }
+    static Identifier modelId(String value) {
+        if (value == null || value.isEmpty()) return null;
+        Identifier cached = MODEL_IDS.get(value);
+        if (cached != null) return cached;
+        Identifier parsed = Identifier.tryParse(value);
+        if (parsed != null) {
+            MODEL_IDS.put(value, parsed);
+            if (MODEL_IDS.size() > ItemAppearanceStore.MAX_ENTRIES) MODEL_IDS.pollFirstEntry();
+        }
+        return parsed;
+    }
     public static Object catalogIdentity() { return modelMap(); }
     public static Object componentIdentity(ItemStack stack) {
         var components=stack.getComponents();
@@ -136,7 +149,7 @@ public final class ItemCosmetics {
         var appearance = store.getCanonical(uuid(stack));
         if (!appearance.headTexture().isEmpty()) return HeadSkins.MODEL;
         String raw = appearance.model();
-        Identifier selected = raw.isEmpty() ? null : Identifier.tryParse(raw);
+        Identifier selected = modelId(raw);
         return hasModel(selected) && validated(stack, selected) ? selected : original;
     }
     public static Component name(ItemStack stack, Component original) {
@@ -154,6 +167,18 @@ public final class ItemCosmetics {
     public static boolean save() {
         if (store == null) return false;
         lastSave = System.currentTimeMillis();
+        var saving=store.requestSave();
+        if(saving!=observedSave){
+            observedSave=saving;saving.whenComplete((ignored,error)->{
+                if(error!=null){CustomCosmeticsClient.LOGGER.warn("Could not save local item appearances",error);
+                    com.customcosmetics.features.cape.CapeCosmetics.notice("Could not save item appearances. Your changes are still in memory; try saving again.");}
+            });
+        }
+        return !saving.isCompletedExceptionally();
+    }
+    /** Shutdown/readback barrier; ordinary edits only enqueue immutable snapshots. */
+    public static boolean flush() {
+        if(store==null)return true;
         try { store.save(); return true; }
         catch (java.io.IOException error) { CustomCosmeticsClient.LOGGER.warn("Could not save local item appearances: {}", error.getMessage()); return false; }
     }

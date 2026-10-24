@@ -44,7 +44,11 @@ public final class SettingsSearch {
     public static boolean sameSetting(String actual, String catalogue) {
         return fold(settingName(actual)).equals(fold(settingName(catalogue)));
     }
-    private static String settingName(String title) { int colon = title.indexOf(':'); return colon < 0 ? title : title.substring(0, colon); }
+    private static String settingName(String title) {
+        // Selected creature choices keep their display checkmark without changing their search destination.
+        String name = title.startsWith("✓ ") ? title.substring(2) : title;
+        int colon = name.indexOf(':'); return colon < 0 ? name : name.substring(0, colon);
+    }
     public static List<Entry> find(Collection<Entry> entries,String query){
         return new Index(entries).find(query);
     }

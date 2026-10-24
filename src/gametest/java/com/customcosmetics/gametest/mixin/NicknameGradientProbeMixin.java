@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(GradientGlyph.class)
 public class NicknameGradientProbeMixin {
-    @ModifyArg(method="render",at=@At(value="INVOKE",target="Lcom/customcosmetics/features/nickname/GradientGlyph$GradientVertices;<init>(Lcom/mojang/blaze3d/vertex/VertexConsumer;Lcom/customcosmetics/features/nickname/NicknameGlyphEffect;FFFIJ)V"),index=6)
+    @ModifyArg(method="render",at=@At(value="INVOKE",target="Lcom/customcosmetics/features/nickname/GradientGlyph;acquireVertices(Lcom/mojang/blaze3d/vertex/VertexConsumer;Lcom/customcosmetics/features/nickname/NicknameGlyphEffect;FFFIJ)Lcom/customcosmetics/features/nickname/GradientGlyph$GradientVertices;"),index=6)
     private long customcosmetics$testClock(long now) { return RenderAssertions.nicknameTime < 0 ? now : RenderAssertions.nicknameTime; }
     @Inject(method="render",at=@At("HEAD"))
     private void customcosmetics$countGlyphs(CallbackInfo ci) { RenderAssertions.nicknameGlyphs.incrementAndGet(); }

@@ -19,11 +19,14 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 public final class ClientPerformanceGameTest implements FabricClientGameTest {
+    private static volatile Object allocationSink;
+    private static volatile int numericSink;
     @Override public void runTest(ClientGameTestContext context){
         context.runOnClient(client->{ConfigManager.offlineMode=true;ConfigManager.syncEnabled=false;ConfigManager.partyEspEnabled=false;ConfigManager.partyChatEnabled=false;FeatureModules.all(true);});
         try(var world=context.worldBuilder().create()){
             context.waitTicks(20);
             context.runOnClient(client->{
+                performanceSamples(client);
                 var board=client.level.getScoreboard();
                 var objective=board.addObjective("performance",ObjectiveCriteria.DUMMY,Component.literal("SKYBLOCK"),ObjectiveCriteria.RenderType.INTEGER,false,null);
                 var team=board.addPlayerTeam("perf_location");team.setPlayerPrefix(Component.literal("⏣ The Catacombs (M7)"));board.addPlayerToTeam("§u",team);
@@ -70,4 +73,36 @@ public final class ClientPerformanceGameTest implements FabricClientGameTest {
         context.getInput().setCursorPos(point.get()[0],point.get()[1]);context.getInput().pressMouse(ClientInput.MOUSE_LEFT);context.waitTicks(2);
     }
     private static void check(boolean condition,String message){if(!condition)throw new AssertionError(message);}
+    private static void sample(String name,int count,Runnable operation){
+        for(int i=0;i<10_000;i++)operation.run();
+        var bean=(com.sun.management.ThreadMXBean)java.lang.management.ManagementFactory.getThreadMXBean();long thread=Thread.currentThread().threadId();
+        long before=bean.getThreadAllocatedBytes(thread),start=System.nanoTime();
+        for(int i=0;i<count;i++)operation.run();
+        System.out.printf(Locale.ROOT,"PERF_SAMPLE %s calls=%d nanos=%d bytes=%d%n",name,count,System.nanoTime()-start,bean.getThreadAllocatedBytes(thread)-before);
+    }
+    private static void performanceSamples(net.minecraft.client.Minecraft client){
+        ConfigManager.nickTweaksEnabled=true;ConfigManager.nickTweaksRankEnabled=false;ConfigManager.nickTweaksNickChanger="Benchmark";NickRenderUtils.invalidateLocalTargetsCache();
+        Component unrelated=Component.literal("A normal scoreboard or chat line with no account name in it.");
+        var changing=Component.literal("unmatched");check(NickRenderUtils.handleFormattedText(changing)==changing,"Unexpected nickname change");
+        changing.setStyle(Style.EMPTY.withColor(0x123456));changing.append(" "+client.getUser().getName());NickRenderUtils.beginFrame();
+        check(NickRenderUtils.handleFormattedText(changing).getString().contains("Benchmark"),"Formatted component frame cache kept stale text");
+        sample("unmatched_formatted_text",20_000,()->allocationSink=NickRenderUtils.handleFormattedText(unrelated));
+        ConfigManager.playerSizeEnabled=true;ConfigManager.playerSizeX=.8;ConfigManager.playerSizeY=1.2;ConfigManager.playerSizeZ=.9;
+        sample("local_player_size",100_000,()->allocationSink=com.customcosmetics.features.playersize.PlayerSizeSettings.local());
+        var paints=new NicknameGradient[64];for(int i=0;i<paints.length;i++)paints[i]=new NicknameGradient("shimmer",0x120045+i*913,0xEC9856-i*727,1);
+        int[] next={0};sample("many_gradient_palettes",100_000,()->numericSink=paints[next[0]++&63].color(.45,.65,12345));
+        var stand=new net.minecraft.world.entity.decoration.ArmorStand(client.level,0,0,0);
+        stand.setId(-69420);stand.setInvisible(true);stand.setCustomName(Component.literal("Teleport Pad"));ConfigManager.damageSplashEnabled=true;
+        try{
+            var allowed=com.customcosmetics.features.damage.DamageSplash.class.getDeclaredField("allowed");allowed.setAccessible(true);allowed.setBoolean(null,true);
+            var level=com.customcosmetics.features.damage.DamageSplash.class.getDeclaredField("level");level.setAccessible(true);level.set(null,client.level);
+            sample("unchanged_non_damage_label",100_000,()->numericSink=com.customcosmetics.features.damage.DamageSplash.capture(stand)?1:0);
+            check(!com.customcosmetics.features.damage.DamageSplash.capture(stand),"Non-damage text was captured");
+            stand.setCustomName(Component.literal("1.2"));check(!com.customcosmetics.features.damage.DamageSplash.capture(stand),"Fishing timer was captured");
+            stand.setCustomName(Component.literal("✧1,234✧"));check(com.customcosmetics.features.damage.DamageSplash.capture(stand),"Negative cache masked changed damage text");
+            FeatureModules.set(FeatureModules.Feature.DAMAGE,false);check(!com.customcosmetics.features.damage.DamageSplash.capture(stand),"Disabled damage module retained captures");FeatureModules.set(FeatureModules.Feature.DAMAGE,true);
+            allowed.setBoolean(null,false);
+        }catch(ReflectiveOperationException failure){throw new AssertionError(failure);}
+        ConfigManager.damageSplashEnabled=false;ConfigManager.playerSizeEnabled=false;ConfigManager.nickTweaksEnabled=false;ConfigManager.nickTweaksNickChanger="";NickRenderUtils.invalidateLocalTargetsCache();
+    }
 }

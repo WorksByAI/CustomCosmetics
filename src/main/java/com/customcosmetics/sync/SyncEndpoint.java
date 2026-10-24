@@ -4,10 +4,13 @@ import com.customcosmetics.config.ConfigManager;
 import java.net.IDN;
 import java.net.URI;
 import java.util.Locale;
+import java.util.Objects;
 
 /** Built-in connection defaults may be replaced by the separate override file. */
 public final class SyncEndpoint {
     public static final int MAX_HOST_LENGTH = 253;
+    private record CachedEndpoint(String host, int port, boolean https, String url) {}
+    private static volatile CachedEndpoint cachedEndpoint;
 
     private SyncEndpoint() {}
 
@@ -42,9 +45,15 @@ public final class SyncEndpoint {
     }
 
     public static String baseUrl() {
-        String host = normalizeHost(ConfigManager.syncServerIp);
-        if (host == null || host.isEmpty()) return "";
+        String configuredHost = ConfigManager.syncServerIp;
         int port = ConfigManager.getSyncServerPort();
-        return (ConfigManager.syncServerHttps ? "https://" : "http://") + host + ":" + port;
+        boolean https = ConfigManager.syncServerHttps;
+        var cached = cachedEndpoint;
+        if (cached != null && cached.port() == port && cached.https() == https
+                && Objects.equals(cached.host(), configuredHost)) return cached.url();
+        String host = normalizeHost(configuredHost);
+        String url = host == null || host.isEmpty() ? "" : (https ? "https://" : "http://") + host + ":" + port;
+        cachedEndpoint = new CachedEndpoint(configuredHost, port, https, url);
+        return url;
     }
 }

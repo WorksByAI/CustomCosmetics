@@ -12,6 +12,7 @@ import java.util.regex.Pattern;
 /** Strictly parses floating combat labels, never player names or health bars. */
 public final class DamageText {
     private static final Pattern NUMBER = Pattern.compile("([✧✯]?)((?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?:\\.[0-9]+)?)([kKmMbBtTqQ]?)([✧✯]?)([⚔☄♞✷ﬗ✯]*)");
+    private static final BigDecimal MAX_DAMAGE=new BigDecimal("1E18");
     private static final String UNITS = " KMBTQ";
     public record Hit(BigDecimal amount, boolean critical, String suffix) {}
     public record Glyph(String text, int color) {}
@@ -29,7 +30,7 @@ public final class DamageText {
             var amount = new BigDecimal(match.group(2).replace(",", ""));
             int unit = match.group(3).isEmpty() ? 0 : UNITS.indexOf(match.group(3).toUpperCase(Locale.ROOT));
             amount = amount.scaleByPowerOfTen(unit * 3);
-            if (amount.signum() <= 0 || amount.compareTo(new BigDecimal("1E18")) > 0) return null;
+            if (amount.signum() <= 0 || amount.compareTo(MAX_DAMAGE) > 0) return null;
             return new Hit(amount, !match.group(1).isEmpty() || !match.group(4).isEmpty(), match.group(5));
         } catch (NumberFormatException error) { return null; }
     }

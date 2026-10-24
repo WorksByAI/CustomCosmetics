@@ -36,7 +36,10 @@ public final class NicknameGradientGameTest implements FabricClientGameTest {
         try(var world=context.worldBuilder().create()) {
             world.getServer().runCommand("gamemode creative @a");
             world.getServer().runCommand("time set noon");world.getServer().runCommand("weather clear");
-            context.waitTicks(15);check(context,world);context.waitTicks(5);
+            context.waitTicks(15);check(context,world);
+            // Let the integrated server leave its paused GUI tick before the test framework disconnects.
+            context.runOnClient(client->ClientUiAccess.setScreen(client,null));context.waitTicks(5);
+            world.getServer().runCommand("save-all flush");
         }
     }
     static void check(ClientGameTestContext context, TestSingleplayerContext world) {

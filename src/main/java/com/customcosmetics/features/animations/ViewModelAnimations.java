@@ -91,8 +91,9 @@ public final class ViewModelAnimations {
         return enabled() && ConfigManager.animationDisableSwing && (!ConfigManager.animationTerminatorOnly || "TERMINATOR".equals(skyblockId));
     }
     public static float swing(float vanilla, float partial, InteractionHand hand, ItemStack stack) {
-        if (!stack.isEmpty() && com.customcosmetics.features.blocking.SwordItems.isSword(stack)
-                && com.customcosmetics.features.blocking.VisualBlockhit.matches(hand)) {
+        if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ANIMATIONS))return vanilla;
+        if (!stack.isEmpty() && ConfigManager.swordBlockingEnabled && com.customcosmetics.features.blocking.VisualBlockhit.matches(hand)
+                && com.customcosmetics.features.blocking.SwordItems.isSword(stack)) {
             return suppressSwing(SwordItems.skyblockId(stack).orElse("")) ? 0
                 : com.customcosmetics.features.blocking.VisualBlockhit.progress(partial);
         }

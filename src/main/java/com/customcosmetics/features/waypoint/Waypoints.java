@@ -37,6 +37,12 @@ public final class Waypoints {
     private static Object level;
     private static int tick, graceUntil;
     private static Marker[] markers = EMPTY, visible = EMPTY;
+    private record ActiveRoute(Group group, WaypointRoute route) {}
+    private static final ActiveRoute[] NO_ROUTES = new ActiveRoute[0];
+    private static ActiveRoute[] activeRoutes = NO_ROUTES;
+    private static double selectedX = Double.NaN, selectedY, selectedZ, selectedMaxDistance;
+    private static int selectedLimit;
+    private static boolean selectedLabels, selectedDistance;
     private static int visibleCount;
     private static final Map<String, WaypointRoute> ROUTES = new HashMap<>();
     private static final AtomicReference<Snapshot> PENDING_SAVE = new AtomicReference<>();
@@ -59,7 +65,7 @@ public final class Waypoints {
         ClientTickEvents.END_CLIENT_TICK.register(Waypoints::tick);
         LevelRenderEvents.COLLECT_SUBMITS.register(Waypoints::render);
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
-            WaypointWorld.reset(); scope = ""; level = null; ROUTES.clear(); markers = visible = EMPTY; visibleCount = 0; dirtyScope = true;
+            WaypointWorld.reset(); scope = ""; level = null; ROUTES.clear(); activeRoutes = NO_ROUTES; markers = visible = EMPTY; visibleCount = 0; dirtyScope = true;
         });
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
             WRITER.shutdown();
@@ -79,7 +85,7 @@ public final class Waypoints {
         if (!store.writable()) throw new IllegalStateException("Waypoint file could not be loaded. Repair waypoints.json and restart.");
         data = Objects.requireNonNull(value);
         dirtyScope = selectionDirty = true;
-        if (!value.enabled() || value.groups().isEmpty()) { markers = visible = EMPTY; visibleCount = 0; }
+        if (!value.enabled() || value.groups().isEmpty()) { markers = visible = EMPTY; activeRoutes = NO_ROUTES; visibleCount = 0; }
         status = "Saving…";
         PENDING_SAVE.set(value);
         scheduleSave();
@@ -154,13 +160,21 @@ public final class Waypoints {
         }
         if (tick < graceUntil || markers.length == 0) { visibleCount = 0; return; }
         double x = client.player.getX(), y = client.player.getY(), z = client.player.getZ();
-        for (Group group : data.groups()) if (group.enabled() && group.ordered() && group.scope().equals(scope))
-            ROUTES.computeIfAbsent(group.id(), ignored -> new WaypointRoute()).tick(group.points(), x, y, z,
+        for (ActiveRoute active : activeRoutes) {
+            int previous = active.route.current();
+            active.route.tick(active.group.points(), x, y, z,
                     ConfigManager.waypointActivationRadius, ConfigManager.waypointAllowSkipping, ConfigManager.waypointAllowBackwards);
+            if (previous != active.route.current()) selectionDirty = true;
+        }
         if (tick % 5 != 0 && !selectionDirty) return;
-        selectionDirty = false;
         int limit = Math.min(ConfigManager.waypointMaxRendered, visible.length);
         double maxDistance = ConfigManager.waypointMaxDistance;
+        boolean labels = ConfigManager.waypointShowLabels, distanceLabels = ConfigManager.waypointShowDistance;
+        if (!selectionDirty && x == selectedX && y == selectedY && z == selectedZ && limit == selectedLimit
+                && maxDistance == selectedMaxDistance && labels == selectedLabels && distanceLabels == selectedDistance) return;
+        selectionDirty = false;
+        selectedX = x; selectedY = y; selectedZ = z; selectedLimit = limit; selectedMaxDistance = maxDistance;
+        selectedLabels = labels; selectedDistance = distanceLabels;
         double maxDistanceSquared = maxDistance <= 0 ? Double.POSITIVE_INFINITY : maxDistance * maxDistance;
         int count = 0;
         for (Marker marker : markers) {
@@ -197,14 +211,17 @@ public final class Waypoints {
     private static void rebuild() {
         dirtyScope = false;
         var active = new ArrayList<Marker>();
+        var routes = new ArrayList<ActiveRoute>();
         if (!scope.isEmpty()) for (Group group : data.groups()) if (group.enabled() && group.scope().equals(scope)) {
             WaypointRoute route = group.ordered() ? ROUTES.computeIfAbsent(group.id(), ignored -> new WaypointRoute()) : null;
+            if (route != null) routes.add(new ActiveRoute(group, route));
             for (int i = 0; i < group.points().size(); i++) {
                 Point point = group.points().get(i);
                 if (point.enabled()) active.add(new Marker(group, point, i, route));
             }
         }
         markers = active.isEmpty() ? EMPTY : active.toArray(Marker[]::new);
+        activeRoutes = routes.isEmpty() ? NO_ROUTES : routes.toArray(ActiveRoute[]::new);
         visible = active.isEmpty() ? EMPTY : new Marker[Math.min(MAX_RENDERED, markers.length)];
         visibleCount = 0;
         selectionDirty = true;

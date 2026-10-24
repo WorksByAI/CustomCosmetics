@@ -17,6 +17,8 @@ public final class PlayerBlocklist {
         return List.copyOf(unique.values());
     }
     public static boolean contains(Collection<Entry> entries,UUID uuid,String account){
-        return entries!=null&&entries.stream().anyMatch(entry->entry!=null&&(entry.uuid()!=null?entry.uuid().equals(uuid):account!=null&&account.equalsIgnoreCase(entry.account())));
+        if(entries==null||entries.isEmpty())return false;
+        for(var entry:entries)if(entry!=null&&(entry.uuid()!=null?entry.uuid().equals(uuid):account!=null&&account.equalsIgnoreCase(entry.account())))return true;
+        return false;
     }
 }

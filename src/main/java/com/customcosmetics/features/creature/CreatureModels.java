@@ -39,15 +39,21 @@ public final class CreatureModels {
     private record Cached(Choice choice, LivingEntity entity) {}
     private static final WeakHashMap<AbstractClientPlayer, Cached> CACHE = new WeakHashMap<>();
     private static final EnumSet<Choice> FAILED = EnumSet.noneOf(Choice.class);
+    private static final java.util.Map<String,Choice> CHOICES = choices();
     private static ClientLevel cachedLevel;
 
     private CreatureModels() {}
 
+    private static java.util.Map<String,Choice> choices() {
+        var choices = new java.util.HashMap<String,Choice>();
+        for (Choice choice : Choice.values()) choices.put(choice.id, choice);
+        return java.util.Map.copyOf(choices);
+    }
+
     public static Choice parse(String value) {
         if (value == null) return Choice.PLAYER;
-        String id = value.toLowerCase(Locale.ROOT);
-        for (Choice choice : Choice.values()) if (choice.id.equals(id)) return choice;
-        return Choice.PLAYER;
+        Choice exact = CHOICES.get(value);
+        return exact != null ? exact : CHOICES.getOrDefault(value.toLowerCase(Locale.ROOT), Choice.PLAYER);
     }
 
     public static Choice choiceFor(AbstractClientPlayer player) {

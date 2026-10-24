@@ -17,6 +17,7 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
+import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Screenshot;
@@ -60,6 +61,7 @@ public final class WaypointsGameTest implements FabricClientGameTest {
             });
             AtomicReference<Group> saved = new AtomicReference<>();
             try (var world = context.worldBuilder().create()) {
+                try {
                 world.getServer().runCommand("gamemode creative @a");
                 world.getServer().runCommand("time set noon");
                 world.getServer().runCommand("weather clear");
@@ -247,11 +249,13 @@ public final class WaypointsGameTest implements FabricClientGameTest {
                 });
                 context.waitTicks(10);
                 int noWall = magentaPixels(context);
+                System.out.println("WAYPOINT_OCCLUSION_NO_WALL_PIXELS=" + noWall);
                 context.takeScreenshot("waypoint-far-real-depth-without-wall");
                 check(noWall > 25, "Far marker fixture is clipped even without a wall: " + noWall);
                 context.runOnClient(client -> occlusionWall = true);
                 context.waitTicks(10);
                 int depthTested = magentaPixels(context);
+                System.out.println("WAYPOINT_OCCLUSION_DEPTH_TESTED_PIXELS=" + depthTested);
                 context.takeScreenshot("waypoint-far-marker-occluded-at-real-depth");
                 check(depthTested + 20 < noWall, "Non-through-wall marker was projected in front of its occluder");
                 context.runOnClient(client -> {
@@ -260,6 +264,7 @@ public final class WaypointsGameTest implements FabricClientGameTest {
                 });
                 context.waitTicks(10);
                 int throughWall = magentaPixels(context);
+                System.out.println("WAYPOINT_OCCLUSION_THROUGH_WALL_PIXELS=" + throughWall);
                 context.takeScreenshot("waypoint-far-marker-through-wall");
                 check(throughWall > 25, "Through-wall marker did not render over the opaque occluder: " + throughWall);
                 context.runOnClient(client -> { occlusionWall = false; Waypoints.put(lastGroup.get()); });
@@ -297,9 +302,18 @@ public final class WaypointsGameTest implements FabricClientGameTest {
                 context.waitFor(client -> Waypoints.status().isEmpty());
                 Snapshot disk = new WaypointStore(file).load();
                 check(disk.equals(Waypoints.snapshot()), "Asynchronous saved waypoint file differs from in-memory snapshot");
+                } catch (Exception | Error failure) {
+                    // Report the original assertion before world.close() can enter server shutdown.
+                    System.err.println("WAYPOINT_FIRST_WORLD_FAILED_BEFORE_CLOSE");
+                    failure.printStackTrace();
+                    throw failure;
+                } finally {
+                    prepareWorldClose(context, world);
+                }
             }
             // A second real save has the same dimension but must never inherit the first world's markers.
             try (var world = context.worldBuilder().create()) {
+                try {
                 context.waitTicks(30);
                 context.runOnClient(client -> simulateSkyblockLocation(client, "hub"));
                 context.waitTicks(21);
@@ -328,6 +342,13 @@ public final class WaypointsGameTest implements FabricClientGameTest {
                 });
                 context.waitFor(client -> Waypoints.status().isEmpty());
                 check(new WaypointStore(file).load().groups().isEmpty(), "Deleted group remained on disk");
+                } catch (Exception | Error failure) {
+                    System.err.println("WAYPOINT_SECOND_WORLD_FAILED_BEFORE_CLOSE");
+                    failure.printStackTrace();
+                    throw failure;
+                } finally {
+                    prepareWorldClose(context, world);
+                }
             }
             System.out.println("WAYPOINTS_COMMAND_ALIASES_GUI_EDIT_IMPORT_EXPORT_RENDER_PIXELS_ORDERED_DISABLE_CROSS_WORLD_AND_PERSISTENCE_OK");
         } catch (Exception failure) { throw new AssertionError(failure); }
@@ -336,6 +357,12 @@ public final class WaypointsGameTest implements FabricClientGameTest {
             if (clipboardBefore.get() != null)
                 context.runOnClient(client -> client.keyboardHandler.setClipboard(clipboardBefore.get()));
         }
+    }
+    private static void prepareWorldClose(ClientGameTestContext context, TestSingleplayerContext world) {
+        // Drain the integrated server while Fabric's client/server tick coordination is still connected.
+        context.runOnClient(client -> { occlusionWall = false; ClientUiAccess.setScreen(client, null); });
+        context.waitTicks(5);
+        world.getServer().runCommand("save-all flush");
     }
     private static void registerOcclusionWall() throws ReflectiveOperationException {
         if (occlusionType == null) {

@@ -14,6 +14,8 @@ public final class MapPresetScreen extends Screen {
     private final Screen parent;
     private String selected="",name=MapEditor.presetName,query="",status="",confirmation="";
     private List<MapEditor.PresetInfo> entries=List.of(),filtered=List.of();
+    private MapEditor.PresetInfo selectedInfo;
+    private String selectedCount="Saves the current room's edits.";
     private final List<PinkUi.Action> rows=new ArrayList<>();
     private PinkUi.Field search,nameField;
     private PinkUi.Action load,rename,delete,rotationButton;
@@ -24,7 +26,7 @@ public final class MapPresetScreen extends Screen {
         rows.clear();w=Math.min(620,width-16);h=Math.min(326,height-16);x=(width-w)/2;y=(height-h)/2;
         left=Math.max(108,(w-36)*2/5);right=x+left+24;detailWidth=x+w-12-right;
         search=addRenderableWidget(new PinkUi.Field(font,x+12,y+36,left,"Search presets",20));search.setMaxLength(48);search.setHint(Component.literal("Search presets…"));search.setValue(query);search.setResponder(v->{query=v;offset=0;filter();});
-        nameField=addRenderableWidget(new PinkUi.Field(font,right,y+51,detailWidth,"Preset name",20));nameField.setMaxLength(48);nameField.setValue(name);nameField.setResponder(v->{name=v;confirmation="";status="";});
+        nameField=addRenderableWidget(new PinkUi.Field(font,right,y+51,detailWidth,"Preset name",20));nameField.setMaxLength(48);nameField.setValue(name);nameField.setResponder(v->{name=v;confirmation="";status="";updateButtons();});
         int half=(detailWidth-6)/2;
         int listHalf=(left-6)/2;
         addRenderableWidget(new PinkUi.Action(x+12,y+h-64,listHalf,22,left<140?"New":"New Preset",false,()->{selected="";nameField.setValue("My room");confirmation="";status="Name it, then click Save.";updateButtons();}));
@@ -49,7 +51,9 @@ public final class MapPresetScreen extends Screen {
     private void updateButtons(){
         for(var child:children())if(child instanceof net.minecraft.client.gui.components.AbstractWidget widget)widget.active=!working||widget.getMessage().getString().equals("Back");
         for(int i=0;i<rows.size();i++){var row=rows.get(i);int at=offset+i;row.visible=at<filtered.size();if(row.visible){var p=filtered.get(at);row.setMessage(Component.literal(p.name()+" · "+String.format(Locale.ROOT,"%,d",p.blocks())));}}
-        boolean has=!working&&entries.stream().anyMatch(p->p.name().equals(selected));load.active=rename.active=delete.active=has;
+        selectedInfo=entries.stream().filter(p->p.name().equals(selected)).findFirst().orElse(null);
+        selectedCount=selectedInfo==null?"Saves the current room's edits.":String.format(Locale.ROOT,"%,d blocks",selectedInfo.blocks());
+        boolean has=!working&&selectedInfo!=null;load.active=rename.active=delete.active=has;
         delete.setMessage(Component.literal(confirmation.equals("delete:"+selected)?"Confirm Delete":"Delete"));
     }
     private void select(int index){if(index>=filtered.size())return;selected=filtered.get(index).name();nameField.setValue(selected);MapEditor.presetName=selected;status="";confirmation="";rotation=-1;if(rotationButton!=null)rotationButton.setMessage(Component.literal(rotationLabel()));updateButtons();}
@@ -67,15 +71,14 @@ public final class MapPresetScreen extends Screen {
         if(working)return;working=true;status="Working… You can return to the game.";
         try{action.get().whenComplete((value,error)->{working=false;if(error==null)done.run();else{while((error instanceof java.util.concurrent.CompletionException||error instanceof java.util.concurrent.ExecutionException)&&error.getCause()!=null)error=error.getCause();status=error.getMessage();}updateButtons();});}catch(RuntimeException error){working=false;status=error.getMessage();}updateButtons();
     }
-    @Override public void tick(){updateButtons();}
     private void run(Runnable action){try{action.run();}catch(RuntimeException error){status=error.getMessage()==null?"Preset operation failed.":error.getMessage();}updateButtons();}
     @Override public boolean mouseScrolled(double mx,double my,double horizontal,double vertical){if(mx>=x+12&&mx<right&&my>=y+62&&my<y+h-68){offset=Math.clamp(offset-(int)Math.signum(vertical)*3,0,Math.max(0,filtered.size()-rows.size()));updateButtons();return true;}return super.mouseScrolled(mx,my,horizontal,vertical);}
     @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float dt){
         outline(g,x,y,w,h,10,BORDER,PANEL);text(g,font,getTitle().getString(),x+12,y+13,PINK,w-24);
         text(g,font,"Preset name",right,y+37,MUTED,detailWidth);
-        var info=entries.stream().filter(p->p.name().equals(selected)).findFirst().orElse(null);
+        var info=selectedInfo;
         text(g,font,info==null?"Select a preset or save a new one.":info.room(),right,y+81,TEXT,detailWidth);
-        text(g,font,info==null?"Saves the current room's edits.":String.format(Locale.ROOT,"%,d blocks",info.blocks()),right,y+94,MUTED,detailWidth);
+        text(g,font,selectedCount,right,y+94,MUTED,detailWidth);
         if(h>=290){text(g,font,"Here: "+MapEditor.roomLabel(),right,y+117,MUTED,detailWidth);text(g,font,"Position and facing align automatically.",right,y+131,MUTED,detailWidth);}
         if(filtered.isEmpty())text(g,font,entries.isEmpty()?"No saved presets yet":"No matching presets",x+16,y+70,MUTED,left-8);
         text(g,font,status.isEmpty()?"Scroll the list to browse · "+entries.size()+" presets":status,x+12,y+h-38,status.isEmpty()?MUTED:PINK,w-24);

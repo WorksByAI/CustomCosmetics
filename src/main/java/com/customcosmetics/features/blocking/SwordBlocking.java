@@ -21,11 +21,14 @@ public final class SwordBlocking {
         BlockingSync.tick(localHand, localItemId, client.level);
     }
     private static void sample(Minecraft client) {
-        if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ANIMATIONS)){if(localHand!=BlockHand.NONE){localHand=BlockHand.NONE;localItemId="";BlockingSync.localHandChanged(localHand,localItemId);}return;}
+        if(!ConfigManager.swordBlockingEnabled||!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ANIMATIONS)){clearLocal();return;}
         BlockHand previous = localHand;
         String previousId = localItemId;
         var player = client.player;
         boolean world = client.level != null && player != null;
+        // Item identities and list rules cannot affect an inactive guard.
+        if(!world||ClientUiAccess.screen(client)!=null||!client.isWindowActive()||!player.isAlive()
+                ||player.isSpectator()||!client.options.keyUse.isDown()){clearLocal();return;}
         boolean otherUse = world && player.isUsingItem() && !BlockingItems.allowed(player.getUseItem())
             && !(player.getUseItem().getItem() instanceof ShieldItem);
         localHand = BlockHand.choose((ConfigManager.swordBlockingEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ANIMATIONS)), world, ClientUiAccess.screen(client) != null,
@@ -35,6 +38,9 @@ public final class SwordBlocking {
         localItemId = localHand == BlockHand.NONE ? "" : BlockingItems.identity(
             localHand == BlockHand.MAIN ? player.getMainHandItem() : player.getOffhandItem());
         if (previous != localHand || !previousId.equals(localItemId)) BlockingSync.localHandChanged(localHand, localItemId);
+    }
+    private static void clearLocal(){
+        if(localHand!=BlockHand.NONE||!localItemId.isEmpty()){localHand=BlockHand.NONE;localItemId="";BlockingSync.localHandChanged(localHand,localItemId);}
     }
 
     public static boolean isSword(ItemStack stack) { return SwordItems.isSword(stack); }

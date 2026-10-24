@@ -75,7 +75,9 @@ public final class AccessoryTooltipHelper {
         loaded = true;
         catalog = AccessoryCatalog.empty();
         if (Files.exists(CATALOG_PATH)) try {
-            byte[] bytes = Files.readAllBytes(CATALOG_PATH);
+            if (Files.size(CATALOG_PATH) > MAX_CACHE_BYTES) throw new IOException("Accessory catalog exceeds 1 MiB.");
+            byte[] bytes;
+            try (var input = Files.newInputStream(CATALOG_PATH)) { bytes = input.readNBytes(MAX_CACHE_BYTES + 1); }
             if (bytes.length > MAX_CACHE_BYTES) throw new IOException("Accessory catalog exceeds 1 MiB.");
             catalog = AccessoryCatalog.parse(new String(bytes, StandardCharsets.UTF_8));
         } catch (Exception invalid) {

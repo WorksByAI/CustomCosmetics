@@ -33,7 +33,8 @@ public final class SettingsCatalog {
         add(entries, "NickTweaks", "PRESETS", "Saved nickname color presets",
             "Save Current Colors|Save / Update");
         add(entries, "Animations", "ANIMATIONS", "Sword blocking item whitelist blacklist pose",
-            "Sword Blocking|Adjust Blocking|Blocking Style|Blocking List Mode|Edit Blocking Lists|Apply Lists to Other Players|Share Blocking");
+            "Sword Blocking|Adjust Blocking|Blocking List Mode|Edit Blocking Lists|Apply Lists to Other Players|Share Blocking");
+        add(entries, "Animations", "ANIMATIONS", "Sword blocking item whitelist blacklist pose Default Jigsaw", "Blocking Style");
         add(entries, "Animations", "ANIMATIONS", "Held item view model position rotation scale",
             "View Model|Item Scale|Position X|Position Y|Position Z|Rotation X|Rotation Y|Rotation Z|Swing X|Swing Y|Swing Z|Disable Hand Movement|Disable Equip Animation|Disable Swing Animation|Reset View Model");
         add(entries, "Animations", "ANIMATIONS", "Requires Disable Swing Animation to be enabled.", "Terminator Only");

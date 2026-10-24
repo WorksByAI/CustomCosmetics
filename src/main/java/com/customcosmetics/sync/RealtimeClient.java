@@ -31,6 +31,8 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
     private volatile boolean closed,ready,udpSelected;private volatile View desired=new View("",Set.of(),PartyRoster.EMPTY,0,false);
     private volatile Block block=new Block(BlockHand.NONE,"");private volatile PartyClient.Position position;
     private volatile Map<UUID,BlockingTransport.Pose> blocks=Map.of();private volatile Map<UUID,PartyClient.Teammate> teammates=Map.of();
+    private volatile Set<UUID> directSnapshot=Set.of();private volatile String statusSnapshot="Connecting";
+    private long nextStatusSnapshot;
     private final Map<String,Stamp> seen=new HashMap<>();private final StringBuilder fragments=new StringBuilder();
     private final RealtimeConnections connections=new RealtimeConnections();
     private final String clientId=UUID.randomUUID().toString();private String token;
@@ -62,20 +64,29 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
     }
     static URI endpoint(String base){String uri=WebSocketPresenceClient.endpoint(base).toString();return URI.create(uri.substring(0,uri.length()-"/actions/ws".length())+"/realtime/ws");}
     private static long clock(){return System.nanoTime()/1000000;}
-    public synchronized void update(View view,BlockHand hand,String itemId,PartyClient.Position position){
-        if(!sameScope(view,desired)){blocks=Map.of();teammates=Map.of();peers.close();connections.clear();}
+    /** Called by the client tick. Ordinary movement only publishes volatile channel values. */
+    public void update(View view,BlockHand hand,String itemId,PartyClient.Position position){
+        if(view.equals(desired)) { block(hand,itemId);this.position=position;return; }
+        updateView(view,hand,itemId,position);
+    }
+    private synchronized void updateView(View view,BlockHand hand,String itemId,PartyClient.Position position){
+        if(!sameScope(view,desired)){blocks=Map.of();teammates=Map.of();directSnapshot=Set.of();peers.close();connections.clear();}
         else if(!view.players().equals(desired.players())){var kept=new HashMap<>(blocks);kept.keySet().retainAll(view.players());blocks=Map.copyOf(kept);connections.retainBlocking(view.players());}
         desired=view;block=new Block(hand,hand==BlockHand.NONE?"":itemId);this.position=position;
+        if(!view.equals(sent)){statusSnapshot="Connecting";nextStatusSnapshot=0;}
     }
     static boolean sameScope(View a,View b){return a.world().equals(b.world())&&a.roster().equals(b.roster())&&a.environment()==b.environment()&&a.esp()==b.esp()&&a.p2p()==b.p2p()&&a.audience().equals(b.audience());}
     static int positionInterval(boolean udp,int recommendation){return Math.clamp(recommendation,udp?200:500,1000);}
     static int sampleInterval(boolean direct,boolean udp,int recommendation){return direct?200:positionInterval(udp,recommendation);}
-    public synchronized void block(BlockHand hand,String itemId){block=new Block(hand,hand==BlockHand.NONE?"":itemId);}
+    public void block(BlockHand hand,String itemId){
+        String value=hand==BlockHand.NONE?"":itemId;var previous=block;
+        if(previous.hand()!=hand||!previous.itemId().equals(value))block=new Block(hand,value);
+    }
     public boolean closed(){return closed;}
     public synchronized boolean ready(){return ready&&!closed&&desired.equals(sent)&&acknowledged==scope;}
-    public synchronized String status(){return connections.status(ready(),peers.direct(),clock());}
+    public String status(){return statusSnapshot;}
     synchronized boolean usingUdpRelay(){return udpSelected;}
-    public synchronized Set<UUID> directPeers(){return peers.direct();}
+    public Set<UUID> directPeers(){return directSnapshot;}
     public int requestedUdpPort(){return requestedUdpPort;}
     public synchronized List<String> diagnostics(){
         long now=clock();var lines=new ArrayList<String>();
@@ -105,6 +116,7 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
         if(udpSelected)datagram(1,m);else pendingStates.put(channel,m);
     }
     private synchronized void pump()throws Exception{
+        try {
         if(closed||socket==null)return;
         long now=clock();blocks=unexpiredBlocks(blocks,now);teammates=unexpiredPositions(teammates,System.currentTimeMillis());
         if(!ready){if(now-started>10000)fail("WSS authentication timed out");return;}
@@ -140,9 +152,26 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
             nextPosition=now+sampleInterval(peers.sendingDirect(),selected,selected?udpPositionInterval:wssPositionInterval);var m=new JsonObject();m.addProperty("x",pos.x());m.addProperty("y",pos.y());m.addProperty("z",pos.z());m.addProperty("width",pos.width());m.addProperty("height",pos.height());state("position",++positionSequence,m);
         }
         if(canSend&&!selected&&!pendingStates.isEmpty()){String channel=pendingStates.containsKey("blocking")?"blocking":"position";send(pendingStates.remove(channel));}
+        } finally { publishReadState(); }
     }
-    private static Map<UUID,BlockingTransport.Pose> unexpiredBlocks(Map<UUID,BlockingTransport.Pose> source,long now){var result=new HashMap<>(source);result.values().removeIf(p->p.expiresAt()<=now);return Map.copyOf(result);}
-    private static Map<UUID,PartyClient.Teammate> unexpiredPositions(Map<UUID,PartyClient.Teammate> source,long now){var result=new HashMap<>(source);result.values().removeIf(p->p.expiresAt()<=now);return Map.copyOf(result);}
+    private void publishReadState(){
+        directSnapshot=closed?Set.of():peers.direct();
+        if(!ready()){statusSnapshot="Connecting";nextStatusSnapshot=0;return;}
+        long now=clock();
+        if(now>=nextStatusSnapshot){nextStatusSnapshot=now+50;statusSnapshot=connections.status(true,directSnapshot,now);}
+    }
+    static Map<UUID,BlockingTransport.Pose> unexpiredBlocks(Map<UUID,BlockingTransport.Pose> source,long now){
+        for(var value:source.values())if(value.expiresAt()<=now){
+            var result=new HashMap<>(source);result.values().removeIf(p->p.expiresAt()<=now);return Map.copyOf(result);
+        }
+        return source;
+    }
+    static Map<UUID,PartyClient.Teammate> unexpiredPositions(Map<UUID,PartyClient.Teammate> source,long now){
+        for(var value:source.values())if(value.expiresAt()<=now){
+            var result=new HashMap<>(source);result.values().removeIf(p->p.expiresAt()<=now);return Map.copyOf(result);
+        }
+        return source;
+    }
     @Override public void onOpen(WebSocket ws){synchronized(this){socket=ws;if(closed){ws.abort();return;}var m=new JsonObject();m.addProperty("type","hello");m.addProperty("client",clientId);m.addProperty("token",token);send(m);token=null;}ws.request(1);}
     @Override public CompletionStage<?> onText(WebSocket ws,CharSequence part,boolean last){
         if(closed)return null;if(fragments.length()+part.length()>262144){close();return null;}fragments.append(part);
@@ -213,5 +242,5 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
     @Override public CompletionStage<?> onPong(WebSocket ws,java.nio.ByteBuffer data){ws.request(1);return null;}
     @Override public CompletionStage<?> onClose(WebSocket ws,int code,String reason){fail("WSS closed (code "+code+")");return null;}
     @Override public void onError(WebSocket ws,Throwable error){fail("WSS error ("+error.getClass().getSimpleName()+")");}
-    @Override public synchronized void close(){if(closed)return;closed=true;ready=false;token=null;peers.close();pendingStates.clear();blocks=Map.of();teammates=Map.of();if(udp!=null)udp.close();if(socket!=null)socket.abort();if(connecting!=null)connecting.cancel(true);worker.shutdownNow();http.shutdownNow();RemoteAccess.release(this);}
+    @Override public synchronized void close(){if(closed)return;closed=true;ready=false;token=null;peers.close();pendingStates.clear();blocks=Map.of();teammates=Map.of();directSnapshot=Set.of();statusSnapshot="Connecting";if(udp!=null)udp.close();if(socket!=null)socket.abort();if(connecting!=null)connecting.cancel(true);worker.shutdownNow();http.shutdownNow();RemoteAccess.release(this);}
 }

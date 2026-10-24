@@ -29,13 +29,19 @@ public final class WaypointRoute {
         if (points.size() < 2) return;
         int next = (current + 1) % points.size();
         double radiusSquared = radius * radius;
-        if (!allowSkip && !allowBackwards) {
+        if (!allowBackwards) {
             if (points.get(next).enabled() && points.get(next).distanceSquared(x, y, z) <= radiusSquared) current = next;
             return;
         }
         int previous = Math.floorMod(current - 1, points.size());
+        if (!allowSkip) {
+            // Preserve the old ascending-index tie break when both neighbours overlap.
+            int first = Math.min(previous, next), second = Math.max(previous, next);
+            if (points.get(first).enabled() && points.get(first).distanceSquared(x, y, z) <= radiusSquared) current = first;
+            if (second != first && points.get(second).enabled() && points.get(second).distanceSquared(x, y, z) <= radiusSquared) current = second;
+            return;
+        }
         for (int i = 0; i < points.size(); i++) {
-            if ((!allowSkip && i != next && i != previous) || (!allowBackwards && i != next)) continue;
             Point point = points.get(i);
             if (point.enabled() && point.distanceSquared(x, y, z) <= radiusSquared) current = i;
         }

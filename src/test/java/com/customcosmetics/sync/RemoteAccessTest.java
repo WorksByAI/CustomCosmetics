@@ -7,6 +7,25 @@ import java.net.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 class RemoteAccessTest {
+    @Test void slowChannelConstructionDoesNotHoldTheGlobalLockAndCannotSurviveModeChanges() throws Exception {
+        RemoteAccess.offline(false);
+        var entered=new java.util.concurrent.CountDownLatch(1);var release=new java.util.concurrent.CountDownLatch(1);
+        var closed=new AtomicInteger();
+        try(var executor=java.util.concurrent.Executors.newFixedThreadPool(2)){
+            var creating=executor.submit(()->RemoteAccess.channel(()->{
+                entered.countDown();assertTrue(release.await(5,java.util.concurrent.TimeUnit.SECONDS));
+                return (AutoCloseable)closed::incrementAndGet;
+            }));
+            try {
+                assertTrue(entered.await(5,java.util.concurrent.TimeUnit.SECONDS));
+                executor.submit(()->{RemoteAccess.offline(true);RemoteAccess.offline(false);})
+                    .get(2,java.util.concurrent.TimeUnit.SECONDS);
+            } finally {release.countDown();}
+            var failure=assertThrows(java.util.concurrent.ExecutionException.class,
+                ()->creating.get(5,java.util.concurrent.TimeUnit.SECONDS));
+            assertInstanceOf(IOException.class,failure.getCause());assertEquals(1,closed.get());
+        } finally {release.countDown();}
+    }
     @AfterEach void restore(){RemoteAccess.offline(false);}
     @Test void offlineClosesAllIoAndOldRequestsRemainInvalidAfterReturningOnline() throws Exception {
         RemoteAccess.offline(false);var raw=new Fake();var connection=RemoteAccess.manage(raw);

@@ -7,10 +7,12 @@ import java.util.Locale;
 public enum BlockingStyle {
     DEFAULT("Default"), JIGSAW("Jigsaw");
     public final String label;
-    BlockingStyle(String label) { this.label = label; }
-    public String value() { return name().toLowerCase(Locale.ROOT); }
+    private final String value;
+    private static final BlockingStyle[] OPTIONS=values();
+    BlockingStyle(String label) { this.label = label; this.value=name().toLowerCase(Locale.ROOT); }
+    public String value() { return value; }
     public static BlockingStyle parse(String value) {
-        if (value != null) for (var style : values()) if (style.value().equalsIgnoreCase(value.strip())) return style;
+        if (value != null) { value=value.strip();for (var style : OPTIONS) if (style.value.equalsIgnoreCase(value)) return style; }
         return DEFAULT;
     }
 }

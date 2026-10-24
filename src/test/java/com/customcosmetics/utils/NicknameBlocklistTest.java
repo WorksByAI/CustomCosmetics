@@ -35,6 +35,32 @@ class NicknameBlocklistTest {
         assertSame(text,result);ConfigManager.nickTweaksBlockedPlayers=List.of();NickRenderUtils.invalidateLocalTargetsCache();
         assertEquals("暮冬",NickRenderUtils.renderFormattedText(Component.literal("Alice"),NickRenderUtils.buildTargets(SELF,"Self",false,remotes)).getString());
     }
+    @Test void negativeMatchCacheDoesNotExpandStyledGlyphsAndInvalidatesWithTargets(){
+        var targets=NickRenderUtils.buildTargets(SELF,"Self",false,List.of(remote(ALICE,"Alice","Changed")));
+        FormattedText plainOnly=new FormattedText(){
+            public <T> Optional<T> visit(FormattedText.ContentConsumer<T> consumer){return consumer.accept("ordinary text");}
+            public <T> Optional<T> visit(FormattedText.StyledContentConsumer<T> consumer,Style style){throw new AssertionError("Unmatched text expanded styled glyphs");}
+        };
+        for(int i=0;i<10;i++)assertSame(plainOnly,NickRenderUtils.renderFormattedText(plainOnly,targets));
+        var text=Component.literal("Bob");assertSame(text,NickRenderUtils.renderFormattedText(text,targets));
+        NickRenderUtils.invalidateLocalTargetsCache();
+        assertEquals("Changed",NickRenderUtils.renderFormattedText(text,NickRenderUtils.buildTargets(SELF,"Self",false,List.of(remote(BOB,"Bob","Changed")))).getString());
+    }
+    @Test void failingStyledVisitorsFallBackWithoutKeepingPartialGlyphs(){
+        FormattedText malformed=new FormattedText(){
+            public <T> Optional<T> visit(FormattedText.ContentConsumer<T> consumer){return consumer.accept("Alice");}
+            public <T> Optional<T> visit(FormattedText.StyledContentConsumer<T> consumer,Style style){consumer.accept(style,"Al");throw new IllegalStateException("third-party visitor");}
+        };
+        var targets=NickRenderUtils.buildTargets(SELF,"Self",false,List.of(remote(ALICE,"Alice","Changed")));
+        assertEquals("Changed",NickRenderUtils.renderFormattedText(malformed,targets).getString());
+    }
+    @Test void matchingTextPreservesUnrelatedUnicodeAndClickStyles(){
+        var style=Style.EMPTY.withColor(0x55AAFF).withClickEvent(new ClickEvent.SuggestCommand("/msg Alice "));
+        var text=Component.literal("😀 ").append(Component.literal("Alice").withStyle(style)).append(" end");
+        var result=NickRenderUtils.renderFormattedText(text,NickRenderUtils.buildTargets(SELF,"Self",false,List.of(remote(ALICE,"Alice","Changed"))));
+        assertEquals("😀 Changed end",result.getString());
+        assertTrue(result.<Boolean>visit((found,value)->value.contains("C")?Optional.of(style.getClickEvent().equals(found.getClickEvent())):Optional.empty(),Style.EMPTY).orElse(false));
+    }
     @Test void normalizationRejectsFormattingInvalidNamesAndDuplicates(){
         var normalized=PlayerBlocklist.normalize(Arrays.asList(null,new PlayerBlocklist.Entry(null," Alice "),new PlayerBlocklist.Entry(null,"ALICE"),new PlayerBlocklist.Entry(null,"&aBad"),new PlayerBlocklist.Entry(null,"a name"),new PlayerBlocklist.Entry(ALICE,"Alice"),new PlayerBlocklist.Entry(ALICE,"Renamed")));
         assertEquals(List.of(new PlayerBlocklist.Entry(null,"Alice"),new PlayerBlocklist.Entry(ALICE,"Alice")),normalized);

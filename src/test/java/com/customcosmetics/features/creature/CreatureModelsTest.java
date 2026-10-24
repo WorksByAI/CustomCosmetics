@@ -9,5 +9,9 @@ class CreatureModelsTest {
         assertEquals(CreatureModels.Choice.PLAYER, CreatureModels.parse(null));
         assertEquals(CreatureModels.Choice.PLAYER, CreatureModels.parse("../zombie"));
         assertEquals(CreatureModels.Choice.COW, CreatureModels.parse("cow"));
+        for(var choice:CreatureModels.Choice.values()){
+            assertEquals(choice,CreatureModels.parse(choice.id));
+            assertEquals(choice,CreatureModels.parse(choice.id.toUpperCase(java.util.Locale.ROOT)));
+        }
     }
 }

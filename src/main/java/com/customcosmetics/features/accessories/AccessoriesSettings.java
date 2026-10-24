@@ -47,6 +47,10 @@ public record AccessoriesSettings(Part wings, Part halo, Part ears, Map<String,P
     public static AccessoriesSettings choose(UUID self,UUID target,boolean offline,AccessoriesSettings local,AccessoriesSettings remote){
         if(target==null)return NONE;if(target.equals(self))return local==null?NONE:local.active();return offline||remote==null?NONE:remote.active();
     }
+    /** Renderers already skip disabled parts; do not rebuild disabled editor drafts every frame. */
+    public static AccessoriesSettings chooseForRendering(UUID self,UUID target,boolean offline,AccessoriesSettings local,AccessoriesSettings remote){
+        if(target==null)return NONE;if(target.equals(self))return local==null?NONE:local;return offline||remote==null?NONE:remote;
+    }
     public JsonObject json(){var active=active();var j=new JsonObject();for(var slot:AccessoryCatalog.slots()){var part=active.part(slot.id());var value=part.json();if(slot.id().equals("pet"))value.addProperty("side",part.side());j.add(slot.id(),value);}return j;}
     public static AccessoriesSettings parse(JsonElement value){
         if(value==null||!value.isJsonObject())return NONE;var j=value.getAsJsonObject();var parsed=NONE;for(var slot:AccessoryCatalog.slots())parsed=parsed.with(slot.id(),parse(j.get(slot.id()),normalize(slot.id(),null)));return parsed.active();

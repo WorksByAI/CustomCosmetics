@@ -4,6 +4,18 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 import static com.customcosmetics.features.accessories.AccessoryGeometry.*;
 class AccessoryPlacementTest {
+    @Test void rotatedBoundsExactlyMatchTheOriginalCornerTransforms(){
+        var random=new java.util.Random(1824);
+        for(int sample=0;sample<500;sample++){
+            float x=random.nextFloat()*6-3,y=random.nextFloat()*6-3,z=random.nextFloat()*6-3;
+            var b=new Bounds(-random.nextFloat()*20,-random.nextFloat()*20,-random.nextFloat()*20,random.nextFloat()*20,random.nextFloat()*20,random.nextFloat()*20);
+            float minX=Float.MAX_VALUE,minY=minX,minZ=minX,maxX=-minX,maxY=-minX,maxZ=-minX;
+            for(float px:new float[]{b.minX(),b.maxX()})for(float py:new float[]{b.minY(),b.maxY()})for(float pz:new float[]{b.minZ(),b.maxZ()}){
+                var p=new Point(px,py,pz).rotate(x,y,z);minX=Math.min(minX,p.x());minY=Math.min(minY,p.y());minZ=Math.min(minZ,p.z());maxX=Math.max(maxX,p.x());maxY=Math.max(maxY,p.y());maxZ=Math.max(maxZ,p.z());
+            }
+            assertEquals(new Bounds(minX,minY,minZ,maxX,maxY,maxZ),AccessoryPlacement.rotated(b,x,y,z));
+        }
+    }
     @Test void wingsSweepBehindThePlayerAtEveryFlapPhaseAndSize(){
         var b=new Bounds(-1,-16,-2,23,14,6);
         for(double size:new double[]{.5,1,2})for(int side:new int[]{-1,1})for(int phase=0;phase<300;phase++){

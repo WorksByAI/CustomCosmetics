@@ -18,7 +18,10 @@ public final class PlayerSize {
         var client=Minecraft.getInstance();var player=SmolPlayers.getPlayerByEntityId(entityId);
         if(player==null)return PlayerSizeSettings.NORMAL;
         var self=client.player==null?null:client.player.getUUID();
-        return PlayerSizeSettings.choose(self,player.getUUID(),ConfigManager.offlineMode,PlayerSizeSettings.local(),PresenceSync.getRemotePlayerSize(player.getUUID()));
+        if(player.getUUID().equals(self))return PlayerSizeSettings.local().active();
+        if(ConfigManager.offlineMode)return PlayerSizeSettings.NORMAL;
+        var remote=PresenceSync.getRemotePlayerSize(player.getUUID());
+        return remote==null?PlayerSizeSettings.NORMAL:remote.active();
     }
     public static void apply(int entityId,PoseStack pose){
         var settings=settings(entityId);if(settings.enabled())pose.scale((float)settings.x(),(float)settings.y(),(float)settings.z());

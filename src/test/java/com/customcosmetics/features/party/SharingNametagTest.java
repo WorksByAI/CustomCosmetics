@@ -5,6 +5,11 @@ import org.junit.jupiter.api.Test;
 import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 class SharingNametagTest {
+    @Test void disabledSharingDoesNotReadTheWorldOrCopyNameComponents(){
+        int old=com.customcosmetics.config.ConfigManager.disabledModules;
+        try{com.customcosmetics.config.ConfigManager.disabledModules=-1;assertDoesNotThrow(()->SharingNametag.remember(null,null,null));}
+        finally{com.customcosmetics.config.ConfigManager.disabledModules=old;}
+    }
     @Test void preservesFormattedTextAndCopiesCachedComponents(){
         var cache=new SharingNametag.Cache(2);var id=UUID.randomUUID();var world=new Object();cache.world(world);
         var text=Component.literal("[483] ").withStyle(ChatFormatting.DARK_RED).append(Component.literal("ToryHi ♣").withStyle(ChatFormatting.AQUA));

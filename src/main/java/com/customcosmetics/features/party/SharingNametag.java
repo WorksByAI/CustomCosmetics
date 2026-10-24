@@ -16,7 +16,10 @@ public final class SharingNametag {
     private SharingNametag(){}
     public static String normalize(String value){return "vanilla".equals(value)?"vanilla":"simple";}
     public static void tick(Minecraft client){if(CACHE.world(client.level)||client.level==null){tabRows=List.of();tabMatches.clear();nextTabSnapshot=0;}RENDERED.world(client.level);}
-    public static void remember(Minecraft client,UUID uuid,Component text){tick(client);CACHE.put(uuid,text);RENDERED.put(uuid,text);}
+    public static void remember(Minecraft client,UUID uuid,Component text){
+        if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SHARING))return;
+        tick(client);CACHE.put(uuid,text);RENDERED.put(uuid,text);
+    }
     public static Component label(Minecraft client,UUID uuid,String account){
         tick(client);
         if(client.level!=null){

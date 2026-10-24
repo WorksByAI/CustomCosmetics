@@ -44,6 +44,7 @@ public final class ShortcutsGameTest implements FabricClientGameTest {
             previous.set(Shortcuts.data());
         });
         try (var world = context.worldBuilder().create()) {
+            try {
             context.waitTicks(20);
             context.runOnClient(client -> {
                 RECEIVED.clear();
@@ -147,6 +148,16 @@ public final class ShortcutsGameTest implements FabricClientGameTest {
                 focus(client, previousFocus.get());
             });
             System.out.println("SHORTCUTS_COMMAND_ALIASES_ARGUMENT_TOKENS_KEYBOARD_MOUSE_GUI_GATES_AND_RESPONSIVE_EDITOR_OK");
+            } catch (RuntimeException | Error failure) {
+                System.err.println("SHORTCUTS_FIXTURE_FAILED_BEFORE_WORLD_CLOSE");
+                failure.printStackTrace();
+                throw failure;
+            } finally {
+                // Flush before disconnecting Fabric's coordinated client/server test loop.
+                context.runOnClient(client -> ClientUiAccess.setScreen(client, null));
+                context.waitTicks(5);
+                world.getServer().runCommand("save-all flush");
+            }
         }
     }
     private static List<ShortcutRules.Entry> entries() {

@@ -83,6 +83,7 @@ final class ItemAppearanceGameTest {
             if(ClientUiAccess.screen(client) instanceof ItemAppearanceScreen)
                 throw new AssertionError("Done did not close after saving a valid draft");
             var restored=new ItemAppearanceStore(com.customcosmetics.config.CosmeticsConfigDir.getCosmeticsConfigDir().resolve("item-appearances.json"));
+            if(!ItemCosmetics.flush())throw new AssertionError("Item appearance background save failed");
             try{restored.load();}catch(java.io.IOException error){throw new AssertionError(error);}
             if(!restored.get(A).model().equals("minecraft:iron_axe")||!restored.get(A).name().equals("Saved with Done"))
                 throw new AssertionError("Done discarded a draft without an earlier Apply");
@@ -99,6 +100,7 @@ final class ItemAppearanceGameTest {
             if(!client.player.getOffhandItem().getHoverName().getString().equals(beforeName.get()))throw new AssertionError("Another item with the same SkyBlock ID was renamed");
             if(!com.customcosmetics.features.blocking.SwordItems.isSword(held))throw new AssertionError("Visual model replacement changed sword identity");
             var store=new ItemAppearanceStore(com.customcosmetics.config.CosmeticsConfigDir.getCosmeticsConfigDir().resolve("item-appearances.json"));
+            if(!ItemCosmetics.flush())throw new AssertionError("Item appearance background save failed");
             try{store.load();}catch(java.io.IOException error){throw new AssertionError(error);}
             if(!store.get(A).model().equals("minecraft:diamond_sword"))throw new AssertionError("Apply did not save the local override");
             if(ItemCosmetics.modelOverrideActive(client.player.getOffhandItem()))throw new AssertionError("Untouched items entered the override tracking path");
@@ -202,6 +204,7 @@ final class ItemAppearanceGameTest {
             if(net.minecraft.world.item.component.DyedItemColor.getOrDefault(state.headEquipment,0)!=0xFF357ACB)
                 throw new AssertionError("The leather helmet did not receive its selected tint");
             if(!ItemStack.isSameItemSameComponents(real,originalHead))throw new AssertionError("Armor styling changed the real player head");
+            checkArmorCache(real);
             ItemCosmetics.store().enabled(false);
             if(ArmorAppearance.headProxy(real,net.minecraft.world.entity.EquipmentSlot.HEAD)!=real)
                 throw new AssertionError("Disabling item customization left the head override active");
@@ -213,6 +216,25 @@ final class ItemAppearanceGameTest {
         checkHeadSkins(context);
         world.getServer().runCommand("item replace entity @a armor.head with minecraft:air");
         System.out.println("ITEM_APPEARANCE_GAME_TEST_OK");
+    }
+    private static void checkArmorCache(ItemStack real){
+        var source=real.copy();var slot=net.minecraft.world.entity.EquipmentSlot.HEAD;
+        var appearance=ItemCosmetics.store().get(C);var proxy=ArmorAppearance.headProxy(source,slot);
+        if(proxy!=ArmorAppearance.headProxy(source,slot))throw new AssertionError("Unchanged armor proxy was rebuilt");
+        source.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE,!source.hasFoil());
+        var changedFoil=ArmorAppearance.headProxy(source,slot);
+        if(changedFoil==proxy||changedFoil.hasFoil()!=source.hasFoil())throw new AssertionError("Armor proxy retained stale glint");
+        var data=source.get(DataComponents.CUSTOM_DATA).copyTag();data.putInt("cache_fixture",1);
+        source.set(DataComponents.CUSTOM_DATA,net.minecraft.world.item.component.CustomData.of(data));
+        var changedData=ArmorAppearance.headProxy(source,slot);
+        if(changedData==changedFoil||changedData.get(DataComponents.CUSTOM_DATA)!=source.get(DataComponents.CUSTOM_DATA))throw new AssertionError("Armor proxy retained stale item data");
+        try{
+            ItemCosmetics.store().put(C,new ItemAppearanceStore.Appearance("","","minecraft:leather",0x123456));
+            var changedTint=ArmorAppearance.headProxy(source,slot);
+            if(changedTint==changedData||net.minecraft.world.item.component.DyedItemColor.getOrDefault(changedTint,0)!=0xFF123456)throw new AssertionError("Armor proxy retained stale tint");
+            ItemCosmetics.store().put(C,new ItemAppearanceStore.Appearance("","","customcosmetics:missing_armor",0x123456));
+            if(ArmorAppearance.headProxy(source,slot)!=source)throw new AssertionError("Missing armor asset reused a cached proxy");
+        }finally{ItemCosmetics.store().put(C,appearance);}
     }
     @SuppressWarnings({"unchecked","rawtypes"})
     private static void checkHeadSkins(ClientGameTestContext context){
@@ -246,6 +268,7 @@ final class ItemAppearanceGameTest {
         context.takeScreenshot("head-skin-diamond-preview-before-save");click(context,"Done");
         context.runOnClient(client->{
             var restored=new ItemAppearanceStore(com.customcosmetics.config.CosmeticsConfigDir.getCosmeticsConfigDir().resolve("item-appearances.json"));
+            if(!ItemCosmetics.flush())throw new AssertionError("Item appearance background save failed");
             try{restored.load();}catch(java.io.IOException error){throw new AssertionError(error);}
             if(!restored.get(C).headTexture().equals(diamond))throw new AssertionError("Done did not persist the chosen head skin");
             var renderer=(net.minecraft.client.renderer.entity.LivingEntityRenderer)client.getEntityRenderDispatcher().getRenderer(client.player);

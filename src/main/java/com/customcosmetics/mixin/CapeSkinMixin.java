@@ -1,18 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package com.customcosmetics.mixin;
 import com.customcosmetics.features.cape.CapeCosmetics;
+import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.world.entity.player.PlayerSkin;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(AbstractClientPlayer.class)
 public abstract class CapeSkinMixin {
-    @Inject(method="getSkin",at=@At("RETURN"),cancellable=true)
-    private void customcosmetics$cape(CallbackInfoReturnable<PlayerSkin> callback){
+    @ModifyReturnValue(method="getSkin",at=@At("RETURN"))
+    private PlayerSkin customcosmetics$cape(PlayerSkin original){
         var player=(AbstractClientPlayer)(Object)this;
-        callback.setReturnValue(com.customcosmetics.features.skins.LocalSkins.skin(player.getUUID(),CapeCosmetics.skin(player.getUUID(),callback.getReturnValue())));
+        return com.customcosmetics.features.skins.LocalSkins.skin(player.getUUID(),CapeCosmetics.skin(player.getUUID(),original));
     }
 }

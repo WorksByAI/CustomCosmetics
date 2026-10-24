@@ -5,6 +5,15 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class BlockhitClockTest {
+    @Test void inactiveClockDoesNotNeedThePlayersSwingDuration(){
+        var expected=new BlockhitClock();var optimized=new BlockhitClock();
+        for(int i=0;i<9;i++){expected.tick(true,18);optimized.tick(true,18);}
+        expected.tick(false,18);optimized.tick(false,1);
+        for(int i=0;i<12;i++){
+            for(float partial:new float[]{0,.25f,.5f,1})assertEquals(expected.progress(partial),optimized.progress(partial));
+            expected.tick(true,12);optimized.tick(true,12);
+        }
+    }
     @Test void slowSpeedAlsoSlowsRecoveryInsteadOfWhippingThroughHalfTheArcInOneTick() {
         var clock = new BlockhitClock();
         for (int tick = 0; tick <= 22; tick++) clock.tick(true, 44);

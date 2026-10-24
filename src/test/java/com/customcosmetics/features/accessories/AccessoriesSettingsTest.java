@@ -6,6 +6,16 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class AccessoriesSettingsTest {
+    @Test void renderingReusesImmutableDraftsWithoutChangingSyncNormalization(){
+        var self=UUID.randomUUID();var other=UUID.randomUUID();
+        var draft=AccessoriesSettings.NONE.with("wings",AccessoriesSettings.WINGS.scale(2).color(0));
+        assertSame(draft,AccessoriesSettings.chooseForRendering(self,self,false,draft,AccessoriesSettings.NONE));
+        assertSame(draft,AccessoriesSettings.chooseForRendering(self,other,false,AccessoriesSettings.NONE,draft));
+        assertFalse(draft.any());assertEquals(AccessoriesSettings.NONE.json(),draft.json());
+        assertEquals(AccessoriesSettings.NONE,AccessoriesSettings.choose(self,self,false,draft,null));
+        assertSame(AccessoriesSettings.NONE,AccessoriesSettings.chooseForRendering(self,other,true,draft,draft));
+        assertSame(AccessoriesSettings.NONE,AccessoriesSettings.chooseForRendering(self,null,false,draft,draft));
+    }
     @Test void everyOriginalStyleRoundTripsAndUnknownModelOrSlotCannotReachTheRenderer(){
         assertEquals(17,AccessoryCatalog.slots().size());assertEquals(123,AccessoryCatalog.count());
         var keys=new java.util.HashSet<String>();

@@ -26,6 +26,7 @@ public final class RankAppearanceGameTest implements FabricClientGameTest {
     @Override public void runTest(ClientGameTestContext context){
         context.runOnClient(client->{ConfigManager.syncEnabled=false;ConfigManager.swordBlockingSyncEnabled=false;ConfigManager.offlineMode=false;FeatureModules.all(false);FeatureModules.set(FeatureModules.Feature.NICK,true);});
         try(var world=context.worldBuilder().create()){
+            try{
             context.waitTicks(5);context.getInput().resizeWindow(1600,1000);
             context.runOnClient(client->{
                 setWorldFixture(true);client.options.guiScale().set(2);ConfigManager.nickTweaksEnabled=false;
@@ -90,6 +91,13 @@ public final class RankAppearanceGameTest implements FabricClientGameTest {
                 require(RankAppearance.apply("[VIP] Alice").equals("[VIP] Alice"),"Rank leaked outside Hypixel");
                 System.out.println("RANK_SYNC_SELF_REMOTE_ADMIN_BLOCKLIST_PALETTE_FONT_AND_DISABLE_OK");
             });
+            }catch(RuntimeException|Error failure){
+                System.err.println("RANK_FIXTURE_FAILED_BEFORE_WORLD_CLOSE");failure.printStackTrace();throw failure;
+            }finally{
+                // Flush while Fabric's coordinated client/server loop is still connected.
+                context.runOnClient(client->ClientUiAccess.setScreen(client,null));context.waitTicks(5);
+                world.getServer().runCommand("save-all flush");
+            }
         }finally{context.runOnClient(client->setWorldFixture(false));}
     }
     private static net.minecraft.client.gui.components.PlayerTabOverlay tab(net.minecraft.client.Minecraft client){

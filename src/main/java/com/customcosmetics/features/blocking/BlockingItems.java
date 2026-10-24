@@ -9,22 +9,36 @@ import java.util.*;
 public final class BlockingItems {
     private static String[] oldBlack, oldWhite;
     private static Set<String> black = Set.of(), white = Set.of();
+    private static final Map<net.minecraft.world.item.Item,String> VANILLA_IDS = new IdentityHashMap<>();
+    private static final LinkedHashMap<String,String> SKYBLOCK_IDS = new LinkedHashMap<>(16,.75f,true);
     private BlockingItems() {}
-    public static String identity(ItemStack stack) {
-        return stack == null || stack.isEmpty() ? "" : BlockingRules.identity(SwordItems.skyblockId(stack),
-            BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
+    public static synchronized String identity(ItemStack stack) {
+        if(stack==null||stack.isEmpty())return "";
+        var skyblock=SwordItems.skyblockId(stack);
+        if(skyblock.isPresent()){
+            String raw=skyblock.get(),id=SKYBLOCK_IDS.get(raw);if(id!=null)return id;
+            id=BlockingRules.normalize("skyblock:"+raw);SKYBLOCK_IDS.put(raw,id);
+            if(SKYBLOCK_IDS.size()>1024)SKYBLOCK_IDS.pollFirstEntry();return id;
+        }
+        return VANILLA_IDS.computeIfAbsent(stack.getItem(),item->BlockingRules.normalize(BuiltInRegistries.ITEM.getKey(item).toString()));
     }
     public static synchronized boolean allowed(ItemStack stack) {
         if (stack == null || stack.isEmpty()) return false;
+        var mode=BlockingRules.Mode.parse(ConfigManager.swordBlockingListMode);
+        if(mode==BlockingRules.Mode.OFF)return SwordItems.isSword(stack);
         refreshLists();
-        return BlockingRules.allows(BlockingRules.Mode.parse(ConfigManager.swordBlockingListMode), identity(stack),
-            SwordItems.isSword(stack), black, white);
+        if(mode==BlockingRules.Mode.BLACKLIST){if(!SwordItems.isSword(stack))return false;return black.isEmpty()||!black.contains(identity(stack));}
+        return !white.isEmpty()&&white.contains(identity(stack));
     }
     public static synchronized boolean allowedRemote(String reportedId) {
+        if(!ConfigManager.swordBlockingListsApplyToOthers)return true;
+        var mode=BlockingRules.Mode.parse(ConfigManager.swordBlockingListMode);
+        if(mode==BlockingRules.Mode.OFF)return true;
         refreshLists();
+        if(mode==BlockingRules.Mode.BLACKLIST&&black.isEmpty())return true;
+        if(mode==BlockingRules.Mode.WHITELIST&&white.isEmpty())return false;
         String id = BlockingRules.normalize(reportedId);
-        return BlockingRules.allowsRemote(ConfigManager.swordBlockingListsApplyToOthers,
-            BlockingRules.Mode.parse(ConfigManager.swordBlockingListMode), id, black, white);
+        return BlockingRules.allowsRemote(true,mode,id,black,white);
     }
     private static void refreshLists() {
         if (oldBlack != ConfigManager.swordBlockingBlacklist) {

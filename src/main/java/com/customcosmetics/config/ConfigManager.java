@@ -239,12 +239,46 @@ public final class ConfigManager {
         }
     }
 
+    private record SaveRequest(Path path, JsonObject snapshot) {}
+    private static final java.util.concurrent.ExecutorService WRITER=java.util.concurrent.Executors.newSingleThreadExecutor(task->{
+        var thread=new Thread(task,"CustomCosmetics-config-writer");thread.setDaemon(true);return thread;
+    });
+    private static SaveRequest queuedSave;
+    private static boolean writing;
+
     public static synchronized void saveConfig() {
-        save(CosmeticsConfigDir.getCosmeticsConfigDir().resolve("config.json"));
+        queueSave(CosmeticsConfigDir.getCosmeticsConfigDir().resolve("config.json"));
         pendingSaveAt = 0;
     }
 
+    static synchronized void queueSave(Path path) {
+        var snapshot=snapshot();if(snapshot==null)return;
+        queuedSave=new SaveRequest(path,snapshot);
+        if(writing)return;
+        writing=true;
+        WRITER.execute(()->{
+            while(true){
+                SaveRequest request;
+                synchronized(ConfigManager.class){
+                    request=queuedSave;queuedSave=null;
+                    if(request==null){writing=false;return;}
+                }
+                write(request.path(),request.snapshot());
+            }
+        });
+    }
+
+    /** Only shutdown waits for queued saves; editing never waits for the filesystem. */
+    public static void awaitPendingSaves() {
+        try { WRITER.submit(()->{}).get(); }
+        catch(InterruptedException interrupted){Thread.currentThread().interrupt();}
+        catch(java.util.concurrent.ExecutionException failure){LOGGER.error("Failed to finish config saves",failure);}
+    }
+
     static void save(Path path) {
+        var snapshot=snapshot();if(snapshot!=null)write(path,snapshot);
+    }
+    private static JsonObject snapshot() {
         try {
             nickTweaksNickChanger = NicknameLimit.limit(nickTweaksNickChanger);
             JsonObject settings = new JsonObject();
@@ -254,8 +288,11 @@ public final class ConfigManager {
                 }
             }
             JsonObject root = new JsonObject();
-            root.addProperty("version", 1);
-            root.add("settings", settings);
+            root.addProperty("version", 1);root.add("settings", settings);return root;
+        } catch(IllegalAccessException error){LOGGER.error("Failed to capture config",error);return null;}
+    }
+    private static void write(Path path,JsonObject root) {
+        try {
             Files.createDirectories(path.getParent());
             Path temporary = path.resolveSibling(path.getFileName() + ".tmp");
             Files.writeString(temporary, GSON.toJson(root), StandardCharsets.UTF_8);
@@ -264,7 +301,7 @@ public final class ConfigManager {
             } catch (AtomicMoveNotSupportedException e) {
                 Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING);
             }
-        } catch (IOException | IllegalAccessException e) {
+        } catch (IOException | RuntimeException e) {
             LOGGER.error("Failed to save config {}", path, e);
         }
     }

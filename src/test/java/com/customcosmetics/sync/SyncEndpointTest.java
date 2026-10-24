@@ -10,6 +10,19 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SyncEndpointTest {
+    @Test void unchangedConfigurationReusesUrlAndEveryEndpointFieldInvalidatesIt() {
+        String oldHost=ConfigManager.syncServerIp;int oldPort=ConfigManager.syncServerPort;boolean oldHttps=ConfigManager.syncServerHttps;
+        try {
+            ConfigManager.syncServerIp="Example.Com";ConfigManager.syncServerPort=443;ConfigManager.syncServerHttps=true;
+            String first=SyncEndpoint.baseUrl();
+            assertSame(first,SyncEndpoint.baseUrl());
+            ConfigManager.syncServerIp=new String("Example.Com");assertSame(first,SyncEndpoint.baseUrl());
+            ConfigManager.syncServerPort=8443;assertEquals("https://example.com:8443",SyncEndpoint.baseUrl());
+            ConfigManager.syncServerHttps=false;assertEquals("http://example.com:8443",SyncEndpoint.baseUrl());
+            ConfigManager.syncServerIp="next.example";assertEquals("http://next.example:8443",SyncEndpoint.baseUrl());
+            ConfigManager.syncServerIp=null;assertEquals("",SyncEndpoint.baseUrl());
+        } finally {ConfigManager.syncServerIp=oldHost;ConfigManager.syncServerPort=oldPort;ConfigManager.syncServerHttps=oldHttps;}
+    }
     @ParameterizedTest
     @CsvSource({
         "192.168.0.3, 192.168.0.3",

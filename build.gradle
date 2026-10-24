@@ -76,6 +76,9 @@ fabricApi {
     }
 }
 
+// The default game-test source set also compiles the optional Rank API fixture.
+dependencies { gametestCompileOnly 'net.hypixel:mod-api:1.0.2' }
+
 loom.runs.named('clientGameTest') {
     runDir(providers.gradleProperty('nickname_run_dir').getOrElse("build/run/clientGameTest-${project.minecraft_version}"))
     vmArg "-Dcustomcosmetics.testProjectDir=${projectDir.absolutePath}"
@@ -488,5 +491,16 @@ if (providers.gradleProperty('rank_game_only').getOrElse('false').toBoolean()) {
         inputs.file('build.gradle')
         filesMatching('fabric.mod.json') { filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.RankAppearanceGameTest') } }
         filesMatching('customcosmetics-test.mixins.json') { filter { line -> line.contains('"client":') ? '  "client": ["RankWorldProbe", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line } }
+    }
+}
+
+if(providers.gradleProperty('performance_comparison_game_only').getOrElse('false').toBoolean()){
+    sourceSets.gametest.java.include '**/PerformanceComparisonGameTest.java','**/mixin/PerformanceComparisonProbe.java','**/mixin/UpdateCheckOfflineMixin.java','**/mixin/OfflineStartupMixin.java'
+    loom.runs.named('clientGameTest') { vmArg "-Dcustomcosmetics.comparisonSeconds=${providers.gradleProperty('comparison_sample_seconds').getOrElse('10')}" }
+    tasks.named('processGametestResources'){
+        inputs.property 'performance_comparison_game_only',true
+        inputs.file('build.gradle')
+        filesMatching('fabric.mod.json'){filter{line->line.replace('com.customcosmetics.gametest.BlockingGameTest','com.customcosmetics.gametest.PerformanceComparisonGameTest')}}
+        filesMatching('customcosmetics-test.mixins.json'){filter{line->line.contains('"client":')?'  "client": ["PerformanceComparisonProbe$Frames", "PerformanceComparisonProbe$Skyblock", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],':line}}
     }
 }

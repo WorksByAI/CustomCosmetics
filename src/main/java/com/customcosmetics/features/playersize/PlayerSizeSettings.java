@@ -8,9 +8,17 @@ import java.util.UUID;
 /** Validated cosmetic proportions. This never changes an entity's physical dimensions. */
 public record PlayerSizeSettings(boolean enabled,double x,double y,double z) {
     public static final PlayerSizeSettings NORMAL=new PlayerSizeSettings(false,1,1,1);
+    private static volatile PlayerSizeSettings cachedLocal=NORMAL;
     public PlayerSizeSettings {x=bounded(x);y=bounded(y);z=bounded(z);}
     public static double bounded(double value){return Double.isFinite(value)?Math.clamp(value,.1,3):1;}
-    public static PlayerSizeSettings local(){if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.PLAYER_SIZE))return NORMAL;return new PlayerSizeSettings(ConfigManager.playerSizeEnabled,ConfigManager.playerSizeX,ConfigManager.playerSizeY,ConfigManager.playerSizeZ);}
+    public static PlayerSizeSettings local(){
+        if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.PLAYER_SIZE))return NORMAL;
+        boolean enabled=ConfigManager.playerSizeEnabled;
+        double x=bounded(ConfigManager.playerSizeX),y=bounded(ConfigManager.playerSizeY),z=bounded(ConfigManager.playerSizeZ);
+        var cached=cachedLocal;
+        if(cached.enabled()==enabled&&cached.x()==x&&cached.y()==y&&cached.z()==z)return cached;
+        return cachedLocal=new PlayerSizeSettings(enabled,x,y,z);
+    }
     public PlayerSizeSettings active(){return enabled?this:NORMAL;}
     public static PlayerSizeSettings choose(UUID self,UUID target,boolean offline,PlayerSizeSettings local,PlayerSizeSettings remote){
         if(target==null)return NORMAL;
