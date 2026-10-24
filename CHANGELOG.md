@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.4-dev.3
+
+- Add gold / aqua MVP++ styles and show ranks only in appropriate chat, Tab and name contexts.
+- Update the staff preset to the current Hypixel symbol and isolate rank text caches by display context.
+- Use one regular space between rank labels and names.
+
 ## 1.8.4-dev.2
 
 - Add synced MVP+ / MVP++ selection, shared plus colors and administrator rank replacements.

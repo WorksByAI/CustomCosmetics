@@ -612,8 +612,11 @@ public final class CosmeticsScreen extends Screen {
     private void rank() {
         if (!pinnedNickname) { if(panelHeight>=300)previewCard(); tabs(); }
         toggleRow("Custom Rank", "Independent of nickname colors and renaming.", () -> ConfigManager.nickTweaksRankEnabled, value -> ConfigManager.nickTweaksRankEnabled=value);
-        fullButton("Rank Type: "+new com.customcosmetics.features.nickname.RankSettings(true,ConfigManager.nickTweaksRankPlusColor,ConfigManager.nickTweaksRankType).label(),()->{
+        fullButton("Rank Type: "+new com.customcosmetics.features.nickname.RankSettings(true,ConfigManager.nickTweaksRankPlusColor,ConfigManager.nickTweaksRankType,ConfigManager.nickTweaksRankTagColor).label(),()->{
             ConfigManager.nickTweaksRankType=ConfigManager.nickTweaksRankType.equals("mvp_plus_plus")?"mvp_plus":"mvp_plus_plus";changed();rebuildWidgets();
+        },false);
+        if(ConfigManager.nickTweaksRankType.equals("mvp_plus_plus"))fullButton("MVP++ Style: "+(ConfigManager.nickTweaksRankTagColor.equals("aqua")?"Aqua":"Gold"),()->{
+            ConfigManager.nickTweaksRankTagColor=ConfigManager.nickTweaksRankTagColor.equals("aqua")?"gold":"aqua";changed();rebuildWidgets();
         },false);
         label("Plus Color",contentX,rowY+5,PINK,contentWidth);rowY+=25;
         var colors=com.customcosmetics.features.nickname.RankSettings.PlusColor.values();
@@ -625,7 +628,7 @@ public final class CosmeticsScreen extends Screen {
             }).selected(()->color.id().equals(ConfigManager.nickTweaksRankPlusColor)));
         }
         rowY+=((colors.length+columns-1)/columns)*29+8;
-        var prefix=new com.customcosmetics.features.nickname.RankSettings(true,ConfigManager.nickTweaksRankPlusColor,ConfigManager.nickTweaksRankType).prefix();
+        var prefix=new com.customcosmetics.features.nickname.RankSettings(true,ConfigManager.nickTweaksRankPlusColor,ConfigManager.nickTweaksRankType,ConfigManager.nickTweaksRankTagColor).prefix();
         label(prefix+" "+(minecraft.player==null?"Player":minecraft.getUser().getName()),contentX,rowY+5,TEXT,contentWidth);rowY+=28;
         label("Both + signs use the selected color in [MVP++].",contentX,rowY+4,MUTED,contentWidth);rowY+=22;
         label("Visible to mod users. Admin rank overrides take priority.",contentX,rowY+4,MUTED,contentWidth);rowY+=25;
@@ -1011,7 +1014,7 @@ public final class CosmeticsScreen extends Screen {
 
     private void previewCard() {
         var rankPreview=page==Page.RANK?com.customcosmetics.features.nickname.RankText.component(
-            com.customcosmetics.features.nickname.RankText.sequence(Component.literal(new com.customcosmetics.features.nickname.RankSettings(true,ConfigManager.nickTweaksRankPlusColor,ConfigManager.nickTweaksRankType).prefix()+" "))):null;
+            com.customcosmetics.features.nickname.RankText.sequence(Component.literal(new com.customcosmetics.features.nickname.RankSettings(true,ConfigManager.nickTweaksRankPlusColor,ConfigManager.nickTweaksRankType,ConfigManager.nickTweaksRankTagColor).prefix()+" "))):null;
         int y = card(58);
         label("Preview", contentX + 12, y + 12, PINK, contentWidth - 24);
         art.add(g -> {

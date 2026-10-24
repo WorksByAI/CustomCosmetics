@@ -481,6 +481,7 @@ if (providers.gradleProperty('creature_game_only').getOrElse('false').toBoolean(
 }
 
 if (providers.gradleProperty('rank_game_only').getOrElse('false').toBoolean()) {
+    dependencies { gametestImplementation 'net.hypixel:mod-api:1.0.2' }
     sourceSets.gametest.java.include '**/RankAppearanceGameTest.java', '**/mixin/RankWorldProbe.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
     tasks.named('processGametestResources') {
         inputs.property 'rank_game_only', true

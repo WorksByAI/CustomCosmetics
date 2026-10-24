@@ -2,13 +2,14 @@
 package com.customcosmetics.features.animations;
 
 import java.lang.reflect.Proxy;
-import java.util.function.Consumer;
+import java.util.Optional;
+import java.util.function.BiConsumer;
 import java.util.function.IntConsumer;
 
 /** Optional official API integration. Registers only Hello/Location handlers and a Location subscription. */
 public final class HypixelLocationBridge {
     private HypixelLocationBridge() {}
-    public static boolean register(ClassLoader loader, IntConsumer environment, Consumer<String> instance) {
+    public static boolean register(ClassLoader loader, IntConsumer environment, BiConsumer<String,String> instance) {
         try {
             var apiClass = Class.forName("net.hypixel.modapi.HypixelModAPI", false, loader);
             var handler = Class.forName("net.hypixel.modapi.handler.ClientboundPacketHandler", false, loader);
@@ -24,7 +25,11 @@ public final class HypixelLocationBridge {
                     if (name.endsWith("HelloPacket")) {
                         Object env = type.getMethod("getEnvironment").invoke(args[0]);
                         environment.accept(((Number) env.getClass().getMethod("getId").invoke(env)).intValue());
-                    } else instance.accept((String) type.getMethod("getServerName").invoke(args[0]));
+                    } else {
+                        var game=(Optional<?>)type.getMethod("getServerType").invoke(args[0]);
+                        String gameType=game.isEmpty()?"":(String)game.get().getClass().getMethod("name").invoke(game.get());
+                        instance.accept((String)type.getMethod("getServerName").invoke(args[0]),gameType);
+                    }
                     return null;
                 });
                 create.invoke(api, type, callback);

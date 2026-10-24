@@ -15,6 +15,9 @@ public final class PresenceWorld {
     private static int environment;
     private static String instance = "";
     private static boolean hypixel;
+    private static String gameType;
+    private static Object sidebarTitle;
+    private static boolean sidebarSkyblock;
     private static final Scope EMPTY = new Scope("", Set.of());
     private static String locationWorld = "", cachedHost = "", normalizedHost = "", cachedWorldKey = "", cachedWorldHash = "";
     private static boolean hypixelHost;
@@ -28,6 +31,15 @@ public final class PresenceWorld {
         return client.player!=null&&!client.hasSingleplayerServer()&&(hypixel||hypixelHost);
     }
     public static int environment(Minecraft client){context(client);return environment;}
+    /** Official location wins; cache the sidebar title only until the first location packet arrives. */
+    public static boolean isSkyblock(Minecraft client){
+        context(client);
+        if(gameType!=null)return gameType.equals("SKYBLOCK");
+        var objective=client.level==null?null:client.level.getScoreboard().getDisplayObjective(net.minecraft.world.scores.DisplaySlot.SIDEBAR);
+        var title=objective==null?null:objective.getDisplayName();
+        if(title!=sidebarTitle){sidebarTitle=title;sidebarSkyblock=title!=null&&title.getString().toUpperCase(Locale.ROOT).contains("SKYBLOCK");}
+        return sidebarSkyblock;
+    }
     /** Cheap render-time check; do not rebuild the nearby-player interest list for every marker frame. */
     public static boolean hasHypixelLocation(Minecraft client){
         return client.player!=null&&client.level!=null&&!client.hasSingleplayerServer()&&connection==client.getConnection()&&hypixel&&!locationWorld.isEmpty();
@@ -37,8 +49,8 @@ public final class PresenceWorld {
         if (initialized) return;
         initialized = true;
         HypixelLocationBridge.register(PresenceWorld.class.getClassLoader(),
-            value -> accept(() -> { environment = value; instance = ""; }),
-            value -> accept(() -> instance = value));
+            value -> accept(() -> { environment = value; instance = "";gameType=null; }),
+            (value,game) -> accept(() -> {instance = value;gameType=game;}));
     }
     private static void accept(Runnable update) {
         var client = Minecraft.getInstance();
@@ -54,6 +66,7 @@ public final class PresenceWorld {
         init();
         if (connection != client.getConnection()) {
             connection = client.getConnection(); instance = ""; hypixel = false; environment = 0;cachedScope=null;
+            gameType=null;sidebarTitle=null;sidebarSkyblock=false;
             locationWorld = ""; cachedWorldKey = cachedWorldHash = "";
         }
         var server = client.getCurrentServer();

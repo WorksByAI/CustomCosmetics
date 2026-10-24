@@ -29,7 +29,7 @@ public final class SettingsCatalog {
             "Shimmer Size|Shimmer Speed|Shimmer Interval|Shimmer Colors");
         add(entries, "NickTweaks", "CHROMA", "Rainbow nickname chroma color animation",
             "Chroma|Lightness|Size|Speed");
-        add(entries, "NickTweaks", "RANK", "Hypixel MVP+ MVP++ rank plus color synchronized appearance", "Custom Rank|Rank Type|Plus Color");
+        add(entries, "NickTweaks", "RANK", "Hypixel MVP+ MVP++ rank plus color synchronized appearance", "Custom Rank|Rank Type|MVP++ Style|Plus Color");
         add(entries, "NickTweaks", "PRESETS", "Saved nickname color presets",
             "Save Current Colors|Save / Update");
         add(entries, "Animations", "ANIMATIONS", "Sword blocking item whitelist blacklist pose",

@@ -83,8 +83,13 @@ public final class NickRenderUtils {
         final IdentityFrameCache<FormattedCharSequence,FormattedCharSequence> resolved=new IdentityFrameCache<>(4096),measured=new IdentityFrameCache<>(4096);
         void begin(){long version=TARGET_VERSION.get();resolved.begin(renderFrame,version);measured.begin(renderFrame,version);}
     }
-    private static final ThreadLocal<TextCaches> TEXT_CACHES=ThreadLocal.withInitial(TextCaches::new);
-    public static void beginFrame(){renderFrame++;}
+    private static final class ScopedTextCaches {
+        final TextCaches[] contexts=new TextCaches[com.customcosmetics.features.nickname.RankText.Context.values().length];
+        TextCaches current(){int context=com.customcosmetics.features.nickname.RankDisplayContext.current().ordinal();var cache=contexts[context];if(cache==null)contexts[context]=cache=new TextCaches();return cache;}
+        void clear(){for(var cache:contexts)if(cache!=null){cache.resolved.begin(Long.MIN_VALUE,Long.MIN_VALUE);cache.measured.begin(Long.MIN_VALUE,Long.MIN_VALUE);}}
+    }
+    private static final ThreadLocal<ScopedTextCaches> TEXT_CACHES=ThreadLocal.withInitial(ScopedTextCaches::new);
+    public static void beginFrame(){renderFrame++;com.customcosmetics.features.nickname.RankAppearance.beginFrame();}
 
     private NickRenderUtils() {
     }
@@ -98,7 +103,7 @@ public final class NickRenderUtils {
         cachedSmooth=false;
         TARGET_VERSION.incrementAndGet();
         synchronized (MATCH_CACHE_LOCK) { MATCH_CACHE.clear(); }
-        var text=TEXT_CACHES.get();text.resolved.begin(Long.MIN_VALUE,Long.MIN_VALUE);text.measured.begin(Long.MIN_VALUE,Long.MIN_VALUE);
+        TEXT_CACHES.get().clear();
     }
 
     public static long getTargetsCacheAt() {
@@ -396,7 +401,7 @@ public final class NickRenderUtils {
         List<Target> targets = collectTargets();
         boolean rank=com.customcosmetics.features.nickname.RankAppearance.active();
         if (targets.isEmpty()&&!rank) return original;
-        var caches=TEXT_CACHES.get();caches.begin();var cached=caches.resolved.get(original);if(cached!=null)return cached;
+        var caches=TEXT_CACHES.get().current();caches.begin();var cached=caches.resolved.get(original);if(cached!=null)return cached;
         var ranked=rank?com.customcosmetics.features.nickname.RankAppearance.apply(original):original;
         var result=targets.isEmpty()?ranked:resolveCharSequence(ranked,targets);
         if(result!=original&&!(result instanceof com.customcosmetics.features.nickname.NicknameText))result=new com.customcosmetics.features.nickname.ProcessedNicknameText(result);
@@ -479,7 +484,7 @@ public final class NickRenderUtils {
     public static FormattedCharSequence measureGradient(FormattedCharSequence original, Font font) {
         if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.NICK))return original;
         if(original==null)return null;
-        var caches=TEXT_CACHES.get();caches.begin();var cached=caches.measured.get(original);if(cached!=null)return cached;
+        var caches=TEXT_CACHES.get().current();caches.begin();var cached=caches.measured.get(original);if(cached!=null)return cached;
         var result=measureUncachedGradient(original,font);caches.measured.put(original,result);return result;
     }
     private static FormattedCharSequence measureUncachedGradient(FormattedCharSequence original,Font font){

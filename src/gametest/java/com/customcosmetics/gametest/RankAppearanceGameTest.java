@@ -29,7 +29,7 @@ public final class RankAppearanceGameTest implements FabricClientGameTest {
             context.waitTicks(5);context.getInput().resizeWindow(1600,1000);
             context.runOnClient(client->{
                 setWorldFixture(true);client.options.guiScale().set(2);ConfigManager.nickTweaksEnabled=false;
-                ConfigManager.nickTweaksRankEnabled=true;ConfigManager.nickTweaksRankPlusColor="dark_blue";ConfigManager.nickTweaksRankType="mvp_plus";
+                ConfigManager.nickTweaksRankEnabled=true;ConfigManager.nickTweaksRankPlusColor="dark_blue";ConfigManager.nickTweaksRankType="mvp_plus";ConfigManager.nickTweaksRankTagColor="gold";
                 ConfigManager.nickTweaksBlockedPlayers=List.of();ConfigManager.nickTweaksChromaEnabled=false;
                 ConfigManager.nickTweaksCustomNickColorEnabled=false;ConfigManager.nickTweaksNickChanger="";
                 NickRenderUtils.invalidateLocalTargetsCache();apply(snapshot(client.getUser().getProfileId(),client.getUser().getName(),false));
@@ -44,12 +44,21 @@ public final class RankAppearanceGameTest implements FabricClientGameTest {
                 String selected=RankAppearance.apply("[MVP+] "+self);
                 require(plain(RankText.sequence(Component.literal(selected))).equals("[MVP++] "+self),"Rank type change reused cached MVP+");
                 int[] pluses={0};RankText.sequence(Component.literal(selected)).accept((i,style,cp)->{if(cp=='+'){pluses[0]++;require(style.getColor().getValue()==0x0000AA,"MVP++ plus colors differ");}return true;});require(pluses[0]==2,"MVP++ lost a plus");
-                ConfigManager.nickTweaksRankType="mvp_plus";
+                ConfigManager.nickTweaksRankTagColor="aqua";
+                RankText.sequence(Component.literal(RankAppearance.apply("[VIP] "+self))).accept((i,style,cp)->{if(cp=='['||cp==']')require(style.getColor().getValue()==0x55FFFF,"MVP++ style reused cached gold");return true;});
+                ConfigManager.nickTweaksRankTagColor="gold";ConfigManager.nickTweaksRankType="mvp_plus";
+                contextCheck(client);
                 ConfigManager.nickTweaksBlockedPlayers=List.of(new PlayerBlocklist.Entry(ALICE,"Alice"));NickRenderUtils.invalidateLocalTargetsCache();
                 require(plain(NickRenderUtils.handleCharSequence(Component.literal("[VIP] Alice").getVisualOrderText())).equals("[VIP] Alice"),"Blocked rank still appears");
                 ConfigManager.nickTweaksBlockedPlayers=List.of();apply(snapshot(client.getUser().getProfileId(),self,true));
-                require(plain(NickRenderUtils.handleCharSequence(Component.literal("[MVP+] "+self).getVisualOrderText())).equals("[ADMIN] "+self),"Administrator did not override self");
+                require(plain(NickRenderUtils.handleCharSequence(Component.literal("[MVP+] "+self).getVisualOrderText())).equals("[ዞ] "+self),"Administrator did not override self");
                 require(plain(NickRenderUtils.handleCharSequence(Component.literal("[VIP] Alice").getVisualOrderText())).equals("[YOUTUBE] PrettyAlice"),"Administrator did not override remote rank");
+                var staff=new net.minecraft.client.multiplayer.PlayerInfo(new com.mojang.authlib.GameProfile(ALICE,"Alice"),false);
+                staff.setTabListDisplayName(Component.literal("Alice"));
+                require(tab(client).getNameForDisplay(staff).getString().equals("[YOUTUBE] Alice"),"SkyBlock Tab lost the YouTube exception");
+                var selfInfo=new net.minecraft.client.multiplayer.PlayerInfo(new com.mojang.authlib.GameProfile(client.getUser().getProfileId(),self),false);selfInfo.setTabListDisplayName(Component.literal(self));
+                require(tab(client).getNameForDisplay(selfInfo).getString().equals("[ዞ] "+self),"SkyBlock Tab lost the current staff exception");
+                require(plain(NickRenderUtils.handleCharSequence(Component.literal(self).getVisualOrderText())).equals(self),"Staff prefix leaked to a bare world name");
                 ConfigManager.offlineMode=true;
                 require(RankAppearance.apply("[VIP] Alice").equals("[VIP] Alice"),"Offline transition reused a remote admin rank");
                 ConfigManager.offlineMode=false;
@@ -63,6 +72,10 @@ public final class RankAppearanceGameTest implements FabricClientGameTest {
             click(context,"Rank Type: [MVP+]");
             context.runOnClient(client->require(ConfigManager.nickTweaksRankType.equals("mvp_plus_plus"),"Rank type button did not select MVP++"));
             context.takeScreenshot("rank-page-mvp-plus-plus");
+            click(context,"MVP++ Style: Gold");
+            context.runOnClient(client->require(ConfigManager.nickTweaksRankTagColor.equals("aqua"),"MVP++ style button did not select aqua"));
+            context.takeScreenshot("rank-page-mvp-plus-plus-aqua");
+            context.getInput().setCursorPos(1100,750);context.getInput().scroll(-3);context.waitTicks(2);
             click(context,"Black");
             context.runOnClient(client->require(ConfigManager.nickTweaksRankPlusColor.equals("black"),"Color selection did not save"));
             context.getInput().resizeWindow(854,480);context.waitTicks(3);context.takeScreenshot("rank-page-compact");
@@ -79,6 +92,33 @@ public final class RankAppearanceGameTest implements FabricClientGameTest {
             });
         }finally{context.runOnClient(client->setWorldFixture(false));}
     }
+    private static net.minecraft.client.gui.components.PlayerTabOverlay tab(net.minecraft.client.Minecraft client){
+        try{Object hud;try{hud=client.gui.getClass().getField("hud").get(client.gui);}catch(NoSuchFieldException legacy){hud=client.gui;}
+            return (net.minecraft.client.gui.components.PlayerTabOverlay)hud.getClass().getMethod("getTabList").invoke(hud);
+        }catch(ReflectiveOperationException failure){throw new AssertionError(failure);}
+    }
+    private static void contextCheck(net.minecraft.client.Minecraft client){
+        var bare=Component.literal("User999").getVisualOrderText();var sender=Component.literal("User999: hello User999").getVisualOrderText();
+        NickRenderUtils.beginFrame();
+        require(NickRenderUtils.handleCharSequence(bare)==bare,"A bare world name acquired an MVP prefix");
+        require(plain(NickRenderUtils.handleCharSequence(sender)).equals("User999: hello User999"),"Default font path inserted a rank");
+        try(var scope=RankDisplayContext.enter(RankText.Context.CHAT)){
+            require(plain(NickRenderUtils.handleCharSequence(sender)).equals("[MVP+] User999: hello User999"),"Chat sender/mention policy failed");
+            require(plain(RankText.sequence(Component.literal(RankAppearance.apply("User999: hello")))).equals("[MVP+] User999: hello"),"Chat string policy failed");
+        }
+        require(plain(NickRenderUtils.handleCharSequence(sender)).equals("User999: hello User999"),"Chat frame cache leaked to the world");
+        require(RankAppearance.apply("User999: hello").equals("User999: hello"),"Chat string cache leaked to the world");
+        var info=new net.minecraft.client.multiplayer.PlayerInfo(new com.mojang.authlib.GameProfile(new UUID(0,1000),"User999"),false);
+        info.setTabListDisplayName(Component.literal("User999"));
+        var api=net.hypixel.modapi.HypixelModAPI.getInstance();
+        api.handle(new net.hypixel.modapi.packet.impl.clientbound.event.ClientboundLocationPacket("lobby1",null,null,null,null));
+        require(tab(client).getNameForDisplay(info).getString().equals("[MVP+] User999"),"Lobby Tab did not show a rank");
+        api.handle(new net.hypixel.modapi.packet.impl.clientbound.event.ClientboundLocationPacket("mini1",net.hypixel.data.type.ServerType.valueOf("SKYBLOCK").orElseThrow(),null,"hub",null));
+        require(tab(client).getNameForDisplay(info).getString().equals("User999"),"SkyBlock Tab inserted an ordinary rank");
+        require(info.getTabListDisplayName().getString().equals("User999"),"Tab rendering mutated the server name");
+        ClientUiAccess.chat(client).addServerSystemMessage(Component.literal("User999: chat scope and mention User999"));
+        System.out.println("RANK_REAL_TAB_LOCATION_CONTEXT_AND_BARE_WORLD_OK");
+    }
     private static void allocationCheck(FormattedCharSequence source){
         var bean=(com.sun.management.ThreadMXBean)ManagementFactory.getThreadMXBean();long id=Thread.currentThread().threadId();
         NickRenderUtils.beginFrame();var expected=NickRenderUtils.handleCharSequence(source);
@@ -87,6 +127,13 @@ public final class RankAppearanceGameTest implements FabricClientGameTest {
         for(int i=0;i<100000;i++)if(NickRenderUtils.handleCharSequence(source)!=expected)throw new AssertionError("Rank frame cache missed");
         long elapsed=System.nanoTime()-start,bytes=bean.getThreadAllocatedBytes(id)-before;
         require(bytes<1_000_000,"Repeated rank text allocated excessively: "+bytes);
+        var tabSource=Component.literal("User999");var expectedTab=RankAppearance.tabName(tabSource,false);
+        for(int i=0;i<10000;i++)RankAppearance.tabName(tabSource,false);
+        long tabBefore=bean.getThreadAllocatedBytes(id),tabStart=System.nanoTime();
+        for(int i=0;i<100000;i++)if(RankAppearance.tabName(tabSource,false)!=expectedTab)throw new AssertionError("Tab name frame cache missed");
+        long tabTime=System.nanoTime()-tabStart,tabBytes=bean.getThreadAllocatedBytes(id)-tabBefore;
+        require(tabBytes<1_000_000,"Repeated Tab names allocated excessively: "+tabBytes);
+        System.out.printf(Locale.ROOT,"RANK_TAB_NAME_100000 ns=%d bytes=%d%n",tabTime,tabBytes);
         FeatureModules.set(FeatureModules.Feature.NICK,false);
         for(int i=0;i<10000;i++)NickRenderUtils.handleCharSequence(source);
         before=bean.getThreadAllocatedBytes(id);start=System.nanoTime();
@@ -106,7 +153,7 @@ public final class RankAppearanceGameTest implements FabricClientGameTest {
             features.add("nickTweaks",nick);user.add("features",features);users.add(id.toString(),user);
         }
         var ranks=new JsonObject();root.add("rankOverrides",ranks);
-        if(overrides)for(var entry:Map.of(self,new String[]{name,"&c[ADMIN]"},ALICE,new String[]{"Alice","&c[&fYOUTUBE&c]"}).entrySet()){
+        if(overrides)for(var entry:Map.of(self,new String[]{name,"&c[ዞ]"},ALICE,new String[]{"Alice","&c[&fYOUTUBE&c]"}).entrySet()){
             var value=new JsonObject();value.addProperty("name",entry.getValue()[0]);value.addProperty("prefix",entry.getValue()[1]);ranks.add(entry.getKey().toString(),value);
         }
         return root;

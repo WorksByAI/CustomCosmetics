@@ -50,6 +50,7 @@ public final class ConfigManager {
     public static boolean nickTweaksRankEnabled = false;
     public static String nickTweaksRankPlusColor = "red";
     public static String nickTweaksRankType = "mvp_plus";
+    public static String nickTweaksRankTagColor = "gold";
     public static java.util.List<com.customcosmetics.config.PlayerBlocklist.Entry> nickTweaksBlockedPlayers = java.util.List.of();
     public static boolean nickTweaksChromaEnabled = false;
     public static boolean nickTweaksCustomNickColorEnabled = false;
@@ -188,6 +189,7 @@ public final class ConfigManager {
             damageSplashStartColor&=0xFFFFFF;damageSplashEndColor&=0xFFFFFF;
             nickTweaksNickChanger = NicknameLimit.limit(nickTweaksNickChanger);
             nickTweaksRankType = com.customcosmetics.features.nickname.RankSettings.normalizeType(nickTweaksRankType);
+            nickTweaksRankTagColor = com.customcosmetics.features.nickname.RankSettings.normalizeTagColor(nickTweaksRankTagColor);
             nickTweaksRankPlusColor = com.customcosmetics.features.nickname.RankSettings.PlusColor.parse(nickTweaksRankPlusColor).id();
             nickTweaksBlockedPlayers = com.customcosmetics.config.PlayerBlocklist.normalize(nickTweaksBlockedPlayers);
             accessoriesBlockedPlayers = PlayerBlocklist.normalize(accessoriesBlockedPlayers);
