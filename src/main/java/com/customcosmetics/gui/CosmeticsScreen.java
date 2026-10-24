@@ -25,7 +25,7 @@ import static com.customcosmetics.gui.PinkUi.*;
 
 /** Independent pink cosmetics studio, with scrollable settings and keyboard focus. */
 public final class CosmeticsScreen extends Screen {
-    public enum Page { MAIN, SIZE, NICK, COLOR, CHROMA, PRESETS, BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, POSITION_RECIPIENTS, ANIMATIONS, DAMAGE, ITEMS, ACCESSORIES, MAP, PARTY, SKINS, SYNC, MODULES, SEARCH }
+    public enum Page { MAIN, SIZE, NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, POSITION_RECIPIENTS, ANIMATIONS, DAMAGE, ITEMS, ACCESSORIES, MAP, PARTY, SKINS, SYNC, MODULES, SEARCH }
     private static final ScreenSession SESSION = new ScreenSession();
     private final Screen parent;
     private Page page;
@@ -99,7 +99,7 @@ public final class CosmeticsScreen extends Screen {
             page=Page.SEARCH;rebuildWidgets();setFocused(searchField);searchField.moveCursorToEnd(false);
         });
         navigation.add(addWidget(searchField));
-        pinnedNickname = panelHeight >= 390 && (page == Page.NICK || page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS);
+        pinnedNickname = panelHeight >= 390 && (page == Page.NICK || page == Page.COLOR || page == Page.CHROMA || page == Page.RANK || page == Page.PRESETS);
         pinnedSize = panelHeight >= 430 && page == Page.SIZE;
         pinnedAccessories = panelHeight >= 410 && page == Page.ACCESSORIES;
         if(pinnedAccessories){accessoryPreview();pinnedArt.addAll(art);art.clear();viewTop=rowY;}
@@ -121,6 +121,7 @@ public final class CosmeticsScreen extends Screen {
             case MAIN -> overview();
             case SIZE -> playerSize();
             case NICK -> nickname();
+            case RANK -> rank();
             case COLOR -> colors();
             case CHROMA -> chroma();
             case PRESETS -> presets();
@@ -137,7 +138,7 @@ public final class CosmeticsScreen extends Screen {
             case MODULES -> modules();
             case SEARCH -> searchResults();
         }
-        if (page == Page.SIZE || page == Page.NICK || page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS || page == Page.DAMAGE) credit();
+        if (page == Page.SIZE || page == Page.NICK || page == Page.COLOR || page == Page.CHROMA || page == Page.RANK || page == Page.PRESETS || page == Page.DAMAGE) credit();
         contentBottom = rowY + 5;
         scroll = Math.clamp(scroll, 0, maxScroll());
         positionControls();
@@ -147,7 +148,7 @@ public final class CosmeticsScreen extends Screen {
         return switch (page) {
             case MAIN -> "Overview";
             case SIZE -> "Player Size";
-            case NICK, COLOR, CHROMA, PRESETS, BLOCKED_NICKS -> "NickTweaks";
+            case NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS -> "NickTweaks";
             case ANIMATIONS -> "Animations";
             case DAMAGE -> "Damage Splash";
             case ITEMS -> "Item Customization";
@@ -166,7 +167,7 @@ public final class CosmeticsScreen extends Screen {
         return switch (page) {
             case MAIN -> "Your look, your settings, all in one place.";
             case SIZE -> "Proportions and the SmolPeople model.";
-            case NICK, COLOR, CHROMA, PRESETS, BLOCKED_NICKS -> "Names, colors and animated gradients.";
+            case NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS -> "Names, colors and animated gradients.";
             case ANIMATIONS -> "Hand poses, item placement and swing timing.";
             case DAMAGE -> "Style your local damage numbers.";
             case ITEMS -> "Custom names and models for your items.";
@@ -207,7 +208,7 @@ public final class CosmeticsScreen extends Screen {
         navAction(name, () -> open(target), () -> target == page
             || target == Page.ACCESSORIES && page == Page.BLOCKED_ACCESSORIES
             || target == Page.PARTY && page == Page.POSITION_RECIPIENTS
-            || target == Page.NICK && (page == Page.COLOR || page == Page.CHROMA || page == Page.PRESETS || page == Page.BLOCKED_NICKS));
+            || target == Page.NICK && (page == Page.COLOR || page == Page.CHROMA || page == Page.RANK || page == Page.PRESETS || page == Page.BLOCKED_NICKS));
     }
     private void navAction(String name, Runnable callback, BooleanSupplier selected) {
         var widget = new PinkUi.Action(panelX + 8, navRowY, sideWidth - 18, 23, name, false, callback).leftAligned().selected(selected);
@@ -597,15 +598,34 @@ public final class CosmeticsScreen extends Screen {
     }
 
     private void tabs() {
-        String[] labels = {"General", "Gradient", "Chroma", "Presets"};
-        Page[] pages = {Page.NICK, Page.COLOR, Page.CHROMA, Page.PRESETS};
-        int columns = contentWidth < 240 ? 2 : 4;
+        String[] labels = {"General", "Gradient", "Chroma", "Presets", "Rank"};
+        Page[] pages = {Page.NICK, Page.COLOR, Page.CHROMA, Page.PRESETS, Page.RANK};
+        int columns = contentWidth < 240 ? 2 : contentWidth < 400 ? 3 : 5;
         int w = (contentWidth - (columns - 1) * 4) / columns;
         for (int i = 0; i < pages.length; i++) {
             Page target = pages[i];
             add(new PinkUi.Action(contentX + (i % columns) * (w + 4), rowY + (i / columns) * 29, w, 25, labels[i], false, () -> open(target)).selected(() -> page == target));
         }
-        rowY += (pages.length / columns) * 29 + 6;
+        rowY += ((pages.length + columns - 1) / columns) * 29 + 6;
+    }
+
+    private void rank() {
+        if (!pinnedNickname) { if(panelHeight>=300)previewCard(); tabs(); }
+        toggleRow("Custom Rank", "Independent of nickname colors and renaming.", () -> ConfigManager.nickTweaksRankEnabled, value -> ConfigManager.nickTweaksRankEnabled=value);
+        label("MVP+ Plus Color",contentX,rowY+5,PINK,contentWidth);rowY+=25;
+        var colors=com.customcosmetics.features.nickname.RankSettings.PlusColor.values();
+        int columns=contentWidth<300?2:3,w=(contentWidth-(columns-1)*6)/columns;
+        for(int i=0;i<colors.length;i++){
+            var color=colors[i];
+            add(new PinkUi.Action(contentX+(i%columns)*(w+6),rowY+(i/columns)*29,w,25,color.label,false,()->{
+                ConfigManager.nickTweaksRankPlusColor=color.id();changed();rebuildWidgets();
+            }).selected(()->color.id().equals(ConfigManager.nickTweaksRankPlusColor)));
+        }
+        rowY+=((colors.length+columns-1)/columns)*29+8;
+        var prefix=new com.customcosmetics.features.nickname.RankSettings(true,ConfigManager.nickTweaksRankPlusColor).prefix();
+        label(prefix+" "+(minecraft.player==null?"Player":minecraft.getUser().getName()),contentX,rowY+5,TEXT,contentWidth);rowY+=28;
+        label("Replaces your displayed rank with [MVP+].",contentX,rowY+4,MUTED,contentWidth);rowY+=22;
+        label("Visible to mod users. Admin rank overrides take priority.",contentX,rowY+4,MUTED,contentWidth);rowY+=25;
     }
 
     private void nickname() {
@@ -987,11 +1007,14 @@ public final class CosmeticsScreen extends Screen {
     }
 
     private void previewCard() {
+        var rankPreview=page==Page.RANK?com.customcosmetics.features.nickname.RankText.component(
+            com.customcosmetics.features.nickname.RankText.sequence(Component.literal(new com.customcosmetics.features.nickname.RankSettings(true,ConfigManager.nickTweaksRankPlusColor).prefix()+" "))):null;
         int y = card(58);
         label("Preview", contentX + 12, y + 12, PINK, contentWidth - 24);
         art.add(g -> {
             String playerName = minecraft.player == null ? "YourName" : minecraft.player.getName().getString();
             Component name = NickRenderUtils.previewNickname(playerName);
+            if(rankPreview!=null)name=rankPreview.copy().append(name);
             float scale = Math.min(1.55f, (contentWidth - 32) / (float) Math.max(1, font.width(name)));
             g.pose().pushMatrix();
             g.pose().translate(contentX + 16, y + 35);

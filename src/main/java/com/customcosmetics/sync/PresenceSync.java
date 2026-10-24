@@ -17,6 +17,8 @@ import com.customcosmetics.config.CosmeticsConfigDir;
 import com.customcosmetics.config.ConfigManager;
 import com.customcosmetics.config.RemoteServerConfig;
 import com.customcosmetics.features.nickname.NicknameSegments;
+import com.customcosmetics.features.nickname.RankSettings;
+import com.customcosmetics.features.nickname.RankAppearance;
 import com.customcosmetics.features.playersize.PlayerSizeSettings;
 import com.customcosmetics.features.accessories.AccessoriesSettings;
 import com.customcosmetics.gui.module.Module;
@@ -84,11 +86,13 @@ public final class PresenceSync {
     private static boolean wasAutoSyncActive;
 
     public record RemoteNickname(UUID uuid, String name, ChromaProfile profile) {}
+    public record RemoteRank(UUID uuid,String name,String prefix,boolean administrator) {}
     private record RemoteSnapshot(Map<UUID, RemoteUserState> users, Map<String, ChromaProfile> profiles,
-                                  List<RemoteNickname> nicknames, boolean hasSmol) {}
-    private static volatile RemoteSnapshot remoteSnapshot = new RemoteSnapshot(Map.of(), Map.of(), List.of(), false);
+                                  List<RemoteNickname> nicknames, boolean hasSmol, Map<UUID,RankSettings> ranks, List<RemoteRank> rankProfiles) {}
+    private static volatile RemoteSnapshot remoteSnapshot = new RemoteSnapshot(Map.of(), Map.of(), List.of(), false, Map.of(), List.of());
     /** Opaque identity for client-render caches; changes whenever synchronized appearance changes. */
     public static Object appearanceSnapshot() { return remoteSnapshot; }
+    public static List<RemoteRank> remoteRanks() { return RemoteAccess.online()?remoteSnapshot.rankProfiles():List.of(); }
 
     private PresenceSync() {
     }
@@ -205,7 +209,7 @@ public final class PresenceSync {
         SESSIONS.reset();
         lastReportedSignature = "";
         nextReportAllowedAt = 0;
-        remoteSnapshot = new RemoteSnapshot(Map.of(), Map.of(), List.of(), false);
+        remoteSnapshot = new RemoteSnapshot(Map.of(), Map.of(), List.of(), false, Map.of(), List.of());
         NickRenderUtils.invalidateLocalTargetsCache();
         STARTUP_NOTICE.addressChanged();
     }
@@ -301,6 +305,13 @@ public final class PresenceSync {
                 usersObj.add(rs.uuid().toString(), buildUserJsonFromRemote(rs, nowIso));
             }
 
+            var own=usersObj.getAsJsonObject(local.uuid().toString());
+            own.getAsJsonObject("features").getAsJsonObject("nickTweaks").add("rank",local.rank().json());
+            var overrides=new JsonObject();
+            for(var rank:remoteSnapshot.rankProfiles())if(rank.administrator()){
+                var value=new JsonObject();value.addProperty("name",rank.name());value.addProperty("prefix",rank.prefix());overrides.add(rank.uuid().toString(),value);
+            }
+            root.add("rankOverrides",overrides);
             root.addProperty("authVersion", 2);
             root.add("users", usersObj);
             saveCacheToDisk(root.toString());
@@ -326,6 +337,7 @@ public final class PresenceSync {
         nickTweaks.addProperty("enabled", state.nickTweaksEnabled());
         nickTweaks.addProperty("boldEnabled", state.boldEnabled());
         nickTweaks.addProperty("nickChanger", state.nickChanger());
+        nickTweaks.add("rank", remoteSnapshot.ranks().getOrDefault(state.uuid(),RankSettings.OFF).json());
 
         if (state.nickTweaksEnabled()) {
             nickTweaks.addProperty("chromaEnabled", state.chromaEnabled());
@@ -663,7 +675,7 @@ public final class PresenceSync {
             nickTweaksEnabled && customNickColorEnabled && !chromaEnabled && ConfigManager.nickTweaksGradientStyle.equals("segmented")
                 ? NicknameSegments.normalize(ConfigManager.nickTweaksGradientSegments) : List.of(),PlayerSizeSettings.local().active(),com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.EQUIPMENT)?ConfigManager.accessories.active():AccessoriesSettings.NONE,
             com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.CREATURE_MODEL)
-                ? com.customcosmetics.features.creature.CreatureModels.parse(ConfigManager.creatureModel).id : "player"
+                ? com.customcosmetics.features.creature.CreatureModels.parse(ConfigManager.creatureModel).id : "player", RankAppearance.local()
         );
         return state;
     }
@@ -682,6 +694,7 @@ public final class PresenceSync {
         nickTweaks.addProperty("enabled", state.nickTweaksEnabled());
         nickTweaks.addProperty("boldEnabled", state.boldSelf());
         nickTweaks.addProperty("nickChanger", state.nickChanger());
+        nickTweaks.add("rank",state.rank().json());
         if (state.nickTweaksEnabled()) {
             nickTweaks.addProperty("chromaEnabled", state.chromaEnabled());
             nickTweaks.addProperty("customNickColorEnabled", state.customNickColorEnabled());
@@ -850,6 +863,8 @@ public final class PresenceSync {
         Map<UUID, RemoteUserState> newUsers = new ConcurrentHashMap<>();
         Map<String, ChromaProfile> newChromaByName = new ConcurrentHashMap<>();
         List<RemoteNickname> newNicknames = new ArrayList<>();
+        Map<UUID,RankSettings> newRanks = new HashMap<>();
+        List<RemoteRank> newRankProfiles = new ArrayList<>();
 
         for (Map.Entry<String, JsonElement> entry : users.entrySet()) {
             UUID uuid;
@@ -957,6 +972,9 @@ public final class PresenceSync {
                 com.customcosmetics.features.creature.CreatureModels.parse(getAsString(features,"creatureModel","player")).id
             );
             newUsers.put(uuid, state);
+            var rank=RankSettings.parse(nickTweaksObj==null?null:nickTweaksObj.get("rank"));
+            newRanks.put(uuid,rank);
+            if(!stale&&rank.enabled())newRankProfiles.add(new RemoteRank(uuid,name,rank.prefix(),false));
             if (nickTweaksEnabled) {
                 String nameLower = name.toLowerCase(Locale.ROOT);
                 newChromaByName.put(
@@ -967,8 +985,15 @@ public final class PresenceSync {
             }
         }
 
+        if(root.has("rankOverrides")&&root.get("rankOverrides").isJsonObject()){
+            for(var entry:root.getAsJsonObject("rankOverrides").entrySet())try{
+                var value=entry.getValue().getAsJsonObject();var id=UUID.fromString(entry.getKey());
+                var prefix=RankSettings.adminPrefix(getAsString(value,"prefix",""));var name=getAsString(value,"name","");
+                if(!prefix.isEmpty()&&name.matches("[A-Za-z0-9_]{1,16}"))newRankProfiles.add(new RemoteRank(id,name,prefix,true));
+            }catch(RuntimeException ignored){}
+        }
         remoteSnapshot = new RemoteSnapshot(Map.copyOf(newUsers), Map.copyOf(newChromaByName),
-            List.copyOf(newNicknames), newUsers.values().stream().anyMatch(RemoteUserState::smolPeopleEnabled));
+            List.copyOf(newNicknames), newUsers.values().stream().anyMatch(RemoteUserState::smolPeopleEnabled),Map.copyOf(newRanks),List.copyOf(newRankProfiles));
         NickRenderUtils.invalidateLocalTargetsCache();
 
         if (overrideOwnState) {
@@ -1005,7 +1030,7 @@ public final class PresenceSync {
             + "|" + (r.gradientStart() & 0xFFFFFF) + "|" + (r.gradientEnd() & 0xFFFFFF)
             + "|" + r.boldEnabled() + "|" + r.customNickColorEnabled() + "|" + (r.nickChanger() == null ? "" : r.nickChanger())
             + "|" + r.gradientStyle() + "|" + r.shimmerSpeed() + "|" + r.shimmerColor() + "|" + r.shimmerHighlightColor() + "|" + r.shimmerSize() + "|" + r.shimmerInterval()
-            + "|" + r.segments() + "|" + r.playerSize() + "|" + r.accessories() + "|" + r.creatureModel() + "|" + java.util.Arrays.toString(r.chromaPalette() == null ? new int[0] : r.chromaPalette()));
+            + "|" + r.segments() + "|" + r.playerSize() + "|" + r.accessories() + "|" + r.creatureModel() + "|" + remoteSnapshot.ranks().getOrDefault(r.uuid(),RankSettings.OFF) + "|" + java.util.Arrays.toString(r.chromaPalette() == null ? new int[0] : r.chromaPalette()));
     }
 
 
@@ -1216,15 +1241,16 @@ public final class PresenceSync {
             List<NicknameSegments.Segment> segments,
             PlayerSizeSettings playerSize,
             AccessoriesSettings accessories,
-            String creatureModel
+            String creatureModel,
+            RankSettings rank
     ) {
-        private LocalUserState{playerSize=playerSize==null?PlayerSizeSettings.NORMAL:playerSize.active();accessories=accessories==null?AccessoriesSettings.NONE:accessories.active();creatureModel=com.customcosmetics.features.creature.CreatureModels.parse(creatureModel).id;}
+        private LocalUserState{rank=rank==null?RankSettings.OFF:rank;playerSize=playerSize==null?PlayerSizeSettings.NORMAL:playerSize.active();accessories=accessories==null?AccessoriesSettings.NONE:accessories.active();creatureModel=com.customcosmetics.features.creature.CreatureModels.parse(creatureModel).id;}
         String signature() {
             return uuid + "|" + name + "|" + nickTweaksEnabled + "|" + chromaEnabled + "|" + smolEnabled + "|" + smolLimbSwingSpeed + "|" + chromaSpeed
                     + "|" + chromaSize + "|" + chromaAmount + "|" + chromaLightness
                     + "|" + gradientStart + "|" + gradientEnd + "|" + boldSelf + "|" + customNickColorEnabled + "|" + nickChanger
                     + "|" + gradientStyle + "|" + shimmerSpeed + "|" + shimmerColor + "|" + shimmerHighlightColor + "|" + shimmerSize + "|" + shimmerInterval
-                    + "|" + segments + "|" + playerSize + "|" + accessories + "|" + creatureModel + "|" + java.util.Arrays.toString(chromaPalette);
+                    + "|" + segments + "|" + playerSize + "|" + accessories + "|" + creatureModel + "|" + rank + "|" + java.util.Arrays.toString(chromaPalette);
         }
     }
 }

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.4-dev.1
+
+- Add synced Hypixel rank colors in NickTweaks and persistent administrator rank replacements.
+- Cache rank matching and text results; skip rank work when the module is disabled.
+
 ## 1.8.3
 
 - Add searchable head skins with online metadata, saved textures and item / helmet rendering.

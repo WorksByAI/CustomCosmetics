@@ -90,6 +90,7 @@ public final class NickRenderUtils {
     }
 
     public static void invalidateLocalTargetsCache() {
+        com.customcosmetics.features.nickname.RankAppearance.invalidate();
         targetsCacheAt = 0L;
         cachePlayerName = "";
         cachePlayerUuid = null;
@@ -189,7 +190,14 @@ public final class NickRenderUtils {
     public static String handleString(String text) {
         if (text == null || text.isEmpty()) return text;
         if (shouldSkipNickTweakSubstitution()) return text;
-        return renderString(text, collectTargets());
+        var targets=collectTargets();
+        if(com.customcosmetics.features.nickname.RankAppearance.active()){
+            var ranked=com.customcosmetics.features.nickname.RankAppearance.apply(text);
+            if(targets.isEmpty())return ranked;
+            FormattedCharSequence input=sink->net.minecraft.util.StringDecomposer.iterateFormatted(ranked,Style.EMPTY,sink);
+            return com.customcosmetics.features.nickname.RankText.legacy(resolveCharSequence(input,targets));
+        }
+        return renderString(text, targets);
     }
 
     static String renderString(String text, List<Target> targets) {
@@ -256,6 +264,11 @@ public final class NickRenderUtils {
     public static FormattedText handleFormattedText(FormattedText text) {
         if (text == null) return null;
         if (shouldSkipNickTweakSubstitution()) return text;
+        if(com.customcosmetics.features.nickname.RankAppearance.active()){
+            var source=com.customcosmetics.features.nickname.RankText.sequence(text);
+            var sequence=com.customcosmetics.features.nickname.RankAppearance.apply(source);
+            if(sequence!=source)text=com.customcosmetics.features.nickname.RankText.component(sequence);
+        }
         return renderFormattedText(text, collectTargets());
     }
 
@@ -381,9 +394,13 @@ public final class NickRenderUtils {
         if(original instanceof com.customcosmetics.features.nickname.NicknameText)return original;
         if (shouldSkipNickTweakSubstitution()) return original;
         List<Target> targets = collectTargets();
-        if (targets.isEmpty()) return original;
+        boolean rank=com.customcosmetics.features.nickname.RankAppearance.active();
+        if (targets.isEmpty()&&!rank) return original;
         var caches=TEXT_CACHES.get();caches.begin();var cached=caches.resolved.get(original);if(cached!=null)return cached;
-        var result=resolveCharSequence(original,targets);caches.resolved.put(original,result);return result;
+        var ranked=rank?com.customcosmetics.features.nickname.RankAppearance.apply(original):original;
+        var result=targets.isEmpty()?ranked:resolveCharSequence(ranked,targets);
+        if(result!=original&&!(result instanceof com.customcosmetics.features.nickname.NicknameText))result=new com.customcosmetics.features.nickname.ProcessedNicknameText(result);
+        caches.resolved.put(original,result);return result;
     }
 
     private static FormattedCharSequence resolveCharSequence(FormattedCharSequence original,List<Target> targets) {
@@ -456,7 +473,7 @@ public final class NickRenderUtils {
         if (shouldSkipNickTweakSubstitution()) return false;
         return !collectTargets().isEmpty()&&cachedSmooth;
     }
-    public static boolean hasActiveTargets(){return !shouldSkipNickTweakSubstitution()&&!collectTargets().isEmpty();}
+    public static boolean hasActiveTargets(){return !shouldSkipNickTweakSubstitution()&&(!collectTargets().isEmpty()||com.customcosmetics.features.nickname.RankAppearance.active());}
 
     /** Measure actual advances so narrow Latin letters and wide CJK glyphs share one gradient. */
     public static FormattedCharSequence measureGradient(FormattedCharSequence original, Font font) {

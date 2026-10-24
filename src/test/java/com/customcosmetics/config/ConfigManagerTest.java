@@ -9,6 +9,15 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ConfigManagerTest {
+    @Test void rankPersistsIndependentlyAndUnknownColorsFallBackToHypixelRed()throws Exception{
+        var path=directory.resolve("rank.json");boolean old=ConfigManager.nickTweaksRankEnabled;String color=ConfigManager.nickTweaksRankPlusColor;
+        try{
+            ConfigManager.nickTweaksRankEnabled=true;ConfigManager.nickTweaksRankPlusColor="dark_blue";ConfigManager.save(path);
+            ConfigManager.nickTweaksRankEnabled=false;ConfigManager.nickTweaksRankPlusColor="red";ConfigManager.load(path);
+            assertTrue(ConfigManager.nickTweaksRankEnabled);assertEquals("dark_blue",ConfigManager.nickTweaksRankPlusColor);
+            Files.writeString(path,"{\"settings\":{\"nickTweaksRankPlusColor\":\"#123456\"}}");ConfigManager.load(path);assertEquals("red",ConfigManager.nickTweaksRankPlusColor);
+        }finally{ConfigManager.nickTweaksRankEnabled=old;ConfigManager.nickTweaksRankPlusColor=color;}
+    }
     @Test void moduleMasterSwitchesRoundTripWithoutOverwritingFeaturePreferences()throws Exception{
         assertEquals(0,ConfigManager.disabledModules);var path=directory.resolve("modules.json");
         String oldStyle=ConfigManager.nickTweaksGradientStyle;FeatureModules.all(false);FeatureModules.set(FeatureModules.Feature.MAP,true);int mask=ConfigManager.disabledModules;ConfigManager.save(path);

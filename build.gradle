@@ -479,3 +479,13 @@ if (providers.gradleProperty('creature_game_only').getOrElse('false').toBoolean(
         filesMatching('customcosmetics-test.mixins.json') { filter { line -> line.contains('"client":') ? '  "client": ["UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line } }
     }
 }
+
+if (providers.gradleProperty('rank_game_only').getOrElse('false').toBoolean()) {
+    sourceSets.gametest.java.include '**/RankAppearanceGameTest.java', '**/mixin/RankWorldProbe.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
+    tasks.named('processGametestResources') {
+        inputs.property 'rank_game_only', true
+        inputs.file('build.gradle')
+        filesMatching('fabric.mod.json') { filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.RankAppearanceGameTest') } }
+        filesMatching('customcosmetics-test.mixins.json') { filter { line -> line.contains('"client":') ? '  "client": ["RankWorldProbe", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line } }
+    }
+}

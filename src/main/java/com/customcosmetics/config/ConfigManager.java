@@ -47,6 +47,8 @@ public final class ConfigManager {
     public static String creatureModel="player";
     public static boolean nickTweaksEnabled = false;
     public static String nickTweaksNickChanger = "";
+    public static boolean nickTweaksRankEnabled = false;
+    public static String nickTweaksRankPlusColor = "red";
     public static java.util.List<com.customcosmetics.config.PlayerBlocklist.Entry> nickTweaksBlockedPlayers = java.util.List.of();
     public static boolean nickTweaksChromaEnabled = false;
     public static boolean nickTweaksCustomNickColorEnabled = false;
@@ -184,6 +186,7 @@ public final class ConfigManager {
             damageSplashDuration=com.customcosmetics.features.damage.DamageAnimation.bounded(damageSplashDuration,1.2,.3,3);
             damageSplashStartColor&=0xFFFFFF;damageSplashEndColor&=0xFFFFFF;
             nickTweaksNickChanger = NicknameLimit.limit(nickTweaksNickChanger);
+            nickTweaksRankPlusColor = com.customcosmetics.features.nickname.RankSettings.PlusColor.parse(nickTweaksRankPlusColor).id();
             nickTweaksBlockedPlayers = com.customcosmetics.config.PlayerBlocklist.normalize(nickTweaksBlockedPlayers);
             accessoriesBlockedPlayers = PlayerBlocklist.normalize(accessoriesBlockedPlayers);
             capeBlockedPlayers = PlayerBlocklist.normalize(capeBlockedPlayers);
