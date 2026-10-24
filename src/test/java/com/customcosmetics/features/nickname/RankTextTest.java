@@ -12,6 +12,22 @@ class RankTextTest {
     private RankText renderer(String prefix){return new RankText(List.of(new RankText.Target("Alice",prefix)));}
     private FormattedCharSequence sequence(String text){return sink->StringDecomposer.iterateFormatted(text,Style.EMPTY,sink);}
     private String plain(FormattedCharSequence text){var s=new StringBuilder();text.accept((i,style,cp)->{s.appendCodePoint(cp);return true;});return s.toString();}
+    @Test void selectedMvpPlusPlusColorsBothPlusesAndRoundTripsForEveryPreset(){
+        for(var color:RankSettings.PlusColor.values()){
+            var setting=new RankSettings(true,color.id(),"mvp_plus_plus");assertEquals(setting,RankSettings.parse(setting.json()));
+            assertEquals("[MVP++]",setting.label());var r=renderer(setting.prefix());
+            for(String original:List.of("Alice","[VIP] Alice","[MVP+] Alice","[MVP++] Alice","[YOUTUBE] Alice")){
+                var text=r.apply(sequence(original));assertEquals("[MVP++] Alice",plain(text));int[] count={0};
+                int expected=TextColor.fromLegacyFormat(net.minecraft.ChatFormatting.getByCode(color.code)).getValue();
+                text.accept((i,s,c)->{if(c=='+'){count[0]++;assertEquals(expected,s.getColor().getValue());}if(c=='['||c==']')assertEquals(0xFFAA00,s.getColor().getValue());return true;});
+                assertEquals(2,count[0]);assertEquals(plain(text),plain(r.apply(text)));
+                String legacy=r.apply(original);assertEquals("[MVP++] Alice",plain(sequence(legacy)));assertEquals(legacy,r.apply(legacy));
+            }
+        }
+        assertEquals("mvp_plus",RankSettings.parse(JsonParser.parseString("{\"enabled\":true,\"plusColor\":\"red\"}")).type());
+        assertEquals("mvp_plus",new RankSettings(true,"red","admin").type());
+        assertEquals("[YOUTUBE] Alice",plain(renderer("\u00a7c[\u00a7fYOUTUBE\u00a7c]").apply(sequence("[MVP++] Alice"))));
+    }
     @Test void allExistingRanksAndUnrankedNamesBecomeOneMvpPrefix(){
         var renderer=renderer(new RankSettings(true,"dark_blue").prefix());
         for(String rank:List.of("","[VIP] ","[VIP+] ","[MVP] ","[MVP+] ","[MVP++] ","[YOUTUBE] ","[ADMIN] ")){

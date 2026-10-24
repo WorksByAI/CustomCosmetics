@@ -29,7 +29,7 @@ public final class RankAppearanceGameTest implements FabricClientGameTest {
             context.waitTicks(5);context.getInput().resizeWindow(1600,1000);
             context.runOnClient(client->{
                 setWorldFixture(true);client.options.guiScale().set(2);ConfigManager.nickTweaksEnabled=false;
-                ConfigManager.nickTweaksRankEnabled=true;ConfigManager.nickTweaksRankPlusColor="dark_blue";
+                ConfigManager.nickTweaksRankEnabled=true;ConfigManager.nickTweaksRankPlusColor="dark_blue";ConfigManager.nickTweaksRankType="mvp_plus";
                 ConfigManager.nickTweaksBlockedPlayers=List.of();ConfigManager.nickTweaksChromaEnabled=false;
                 ConfigManager.nickTweaksCustomNickColorEnabled=false;ConfigManager.nickTweaksNickChanger="";
                 NickRenderUtils.invalidateLocalTargetsCache();apply(snapshot(client.getUser().getProfileId(),client.getUser().getName(),false));
@@ -40,6 +40,11 @@ public final class RankAppearanceGameTest implements FabricClientGameTest {
                 var decoded=RankText.sequence(Component.literal(combined));
                 require(plain(decoded).equals("[MVP+] PrettyAlice: hello"),"String path broke rank/nickname formatting");
                 decoded.accept((i,style,cp)->{if(cp=='+')require(style.getColor().getValue()==0x0000AA,"Nickname changed rank plus color");return true;});
+                ConfigManager.nickTweaksRankType="mvp_plus_plus";
+                String selected=RankAppearance.apply("[MVP+] "+self);
+                require(plain(RankText.sequence(Component.literal(selected))).equals("[MVP++] "+self),"Rank type change reused cached MVP+");
+                int[] pluses={0};RankText.sequence(Component.literal(selected)).accept((i,style,cp)->{if(cp=='+'){pluses[0]++;require(style.getColor().getValue()==0x0000AA,"MVP++ plus colors differ");}return true;});require(pluses[0]==2,"MVP++ lost a plus");
+                ConfigManager.nickTweaksRankType="mvp_plus";
                 ConfigManager.nickTweaksBlockedPlayers=List.of(new PlayerBlocklist.Entry(ALICE,"Alice"));NickRenderUtils.invalidateLocalTargetsCache();
                 require(plain(NickRenderUtils.handleCharSequence(Component.literal("[VIP] Alice").getVisualOrderText())).equals("[VIP] Alice"),"Blocked rank still appears");
                 ConfigManager.nickTweaksBlockedPlayers=List.of();apply(snapshot(client.getUser().getProfileId(),self,true));
@@ -55,6 +60,9 @@ public final class RankAppearanceGameTest implements FabricClientGameTest {
             });context.waitTicks(3);context.takeScreenshot("rank-sync-nick-and-original-colors");
             context.runOnClient(client->ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.RANK)));
             context.waitTicks(3);context.takeScreenshot("rank-page-official-palette");
+            click(context,"Rank Type: [MVP+]");
+            context.runOnClient(client->require(ConfigManager.nickTweaksRankType.equals("mvp_plus_plus"),"Rank type button did not select MVP++"));
+            context.takeScreenshot("rank-page-mvp-plus-plus");
             click(context,"Black");
             context.runOnClient(client->require(ConfigManager.nickTweaksRankPlusColor.equals("black"),"Color selection did not save"));
             context.getInput().resizeWindow(854,480);context.waitTicks(3);context.takeScreenshot("rank-page-compact");

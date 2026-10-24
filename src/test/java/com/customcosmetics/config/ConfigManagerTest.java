@@ -10,13 +10,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ConfigManagerTest {
     @Test void rankPersistsIndependentlyAndUnknownColorsFallBackToHypixelRed()throws Exception{
-        var path=directory.resolve("rank.json");boolean old=ConfigManager.nickTweaksRankEnabled;String color=ConfigManager.nickTweaksRankPlusColor;
+        var path=directory.resolve("rank.json");boolean old=ConfigManager.nickTweaksRankEnabled;String color=ConfigManager.nickTweaksRankPlusColor,type=ConfigManager.nickTweaksRankType;
         try{
-            ConfigManager.nickTweaksRankEnabled=true;ConfigManager.nickTweaksRankPlusColor="dark_blue";ConfigManager.save(path);
-            ConfigManager.nickTweaksRankEnabled=false;ConfigManager.nickTweaksRankPlusColor="red";ConfigManager.load(path);
-            assertTrue(ConfigManager.nickTweaksRankEnabled);assertEquals("dark_blue",ConfigManager.nickTweaksRankPlusColor);
+            ConfigManager.nickTweaksRankEnabled=true;ConfigManager.nickTweaksRankPlusColor="dark_blue";ConfigManager.nickTweaksRankType="mvp_plus_plus";ConfigManager.save(path);
+            ConfigManager.nickTweaksRankEnabled=false;ConfigManager.nickTweaksRankPlusColor="red";ConfigManager.nickTweaksRankType="mvp_plus";ConfigManager.load(path);
+            assertTrue(ConfigManager.nickTweaksRankEnabled);assertEquals("dark_blue",ConfigManager.nickTweaksRankPlusColor);assertEquals("mvp_plus_plus",ConfigManager.nickTweaksRankType);
             Files.writeString(path,"{\"settings\":{\"nickTweaksRankPlusColor\":\"#123456\"}}");ConfigManager.load(path);assertEquals("red",ConfigManager.nickTweaksRankPlusColor);
-        }finally{ConfigManager.nickTweaksRankEnabled=old;ConfigManager.nickTweaksRankPlusColor=color;}
+        }finally{ConfigManager.nickTweaksRankEnabled=old;ConfigManager.nickTweaksRankPlusColor=color;ConfigManager.nickTweaksRankType=type;}
     }
     @Test void moduleMasterSwitchesRoundTripWithoutOverwritingFeaturePreferences()throws Exception{
         assertEquals(0,ConfigManager.disabledModules);var path=directory.resolve("modules.json");

@@ -22,7 +22,7 @@ public final class RankAppearance {
     };
     private RankAppearance(){}
     public static RankSettings local(){return FeatureModules.enabled(FeatureModules.Feature.NICK)
-        ?new RankSettings(ConfigManager.nickTweaksRankEnabled,ConfigManager.nickTweaksRankPlusColor):RankSettings.OFF;}
+        ?new RankSettings(ConfigManager.nickTweaksRankEnabled,ConfigManager.nickTweaksRankPlusColor,ConfigManager.nickTweaksRankType):RankSettings.OFF;}
     public static void invalidate(){snapshot=null;local=null;cached=EMPTY;STRINGS.clear();}
     private static RankText current(){
         if(!FeatureModules.enabled(FeatureModules.Feature.NICK))return EMPTY;
@@ -34,7 +34,8 @@ public final class RankAppearance {
         var id=client.getUser().getProfileId();
         Object version=PresenceSync.appearanceSnapshot();
         if(snapshot==version&&online==!ConfigManager.offlineMode&&connection==client.getConnection()&&local!=null&&local.enabled()==enabled
-            &&local.plusColor().equals(ConfigManager.nickTweaksRankPlusColor)&&id.equals(self)&&blocked==ConfigManager.nickTweaksBlockedPlayers)return cached;
+            &&local.plusColor().equals(ConfigManager.nickTweaksRankPlusColor)&&local.type().equals(ConfigManager.nickTweaksRankType)
+            &&id.equals(self)&&blocked==ConfigManager.nickTweaksBlockedPlayers)return cached;
         var state=local();
         var targets=new LinkedHashMap<UUID,RankText.Target>();
         if(state.enabled())targets.put(id,new RankText.Target(client.getUser().getName(),state.prefix()));

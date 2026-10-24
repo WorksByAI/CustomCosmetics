@@ -1,8 +1,8 @@
 # Changelog
 
-## 1.8.4-dev.1
+## 1.8.4-dev.2
 
-- Add synced Hypixel rank colors in NickTweaks and persistent administrator rank replacements.
+- Add synced MVP+ / MVP++ selection, shared plus colors and administrator rank replacements.
 - Cache rank matching and text results; skip rank work when the module is disabled.
 
 ## 1.8.3
