@@ -3,6 +3,8 @@
 ## 1.8.5
 
 - Improve performance where possible; substantial gains are not guaranteed for every user.
+- This optimization effort consumed approximately US$1,100 worth of Codex credits.
+- If performance does not meet your expectations, please open an issue or stop using this mod.
 
 ## 1.8.5-dev.1
 
