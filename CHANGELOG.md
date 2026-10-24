@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.5
+
+- Improve performance where possible; substantial gains are not guaranteed for every user.
+
 ## 1.8.5-dev.1
 
 - Reduce rendering allocations, redundant scans and disabled-module work.
