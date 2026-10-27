@@ -16,7 +16,7 @@ public class CreatureModelMixin {
     @ModifyReturnValue(method = "extractEntity(Lnet/minecraft/world/entity/Entity;F)Lnet/minecraft/client/renderer/entity/state/EntityRenderState;",
         at = @At("RETURN"))
     private EntityRenderState customcosmetics$creatureModel(EntityRenderState result, Entity entity, float partialTick) {
-        if (entity instanceof AbstractClientPlayer player && result instanceof AvatarRenderState original) {
+        if (!CreatureModels.extractingPlayerEffects && entity instanceof AbstractClientPlayer player && result instanceof AvatarRenderState original) {
             return CreatureModels.replace(player, original, partialTick);
         }
         return result;

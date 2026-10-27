@@ -374,10 +374,14 @@ public final class WaypointsGameTest implements FabricClientGameTest {
             Object base = RenderType.class.getMethod("pipeline").invoke(RenderTypes.debugQuads());
             Object builder = base.getClass().getMethod("builder", snippets.getClass()).invoke(null, snippets);
             builder.getClass().getMethod("withLocation", String.class).invoke(builder, "customcosmetics/test/waypoint_occluder");
-            Class<?> color = Class.forName("com.mojang.blaze3d.pipeline.ColorTargetState");
-            builder.getClass().getMethod("withColorTargetState", color).invoke(builder, color.getField("DEFAULT").get(null));
-            Class<?> depth = Class.forName("com.mojang.blaze3d.pipeline.DepthStencilState");
-            builder.getClass().getMethod("withDepthStencilState", depth).invoke(builder, depth.getField("DEFAULT").get(null));
+            // RenderPearl moved these types in 26.3; retain a real depth-writing occluder.
+            var colorSetter = java.util.Arrays.stream(builder.getClass().getMethods())
+                .filter(m -> m.getName().equals("withColorTargetState") && m.getParameterCount() == 1).findFirst().orElseThrow();
+            colorSetter.invoke(builder, colorSetter.getParameterTypes()[0].getField("DEFAULT").get(null));
+            var depthSetter = java.util.Arrays.stream(builder.getClass().getMethods())
+                .filter(m -> m.getName().equals("withDepthStencilState") && m.getParameterCount() == 1
+                    && m.getParameterTypes()[0] != java.util.Optional.class).findFirst().orElseThrow();
+            depthSetter.invoke(builder, depthSetter.getParameterTypes()[0].getField("DEFAULT").get(null));
             Object pipeline = builder.getClass().getMethod("build").invoke(builder);
             Object setupBuilder = RenderSetup.class.getMethod("builder", base.getClass()).invoke(null, pipeline);
             RenderSetup setup = (RenderSetup) setupBuilder.getClass().getMethod("createRenderSetup").invoke(setupBuilder);

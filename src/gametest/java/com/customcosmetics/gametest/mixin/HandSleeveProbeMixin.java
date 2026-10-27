@@ -15,8 +15,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /** Inspect the actual first-person hand submission after vanilla resets the parent arm. */
 @Mixin(AvatarRenderer.class)
 public class HandSleeveProbeMixin {
-    @Inject(method = "renderHand", at = @At(value = "INVOKE", target =
-        "Lnet/minecraft/client/renderer/SubmitNodeCollector;submitModelPart(Lnet/minecraft/client/model/geom/ModelPart;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/rendertype/RenderType;IILnet/minecraft/client/renderer/texture/TextureAtlasSprite;)V"))
+    @Inject(method = "renderHand", at = {
+        @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/SubmitNodeCollector;submitModelPart(Lnet/minecraft/client/model/geom/ModelPart;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/rendertype/RenderType;IILnet/minecraft/client/renderer/texture/TextureAtlasSprite;)V"),
+        @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/SubmitNodeCollector;submitModelPart(Lnet/minecraft/client/model/geom/ModelPart;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/rendertype/RenderType;IILnet/minecraft/client/renderer/texture/UvMapping;)V")})
     private void checkSleeve(PoseStack pose, SubmitNodeCollector collector, int light, Identifier skin,
             ModelPart arm, boolean visibleSleeve, CallbackInfo ci) {
         if (!RenderAssertions.trackHandSleeves) return;

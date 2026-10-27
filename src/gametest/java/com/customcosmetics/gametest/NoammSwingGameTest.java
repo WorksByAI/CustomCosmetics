@@ -24,7 +24,7 @@ public final class NoammSwingGameTest {
         var client = Minecraft.getInstance();
         if (reference == null || player != client.player) return;
         reference.referenceDuration = upstreamDuration(client);
-        reference.swing(hand, false); // Test-only reference is never spawned or connected to a game server.
+        reference.start(hand); // Test-only reference is never spawned or connected to a game server.
         requests++;
     }
     public static void advance(Object player) {
@@ -33,14 +33,17 @@ public final class NoammSwingGameTest {
         reference.referenceDuration = upstreamDuration(client);
         reference.step();
     }
+    public static void advanceModern(Object player) {
+        if (reference != null && reference.modern()) advance(player);
+    }
     public static void compare(Object player) {
         var client = Minecraft.getInstance();
         if (reference == null || player != client.player) return;
         for (float partial : new float[]{0, .25f, .5f, .75f, 1}) {
-            float expected = reference.getAttackAnim(partial);
+            float expected = NoammSwingReferencePlayer.progress(reference, partial);
             float actual;
             sampling = true;
-            try { actual = ViewModelAnimations.swing(client.player.getAttackAnim(partial), partial,
+            try { actual = ViewModelAnimations.swing(NoammSwingReferencePlayer.progress(client.player, partial), partial,
                 InteractionHand.MAIN_HAND, client.player.getMainHandItem()); }
             finally { sampling = false; }
             if (Math.abs(actual - expected) > .00001f)
@@ -51,7 +54,7 @@ public final class NoammSwingGameTest {
     }
     public static void compareRendered(float actual, float partial, InteractionHand hand) {
         if (reference == null || sampling || hand != InteractionHand.MAIN_HAND) return;
-        float expected = reference.getAttackAnim(partial);
+        float expected = NoammSwingReferencePlayer.progress(reference, partial);
         if (Math.abs(actual - expected) > .00001f)
             throw new AssertionError("Rendered NA swing mismatch: partial=" + partial + " expected=" + expected + " actual=" + actual);
         renderedComparisons++;

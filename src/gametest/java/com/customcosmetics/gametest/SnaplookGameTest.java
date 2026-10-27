@@ -12,7 +12,7 @@ public final class SnaplookGameTest implements FabricClientGameTest {
     private float yaw,pitch;
     @Override public void runTest(ClientGameTestContext context){
         context.runOnClient(client->{ConfigManager.offlineMode=true;ConfigManager.syncEnabled=false;ConfigManager.snaplookEnabled=true;ConfigManager.snaplookPerspective="front";
-            Snaplook.binding().setKey(com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM.getOrCreate(295));KeyMapping.resetMapping();});
+            Snaplook.binding().setKey(com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.f6"));KeyMapping.resetMapping();});
         try(var world=context.worldBuilder().create()){
             world.getServer().runCommand("gamemode creative @a");world.getServer().runCommand("fill -5 63 -5 5 64 5 minecraft:stone");world.getServer().runCommand("tp @a .5 65 .5 60 15");context.waitTicks(20);
             context.runOnClient(client->{focus(client,true);yaw=client.player.getYRot();pitch=client.player.getXRot();});

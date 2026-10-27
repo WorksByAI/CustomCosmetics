@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.7
+
+- Fix Minecraft 26.3 refresh-rate compatibility.
+- Match 26.3 swing timing and preserve native first-person player effects with creature models.
+- Keep automatic room restoration out of edit undo history.
+
 ## 1.8.6
 
 - Add all vanilla creature models, including bosses, with synchronized choices.

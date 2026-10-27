@@ -214,8 +214,47 @@ final class ItemAppearanceGameTest {
         context.waitTicks(5);context.takeScreenshot("item-cosmetics-warden-head-leather-armor");
         context.runOnClient(client->{client.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);ItemCosmetics.store().put(C,new ItemAppearanceStore.Appearance("",""));ItemCosmetics.save();});
         checkHeadSkins(context);
+        checkAccessoryTooltips(context);
         world.getServer().runCommand("item replace entity @a armor.head with minecraft:air");
         System.out.println("ITEM_APPEARANCE_GAME_TEST_OK");
+    }
+    private static void checkAccessoryTooltips(ClientGameTestContext context){
+        context.runOnClient(client->{
+            var type=com.customcosmetics.features.accessoryhelper.AccessoryTooltipHelper.class;
+            var saved=new java.util.HashMap<java.lang.reflect.Field,Object>();
+            boolean enabled=ConfigManager.accessoryHelperTooltipEnabled;
+            try{
+                for(String name:java.util.List.of("catalog","index","onSkyblock","profileKey")){
+                    var field=type.getDeclaredField(name);field.setAccessible(true);saved.put(field,field.get(null));
+                }
+                var catalog=com.customcosmetics.features.accessoryhelper.AccessoryCatalog.parse("""
+                    {"SPEED_TALISMAN":{"family":"SPEED","tier":1},"SPEED_RING":{"family":"SPEED","tier":2},
+                     "SPEED_RELIC":{"family":"SPEED","tier":3}}
+                    """);
+                var index=new com.customcosmetics.features.accessoryhelper.AccessoryBagIndex(catalog);
+                for(var field:saved.keySet())field.set(null,switch(field.getName()){
+                    case "catalog"->catalog;case "index"->index;case "onSkyblock"->true;default->"native-tooltip-fixture";
+                });
+                var append=type.getDeclaredMethod("append",ItemStack.class,java.util.List.class);append.setAccessible(true);
+                ConfigManager.accessoryHelperTooltipEnabled=true;
+                for(var row:new String[][]{{"SPEED_RELIC","SPEED_RELIC","Collected"},{"SPEED_TALISMAN","SPEED_RING","Upgrade"},
+                        {"SPEED_TALISMAN","SPEED_TALISMAN","Upgradable"},{"SPEED_RELIC","SPEED_RING","Downgrade"},{"","SPEED_RING","Missing"}}){
+                    index.update("native-tooltip-fixture",1,1,row[0].isEmpty()?java.util.Set.of():java.util.Set.of(row[0]));
+                    var tag=new net.minecraft.nbt.CompoundTag();tag.putString("id",row[1]);
+                    var stack=new ItemStack(net.minecraft.world.item.Items.PAPER);stack.set(DataComponents.CUSTOM_DATA,net.minecraft.world.item.component.CustomData.of(tag));
+                    var lines=new java.util.ArrayList<net.minecraft.network.chat.Component>();append.invoke(null,stack,lines);
+                    if(lines.size()!=1||!lines.getFirst().getString().contains(row[2]))throw new AssertionError("Native accessory tooltip missing "+row[2]+": "+lines);
+                    ConfigManager.accessoryHelperTooltipEnabled=false;lines.clear();append.invoke(null,stack,lines);
+                    if(!lines.isEmpty())throw new AssertionError("Disabled accessory helper retained a tooltip");
+                    ConfigManager.accessoryHelperTooltipEnabled=true;
+                }
+            }catch(ReflectiveOperationException failure){throw new AssertionError(failure);}
+            finally{
+                ConfigManager.accessoryHelperTooltipEnabled=enabled;
+                for(var entry:saved.entrySet())try{entry.getKey().set(null,entry.getValue());}catch(IllegalAccessException failure){throw new AssertionError(failure);}
+            }
+        });
+        System.out.println("ACCESSORY_HELPER_NATIVE_CUSTOM_DATA_FIVE_STATUSES_AND_DISABLED_OK");
     }
     private static void checkArmorCache(ItemStack real){
         var source=real.copy();var slot=net.minecraft.world.entity.EquipmentSlot.HEAD;

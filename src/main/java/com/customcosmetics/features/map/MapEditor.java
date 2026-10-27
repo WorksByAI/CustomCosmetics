@@ -222,7 +222,7 @@ public final class MapEditor {
     public static String roomLabel(){var frame=currentRoom();return frame==null?(inMapArea(Minecraft.getInstance())?"Scanning / unrecognized room (session edits)":"Outside dungeon (session edits)"):frame.label();}
     private static void applyRooms(){if(busy())return;var frames=new HashSet<>(DungeonRooms.frames());var current=currentRoom();if(current!=null)frames.add(current);restorer.request(frames);restorer.tick();}
     static void restored(Map<MapEdits.Position,MapEdits.Edit> before,Map<MapEdits.Position,MapEdits.Edit> result,Set<MapEdits.Position> sections){
-        if(DATA.snapshot()!=before)return;DATA.replace(result);visible=enabled&&allowed(Minecraft.getInstance())?DATA.snapshot():Map.of();
+        if(DATA.snapshot()!=before)return;DATA.restore(result);visible=enabled&&allowed(Minecraft.getInstance())?DATA.snapshot():Map.of();
         if(level!=null){var packed=new it.unimi.dsi.fastutil.longs.LongOpenHashSet();for(var p:sections)packed.add(SectionPos.asLong(p.x(),p.y(),p.z()));queueSectionUpdates(level,packed);}
     }
     public static void undo(){var before=DATA.snapshot();var changes=DATA.undoPositions();if(!DATA.undo())return;
@@ -307,7 +307,7 @@ public final class MapEditor {
         var client=Minecraft.getInstance();var world=client.level;var before=DATA.snapshot();var baseline=ROOMS.copy();var resolve=DungeonRooms.resolver();boolean dungeon=inMapArea(client);restorer.cancel();
         var result=background(()->MapChange.prepare(before,build.get(),baseline.copy(),resolve,MapEditor::rotateMaterial),prepared->{
             if(!valid.getAsBoolean()||client.level!=world||DATA.snapshot()!=before||!ROOMS.sameData(baseline))throw new IllegalStateException("Map edits changed while preparing. No changes were applied.");
-            if(undo)DATA.undo();else DATA.replace(prepared.edits());ROOMS.adopt(prepared.rooms());if(dungeon)pendingSaves.putAll(prepared.unknown());dirty(before.keySet());enabled=true;refresh();saveRoomEdits();
+            if(undo)DATA.finishUndo(prepared.edits());else DATA.replace(prepared.edits());ROOMS.adopt(prepared.rooms());if(dungeon)pendingSaves.putAll(prepared.unknown());dirty(before.keySet());enabled=true;refresh();saveRoomEdits();
         }).thenApply(p->(Void)null);operation=result;return result;
     }
     public static void report(java.util.concurrent.CompletableFuture<Void> future){future.whenComplete((v,error)->{if(error!=null){var cause=error;while(cause.getCause()!=null)cause=cause.getCause();notice(cause.getMessage()==null?"Map operation failed.":cause.getMessage());}});}
@@ -321,7 +321,7 @@ public final class MapEditor {
             else{var materials=new HashMap<String,String>();for(var edit:preset.edits()){var p=edit.position().rotate(rotation).add(origin);copy.put(p,new MapEdits.Edit(p,materials.computeIfAbsent(edit.material(),id->rotateMaterial(id,rotation)),edit.originallyAir()));}}return MapEdits.own(copy);
         },false);
     }
-    public static void undoInteractive(){var target=DATA.undoSnapshot();if(target==null)return;var changes=DATA.undoPositions();if((changes!=null&&changes.size()<=1024)||DATA.snapshot().size()<8192){undo();return;}report(changeInteractive(()->target,true));}
+    public static void undoInteractive(){var target=DATA.undoTarget();if(target==null)return;var changes=DATA.undoPositions();if((changes!=null&&changes.size()<=1024)||DATA.snapshot().size()<8192){undo();return;}report(changeInteractive(target,true));}
     public static void clearInteractive(){if(DATA.snapshot().size()<8192){clear();return;}report(changeInteractive(Map::of,false));}
     public static void clearRoomInteractive(){if(DATA.snapshot().size()<8192){clearRoom();return;}var frame=currentRoom();if(frame==null)throw new IllegalArgumentException("No recognized room here");var before=DATA.snapshot();var resolve=DungeonRooms.resolver();report(changeInteractive(()->{var copy=new HashMap<MapEdits.Position,MapEdits.Edit>();for(var e:before.entrySet())if(!MapPresetData.sameRoom(frame,resolve.apply(e.getKey())))copy.put(e.getKey(),e.getValue());return MapEdits.own(copy);},false));}
     public static java.util.concurrent.CompletableFuture<Void> renamePresetInteractive(String name){

@@ -163,7 +163,12 @@ public final class BlockingGameTest implements FabricClientGameTest {
         context.runOnClient(client -> ConfigManager.resetAnimations());
         world.getServer().runCommand("effect clear @a");
         world.getServer().runCommand("item replace entity @a weapon.offhand with minecraft:air");
-        world.getServer().runCommand("item replace entity @a weapon.mainhand with minecraft:diamond_sword[minecraft:swing_animation={type:\"whack\",duration:12}]");
+        String swingComponent;
+        try {
+            net.minecraft.world.item.ItemStack.class.getMethod("getAttackAnimation");
+            swingComponent = "attack_animation";
+        } catch (NoSuchMethodException legacy) { swingComponent = "swing_animation"; }
+        world.getServer().runCommand("item replace entity @a weapon.mainhand with minecraft:diamond_sword[minecraft:" + swingComponent + "={type:\"whack\",duration:12}]");
         context.waitTicks(10);
         context.getInput().holdKey(options -> options.keyAttack); context.waitTicks(1);
         context.getInput().releaseKey(options -> options.keyAttack); context.waitTicks(15);

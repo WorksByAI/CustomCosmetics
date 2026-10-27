@@ -87,6 +87,10 @@ loom.runs.named('clientGameTest') {
     vmArg "-Dcustomcosmetics.nicknameOnly=${providers.gradleProperty('nickname_game_only').getOrElse('false')}"
     vmArg "-Dcustomcosmetics.nicknameAnimation=${providers.gradleProperty('nickname_capture_animation').getOrElse('false')}"
     vmArg "-Dcustomcosmetics.damageRainbowOnly=${providers.gradleProperty('damage_rainbow_game_only').getOrElse('false')}"
+    // Match Mojang's Windows launch arguments for the 26.3 graphics backend.
+    if (project.minecraft_version.startsWith('26.3') && System.getProperty('os.name').startsWith('Windows')) {
+        vmArg '-XX:StackShadowPages=32'
+    }
 }
 
 if(providers.gradleProperty('sodium_test_jar').isPresent()&&providers.gradleProperty('sodium_game_test').getOrElse('false').toBoolean()){

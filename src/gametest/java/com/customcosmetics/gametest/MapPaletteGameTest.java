@@ -13,6 +13,11 @@ import java.time.Duration;
 /** Runs the full, unfiltered palette through the real GUI renderer, not a mocked item list. */
 public final class MapPaletteGameTest implements FabricClientGameTest {
     @Override public void runTest(ClientGameTestContext context) {
+        context.runOnClient(client -> {
+            com.customcosmetics.config.ConfigManager.offlineMode = true;
+            com.customcosmetics.config.ConfigManager.syncEnabled = false;
+            com.customcosmetics.config.ConfigManager.swordBlockingSyncEnabled = false;
+        });
         try (var world = context.worldBuilder().create(); var recording = new Recording()) {
             world.getServer().runCommand("gamemode creative @a");
             context.waitTicks(25);

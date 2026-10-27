@@ -8,7 +8,7 @@ public final class AnimationClock {
     private AnimationClock(){}
     public static void frame(net.minecraft.client.Minecraft client){
         long now=System.nanoTime();
-        if(now>=readMonitorAt){readMonitorAt=now+1_000_000_000L;refresh=Math.clamp(client.getWindow().getRefreshRate(),30,1000);}
+        if(now>=readMonitorAt){readMonitorAt=now+1_000_000_000L;refresh=com.customcosmetics.compatibility.WindowRefreshRate.get(client.getWindow());}
         update(now,System.currentTimeMillis(),refresh);
     }
     static void update(long nanos,long millis,int rate){lastFrame=nanos;if(nanos>=nextSample){sampledMillis=millis;nextSample=nanos+1_000_000_000L/Math.clamp(rate,30,1000);}}

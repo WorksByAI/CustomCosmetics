@@ -29,7 +29,7 @@ public final class SwingAnimationMixin {
         @Inject(method = "swing(Lnet/minecraft/world/InteractionHand;Lnet/minecraft/world/item/component/SwingAnimation;Z)Z", at = @At("HEAD"))
         private void customcosmetics$observeSwing(InteractionHand hand, SwingAnimation animation, boolean force,
                 CallbackInfoReturnable<Boolean> ci) {
-            ViewModelAnimations.observeSwing(this, hand);
+            ViewModelAnimations.observeSwing(this, hand, animation);
         }
         // 26.3 moved the native SwingState.tick call to the start of baseTick.
         @Inject(method = "baseTick", at = @At("HEAD"))

@@ -24,6 +24,9 @@ import net.minecraft.world.entity.boss.enderdragon.EnderDragon;
 
 /** A visual-only replacement: the real player continues to own movement, hitbox and interaction. */
 public final class CreatureModels {
+    // Render-thread scope: 26.3 also extracts the local avatar for first-person effects.
+    // That state must stay an avatar; world/GUI extraction still uses the selected creature.
+    public static boolean extractingPlayerEffects;
     public enum Choice {
         PLAYER("player", "Player"),
         ALLAY("allay", "Allay"),

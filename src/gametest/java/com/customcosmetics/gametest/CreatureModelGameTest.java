@@ -103,6 +103,16 @@ public final class CreatureModelGameTest implements FabricClientGameTest {
             }
             context.runOnClient(client -> com.customcosmetics.compatibility.ClientUiAccess.setScreen(client, null));
             context.runOnClient(client -> CreatureModels.select(CreatureModels.Choice.ZOMBIE));
+            context.runOnClient(client -> client.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON));
+            context.waitTicks(5);
+            context.runOnClient(client -> {
+                if (client.getEntityRenderDispatcher().extractEntity(client.player, 0).entityType != EntityTypes.ZOMBIE)
+                    throw new AssertionError("First-person effects disabled the world creature replacement");
+                if (CreatureModels.extractingPlayerEffects)
+                    throw new AssertionError("Player-effect extraction scope leaked into world rendering");
+                client.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_BACK);
+            });
+            System.out.println("CREATURE_FIRST_PERSON_EFFECTS_AND_WORLD_REPLACEMENT_OK");
             context.waitTicks(5);
             context.takeScreenshot("creature-model-local-zombie");
             context.runOnClient(client -> {

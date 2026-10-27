@@ -90,6 +90,7 @@ public final class ClientLoadProbe {
                     throw new AssertionError("Blocking Mixin not applied to " + type);
             }
         }
+        checkAllGameReferences(loader);
         checkGameReferences(loader,"com/customcosmetics/features/playersize/PlayerSize");
         checkGameReferences(loader,"com/customcosmetics/features/damage/DamageSplash");
         checkGameReferences(loader,"com/customcosmetics/features/party/SharingNametag");
@@ -226,6 +227,21 @@ public final class ClientLoadProbe {
         }
         if (poses == 0) throw new AssertionError("No blocking pose helper was executed");
         System.out.println("TRANSFORMED_BLOCKING_POSE_OK " + System.getProperty("fabric.gameVersion"));
+    }
+
+    private static void checkAllGameReferences(ClassLoader loader) throws Exception {
+        int count = 0;
+        try (var jar = new java.util.jar.JarFile(System.getProperty("fabric.addMods"))) {
+            var entries = jar.entries();
+            while (entries.hasMoreElements()) {
+                String name = entries.nextElement().getName();
+                if (!name.startsWith("com/customcosmetics/") || !name.endsWith(".class")) continue;
+                checkGameReferences(loader, name.substring(0, name.length() - 6));
+                count++;
+            }
+        }
+        if (count == 0) throw new AssertionError("No production classes were checked");
+        System.out.println("ALL_CLIENT_GAME_REFERENCES_OK " + System.getProperty("fabric.gameVersion") + " classes=" + count);
     }
 
     private static void checkGameReferences(ClassLoader loader, String type) throws Exception {

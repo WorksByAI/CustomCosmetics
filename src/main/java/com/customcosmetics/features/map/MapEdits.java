@@ -65,14 +65,33 @@ public final class MapEdits {
         public Preset { if(name==null||!name.matches("[A-Za-z0-9 _.-]{1,48}"))throw new IllegalArgumentException("Use 1-48 letters, numbers, spaces, _ . or -");edits=List.copyOf(edits);fingerprint=fingerprint==null?"":fingerprint; }
         public Map<Position,Edit> place(Position origin,int turns){var result=new LinkedHashMap<Position,Edit>();for(var edit:edits){var placed=edit.transform(origin,turns);result.put(placed.position,placed);}return immutable(result);}
     }
-    private Map<Position,Edit> edits=Map.of();private final Deque<Map<Position,Edit>> undo=new ArrayDeque<>();
+    private record History(Map<Position,Edit> before,Map<Position,Edit> after) {}
+    private Map<Position,Edit> edits=Map.of();private final Deque<History> undo=new ArrayDeque<>();
     public Map<Position,Edit> snapshot(){return edits;}
-    public void replace(Map<Position,Edit> next){var snapshot=immutable(next);undo.push(edits);while(undo.size()>32)undo.removeLast();edits=snapshot;}
+    public void replace(Map<Position,Edit> next){var snapshot=immutable(next);undo.push(new History(edits,snapshot));while(undo.size()>32)undo.removeLast();edits=snapshot;}
+    /** Automatic room discovery is not a user edit and must not consume the next Undo. */
+    void restore(Map<Position,Edit> next){edits=immutable(next);}
     public void put(Edit edit){var next=change(edits,Map.of(edit.position,edit));if(next!=edits)replace(next);}
     public void remove(Position p){var next=change(edits,Collections.singletonMap(p,null));if(next!=edits)replace(next);}
-    public Set<Position> undoPositions(){return undo.isEmpty()?Set.of():differences(edits,undo.peek());}
-    Map<Position,Edit> undoSnapshot(){return undo.peek();}
-    public boolean undo(){if(undo.isEmpty())return false;edits=undo.pop();return true;}
+    public Set<Position> undoPositions(){var entry=undo.peek();return entry==null?Set.of():differences(entry.after,entry.before);}
+    java.util.function.Supplier<Map<Position,Edit>> undoTarget(){
+        var entry=undo.peek();var current=edits;return entry==null?null:()->undoTarget(current,entry);
+    }
+    private static Map<Position,Edit> undoTarget(Map<Position,Edit> current,History entry){
+        if(current==entry.after)return entry.before;
+        // Preserve room data restored after the user action. Sparse edits remain O(changed positions).
+        var changed=differences(entry.after,entry.before);
+        if(changed!=null){var updates=new HashMap<Position,Edit>();for(var p:changed)updates.put(p,entry.before.get(p));return change(current,updates);}
+        // Large batch undo is prepared by MapEditor on its background worker.
+        var next=new HashMap<>(current);
+        for(var e:entry.after.entrySet())if(!Objects.equals(e.getValue(),entry.before.get(e.getKey()))){
+            var previous=entry.before.get(e.getKey());if(previous==null)next.remove(e.getKey());else next.put(e.getKey(),previous);
+        }
+        for(var e:entry.before.entrySet())if(!entry.after.containsKey(e.getKey()))next.put(e.getKey(),e.getValue());
+        return own(next);
+    }
+    void finishUndo(Map<Position,Edit> prepared){if(undo.isEmpty())throw new IllegalStateException("No edit to undo");undo.pop();edits=immutable(prepared);}
+    public boolean undo(){var target=undoTarget();if(target==null)return false;finishUndo(target.get());return true;}
     public void clear(){if(!edits.isEmpty())replace(Map.of());}
     public void reset(){edits=Map.of();undo.clear();}
     public Preset preset(String name,Position origin,String fingerprint){return new Preset(name,edits.values().stream().map(e->new Edit(e.position.subtract(origin),e.material,e.originallyAir)).toList(),fingerprint);}

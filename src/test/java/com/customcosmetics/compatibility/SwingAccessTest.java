@@ -21,6 +21,7 @@ class SwingAccessTest {
     @Test void bothSnapshotVersionsAreReadWithoutWritingOrStartingSwings() {
         var old = new OldPlayer(); var modern = new ModernPlayer();
         SwingAccess.validate(OldPlayer.class); SwingAccess.validate(ModernPlayer.class);
+        assertFalse(SwingAccess.modern(old)); assertTrue(SwingAccess.modern(modern));
         assertEquals(.4f, SwingAccess.progress(old)); assertEquals(.7f, SwingAccess.progress(modern));
         assertEquals(InteractionHand.OFF_HAND, SwingAccess.hand(old)); assertEquals(InteractionHand.OFF_HAND, SwingAccess.hand(modern));
         assertEquals(InteractionHand.OFF_HAND, old.swingingArm); assertEquals(InteractionHand.OFF_HAND, modern.current.hand());

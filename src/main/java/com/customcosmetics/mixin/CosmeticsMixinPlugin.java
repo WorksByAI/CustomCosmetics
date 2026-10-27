@@ -11,6 +11,8 @@ public final class CosmeticsMixinPlugin implements IMixinConfigPlugin {
     @Override public void onLoad(String mixinPackage) {}
     @Override public String getRefMapperConfig() { return null; }
     @Override public boolean shouldApplyMixin(String target, String mixin) {
+        if (mixin.endsWith("CreaturePlayerEffectsMixin")) return FabricLoader.getInstance().getModContainer("minecraft").orElseThrow()
+            .getMetadata().getVersion().getFriendlyString().startsWith("26.3");
         if(mixin.contains("MapEditorMixin$Sodium"))return FabricLoader.getInstance().isModLoaded("sodium");
         if(mixin.endsWith("ChamsMixin$Targets"))return !FabricLoader.getInstance().getModContainer("minecraft").orElseThrow().getMetadata().getVersion().getFriendlyString().startsWith("26.3");
         if(mixin.contains("ModernUiNicknameMixin$"))return FabricLoader.getInstance().isModLoaded("modernui");

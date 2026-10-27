@@ -36,6 +36,7 @@ public final class SwingAccess {
     };
     private SwingAccess() {}
     public static void validate(Class<?> type) { ACCESS.get(type); }
+    public static boolean modern(Object player) { return ACCESS.get(player.getClass()).description != null; }
     public static void validateItem(Class<?> type) { ITEM_ANIMATION.get(type); }
     public static int baseDuration(Object player, Object heldItem) {
         try {

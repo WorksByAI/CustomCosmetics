@@ -24,6 +24,7 @@ import net.minecraft.world.item.ItemStack;
 public final class ViewModelAnimations {
     private static final SwingTimeline clock = new SwingTimeline();
     private static InteractionHand swingingHand = InteractionHand.MAIN_HAND;
+    private static Object swingAnimation;
     private static Object world, localPlayer;
     private ViewModelAnimations() {}
     public static void tick(Minecraft client) {
@@ -33,14 +34,20 @@ public final class ViewModelAnimations {
     private static void resetIfNeeded(Minecraft client) {
         if (world == client.level && localPlayer == client.player) return;
         world = client.level; localPlayer = client.player;
-        clock.clear(); swingingHand = InteractionHand.MAIN_HAND;
+        clock.modern(client.player != null && com.customcosmetics.compatibility.SwingAccess.modern(client.player));
+        clock.clear(); swingingHand = InteractionHand.MAIN_HAND; swingAnimation = null;
     }
     /** Observe vanilla's existing swing call. Never invokes a swing or changes its outcome. */
     public static void observeSwing(Object player, InteractionHand hand) {
+        observeSwing(player, hand, null);
+    }
+    public static void observeSwing(Object player, InteractionHand hand, Object animation) {
         if (!customTiming() || player != Minecraft.getInstance().player) return;
         var client = Minecraft.getInstance(); resetIfNeeded(client);
         if (!customTiming(client.player.getMainHandItem().isEmpty())) { clock.clear(); return; }
-        if (clock.request(swingDuration(client))) swingingHand = hand;
+        if (clock.request(swingDuration(client), hand == swingingHand && animation == swingAnimation)) {
+            swingingHand = hand; swingAnimation = animation;
+        }
     }
     /** Advance exactly where vanilla advances its animation, rather than predicting it at client tick end. */
     public static void advanceSwing(Object player) {
