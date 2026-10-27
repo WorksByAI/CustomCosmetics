@@ -95,20 +95,22 @@ class CosmeticsScreenTest {
         assertTrue(calls.stream().noneMatch(call->{String owner=call.owner().name().stringValue();return owner.startsWith("java/net/")||owner.startsWith("com/customcosmetics/sync/");}));
         assertTrue(calls.stream().anyMatch(call->call.owner().name().stringValue().equals("com/customcosmetics/config/ConfigManager")&&call.name().stringValue().equals("requestSave")));
     }
-    @Test void sidebarHeaderAndPreviewKeepThePinkThemeAndNavigationIsGrouped() throws Exception {
+    @Test void sidebarHeaderAndPreviewUseRuntimeThemeAndNavigationIsGrouped() throws Exception {
         var screen = read(SCREEN);
         var render = code(screen, "extractRenderState").stream().filter(ConstantInstruction.class::isInstance)
             .map(ConstantInstruction.class::cast).map(ConstantInstruction::constantValue).toList();
-        assertTrue(render.containsAll(List.of("CUSTOM", "COSMETICS"))); assertFalse(render.contains("CustomCosmetics"));
-        assertTrue(render.contains(Integer.valueOf(PinkUi.PINK)));
+        assertTrue(render.contains("CustomCosmetics"));
+        assertFalse(render.contains("CUSTOM"));
+        assertTrue(code(screen,"extractRenderState").stream().filter(FieldInstruction.class::isInstance)
+            .map(FieldInstruction.class::cast).anyMatch(field -> field.owner().name().stringValue().equals("com/customcosmetics/gui/PinkUi") && field.name().stringValue().equals("TEXT")));
         var navigation = code(screen, "buildNavigation").stream().filter(ConstantInstruction.class::isInstance)
             .map(ConstantInstruction.class::cast).map(ConstantInstruction::constantValue).toList();
         assertTrue(navigation.containsAll(List.of("Overview", "APPEARANCE", "SKYBLOCK", "CONNECTIONS")));
         assertTrue(navigation.indexOf("APPEARANCE") < navigation.indexOf("NickTweaks"));
         assertTrue(navigation.indexOf("SKYBLOCK") < navigation.indexOf("Animations"));
         assertTrue(navigation.indexOf("CONNECTIONS") < navigation.indexOf("Sharing"));
-        assertTrue(code(screen,"playerPreview").stream().filter(ConstantInstruction.class::isInstance)
-            .map(ConstantInstruction.class::cast).anyMatch(value -> Integer.valueOf(PinkUi.PINK).equals(value.constantValue())));
+        assertTrue(code(screen,"playerPreview").stream().filter(FieldInstruction.class::isInstance)
+            .map(FieldInstruction.class::cast).anyMatch(field -> field.owner().name().stringValue().equals("com/customcosmetics/gui/PinkUi") && field.name().stringValue().equals("PINK")));
     }
 
     @Test

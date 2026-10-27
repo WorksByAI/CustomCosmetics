@@ -63,7 +63,8 @@ public final class SettingsCatalog {
         add(entries, "Map Editor", "MAP", "Local visual map dungeon Kuudra rooms",
             "Freecam|Freecam Speed (blocks/s)|Map Editor|Dungeon Only|Force Dungeon|Force Kuudra|Edit Mode|Import FME Config|Choose Block / Favorites|Replace Materials|Editor HUD|Reset This Room|Block Material|Undo|Clear Current Edits|Automatically Restore Rooms|Preset Manager");
         add(entries, "Settings", "SYNC", "General preferences",
-            "Module Manager|Check for Updates|Command Tooltips|Snaplook|Snaplook View|Snaplook Keybind…");
+            "Interface|Module Manager|Check for Updates|Command Tooltips|Snaplook|Snaplook View|Snaplook Keybind…");
+        add(entries,"Interface","THEME","Local theme colors and finite screen animations","Mode|Accent Color|Interface Animations|Background Blur|Reset Theme");
         add(entries, "Settings", "SYNC", "Connections automatic sync online offline",
             "Mode|Automatic Sync|Refresh Interval (seconds)|Notifications|Sync Now");
         add(entries, "Settings", "SYNC", "Advanced connections proxy",

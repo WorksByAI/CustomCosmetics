@@ -12,7 +12,7 @@ import java.util.function.Consumer;
 import static com.customcosmetics.gui.PinkUi.*;
 
 /** A local wardrobe: selecting, resizing and recoloring never starts a remote request. */
-public final class WardrobeScreen extends Screen {
+public final class WardrobeScreen extends ThemedScreen {
     private final Screen parent;private String slot="wings";private int page;private AccessoryCatalog.Collection collection=AccessoryCatalog.Collection.PIXEL;private WardrobeCamera camera=WardrobeCamera.DEFAULT;private boolean turning;
     private final List<AbstractWidget> widgets=new ArrayList<>();
     private int x,y,w,h,contentX,contentW,previewH,optionsTop,colorsY,perPage,styleFooterY;
@@ -61,7 +61,6 @@ public final class WardrobeScreen extends Screen {
     private void slider(int x,int y,int w,String title,double value,double min,double max,double step,java.util.function.DoubleConsumer setter){
         widgets.add(addWidget(new PinkUi.Slider(x,y,w,title,value,min,max,step,setter)));
     }
-    @Override public void extractBackground(GuiGraphicsExtractor g,int mx,int my,float dt){if(minecraft.level==null)super.extractBackground(g,mx,my,dt);else g.blurBeforeThisStratum();g.fill(0,0,width,height,0x4020242A);}
     @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float dt){
         outline(g,x,y,w,h,11,BORDER,PANEL);text(g,font,"Wardrobe",x+16,y+16,PINK,contentX-x-32);if(contentW>300)text(g,font,AccessoryCatalog.count(collection)+" styles",contentX+220,y+18,MUTED,contentW-220);
         if(previewH>0){rounded(g,contentX,y+43,contentW,previewH+5,6,CARD);

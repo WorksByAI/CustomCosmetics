@@ -11,7 +11,7 @@ import net.minecraft.network.chat.Component;
 import static com.customcosmetics.gui.PinkUi.*;
 
 /** Batch material replacement reuses the searchable palette, without touching the player's inventory. */
-public final class MapReplaceScreen extends Screen {
+public final class MapReplaceScreen extends ThemedScreen {
     private final Screen parent;
     private String source="minecraft:quartz_block",target=MapEditor.material,error="";
     private MaterialReplacement.Scope scope=MaterialReplacement.Scope.ROOM;

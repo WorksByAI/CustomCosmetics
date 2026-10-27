@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.0-dev.1
+
+- Preview a compact interface with dark/light themes, editable accent colors and optional motion.
+- Reduce offscreen drawing and idle UI work; disable background blur by default.
+
 ## 1.8.7
 
 - Fix Minecraft 26.3 refresh-rate compatibility.

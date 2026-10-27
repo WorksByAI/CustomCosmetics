@@ -30,7 +30,7 @@ final class SettingsGuiGameTest {
         context.runOnClient(client -> ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SIZE)));
         context.waitTicks(3);
         context.runOnClient(client -> {
-            if ((Integer)read(ClientUiAccess.screen(client),"panelWidth") != 740) throw new AssertionError("Preview panel was not widened");
+            if ((Integer)read(ClientUiAccess.screen(client),"panelWidth") != StudioLayout.of(client.getWindow().getGuiScaledWidth(), client.getWindow().getGuiScaledHeight()).width()) throw new AssertionError("Preview panel was not widened");
             for (var child : ClientUiAccess.screen(client).children())
                 if (child instanceof AbstractWidget widget && widget.getMessage().getString().contains("Friends"))
                     throw new AssertionError("Removed Friends control is still visible");
@@ -138,8 +138,43 @@ final class SettingsGuiGameTest {
             throw new AssertionError("Custom server template is not blank");
         context.runOnClient(client -> ClientUiAccess.setScreen(client,null));
         checkStudioRedesign(context);
+        checkTheme(context);
         context.getInput().resizeWindow(854,480); context.waitTicks(3);
         System.out.println("SETTINGS_GUI_MEMORY_DEV_LAYOUT_AND_FILES_OK");
+    }
+
+    /** Native theme editing, persistent local preferences, and both high/low contrast modes. */
+    private static void checkTheme(ClientGameTestContext context) throws Exception {
+        context.getInput().resizeWindow(1600,1000);context.waitTicks(3);
+        context.runOnClient(client->{
+            ConfigManager.uiThemeMode="dark";ConfigManager.uiAccentColor=0x6DB29A;
+            ConfigManager.uiAnimationsEnabled=true;ConfigManager.uiBackgroundBlur=false;
+            ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.THEME));
+        });context.getInput().setCursorPos(1595,995);context.waitTicks(5);context.takeScreenshot("interface-dark");
+        type(context,"Accent Color","#729FD4");
+        context.runOnClient(client->{if(ConfigManager.uiAccentColor!=0x729FD4||PinkUi.PINK!=0xFF729FD4)throw new AssertionError("Typed theme color was not applied");});
+        type(context,"Accent Color","#invalid");
+        context.runOnClient(client->{if(ConfigManager.uiAccentColor!=0x729FD4)throw new AssertionError("Invalid color overwrote the theme");});
+        type(context,"Accent Color","#729FD4");
+        click(context,"Mode: Dark",PinkUi.Action.class);context.waitTicks(5);
+        context.runOnClient(client->{if(!ConfigManager.uiThemeMode.equals("light")||PinkUi.PANEL!=0xFFFAFBFC)throw new AssertionError("Light palette was not rebuilt");});
+        context.takeScreenshot("interface-light");
+        click(context,"Interface Animations",PinkUi.Toggle.class);
+        context.runOnClient(client->{if(ConfigManager.uiAnimationsEnabled)throw new AssertionError("Reduced motion did not apply");});
+        click(context,"Background Blur",PinkUi.Toggle.class);
+        context.runOnClient(client->{if(!ConfigManager.uiBackgroundBlur)throw new AssertionError("Optional blur did not apply");});
+        context.getInput().pressKey(ClientInput.ESCAPE);context.waitTicks(3);
+        ConfigManager.awaitPendingSaves();
+        var saved=JsonParser.parseString(Files.readString(CosmeticsConfigDir.getCosmeticsConfigDir().resolve("config.json"))).getAsJsonObject().getAsJsonObject("settings");
+        if(!saved.get("uiThemeMode").getAsString().equals("light")||saved.get("uiAccentColor").getAsInt()!=0x729FD4||saved.get("uiAnimationsEnabled").getAsBoolean()||!saved.get("uiBackgroundBlur").getAsBoolean())
+            throw new AssertionError("Closing the theme menu failed to persist preferences");
+        context.runOnClient(client->ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.THEME)));
+        click(context,"Reset Theme",PinkUi.Action.class);
+        context.runOnClient(client->{if(!ConfigManager.uiAnimationsEnabled||ConfigManager.uiBackgroundBlur||!ConfigManager.uiThemeMode.equals("dark")||ConfigManager.uiAccentColor!=0x6DB29A)throw new AssertionError("Theme reset failed");});
+        click(context,"Overview",PinkUi.Action.class);context.getInput().setCursorPos(1595,995);context.waitTicks(5);context.takeScreenshot("interface-home");
+        click(context,"Animations",PinkUi.Action.class);context.getInput().setCursorPos(1595,995);context.waitTicks(5);context.takeScreenshot("interface-settings");
+        context.runOnClient(client->ClientUiAccess.setScreen(client,null));context.waitTicks(5);
+        System.out.println("UI_THEME_NATIVE_EDIT_INVALID_INPUT_LIGHT_DARK_REDUCED_MOTION_BLUR_PERSISTENCE_AND_RESET_OK");
     }
 
     /** Exercise clipping, independent navigation and catalogue destinations at real GUI scales. */
@@ -181,7 +216,7 @@ final class SettingsGuiGameTest {
         for (var page : java.util.List.of(CosmeticsScreen.Page.SIZE, CosmeticsScreen.Page.NICK, CosmeticsScreen.Page.COLOR,
             CosmeticsScreen.Page.CHROMA, CosmeticsScreen.Page.PRESETS, CosmeticsScreen.Page.ANIMATIONS, CosmeticsScreen.Page.DAMAGE,
             CosmeticsScreen.Page.ITEMS, CosmeticsScreen.Page.ACCESSORIES, CosmeticsScreen.Page.PARTY, CosmeticsScreen.Page.SKINS,
-            CosmeticsScreen.Page.MAP, CosmeticsScreen.Page.SYNC, CosmeticsScreen.Page.MODULES)) {
+            CosmeticsScreen.Page.MAP, CosmeticsScreen.Page.SYNC, CosmeticsScreen.Page.MODULES, CosmeticsScreen.Page.THEME)) {
             context.runOnClient(client -> {
                 ClientUiAccess.setScreen(client, new CosmeticsScreen(null, page));
                 @SuppressWarnings("unchecked") var options = (java.util.List<SettingsSearch.Entry>) read(ClientUiAccess.screen(client), "searchOptions");

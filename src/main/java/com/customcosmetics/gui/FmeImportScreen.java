@@ -10,7 +10,7 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import static com.customcosmetics.gui.PinkUi.*;
 
-public final class FmeImportScreen extends Screen {
+public final class FmeImportScreen extends ThemedScreen {
     private final Screen parent;private PinkUi.Field path;private PinkUi.Action apply;private FmeImport.Plan plan;
     private int x,y,w,h;private boolean busy,replace;private String notice="Choose any FME JSON file, or paste the old FME folder path.";
     public FmeImportScreen(Screen parent){super(Component.literal("Import FME Config"));this.parent=parent;}

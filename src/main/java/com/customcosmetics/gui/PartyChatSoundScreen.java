@@ -12,7 +12,7 @@ import java.util.*;
 import static com.customcosmetics.gui.PinkUi.*;
 
 /** Build the sound catalog once; only the current page has widgets. */
-public final class PartyChatSoundScreen extends Screen {
+public final class PartyChatSoundScreen extends ThemedScreen {
     private final Screen parent;
     private List<String> sounds,filtered=List.of();
     private final List<PinkUi.Action> rows=new ArrayList<>();

@@ -19,7 +19,7 @@ import net.minecraft.network.chat.Component;
 import static com.customcosmetics.gui.PinkUi.*;
 
 /** Imports Skyblocker's on-disk config without changing the source file. */
-public final class WaypointImportScreen extends Screen {
+public final class WaypointImportScreen extends ThemedScreen {
     private final Screen parent;
     private Field path;
     private Action importButton;

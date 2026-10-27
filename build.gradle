@@ -508,3 +508,13 @@ if(providers.gradleProperty('performance_comparison_game_only').getOrElse('false
         filesMatching('customcosmetics-test.mixins.json'){filter{line->line.contains('"client":')?'  "client": ["PerformanceComparisonProbe$Frames", "PerformanceComparisonProbe$Skyblock", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],':line}}
     }
 }
+
+if(providers.gradleProperty('ui_performance_game_only').getOrElse('false').toBoolean()){
+    sourceSets.gametest.java.include '**/UiPerformanceGameTest.java','**/mixin/UiRenderProbeMixin.java','**/mixin/UpdateCheckOfflineMixin.java','**/mixin/OfflineStartupMixin.java'
+    tasks.named('processGametestResources'){
+        inputs.property 'ui_performance_game_only',true
+        inputs.file('build.gradle')
+        filesMatching('fabric.mod.json'){filter{line->line.replace('com.customcosmetics.gametest.BlockingGameTest','com.customcosmetics.gametest.UiPerformanceGameTest')}}
+        filesMatching('customcosmetics-test.mixins.json'){filter{line->line.contains('"client":')?'  "client": ["UiRenderProbeMixin", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],':line}}
+    }
+}

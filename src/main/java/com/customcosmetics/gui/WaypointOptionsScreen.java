@@ -11,7 +11,7 @@ import net.minecraft.network.chat.Component;
 import static com.customcosmetics.gui.PinkUi.*;
 
 /** Skyblocker-style waypoint controls, with the render budget on a separate page. */
-final class WaypointOptionsScreen extends Screen {
+final class WaypointOptionsScreen extends ThemedScreen {
     private final Screen parent;
     private boolean performance;
     private String message = "";

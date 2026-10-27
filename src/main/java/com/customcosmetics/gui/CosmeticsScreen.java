@@ -23,9 +23,9 @@ import java.util.function.DoubleConsumer;
 import java.util.function.DoubleSupplier;
 import static com.customcosmetics.gui.PinkUi.*;
 
-/** Independent pink cosmetics studio, with scrollable settings and keyboard focus. */
-public final class CosmeticsScreen extends Screen {
-    public enum Page { MAIN, SIZE, NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, POSITION_RECIPIENTS, ANIMATIONS, DAMAGE, ITEMS, ACCESSORIES, MAP, PARTY, SKINS, SYNC, MODULES, SEARCH }
+/** Compact settings workspace with local themes and finite, screen-owned motion. */
+public final class CosmeticsScreen extends ThemedScreen {
+    public enum Page { MAIN, SIZE, NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, POSITION_RECIPIENTS, ANIMATIONS, DAMAGE, ITEMS, ACCESSORIES, MAP, PARTY, SKINS, SYNC, THEME, MODULES, SEARCH }
     private static final ScreenSession SESSION = new ScreenSession();
     private final Screen parent;
     private Page page;
@@ -63,6 +63,9 @@ public final class CosmeticsScreen extends Screen {
     private final List<SettingsSearch.Entry> searchOptions=new ArrayList<>();
     private String searchQuery="";
     private PinkUi.Field searchField;
+    private final UiMotion pageFade=new UiMotion(0);
+    private boolean drawingPinned;
+    private int positionedScroll=Integer.MIN_VALUE, positionedNavScroll=Integer.MIN_VALUE;
     private record Placement(AbstractWidget widget, int y) {}
 
     public CosmeticsScreen(Screen parent, Page page) {
@@ -75,6 +78,8 @@ public final class CosmeticsScreen extends Screen {
     }
 
     @Override protected void init() {
+        UiTheme.refresh();
+        positionedScroll=positionedNavScroll=Integer.MIN_VALUE;
         navigation.clear(); sidebarControls.clear(); sidebarArt.clear(); controls.clear(); art.clear(); pinnedArt.clear();
         searchOptions.clear();
         hexField = null; picker = null;
@@ -135,6 +140,7 @@ public final class CosmeticsScreen extends Screen {
             case PARTY -> party();
             case POSITION_RECIPIENTS -> positionRecipients();
             case SYNC -> sync();
+            case THEME -> theme();
             case MODULES -> modules();
             case SEARCH -> searchResults();
         }
@@ -146,7 +152,8 @@ public final class CosmeticsScreen extends Screen {
 
     private String pageTitle() {
         return switch (page) {
-            case MAIN -> "Overview";
+            case MAIN -> "Home";
+            case THEME -> "Interface";
             case SIZE -> "Player Size";
             case NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS -> "NickTweaks";
             case ANIMATIONS -> "Animations";
@@ -179,6 +186,7 @@ public final class CosmeticsScreen extends Screen {
             case MODULES -> "Pause whole features while keeping your settings.";
             case BLOCKED_CAPES -> "Choose whose capes you see.";
             case SEARCH -> "Find a setting and jump straight to it.";
+            case THEME -> "Theme and motion";
         };
     }
 
@@ -217,45 +225,65 @@ public final class CosmeticsScreen extends Screen {
     }
     private int maxNavScroll() { return Math.max(0, navContentBottom - navBottom); }
     private void positionNavigation() {
+        if(positionedNavScroll==navScroll)return;
+        positionedNavScroll=navScroll;
         for (var placement : sidebarControls) {
             var widget = placement.widget(); widget.setY(placement.y() - navScroll);
             widget.visible = widget.getBottom() > navTop && widget.getY() < navBottom;
         }
     }
     private void overview() {
-        int total = com.customcosmetics.config.FeatureModules.Feature.values().length;
-        int enabled = total - Integer.bitCount(ConfigManager.disabledModules & com.customcosmetics.config.FeatureModules.ALL);
-        section("Make it yours", enabled + " of " + total + " modules enabled. Choose a section or search for a setting.");
-        int columns = contentWidth >= 400 ? 2 : 1, gap = 10, cellWidth = (contentWidth - gap * (columns - 1)) / columns;
-        String[] titles = {"Your appearance", "In-game visuals", "Play together", "Module Manager"};
-        String[] descriptions = {"Names, proportions, skins, capes and equipment.", "Animations, damage numbers, items and visual maps.",
-            "Party chat, shared positions and teammate markers.", "Turn off unused features and keep your saved preferences."};
-        Page[] targets = {Page.NICK, Page.ANIMATIONS, Page.PARTY, Page.MODULES};
-        for (int i = 0; i < titles.length; i++) {
-            int x = contentX + i % columns * (cellWidth + gap), y = rowY;
-            var lines = font.split(Component.literal(descriptions[i]), Math.max(1, cellWidth - 24));
-            int height = 90;
-            art.add(g -> outline(g, x, y, cellWidth, height, 8, BORDER, CARD));
-            label(titles[i], x + 12, y + 12, PINK, cellWidth - 24);
-            for (int j = 0; j < Math.min(3, lines.size()); j++) { var line = lines.get(j); int ly = y + 28 + j * 11; art.add(g -> g.text(font, line, x + 12, ly, MUTED, false)); }
-            Page target = targets[i];
-            add(new PinkUi.Action(x + 10, y + height - 28, cellWidth - 20, 21, "Open " + titles[i], false, () -> open(target)).leftAligned());
-            if (i % columns == columns - 1 || i == titles.length - 1) rowY += height + gap;
+        section("Appearance", "");
+        fullButton("NickTweaks",()->open(Page.NICK),false);
+        fullButton("Player Size",()->open(Page.SIZE),false);
+        fullButton("Skins",()->open(Page.SKINS),false);
+        fullButton("Equipments (Beta)",()->open(Page.ACCESSORIES),false);
+        fullButton("Cape",()->ClientUiAccess.setScreen(minecraft,new CapeScreen(this)),false);
+        section("Preferences", "");
+        fullButton("Interface",()->open(Page.THEME),false);
+        fullButton("Module Manager",()->open(Page.MODULES),false);
+        section("Command tools", "");
+        paragraph("/ccos waypoint    /ccos shortcuts",MUTED);
+    }
+
+    private void theme() {
+        section("Theme", "");
+        fullButton("Mode: "+("light".equals(ConfigManager.uiThemeMode)?"Light":"Dark"),()->{
+            UiTheme.mode("light".equals(ConfigManager.uiThemeMode)?"dark":"light");rebuildWidgets();
+        },false);
+        String[] names={"Sage","Ocean","Amber","Rose","Violet","Slate"};
+        int[] colors={0x6DB29A,0x729FD4,0xD4A765,0xCB8F9F,0xAA98D1,0xA6B0BA};
+        int columns=contentWidth>=350?3:2,gap=7,w=(contentWidth-(columns-1)*gap)/columns;
+        for(int i=0;i<names.length;i++){
+            int rgb=colors[i];int x=contentX+i%columns*(w+gap);
+            add(new PinkUi.Action(x,rowY,w,23,names[i],false,()->{UiTheme.accent(rgb);rebuildWidgets();}).selected(()->ConfigManager.uiAccentColor==rgb));
+            if(i%columns==columns-1||i==names.length-1)rowY+=30;
         }
-        section("Command tools", "Additional tools open from chat:");
-        paragraph("/ccos waypoint", PINK);
-        paragraph("/ccos shortcuts", PINK);
-        paragraph("The /customcosmetics command is also available.", DIM);
+        section("Accent Color", "");
+        indexOption("Accent Color","Local interface accent color",rowY);
+        var hex=new PinkUi.Field[1];var colorPicker=new PinkUi.ColorPicker[1];
+        int pickerY=rowY;
+        colorPicker[0]=add(new PinkUi.ColorPicker(contentX,pickerY,contentWidth,76,ConfigManager.uiAccentColor,rgb->{
+            UiTheme.accent(rgb);if(hex[0]!=null&&!hex[0].isFocused())hex[0].setValue(String.format(Locale.ROOT,"#%06X",rgb));
+        }));
+        rowY+=85;
+        hex[0]=input(contentX,rowY,contentWidth,"Accent Color",String.format(Locale.ROOT,"#%06X",ConfigManager.uiAccentColor),7,value->{
+            boolean valid=value.matches("#[0-9a-fA-F]{6}");hex[0].invalid(!valid);if(valid){int rgb=Integer.parseInt(value.substring(1),16);UiTheme.accent(rgb);colorPicker[0].setColor(rgb);}
+        });rowY+=32;
+        section("Motion & background", "");
+        toggleRow("Interface Animations","Short transitions; no background animation tasks.",()->ConfigManager.uiAnimationsEnabled,v->ConfigManager.uiAnimationsEnabled=v);
+        toggleRow("Background Blur","Optional GPU blur while a menu is open.",()->ConfigManager.uiBackgroundBlur,v->ConfigManager.uiBackgroundBlur=v);
+        fullButton("Reset Theme",()->{ConfigManager.uiAnimationsEnabled=true;ConfigManager.uiBackgroundBlur=false;UiTheme.mode("dark");UiTheme.accent(0x6DB29A);rebuildWidgets();},false);
     }
 
     private void section(String title, String description) {
-        rowY += 7; label(title, contentX, rowY, PINK, contentWidth); rowY += 17;
-        if (!description.isBlank()) paragraph(description, MUTED);
+        rowY += 9; label(title, contentX, rowY, TEXT, contentWidth); rowY += 17;
+        // Detailed explanations live on the controls, keeping section headings compact.
         rowY += 3;
     }
     private void paragraph(String text, int color) {
         for (var line : font.split(Component.literal(text), Math.max(1, contentWidth))) {
-            int y = rowY; art.add(g -> g.text(font, line, contentX, y, color, false)); rowY += 12;
+            int y = rowY; art.add(bounded(y,y+12,g -> g.text(font, line, contentX, y, color, false))); rowY += 12;
         }
         rowY += 5;
     }
@@ -850,6 +878,7 @@ public final class CosmeticsScreen extends Screen {
         rebuildWidgets();
     }
     private void sync() {
+        fullButton("Interface",()->open(Page.THEME),false,"Theme colors and animations");
         section("General", "Preferences and feature availability.");
         fullButton("Module Manager",()->open(Page.MODULES),false,"Enable or disable whole features without losing their settings.");
         toggleRow("Check for Updates","Check GitHub for new releases and show a chat notification. Enabled by default.",()->ConfigManager.updateCheckEnabled,v->ConfigManager.updateCheckEnabled=v);
@@ -986,7 +1015,7 @@ public final class CosmeticsScreen extends Screen {
     }
     private void sliderCell(NumericSetting setting,int x,int y,int width) {
         indexOption(setting.title(),setting.description(),y);
-        art.add(g -> outline(g,x,y,width,50,6,BORDER,CARD));
+        art.add(bounded(y,y+50,g -> g.fill(x,y+49,x+width,y+50,BORDER)));
         PinkUi.Field[] number = new PinkUi.Field[1];
         number[0] = add(new PinkUi.Field(font,x + width - 56,y + 4,48,setting.title() + " value",22));
         number[0].setMaxLength(7); number[0].setValue(String.format(Locale.ROOT,"%.2f",setting.getter().getAsDouble()));
@@ -1034,25 +1063,26 @@ public final class CosmeticsScreen extends Screen {
 
     private int card(int height) {
         int y = rowY;
-        art.add(g -> outline(g, contentX, y, contentWidth, height, 8, BORDER, CARD));
+        art.add(bounded(y,y+height,g -> outline(g, contentX, y, contentWidth, height, 4, BORDER, CARD)));
         rowY += height + 8;
         return y;
     }
+    private Consumer<GuiGraphicsExtractor> bounded(int top,int bottom,Consumer<GuiGraphicsExtractor> draw){return g->{if(drawingPinned||bottom>viewTop+scroll&&top<viewBottom+scroll)draw.accept(g);};}
+    private int row(int height){int y=rowY;art.add(bounded(y,y+height,g->g.fill(contentX,y+height-1,contentX+contentWidth,y+height,BORDER)));rowY+=height+3;return y;}
     private void label(String label, int x, int y, int color, int width) {
         if (width <= 0) return;
         String fitted = font.width(label) <= width ? label
             : font.plainSubstrByWidth(label, Math.max(0, width - font.width("…"))) + "…";
-        art.add(g -> g.text(font, fitted, x, y, color, false));
+        art.add(bounded(y,y+11,g -> g.text(font, fitted, x, y, color, false)));
     }
     private void toggleRow(String title, String description, BooleanSupplier getter, Consumer<Boolean> setter) {
         indexOption(title,description,rowY);
         var titleLines = font.split(Component.literal(title), Math.max(1, contentWidth - 66));
-        var lines = description.isEmpty() ? List.<net.minecraft.util.FormattedCharSequence>of() : font.split(Component.literal(description),Math.max(1, contentWidth - 24));
         int titleHeight = Math.max(18, titleLines.size() * 11);
-        int y = card(Math.max(36, 18 + titleHeight + (lines.isEmpty() ? 0 : 4 + lines.size() * 11)));
-        for (int i = 0; i < titleLines.size(); i++) { var line = titleLines.get(i); int ty = y + 11 + i * 11; art.add(g -> g.text(font, line, contentX + 12, ty, TEXT, false)); }
-        for (int i = 0; i < lines.size(); i++) { var line = lines.get(i); int ty = y + 12 + titleHeight + i * 11; art.add(g -> g.text(font,line,contentX + 12,ty,MUTED,false)); }
-        add(new PinkUi.Toggle(contentX + contentWidth - 46, y + 9, title, getter, () -> { setter.accept(!getter.getAsBoolean()); changed(); }));
+        int y = row(Math.max(35,16+titleHeight));
+        for (int i=0;i<titleLines.size();i++){var line=titleLines.get(i);int ty=y+11+i*11;art.add(bounded(ty,ty+11,g->g.text(font,line,contentX+8,ty,TEXT,false)));}
+        var toggle=add(new PinkUi.Toggle(contentX+4,y+9,title,getter,()->{setter.accept(!getter.getAsBoolean());changed();}).rowWidth(contentWidth-16));
+        if(!description.isEmpty())toggle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(description)));
     }
 
     private void sliderRow(String title, String description, DoubleSupplier getter, double min, double max, double step, double defaultValue, DoubleConsumer setter) {
@@ -1070,9 +1100,9 @@ public final class CosmeticsScreen extends Screen {
         int fieldTop = inline ? 9 : 10 + titleHeight + 4;
         int hintTop = inline ? 10 + titleHeight + 4 : fieldTop + 28;
         int height=Math.max(inline ? 40 : fieldTop + 30, hintTop + lines.size() * 11 + 9);
-        int y=card(height);
-        for(int i=0;i<titles.size();i++){var line=titles.get(i);int lineY=y+10+i*11;art.add(g->g.text(font,line,contentX+10,lineY,TEXT,false));}
-        for(int i=0;i<lines.size();i++){var line=lines.get(i);int lineY=y+hintTop+i*11;art.add(g->g.text(font,line,contentX+10,lineY,MUTED,false));}
+        int y=row(height);
+        for(int i=0;i<titles.size();i++){var line=titles.get(i);int lineY=y+10+i*11;art.add(bounded(lineY,lineY+11,g->g.text(font,line,contentX+10,lineY,TEXT,false)));}
+        for(int i=0;i<lines.size();i++){var line=lines.get(i);int lineY=y+hintTop+i*11;art.add(bounded(lineY,lineY+11,g->g.text(font,line,contentX+10,lineY,MUTED,false)));}
         return input(inline?contentX+contentWidth-fieldWidth-10:contentX+10,y+(inline?(height-22)/2:fieldTop),fieldWidth,name,value,maximum,setter);
     }
     private PinkUi.Field input(int x, int y, int width, String name, String value, int maximum, Consumer<String> setter) {
@@ -1091,7 +1121,7 @@ public final class CosmeticsScreen extends Screen {
         return button;
     }
     private <T extends AbstractWidget> T add(T widget) { controls.add(new Placement(widget, widget.getY())); return addWidget(widget); }
-    private void open(Page page) { this.page = page; searchQuery="";scroll = 0; activity(); setFocused(null); rebuildWidgets(); }
+    private void open(Page page) { this.page = page;pageFade.snap(0); searchQuery="";scroll = 0; activity(); setFocused(null); rebuildWidgets(); }
     private void selectEndpoint(int index) { selectedEndpoint = index; rebuildWidgets(); }
     private int color(int endpoint) {
         if (editingShimmerColors) return endpoint == 0 ? ConfigManager.nickTweaksShimmerColor : ConfigManager.nickTweaksShimmerHighlightColor;
@@ -1113,9 +1143,12 @@ public final class CosmeticsScreen extends Screen {
     private void toast(String text) { notice = text; noticeUntil = System.currentTimeMillis() + 3500; }
     private double maxScroll() { return Math.max(0, contentBottom - viewBottom); }
     private void positionControls() {
+        int offset=(int)Math.round(scroll);
+        if(positionedScroll==offset)return;
+        positionedScroll=offset;
         for (Placement p : controls) {
             AbstractWidget w = p.widget();
-            w.setY(p.y() - (int) Math.round(scroll));
+            w.setY(p.y() - offset);
             int inset = w instanceof PinkUi.Field field ? field.insetY() : 0;
             w.visible = w.getBottom() + inset > viewTop && w.getY() - inset < viewBottom;
         }
@@ -1225,26 +1258,17 @@ public final class CosmeticsScreen extends Screen {
         }
         return handled;
     }
-    @Override public void extractBackground(GuiGraphicsExtractor g, int mx, int my, float dt) {
-        if (minecraft.level == null) super.extractBackground(g, mx, my, dt);
-        else g.blurBeforeThisStratum();
-        g.fill(0, 0, width, height, 0x4020242A);
-    }
 
     @Override public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
         mouseX = mx; mouseY = my;
         NickRenderUtils.beginClickGuiRenderScope();
         try {
-            rounded(g, panelX - 5, panelY + 5, panelWidth + 10, panelHeight + 4, 14, 0x60000000);
-            outline(g, panelX, panelY, panelWidth, panelHeight, 11, BORDER, PANEL);
-            rounded(g, panelX + 1, panelY + 1, sideWidth, panelHeight - 2, 10, SIDEBAR);
+            outline(g,panelX,panelY,panelWidth,panelHeight,5,BORDER,PANEL);
+            rounded(g,panelX+1,panelY+1,sideWidth,panelHeight-2,4,SIDEBAR);
             g.fill(panelX + sideWidth, panelY + 1, panelX + sideWidth + 1, panelY + panelHeight - 1, BORDER);
-            text(g, font, "CUSTOM", panelX + 15, panelY + 19, PINK, sideWidth - 26);
-            text(g, font, "COSMETICS", panelX + 15, panelY + 33, TEXT, sideWidth - 26);
-            g.pose().pushMatrix(); g.pose().translate(contentX, panelY + 18); g.pose().scale(1.2f, 1.2f);
-            text(g, font, pageTitle(), 0, 0, TEXT, (int) ((contentWidth - 24) / 1.2f));
-            g.pose().popMatrix();
-            text(g, font, pageDescription(), contentX, panelY + 35, MUTED, contentWidth);
+            text(g,font,"CustomCosmetics",panelX+15,panelY+20,TEXT,sideWidth-26);
+            text(g,font,"2.0",panelX+15,panelY+35,DIM,sideWidth-26);
+            text(g,font,pageTitle(),contentX,panelY+21,TEXT,contentWidth-28);
             g.fill(contentX, panelY + 83, contentX + contentWidth, panelY + 84, BORDER);
             positionNavigation();
             g.enableScissor(panelX + 1, navTop, panelX + sideWidth - 6, navBottom);
@@ -1260,7 +1284,8 @@ public final class CosmeticsScreen extends Screen {
                 rounded(g, panelX + sideWidth - 5, bar.thumbStart(navScroll), 2, bar.thumbLength(), 1, PINK);
             }
             g.fill(panelX + 12, panelY + panelHeight - 50, panelX + sideWidth - 12, panelY + panelHeight - 49, BORDER);
-            for (Consumer<GuiGraphicsExtractor> draw : pinnedArt) draw.accept(g);
+            drawingPinned=true;
+            try{for(Consumer<GuiGraphicsExtractor> draw:pinnedArt)draw.accept(g);}finally{drawingPinned=false;}
             for (AbstractWidget widget : navigation) widget.extractRenderState(g, mx, my, dt);
 
             positionControls();
@@ -1277,10 +1302,12 @@ public final class CosmeticsScreen extends Screen {
                 rounded(g, contentX + contentWidth + 6, viewTop, 3, viewBottom - viewTop, 1, BORDER);
                 rounded(g, contentX + contentWidth + 6, bar.thumbStart((int) Math.round(scroll)), 3, bar.thumbLength(), 1, PINK);
             }
+            float reveal=pageFade.value(1,ConfigManager.uiAnimationsEnabled);
+            if(reveal<1)g.fill(contentX-1,panelY+86,contentX+contentWidth+1,viewBottom,Math.round((1-reveal)*255)<<24|(PANEL&0xFFFFFF));
             if (System.currentTimeMillis() < noticeUntil) {
                 int tw = Math.min(contentWidth, font.width(notice) + 24);
                 int x = contentX + (contentWidth - tw) / 2;
-                outline(g, x, viewBottom - 34, tw, 28, 7, PINK_DARK, 0xEF292B32);
+                outline(g,x,viewBottom-34,tw,28,4,PINK_DARK,CARD);
                 text(g, font, notice, x + 12, viewBottom - 24, PINK, tw - 24);
             }
             if (blockingMode != null) blockingMode.drawMenu(g, mx, my, viewTop, viewBottom);

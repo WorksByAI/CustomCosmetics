@@ -6,8 +6,8 @@ public record StudioLayout(int x, int y, int width, int height, int sidebarWidth
                            int contentX, int contentWidth, int contentTop, int contentBottom,
                            int navigationTop, int navigationBottom) {
     public static StudioLayout of(int screenWidth, int screenHeight) {
-        int width = Math.min(740, Math.max(1, screenWidth - 16));
-        int height = Math.min(480, Math.max(1, screenHeight - 16));
+        int width = Math.min(820, Math.max(1, screenWidth - (screenWidth < 440 ? 16 : 24)));
+        int height = Math.min(510, Math.max(1, screenHeight - 20));
         int x = (screenWidth - width) / 2, y = (screenHeight - height) / 2;
         int sidebar = width < 440 ? 112 : 146;
         int gap = width < 440 ? 12 : 20;

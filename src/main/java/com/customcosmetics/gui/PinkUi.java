@@ -20,16 +20,11 @@ import java.util.function.IntConsumer;
 
 /** Code-drawn controls: no textures or rendering dependencies on another mod. */
 public final class PinkUi {
-    public static final int PANEL = 0xBD252830;
-    public static final int SIDEBAR = 0x5820242C;
-    public static final int CARD = 0x13FFFFFF;
-    public static final int BORDER = 0x28FFFFFF;
-    public static final int PINK = 0xFFFFA8CA;
-    public static final int PINK_DARK = 0x32FFA8CA;
-    public static final int TEXT = 0xFFF5F5F7;
-    public static final int MUTED = 0xFFC2C4CC;
-    public static final int DIM = 0xFF9599A6;
-    public static final int INK = 0xFF352630;
+    // Legacy public names retained for every existing dialog; palette changes update all of them.
+    public static int PANEL=0xFF1A1E23,SIDEBAR=0xFF14181C,CARD=0xFF22272D,BORDER=0xFF333A42;
+    public static int PINK=0xFF6DB29A,PINK_DARK=0x246DB29A,TEXT=0xFFE8ECF0,MUTED=0xFFA2ACB6,DIM=0xFF798592,INK=0xFF101619,HOVER=0xFF303840;
+    private static final int[][] CORNERS=corners();
+    private static int[][] corners(){var result=new int[17][];for(int r=0;r<result.length;r++){result[r]=new int[r];for(int row=0;row<r;row++){double dy=r-row-.5;result[r][row]=(int)Math.ceil(r-Math.sqrt(r*r-dy*dy));}}return result;}
 
     private PinkUi() {}
 
@@ -38,8 +33,7 @@ public final class PinkUi {
         radius = Math.min(radius, Math.min(width, height) / 2);
         g.fill(x, y + radius, x + width, y + height - radius, color);
         for (int i = 0; i < radius; i++) {
-            double dy = radius - i - 0.5;
-            int inset = (int) Math.ceil(radius - Math.sqrt(radius * radius - dy * dy));
+            int inset = roundedInset(radius,i);
             g.fill(x + inset, y + i, x + width - inset, y + i + 1, color);
             g.fill(x + inset, y + height - i - 1, x + width - inset, y + height - i, color);
         }
@@ -71,6 +65,7 @@ public final class PinkUi {
 
     private static int roundedInset(int radius, int row) {
         if (row >= radius || radius == 0) return 0;
+        if(radius<CORNERS.length)return CORNERS[radius][Math.max(0,row)];
         double dy = radius - row - 0.5;
         return (int) Math.ceil(radius - Math.sqrt(radius * radius - dy * dy));
     }
@@ -101,9 +96,11 @@ public final class PinkUi {
         private String cachedLabel;
         private int cachedWidth = -1, cachedLabelWidth;
         private Component cachedMessage;
+        private final UiMotion hover=new UiMotion(0),selection=new UiMotion(0),press=new UiMotion(0);
 
         public Action(int x, int y, int w, int h, String text, boolean primary, Runnable action) {
             super(x, y, w, h, Component.literal(text));
+            UiTheme.refresh();
             this.action = action;
             this.primary = primary;
         }
@@ -114,8 +111,13 @@ public final class PinkUi {
         @Override protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
             boolean hot = isHoveredOrFocused() && active;
             boolean chosen = selected.getAsBoolean();
-            int bg = primary ? (hot ? 0xFFFFB6D0 : PINK) : chosen ? PINK_DARK : hot ? 0x27FFFFFF : CARD;
-            outline(g, getX(), getY(), width, height, 6, chosen || isFocused() ? PINK : BORDER, active ? bg : PANEL);
+            boolean animate=com.customcosmetics.config.ConfigManager.uiAnimationsEnabled;
+            float warmth=hover.value(hot?1:0,animate),picked=selection.value(chosen?1:0,animate),pressed=press.value(0,animate);
+            int base=primary?PINK:leftAligned?SIDEBAR:CARD;
+            int bg=mix(base,primary?mix(PINK,TEXT,.15):HOVER,warmth*.8+pressed*.2);
+            if(!primary&&picked>0)bg=mix(bg,mix(CARD,PINK,.17),picked);
+            int border=primary?PINK:isFocused()?PINK:leftAligned?bg:BORDER;
+            outline(g, getX(), getY(), width, height, 4, border, active ? bg : SIDEBAR);
             Font font = Minecraft.getInstance().font;
             if (cachedMessage != getMessage() || cachedWidth != width) {
                 cachedMessage = getMessage(); cachedWidth = width;
@@ -125,16 +127,16 @@ public final class PinkUi {
                     : font.plainSubstrByWidth(original, Math.max(0, available - font.width("…"))) + "…";
                 cachedLabelWidth = font.width(cachedLabel);
             }
-            if (chosen && leftAligned) rounded(g, getX() + 3, getY() + 6, 2, height - 12, 1, PINK);
+            if (picked>.01f && leftAligned) rounded(g, getX()+3,getY()+6,2,Math.max(1,Math.round((height-12)*picked)),1,PINK);
             g.text(font, cachedLabel, getX() + (leftAligned ? 11 : (width - cachedLabelWidth) / 2), getY() + (height - 9) / 2,
-                !active ? DIM : primary ? INK : chosen ? PINK : TEXT, false);
+                !active ? DIM : primary ? INK : TEXT, false);
         }
 
-        @Override public void onClick(MouseButtonEvent event, boolean doubleClick) { action.run(); }
+        @Override public void onClick(MouseButtonEvent event, boolean doubleClick) { press.snap(1);action.run(); }
         @Override public boolean keyPressed(KeyEvent event) {
             if (active && (event.key() == ClientInput.ENTER || event.key() == ClientInput.SPACE || event.key() == ClientInput.NUMPAD_ENTER)) {
                 playButtonClickSound(Minecraft.getInstance().getSoundManager());
-                action.run();
+                press.snap(1);action.run();
                 return true;
             }
             return false;
@@ -144,31 +146,29 @@ public final class PinkUi {
 
     public static final class Toggle extends Action {
         private final BooleanSupplier enabled;
-        private float position;
-        private long lastFrame;
+        private final UiMotion position;
         private final Component onMessage, offMessage;
         private Boolean lastEnabled;
+        public Toggle rowWidth(int pixels){setWidth(Math.max(34,pixels));return this;}
 
         public Toggle(int x, int y, String name, BooleanSupplier enabled, Runnable change) {
             super(x, y, 34, 18, name, false, change);
             this.enabled = enabled;
-            position = enabled.getAsBoolean() ? 1 : 0;
+            position = new UiMotion(enabled.getAsBoolean()?1:0);
             onMessage = Component.literal(name + ": On");
             offMessage = Component.literal(name + ": Off");
         }
 
         @Override protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
-            long now = System.nanoTime();
-            double elapsed = lastFrame == 0 ? 1 : Math.min(1, (now - lastFrame) / 90_000_000.0);
-            lastFrame = now;
             boolean value = enabled.getAsBoolean();
-            position += ((value ? 1 : 0) - position) * (float) elapsed;
+            float at=position.value(value?1:0,com.customcosmetics.config.ConfigManager.uiAnimationsEnabled);
             if (lastEnabled == null || lastEnabled != value) {
                 lastEnabled = value;
                 setMessage(value ? onMessage : offMessage);
             }
-            outline(g, getX(), getY(), width, height, 9, isFocused() ? TEXT : BORDER, mix(0xFF555962, PINK, position));
-            rounded(g, getX() + 3 + Math.round(position * 16), getY() + 3, 12, 12, 6, TEXT);
+            int switchX=getX()+width-34;
+            outline(g,switchX,getY(),34,height,9,isFocused()?TEXT:BORDER,mix(HOVER,PINK,at));
+            rounded(g,switchX+3+Math.round(at*16),getY()+3,12,12,6,at>.65?INK:TEXT);
         }
     }
 
@@ -177,9 +177,11 @@ public final class PinkUi {
         private final double min, max, step;
         private final DoubleConsumer setter;
         private int labelSpace;
+        private final UiMotion knob;
 
         public Slider(int x, int y, int w, String label, double value, double min, double max, double step, DoubleConsumer setter) {
             super(x, y, w, 30, Component.literal(label), Math.clamp((value - min) / (max - min), 0, 1));
+            UiTheme.refresh();knob=new UiMotion((float)this.value);
             this.label = label;
             this.min = min;
             this.max = max;
@@ -200,7 +202,7 @@ public final class PinkUi {
             text(g, font, label, getX(), getY(), TEXT, width - labelSpace);
             int trackY = getY() + 21;
             rounded(g, getX(), trackY, width, 3, 1, BORDER);
-            int progress = (int) Math.round(value * (width - 8));
+            int progress = Math.round(knob.value((float)value,com.customcosmetics.config.ConfigManager.uiAnimationsEnabled)*(width-8));
             rounded(g, getX(), trackY, progress + 4, 3, 1, PINK);
             rounded(g, getX() + progress, trackY - 3, 8, 9, 4, isHoveredOrFocused() ? TEXT : PINK);
         }
@@ -210,12 +212,14 @@ public final class PinkUi {
         private boolean invalid;
         private boolean secret;
         private final int paddingY, paddingX, boxHeight;
+        private final UiMotion focus=new UiMotion(0);
 
         public Field(Font font, int x, int y, int width, String name) {
             this(font,x,y,width,name,30);
         }
         public Field(Font font, int x, int y, int width, String name, int height) {
             super(font, x + (height == 30 ? 9 : 6), y + (height - 12) / 2, width - (height == 30 ? 18 : 12), 12, Component.literal(name));
+            UiTheme.refresh();
             paddingY = (height - 12) / 2; paddingX = height == 30 ? 9 : 6; boxHeight = height;
             setBordered(false);
             setTextShadow(false);
@@ -227,8 +231,9 @@ public final class PinkUi {
         public Field secret(boolean value) { secret = value; return this; }
 
         @Override public void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
-            outline(g, getX() - paddingX, getY() - paddingY, width + paddingX * 2, boxHeight, 5,
-                invalid ? 0xFFFF7F9B : isFocused() ? PINK : BORDER, SIDEBAR);
+            float focused=focus.value(isFocused()?1:0,com.customcosmetics.config.ConfigManager.uiAnimationsEnabled);
+            outline(g,getX()-paddingX,getY()-paddingY,width+paddingX*2,boxHeight,4,
+                invalid?0xFFDA7771:mix(BORDER,PINK,focused),SIDEBAR);
             if (!secret) super.extractWidgetRenderState(g, mx, my, dt);
             else {
                 Font font = Minecraft.getInstance().font;
@@ -250,6 +255,8 @@ public final class PinkUi {
         private float hue, saturation, brightness;
         private final IntConsumer setter;
         private boolean draggingValue;
+        private int cachedMapWidth=-1;
+        private int[] hueColumns=new int[0];
 
         public ColorPicker(int x, int y, int width, int height, int rgb, IntConsumer setter) {
             super(x, y, width, height, Component.literal("Color: hue, saturation and value"));
@@ -264,9 +271,13 @@ public final class PinkUi {
 
         @Override protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
             int mapWidth = width - 24;
-            // A small grid keeps the custom picker inexpensive in Minecraft's GUI render queue.
+            // Hue columns depend only on geometry; cache conversions until the picker resizes.
+            if(cachedMapWidth!=mapWidth){
+                cachedMapWidth=mapWidth;hueColumns=new int[Math.max(0,(mapWidth+2)/3)];
+                for(int i=0;i<hueColumns.length;i++)hueColumns[i]=Color.HSBtoRGB(i*3/(float)Math.max(1,mapWidth-1),1,1);
+            }
             for (int x = 0; x < mapWidth; x += 3) {
-                int color = Color.HSBtoRGB(x / (float) Math.max(1, mapWidth - 1), 1, 1);
+                int color = hueColumns[x/3];
                 g.fillGradient(getX() + x, getY(), getX() + Math.min(mapWidth, x + 3), getY() + height, color, 0xFFFFFFFF);
             }
             int selected = Color.HSBtoRGB(hue, saturation, 1);

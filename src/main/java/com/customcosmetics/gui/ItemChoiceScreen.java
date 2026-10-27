@@ -14,7 +14,7 @@ import net.minecraft.client.input.MouseButtonEvent;
 import static com.customcosmetics.gui.PinkUi.*;
 
 /** A bounded, searchable list; only the visible rows submit item models. */
-public final class ItemChoiceScreen extends Screen {
+public final class ItemChoiceScreen extends ThemedScreen {
     public record Choice(String label, String id, Supplier<ItemStack> iconSupplier) {
         public Choice(String label, String id, ItemStack icon) { this(label, id, () -> icon); }
         public ItemStack icon() { return iconSupplier.get(); }
@@ -89,10 +89,6 @@ public final class ItemChoiceScreen extends Screen {
     @Override public boolean mouseReleased(MouseButtonEvent event) {
         if(draggingScrollbar){draggingScrollbar=false;return true;}
         return super.mouseReleased(event);
-    }
-    @Override public void extractBackground(GuiGraphicsExtractor g,int mx,int my,float delta) {
-        if(minecraft.level==null)super.extractBackground(g,mx,my,delta);else g.blurBeforeThisStratum();
-        g.fill(0,0,width,height,0x4020242A);
     }
     @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float delta) {
         outline(g,x,y,w,h,11,BORDER,PANEL);

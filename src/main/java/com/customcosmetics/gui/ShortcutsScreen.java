@@ -15,7 +15,7 @@ import java.util.*;
 import static com.customcosmetics.gui.PinkUi.*;
 
 /** Command-only manager: aliases, exact argument replacements and recorded key chords. */
-public final class ShortcutsScreen extends Screen {
+public final class ShortcutsScreen extends ThemedScreen {
     private final Screen parent;
     private final List<PinkUi.Action> rows = new ArrayList<>();
     private final LinkedHashSet<String> captured = new LinkedHashSet<>();
@@ -171,10 +171,6 @@ public final class ShortcutsScreen extends Screen {
             offset -= (int) Math.signum(vertical) * 3; refresh(); return true;
         }
         return super.mouseScrolled(mx, my, horizontal, vertical);
-    }
-    @Override public void extractBackground(GuiGraphicsExtractor g, int mx, int my, float dt) {
-        if (minecraft.level == null) super.extractBackground(g, mx, my, dt); else g.blurBeforeThisStratum();
-        g.fill(0, 0, width, height, 0x4020242A);
     }
     @Override public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
         outline(g, x, y, w, h, 10, BORDER, PANEL);

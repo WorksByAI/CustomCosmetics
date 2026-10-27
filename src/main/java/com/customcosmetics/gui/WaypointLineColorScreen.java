@@ -11,7 +11,7 @@ import net.minecraft.network.chat.Component;
 import static com.customcosmetics.gui.PinkUi.*;
 
 /** Transactional ARGB picker for the ordered-route cursor line. */
-final class WaypointLineColorScreen extends Screen {
+final class WaypointLineColorScreen extends ThemedScreen {
     private final Screen parent;
     private int color, x, y, w, h;
     WaypointLineColorScreen(Screen parent) {

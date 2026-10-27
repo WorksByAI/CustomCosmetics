@@ -14,7 +14,7 @@ import java.util.*;
 import static com.customcosmetics.gui.PinkUi.*;
 
 /** Inventory-style local palette: left selects, right favorites. No inventory or creative packets. */
-public final class MapBlockScreen extends Screen {
+public final class MapBlockScreen extends ThemedScreen {
     private record BlockChoice(String id,String label,ItemStack icon){}
     private final Screen parent;
     private final java.util.function.Supplier<String> selected;
@@ -45,7 +45,6 @@ public final class MapBlockScreen extends Screen {
         return super.mouseClicked(event,doubled);
     }
     @Override public boolean mouseScrolled(double mx,double my,double horizontal,double vertical){if(mx>=x&&mx<x+w&&my>=top&&my<bottom){offset-=(int)Math.signum(vertical)*2;refresh();return true;}return super.mouseScrolled(mx,my,horizontal,vertical);}
-    @Override public void extractBackground(GuiGraphicsExtractor g,int mx,int my,float dt){if(minecraft.level==null)super.extractBackground(g,mx,my,dt);else g.blurBeforeThisStratum();g.fill(0,0,width,height,0x4020242A);}
     @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float dt){
         outline(g,x,y,w,h,10,BORDER,PANEL);text(g,font,getTitle().getString(),x+12,y+14,PINK,w-24);for(var widget:fixed)widget.extractRenderState(g,mx,my,dt);
         // Keep the dense grid in two passes. Interleaving thousands of border rectangles and

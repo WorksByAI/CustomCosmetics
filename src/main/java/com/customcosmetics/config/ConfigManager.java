@@ -32,6 +32,10 @@ public final class ConfigManager {
 
     public static boolean smolpeopleMode = false;
     public static volatile int disabledModules=0;
+    public static String uiThemeMode="dark";
+    public static int uiAccentColor=0x6DB29A;
+    public static boolean uiAnimationsEnabled=true;
+    public static boolean uiBackgroundBlur=false;
     public static boolean damageSplashEnabled=false, damageSplashBold=true, damageSplashCompact=false;
     public static boolean damageSplashStyleNormal=false, damageSplashShadow=true;
     public static String damageSplashStyle="default", damageSplashSymbol="✧", damageSplashSeparator="comma";
@@ -178,6 +182,8 @@ public final class ConfigManager {
                 }
             }
             if(accessories==null)accessories=com.customcosmetics.features.accessories.AccessoriesSettings.NONE;
+            uiThemeMode="light".equals(uiThemeMode)?"light":"dark";
+            uiAccentColor&=0xFFFFFF;
             damageSplashStyle=com.customcosmetics.features.damage.DamageAnimation.normalize(damageSplashStyle);
             damageSplashColorMode=com.customcosmetics.features.damage.DamageColors.normalize(damageSplashColorMode);
             damageSplashRainbowSpeed=com.customcosmetics.features.damage.DamageColors.speed(damageSplashRainbowSpeed);

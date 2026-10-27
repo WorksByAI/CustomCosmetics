@@ -17,7 +17,7 @@ import net.minecraft.world.item.component.CustomData;
 import static com.customcosmetics.gui.PinkUi.*;
 
 /** Apply and Done save drafts; actual inventory components are never changed. */
-public final class ItemAppearanceScreen extends Screen {
+public final class ItemAppearanceScreen extends ThemedScreen {
     private final Screen parent;
     private final List<AbstractWidget> controls=new ArrayList<>();
     private final List<Placement> body=new ArrayList<>();
@@ -174,9 +174,6 @@ public final class ItemAppearanceScreen extends Screen {
         if(!texture.isEmpty())previewCache=HeadSkins.preview(item,texture);
         else{var model=Identifier.tryParse(draftModel.strip());previewCache=ItemCosmetics.preview(item,ItemCosmetics.renderable(item,model)?model:null);}
         return previewCache;
-    }
-    @Override public void extractBackground(GuiGraphicsExtractor g,int mx,int my,float delta){
-        if(minecraft.level==null)super.extractBackground(g,mx,my,delta);else g.blurBeforeThisStratum();g.fill(0,0,width,height,0x4020242A);
     }
     @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float delta){
         outline(g,x,y,w,h,11,BORDER,PANEL);text(g,font,"Item Customization",x+16,y+17,PINK,w-32);

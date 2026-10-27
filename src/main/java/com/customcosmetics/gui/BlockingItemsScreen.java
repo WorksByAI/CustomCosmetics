@@ -16,7 +16,7 @@ import java.util.*;
 import static com.customcosmetics.gui.PinkUi.*;
 
 /** Searchable local selections, with independent blacklists and whitelists. */
-public final class BlockingItemsScreen extends Screen {
+public final class BlockingItemsScreen extends ThemedScreen {
     private final Screen parent;
     private final List<Entry> catalog = new ArrayList<>(BlockingItems.catalog());
     private final Set<String> blacklist = new TreeSet<>(List.of(BlockingRules.sanitize(ConfigManager.swordBlockingBlacklist)));
@@ -124,10 +124,6 @@ public final class BlockingItemsScreen extends Screen {
     }
     @Override public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
         CosmeticsScreen.childInteraction(); return super.mouseClicked(event,doubleClick);
-    }
-    @Override public void extractBackground(GuiGraphicsExtractor g, int mx, int my, float dt) {
-        if (minecraft.level == null) super.extractBackground(g, mx, my, dt); else g.blurBeforeThisStratum();
-        g.fill(0, 0, width, height, 0x4020242A);
     }
     @Override public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
         outline(g, x, y, w, h, 11, BORDER, PANEL);

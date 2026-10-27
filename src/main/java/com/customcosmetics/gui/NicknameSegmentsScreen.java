@@ -15,7 +15,7 @@ import net.minecraft.network.chat.Component;
 import static com.customcosmetics.gui.PinkUi.*;
 
 /** Local drafts with a live preview. Apply saves settings for the normal synchronization cycle. */
-public final class NicknameSegmentsScreen extends Screen {
+public final class NicknameSegmentsScreen extends ThemedScreen {
     private final Screen parent;
     private final List<Draft> drafts=new ArrayList<>();
     private final List<AbstractWidget> fixed=new ArrayList<>();
@@ -94,9 +94,6 @@ public final class NicknameSegmentsScreen extends Screen {
     private int maxScroll(){return Math.max(0,drafts.size()*105-(bottom-top));}
     private ScrollBarLayout bar(){int visible=Math.max(0,bottom-top);return ScrollBarLayout.of(top,visible,visible,Math.max(visible,drafts.size()*105),maxScroll());}
     private void positionBody(){for(var placement:body){var widget=placement.widget();widget.setY(placement.y()-scroll);widget.visible=widget.getY()+widget.getHeight()>top&&widget.getY()<bottom;}}
-    @Override public void extractBackground(GuiGraphicsExtractor g,int mx,int my,float delta){
-        if(minecraft.level==null)super.extractBackground(g,mx,my,delta);else g.blurBeforeThisStratum();g.fill(0,0,width,height,0x4020242A);
-    }
     @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float delta){
         NickRenderUtils.beginClickGuiRenderScope();
         try{

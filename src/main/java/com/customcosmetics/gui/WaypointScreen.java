@@ -11,7 +11,7 @@ import static com.customcosmetics.features.waypoint.WaypointData.*;
 import static com.customcosmetics.gui.PinkUi.*;
 
 /** Standalone manager reached through /customcosmetics waypoint or /ccos waypoint. */
-public final class WaypointScreen extends Screen {
+public final class WaypointScreen extends ThemedScreen {
     private final Screen parent;
     private String selected = "", message = "", here = "", island = "";
     private boolean followCurrent = true;

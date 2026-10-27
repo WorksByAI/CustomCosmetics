@@ -14,7 +14,7 @@ import java.util.function.*;
 import static com.customcosmetics.gui.PinkUi.*;
 
 /** Independent first-person blocking editor, with scrollable controls and a live native preview. */
-public final class BlockingAdjustmentScreen extends Screen {
+public final class BlockingAdjustmentScreen extends ThemedScreen {
     private final Screen parent;
     private int x,y,w,h,top,bottom,scroll;
     private boolean animate;

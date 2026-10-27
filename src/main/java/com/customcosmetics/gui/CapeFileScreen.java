@@ -10,7 +10,7 @@ import java.util.*;
 import static com.customcosmetics.gui.PinkUi.*;
 
 /** In-game local file picker, also available on SDL versions without TinyFD. */
-public final class CapeFileScreen extends Screen {
+public final class CapeFileScreen extends ThemedScreen {
     private final Screen parent;private final boolean atlas;private Path directory;
     private int x,y,w,h,top,bottom,scroll;private PinkUi.Field pathField;
     private final List<PinkUi.Action> files=new ArrayList<>();private String notice;

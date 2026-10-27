@@ -9,7 +9,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import static com.customcosmetics.gui.PinkUi.*;
 
-public final class CapeScreen extends Screen {
+public final class CapeScreen extends ThemedScreen {
     private final Screen parent;private int x,y,w,h;private String notice="";private PinkUi.Action submit,cropButton,atlasButton,removeButton;private boolean choosing;private long selection;
     public CapeScreen(Screen parent){super(Component.literal("Cape"));this.parent=parent;}
     @Override protected void init(){

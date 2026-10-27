@@ -13,7 +13,7 @@ import java.awt.image.BufferedImage;
 import static com.customcosmetics.gui.PinkUi.*;
 
 /** Fixed cape aspect ratio; drag to move, scroll to zoom. Saving only changes the local PNG. */
-public final class CapeCropScreen extends Screen {
+public final class CapeCropScreen extends ThemedScreen {
     private final Screen parent;private final BufferedImage source;private CapeImages.Crop crop;
     private Identifier texture;private int x,y,w,h;private double scale,bx,by;private boolean dragging;private String notice="Drag to move · Scroll to resize";
     public CapeCropScreen(Screen parent,BufferedImage source){super(Component.literal("Crop Cape"));this.parent=parent;this.source=source;crop=CapeImages.Crop.centered(source.getWidth(),source.getHeight());}

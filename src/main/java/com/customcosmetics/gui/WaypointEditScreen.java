@@ -12,7 +12,7 @@ import static com.customcosmetics.features.waypoint.WaypointData.*;
 import static com.customcosmetics.gui.PinkUi.*;
 
 /** Form edits are transactional: Cancel leaves the saved group unchanged. */
-final class WaypointEditScreen extends Screen {
+final class WaypointEditScreen extends ThemedScreen {
     private final Screen parent;
     private final Group original;
     private final int pointIndex;

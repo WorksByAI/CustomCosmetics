@@ -8,7 +8,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import java.util.function.*;
 import static com.customcosmetics.gui.PinkUi.*;
-public final class AccessoryAdjustmentScreen extends Screen {
+public final class AccessoryAdjustmentScreen extends ThemedScreen {
     private final Screen parent;private final String slot;private int x,y,w,h,preview;
     public AccessoryAdjustmentScreen(Screen parent,String slot){super(Component.literal("Accessory Position"));this.parent=parent;this.slot=slot;}
     @Override protected void init(){

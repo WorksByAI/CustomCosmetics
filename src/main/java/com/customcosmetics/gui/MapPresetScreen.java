@@ -10,7 +10,7 @@ import java.util.*;
 import static com.customcosmetics.gui.PinkUi.*;
 
 /** Named layouts in one searchable list. Room recognition supplies the default placement frame. */
-public final class MapPresetScreen extends Screen {
+public final class MapPresetScreen extends ThemedScreen {
     private final Screen parent;
     private String selected="",name=MapEditor.presetName,query="",status="",confirmation="";
     private List<MapEditor.PresetInfo> entries=List.of(),filtered=List.of();
