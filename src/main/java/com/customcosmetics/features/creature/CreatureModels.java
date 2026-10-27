@@ -221,6 +221,12 @@ public final class CreatureModels {
         creature.setXRot(player.getXRot());
         creature.setYBodyRot(player.yBodyRot);
         creature.setYHeadRot(player.getYHeadRot());
+        // Species-specific animation (notably the sheep's head) interpolates these
+        // directly, even when the common living render angles are replaced below.
+        creature.xRotO = player.xRotO;
+        creature.yRotO = player.yRotO;
+        creature.yBodyRotO = player.yBodyRotO;
+        creature.yHeadRotO = player.yHeadRotO;
         if (creature instanceof EnderDragon dragon && creature.tickCount != player.tickCount)
             dragon.flightHistory.record(player.getY(), player.getYRot());
         creature.tickCount = player.tickCount;

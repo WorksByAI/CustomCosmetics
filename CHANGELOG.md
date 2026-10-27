@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.6-dev.2
+
+- Fix sheep head jitter by preserving player rotation interpolation in creature proxies.
+
 ## 1.8.6-dev.1
 
 - Add all vanilla creature models, including bosses, with matching server sync support.

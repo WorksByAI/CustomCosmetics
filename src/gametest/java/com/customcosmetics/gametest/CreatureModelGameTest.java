@@ -53,6 +53,13 @@ public final class CreatureModelGameTest implements FabricClientGameTest {
                 ConfigManager.offlineMode = false;
             });
             context.runOnClient(client -> {
+                CreatureModels.select(CreatureModels.Choice.SHEEP);
+                receive("sheep");
+                assertSheepPitch(client.player);
+                assertSheepPitch((RemotePlayer)client.level.getEntity(REMOTE_ID));
+                System.out.println("CREATURE_SHEEP_LOCAL_REMOTE_STEADY_AND_INTERPOLATED_PITCH_OK");
+            });
+            context.runOnClient(client -> {
                 for (var field : EntityTypes.class.getFields()) {
                     if (!(field.getGenericType() instanceof java.lang.reflect.ParameterizedType parameterized)) continue;
                     var argument = parameterized.getActualTypeArguments()[0];
@@ -127,5 +134,28 @@ public final class CreatureModelGameTest implements FabricClientGameTest {
             var method = PresenceSync.class.getDeclaredMethod("applyPayload", String.class, boolean.class, boolean.class);
             method.setAccessible(true); method.invoke(null, root.toString(), false, true);
         } catch (ReflectiveOperationException failure) { throw new AssertionError(failure); }
+    }
+
+    private static void assertSheepPitch(net.minecraft.client.player.AbstractClientPlayer player) {
+        float pitch = player.getXRot(), previousPitch = player.xRotO;
+        try {
+            for (float[] endpoints : new float[][]{{35,35},{-45,-45},{20,40}}) {
+                player.xRotO = endpoints[0];
+                player.setXRot(endpoints[1]);
+                for (float partial : new float[]{0,.125f,.5f,.875f,.999f}) {
+                    var extracted = net.minecraft.client.Minecraft.getInstance().getEntityRenderDispatcher().extractEntity(player, partial);
+                    if (!(extracted instanceof net.minecraft.client.renderer.entity.state.SheepRenderState sheep))
+                        throw new AssertionError("Sheep pitch regression did not use the sheep renderer");
+                    float expected = player.getXRot(partial) * ((float)Math.PI / 180);
+                    if (Math.abs(sheep.headEatAngleScale - expected) > 1e-5f)
+                        throw new AssertionError("Sheep pitch jitters at partial=" + partial + ": expected " + expected + ", got " + sheep.headEatAngleScale);
+                    if (sheep.headEatPositionScale != 0)
+                        throw new AssertionError("Visual sheep unexpectedly activated its eating animation");
+                }
+            }
+        } finally {
+            player.setXRot(pitch);
+            player.xRotO = previousPitch;
+        }
     }
 }
