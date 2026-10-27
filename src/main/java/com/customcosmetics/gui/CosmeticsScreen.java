@@ -138,7 +138,7 @@ public final class CosmeticsScreen extends Screen {
             case MODULES -> modules();
             case SEARCH -> searchResults();
         }
-        if (page == Page.SIZE || page == Page.NICK || page == Page.COLOR || page == Page.CHROMA || page == Page.RANK || page == Page.PRESETS || page == Page.DAMAGE) credit();
+        if (page == Page.NICK || page == Page.COLOR || page == Page.CHROMA || page == Page.RANK || page == Page.PRESETS || page == Page.DAMAGE) credit();
         contentBottom = rowY + 5;
         scroll = Math.clamp(scroll, 0, maxScroll());
         positionControls();

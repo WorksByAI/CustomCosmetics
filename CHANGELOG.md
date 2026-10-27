@@ -5,6 +5,7 @@
 - Add all vanilla creature models, including bosses, with synchronized choices.
 - Fit large creature previews and make all models searchable.
 - Fix sheep head jitter when looking around.
+- Remove the Player Size footer credit.
 
 ## 1.8.6-dev.2
 
