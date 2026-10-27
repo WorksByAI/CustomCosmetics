@@ -4,6 +4,15 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class PreviewLayoutTest {
+    @Test void largeCreaturesFitThePreviewWithoutShrinkingOrdinaryModels() {
+        assertEquals(52, PreviewLayout.creatureModelScale(184, 280, .6f, 1.8f));
+        for (float[] bounds : new float[][]{{16,8},{4,4},{3.6f,12},{.4f,.7f}}) {
+            int scale = PreviewLayout.creatureModelScale(184, 280, bounds[0], bounds[1]);
+            assertTrue(scale > 0 && scale <= 52);
+            assertTrue(scale * bounds[0] * 1.4f <= 280);
+            assertTrue(scale * bounds[1] * 1.2f <= 127);
+        }
+    }
     @Test void fullNamesFitWideAndNarrowPreviewsWithoutTruncatingTheText() {
         for (int available : new int[]{120, 220, 460, 580}) {
             for (int text : new int[]{1, 96, 300, 768}) {

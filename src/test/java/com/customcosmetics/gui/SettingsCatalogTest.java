@@ -31,7 +31,7 @@ class SettingsCatalogTest {
         assertFalse(SettingsSearch.sameSetting("✓ Chicken", "Player"));
         assertFalse(SettingsSearch.sameSetting("✓Chicken", "Chicken"));
         assertFalse(SettingsSearch.sameSetting("Chicken ✓", "Chicken"));
-        for (String title : new String[]{"Player", "Chicken"})
+        for (String title : new String[]{"Player", "Chicken", "Ender Dragon", "Warden", "Sulfur Cube"})
             assertTrue(SettingsCatalog.find(title).stream().anyMatch(entry -> entry.page().equals("SIZE")
                 && SettingsSearch.sameSetting("✓ " + title, entry.title())), title);
     }

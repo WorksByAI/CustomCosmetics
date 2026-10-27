@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.6-dev.1
+
+- Add all vanilla creature models, including bosses, with matching server sync support.
+- Fit large creature previews and include new models in settings search.
+
 ## 1.8.5
 
 - Improve performance where possible; substantial gains are not guaranteed for every user.

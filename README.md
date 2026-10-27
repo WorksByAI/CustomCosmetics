@@ -1,6 +1,6 @@
 # CustomCosmetics
 
-最新正式版 v1.8.5。Fabric 客户端外观模组，支持 26.1～26.3，部分功能可在玩家间同步。
+当前开发版 v1.8.6-dev.1；最新正式版 v1.8.5。Fabric 客户端外观模组，支持 26.1～26.3，部分功能可在玩家间同步。
 
 目前模组所有功能（[√] 表示其他安装本模组的玩家可见）：
 
@@ -25,7 +25,7 @@
 
 ## English
 
-Latest stable release: v1.8.5.
+Development build: v1.8.6-dev.1. Latest stable release: v1.8.5.
 
 Fabric cosmetics for Minecraft 26.1–26.3, with optional player sync.
 

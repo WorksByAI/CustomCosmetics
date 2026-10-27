@@ -14,4 +14,9 @@ public final class PreviewLayout {
     public static int playerModelScale(int cardHeight) {
         return Math.max(1, Math.round(52f * Math.max(1, cardHeight - 57) / 127));
     }
+    public static int creatureModelScale(int cardHeight, int availableWidth, float width, float height) {
+        float fitWidth = Math.max(1, availableWidth) / Math.max(1, width * 1.4f);
+        float fitHeight = Math.max(1, cardHeight - 57) / Math.max(1, height * 1.2f);
+        return Math.max(1, (int)Math.min(playerModelScale(cardHeight), Math.min(fitWidth, fitHeight)));
+    }
 }

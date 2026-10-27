@@ -469,7 +469,7 @@ public final class CosmeticsScreen extends Screen {
         fullButton("Reset Player Size",()->{ConfigManager.playerSizeX=ConfigManager.playerSizeY=ConfigManager.playerSizeZ=1;changed();rebuildWidgets();},false);
         rowY+=6;smol();
         section("Creature Model", "Choose a visual model for yourself. Mod users can see your choice after sync.");
-        for (var choice : com.customcosmetics.features.creature.CreatureModels.Choice.values()) {
+        for (var choice : com.customcosmetics.features.creature.CreatureModels.availableChoices()) {
             var model = choice;
             fullButton((ConfigManager.creatureModel.equals(choice.id) ? "✓ " : "") + choice.label,
                 () -> {com.customcosmetics.features.creature.CreatureModels.select(model);changed();rebuildWidgets();},false);
@@ -499,12 +499,14 @@ public final class CosmeticsScreen extends Screen {
             // Entity bounds are screen coordinates; draw outside the scrolling pose.
             int previewScroll = pinnedSize ? 0 : (int) Math.round(scroll);
             int top = y - previewScroll;
+            var preview = com.customcosmetics.features.creature.CreatureModels.previewEntity(minecraft.player);
+            int modelScale = preview == minecraft.player ? PreviewLayout.playerModelScale(height)
+                : PreviewLayout.creatureModelScale(height, contentWidth - 8, preview.getBbWidth(), preview.getBbHeight());
             g.pose().pushMatrix();
             g.pose().translate(0, (float) previewScroll);
             InventoryScreen.extractEntityInInventoryFollowsMouse(g,
                 contentX + 4, top + 51, contentX + contentWidth - 4, top + height - 6,
-                PreviewLayout.playerModelScale(height), 0.0625f, mouseX, mouseY,
-                com.customcosmetics.features.creature.CreatureModels.previewEntity(minecraft.player));
+                modelScale, 0.0625f, mouseX, mouseY, preview);
             g.pose().popMatrix();
         });
     }

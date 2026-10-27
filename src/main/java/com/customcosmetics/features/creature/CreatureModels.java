@@ -14,25 +14,116 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.entity.state.AvatarRenderState;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
+import net.minecraft.client.renderer.entity.state.EnderDragonRenderState;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.boss.enderdragon.EnderDragon;
 
 /** A visual-only replacement: the real player continues to own movement, hitbox and interaction. */
 public final class CreatureModels {
     public enum Choice {
-        PLAYER("player", "Player"), ZOMBIE("zombie", "Zombie"), SKELETON("skeleton", "Skeleton"),
-        CREEPER("creeper", "Creeper"), ENDERMAN("enderman", "Enderman"), BLAZE("blaze", "Blaze"),
-        IRON_GOLEM("iron_golem", "Iron Golem"), VILLAGER("villager", "Villager"),
-        COW("cow", "Cow"), PIG("pig", "Pig"), SHEEP("sheep", "Sheep"), CHICKEN("chicken", "Chicken");
+        PLAYER("player", "Player"),
+        ALLAY("allay", "Allay"),
+        ARMADILLO("armadillo", "Armadillo"),
+        ARMOR_STAND("armor_stand", "Armor Stand"),
+        AXOLOTL("axolotl", "Axolotl"),
+        BAT("bat", "Bat"),
+        BEE("bee", "Bee"),
+        BLAZE("blaze", "Blaze"),
+        BOGGED("bogged", "Bogged"),
+        BREEZE("breeze", "Breeze"),
+        CAMEL("camel", "Camel"),
+        CAMEL_HUSK("camel_husk", "Camel Husk"),
+        CAT("cat", "Cat"),
+        CAVE_SPIDER("cave_spider", "Cave Spider"),
+        CHICKEN("chicken", "Chicken"),
+        COD("cod", "Cod"),
+        COPPER_GOLEM("copper_golem", "Copper Golem"),
+        COW("cow", "Cow"),
+        CREAKING("creaking", "Creaking"),
+        CREEPER("creeper", "Creeper"),
+        DOLPHIN("dolphin", "Dolphin"),
+        DONKEY("donkey", "Donkey"),
+        DROWNED("drowned", "Drowned"),
+        ELDER_GUARDIAN("elder_guardian", "Elder Guardian"),
+        ENDER_DRAGON("ender_dragon", "Ender Dragon"),
+        ENDERMAN("enderman", "Enderman"),
+        ENDERMITE("endermite", "Endermite"),
+        EVOKER("evoker", "Evoker"),
+        FOX("fox", "Fox"),
+        FROG("frog", "Frog"),
+        GHAST("ghast", "Ghast"),
+        GIANT("giant", "Giant"),
+        GLOW_SQUID("glow_squid", "Glow Squid"),
+        GOAT("goat", "Goat"),
+        GUARDIAN("guardian", "Guardian"),
+        HAPPY_GHAST("happy_ghast", "Happy Ghast"),
+        HOGLIN("hoglin", "Hoglin"),
+        HORSE("horse", "Horse"),
+        HUSK("husk", "Husk"),
+        ILLUSIONER("illusioner", "Illusioner"),
+        IRON_GOLEM("iron_golem", "Iron Golem"),
+        LLAMA("llama", "Llama"),
+        MAGMA_CUBE("magma_cube", "Magma Cube"),
+        MANNEQUIN("mannequin", "Mannequin"),
+        MOOSHROOM("mooshroom", "Mooshroom"),
+        MULE("mule", "Mule"),
+        NAUTILUS("nautilus", "Nautilus"),
+        OCELOT("ocelot", "Ocelot"),
+        PANDA("panda", "Panda"),
+        PARCHED("parched", "Parched"),
+        PARROT("parrot", "Parrot"),
+        PHANTOM("phantom", "Phantom"),
+        PIG("pig", "Pig"),
+        PIGLIN("piglin", "Piglin"),
+        PIGLIN_BRUTE("piglin_brute", "Piglin Brute"),
+        PILLAGER("pillager", "Pillager"),
+        POLAR_BEAR("polar_bear", "Polar Bear"),
+        PUFFERFISH("pufferfish", "Pufferfish"),
+        RABBIT("rabbit", "Rabbit"),
+        RAVAGER("ravager", "Ravager"),
+        SALMON("salmon", "Salmon"),
+        SHEEP("sheep", "Sheep"),
+        SHULKER("shulker", "Shulker"),
+        SILVERFISH("silverfish", "Silverfish"),
+        SKELETON("skeleton", "Skeleton"),
+        SKELETON_HORSE("skeleton_horse", "Skeleton Horse"),
+        SLIME("slime", "Slime"),
+        SNIFFER("sniffer", "Sniffer"),
+        SNOW_GOLEM("snow_golem", "Snow Golem"),
+        SPIDER("spider", "Spider"),
+        SQUID("squid", "Squid"),
+        STRAY("stray", "Stray"),
+        STRIDER("strider", "Strider"),
+        SULFUR_CUBE("sulfur_cube", "Sulfur Cube"),
+        TADPOLE("tadpole", "Tadpole"),
+        TRADER_LLAMA("trader_llama", "Trader Llama"),
+        TROPICAL_FISH("tropical_fish", "Tropical Fish"),
+        TURTLE("turtle", "Turtle"),
+        VEX("vex", "Vex"),
+        VILLAGER("villager", "Villager"),
+        VINDICATOR("vindicator", "Vindicator"),
+        WANDERING_TRADER("wandering_trader", "Wandering Trader"),
+        WARDEN("warden", "Warden"),
+        WITCH("witch", "Witch"),
+        WITHER("wither", "Wither"),
+        WITHER_SKELETON("wither_skeleton", "Wither Skeleton"),
+        WOLF("wolf", "Wolf"),
+        ZOGLIN("zoglin", "Zoglin"),
+        ZOMBIE("zombie", "Zombie"),
+        ZOMBIE_HORSE("zombie_horse", "Zombie Horse"),
+        ZOMBIE_NAUTILUS("zombie_nautilus", "Zombie Nautilus"),
+        ZOMBIE_VILLAGER("zombie_villager", "Zombie Villager"),
+        ZOMBIFIED_PIGLIN("zombified_piglin", "Zombified Piglin");
 
         public final String id, label;
         Choice(String id, String label) { this.id = id; this.label = label; }
 
         public EntityType<?> type() {
-            return this == PLAYER ? null : BuiltInRegistries.ENTITY_TYPE.getValue(Identifier.parse("minecraft:" + id));
+            return this == PLAYER ? null : BuiltInRegistries.ENTITY_TYPE.getOptional(Identifier.parse("minecraft:" + id)).orElse(null);
         }
     }
 
@@ -41,8 +132,16 @@ public final class CreatureModels {
     private static final EnumSet<Choice> FAILED = EnumSet.noneOf(Choice.class);
     private static final java.util.Map<String,Choice> CHOICES = choices();
     private static ClientLevel cachedLevel;
+    private static java.util.List<Choice> availableChoices;
 
     private CreatureModels() {}
+
+    /** Resolve once, outside rendering; older Minecraft versions omit types they do not have. */
+    public static java.util.List<Choice> availableChoices() {
+        if (availableChoices == null) availableChoices = java.util.Arrays.stream(Choice.values())
+            .filter(choice -> choice == Choice.PLAYER || choice.type() != null).toList();
+        return availableChoices;
+    }
 
     private static java.util.Map<String,Choice> choices() {
         var choices = new java.util.HashMap<String,Choice>();
@@ -71,6 +170,7 @@ public final class CreatureModels {
     public static void tick(Minecraft client) {
         if (client.level != cachedLevel) {
             CACHE.clear();
+            FAILED.clear();
             cachedLevel = client.level;
         }
     }
@@ -78,15 +178,24 @@ public final class CreatureModels {
     private static LivingEntity entity(AbstractClientPlayer player, Choice choice) {
         if (player.level() != cachedLevel) {
             CACHE.clear();
+            FAILED.clear();
             cachedLevel = (ClientLevel) player.level();
         }
+        if (FAILED.contains(choice)) return null;
         Cached cached = CACHE.get(player);
         if (cached != null && cached.choice == choice && cached.entity.level() == player.level()) return cached.entity;
-        if (FAILED.contains(choice)) return null;
         try {
-            if (!(choice.type().create(player.level(), EntitySpawnReason.COMMAND) instanceof LivingEntity entity)) return null;
+            EntityType<?> type = choice.type();
+            if (type == null || !(type.create(player.level(), EntitySpawnReason.COMMAND) instanceof LivingEntity entity)) {
+                FAILED.add(choice);
+                return null;
+            }
             // Render-state hooks expect an assigned ID, but the proxy is never added to the world.
             entity.setId(player.getId());
+            if (entity instanceof EnderDragon dragon) {
+                // A proxy is not ticked by the world. Seed the dragon's segmented body orientation.
+                for (int i = 0; i < 64; i++) dragon.flightHistory.record(player.getY(), player.getYRot());
+            }
             CACHE.put(player, new Cached(choice, entity));
             return entity;
         } catch (RuntimeException failure) {
@@ -98,7 +207,8 @@ public final class CreatureModels {
 
     public static LivingEntity previewEntity(AbstractClientPlayer player) {
         Choice choice = choiceFor(player);
-        return choice == Choice.PLAYER ? player : entity(player, choice);
+        LivingEntity creature = choice == Choice.PLAYER ? null : entity(player, choice);
+        return creature == null ? player : creature;
     }
 
     public static EntityRenderState replace(AbstractClientPlayer player, AvatarRenderState original, float partialTick) {
@@ -111,8 +221,18 @@ public final class CreatureModels {
         creature.setXRot(player.getXRot());
         creature.setYBodyRot(player.yBodyRot);
         creature.setYHeadRot(player.getYHeadRot());
-        EntityRenderState extracted = Minecraft.getInstance().getEntityRenderDispatcher().extractEntity(creature, partialTick);
-        if (!(extracted instanceof LivingEntityRenderState replacement)) return original;
+        if (creature instanceof EnderDragon dragon && creature.tickCount != player.tickCount)
+            dragon.flightHistory.record(player.getY(), player.getYRot());
+        creature.tickCount = player.tickCount;
+        EntityRenderState replacement;
+        try {
+            replacement = Minecraft.getInstance().getEntityRenderDispatcher().extractEntity(creature, partialTick);
+        } catch (RuntimeException failure) {
+            FAILED.add(choice);
+            CACHE.remove(player);
+            CustomCosmeticsClient.LOGGER.warn("Unable to render visual {} model; using player model", choice.id, failure);
+            return original;
+        }
 
         replacement.x = original.x;
         replacement.y = original.y;
@@ -128,19 +248,25 @@ public final class CreatureModels {
         replacement.nameTag = original.nameTag;
         replacement.scoreText = original.scoreText;
         replacement.nameTagAttachment = original.nameTagAttachment;
-        replacement.bodyRot = original.bodyRot;
-        replacement.yRot = original.yRot;
-        replacement.xRot = original.xRot;
-        replacement.deathTime = original.deathTime;
-        replacement.walkAnimationPos = original.walkAnimationPos;
-        replacement.walkAnimationSpeed = original.walkAnimationSpeed;
-        replacement.isUpsideDown = original.isUpsideDown;
-        replacement.isFullyFrozen = original.isFullyFrozen;
-        replacement.isInWater = original.isInWater;
-        replacement.isAutoSpinAttack = original.isAutoSpinAttack;
-        replacement.hasRedOverlay = original.hasRedOverlay;
-        replacement.isInvisibleToPlayer = original.isInvisibleToPlayer;
-        replacement.pose = original.pose;
+        if (replacement instanceof LivingEntityRenderState living) {
+            living.bodyRot = original.bodyRot;
+            living.yRot = original.yRot;
+            living.xRot = original.xRot;
+            living.deathTime = original.deathTime;
+            living.walkAnimationPos = original.walkAnimationPos;
+            living.walkAnimationSpeed = original.walkAnimationSpeed;
+            living.isUpsideDown = original.isUpsideDown;
+            living.isFullyFrozen = original.isFullyFrozen;
+            living.isInWater = original.isInWater;
+            living.isAutoSpinAttack = original.isAutoSpinAttack;
+            living.hasRedOverlay = original.hasRedOverlay;
+            living.isInvisibleToPlayer = original.isInvisibleToPlayer;
+            living.pose = original.pose;
+        } else if (replacement instanceof EnderDragonRenderState dragon) {
+            dragon.flapTime = original.ageInTicks * 0.1f;
+            dragon.deathTime = original.deathTime;
+            dragon.hasRedOverlay = original.hasRedOverlay;
+        }
         return replacement;
     }
 }
