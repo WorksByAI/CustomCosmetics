@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.6
+
+- Add all vanilla creature models, including bosses, with synchronized choices.
+- Fit large creature previews and make all models searchable.
+- Fix sheep head jitter when looking around.
+
 ## 1.8.6-dev.2
 
 - Fix sheep head jitter by preserving player rotation interpolation in creature proxies.
