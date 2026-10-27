@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.0-dev.2
+
+- Add spring hover zoom, lift, edge glow, a brief highlight sweep and click rebound.
+- Animate switch thumbs, slider hover halos and field focus accents; keep hitboxes fixed.
+
 ## 2.0.0-dev.1
 
 - Preview a compact interface with dark/light themes, editable accent colors and optional motion.

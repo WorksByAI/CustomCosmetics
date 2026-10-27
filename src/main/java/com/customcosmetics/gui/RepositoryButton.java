@@ -11,7 +11,6 @@ import java.net.URI;
 /** Official, unmodified white GitHub mark used only to link to this project's source. */
 public final class RepositoryButton extends PinkUi.Action {
     public static final URI REPOSITORY = URI.create("https://github.com/WorksByAI/CustomCosmetics");
-    private final UiMotion hover=new UiMotion(0);
     private static final Identifier ICON = Identifier.fromNamespaceAndPath("customcosmetics", "textures/gui/github.png");
 
     public RepositoryButton(int x, int y) {
@@ -20,7 +19,9 @@ public final class RepositoryButton extends PinkUi.Action {
     }
 
     @Override protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
-        float over=hover.value(isHoveredOrFocused()?1:0,com.customcosmetics.config.ConfigManager.uiAnimationsEnabled);
+        boolean effect=beginHoverTransform(g,mx,my);
+        try {
+        float over=hover.value(isMouseOver(mx,my)?1:0,com.customcosmetics.config.ConfigManager.uiAnimationsEnabled);
         PinkUi.outline(g,getX(),getY(),width,height,4,isFocused()?PinkUi.PINK:PinkUi.BORDER,
             PinkUi.mix(0xFF252B31,0xFF3A444D,over));
         // Preserve the official mark's 294:288 aspect ratio and original white color.
@@ -29,5 +30,6 @@ public final class RepositoryButton extends PinkUi.Action {
         g.pose().scale(20f / 294f, 20f / 294f);
         g.blit(ICON, 0, 0, 294, 288, 0f, 1f, 0f, 1f);
         g.pose().popMatrix();
+        } finally {if(effect)g.pose().popMatrix();}
     }
 }

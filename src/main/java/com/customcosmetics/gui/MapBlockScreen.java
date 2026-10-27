@@ -65,9 +65,12 @@ public final class MapBlockScreen extends ThemedScreen {
         @Override public boolean keyPressed(net.minecraft.client.input.KeyEvent e){if(e.key()==ClientInput.ENTER||e.key()==ClientInput.SPACE){choose();return true;}return super.keyPressed(e);}
         @Override protected void extractWidgetRenderState(GuiGraphicsExtractor g,int mx,int my,float dt){
             if(value==null)return;int border=value.id.equals(selectedId)?0xFF7BE6A2:MapEditor.favorites.contains(value.id)?0xFF6DE6EE:isFocused()?PINK:BORDER;
+            boolean effect=beginHoverTransform(g,mx,my);
+            try {
             int left=getX(),top=getY();g.fill(left+1,top+1,left+23,top+23,isHoveredOrFocused()?0x27FFFFFF:CARD);
             g.fill(left,top,left+24,top+1,border);g.fill(left,top+23,left+24,top+24,border);
             g.fill(left,top+1,left+1,top+23,border);g.fill(left+23,top+1,left+24,top+23,border);
+            } finally {if(effect)g.pose().popMatrix();}
         }
         private void extractIcon(GuiGraphicsExtractor g){g.item(value.icon,getX()+4,getY()+4);}
     }

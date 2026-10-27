@@ -161,6 +161,8 @@ public final class BlockingItemsScreen extends ThemedScreen {
         }
         @Override protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
             if (entry == null) return;
+            boolean effect=beginHoverTransform(g,mx,my);
+            try {
             boolean checked = BlockingItemsScreen.this.selected().contains(entry.id());
             outline(g, getX(), getY(), getWidth(), getHeight(), 5, isFocused() ? PINK : BORDER,
                 isHoveredOrFocused() ? 0x27FFFFFF : CARD);
@@ -168,6 +170,7 @@ public final class BlockingItemsScreen extends ThemedScreen {
             if (checked) text(g, font, "✓", getX() + 12, getY() + 12, PINK, 10);
             text(g, font, entry.name(), getX() + 32, getY() + 5, checked ? PINK : TEXT, getWidth() - 42);
             text(g, font, entry.id(), getX() + 32, getY() + 18, MUTED, getWidth() - 42);
+            } finally {if(effect)g.pose().popMatrix();}
         }
     }
 }

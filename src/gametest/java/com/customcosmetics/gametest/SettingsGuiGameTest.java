@@ -151,6 +151,14 @@ final class SettingsGuiGameTest {
             ConfigManager.uiAnimationsEnabled=true;ConfigManager.uiBackgroundBlur=false;
             ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.THEME));
         });context.getInput().setCursorPos(1595,995);context.waitTicks(5);context.takeScreenshot("interface-dark");
+        var hoverBounds=context.computeOnClient(client->{var w=widget(client,"Ocean",PinkUi.Action.class);return new int[]{w.getX(),w.getY(),w.getWidth(),w.getHeight()};});
+        var hoverPoint=context.computeOnClient(client->{double scale=client.getWindow().getGuiScale();return new double[]{(hoverBounds[0]+hoverBounds[2]/2d)*scale,(hoverBounds[1]+hoverBounds[3]/2d)*scale};});
+        context.getInput().setCursorPos(hoverPoint[0],hoverPoint[1]);context.waitTicks(6);
+        context.runOnClient(client->{var w=widget(client,"Ocean",PinkUi.Action.class);
+            if(w.getX()!=hoverBounds[0]||w.getY()!=hoverBounds[1]||w.getWidth()!=hoverBounds[2]||w.getHeight()!=hoverBounds[3]||!w.isMouseOver(hoverBounds[0]+1,hoverBounds[1]+1))
+                throw new AssertionError("Hover feedback moved the logical button bounds or broke edge clicks");
+        });
+        context.takeScreenshot("interface-spring-hover-fixed-hitbox");
         type(context,"Accent Color","#729FD4");
         context.runOnClient(client->{if(ConfigManager.uiAccentColor!=0x729FD4||PinkUi.PINK!=0xFF729FD4)throw new AssertionError("Typed theme color was not applied");});
         type(context,"Accent Color","#invalid");

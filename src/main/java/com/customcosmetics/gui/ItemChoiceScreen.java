@@ -117,10 +117,13 @@ public final class ItemChoiceScreen extends ThemedScreen {
         }
         @Override protected void extractWidgetRenderState(GuiGraphicsExtractor g,int mx,int my,float delta){
             if(value==null)return;
+            boolean effect=beginHoverTransform(g,mx,my);
+            try {
             outline(g,getX(),getY(),getWidth(),getHeight(),5,isFocused()?PINK:BORDER,isHoveredOrFocused()?0x27FFFFFF:CARD);
             g.item(value.icon(),getX()+7,getY()+7);
             text(g,font,value.label(),getX()+32,getY()+5,TEXT,getWidth()-42);
             text(g,font,value.id(),getX()+32,getY()+17,MUTED,getWidth()-42);
+            } finally {if(effect)g.pose().popMatrix();}
         }
     }
 }
