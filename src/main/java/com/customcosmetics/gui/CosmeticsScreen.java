@@ -64,6 +64,8 @@ public final class CosmeticsScreen extends ThemedScreen {
     private String searchQuery="";
     private PinkUi.Field searchField;
     private final UiMotion pageFade=new UiMotion(0);
+    private final UiMotion entrance=new UiMotion(0,UiMotion.Curve.SPRING);
+    private float entranceScale=1;
     private boolean drawingPinned;
     private int positionedScroll=Integer.MIN_VALUE, positionedNavScroll=Integer.MIN_VALUE;
     private record Placement(AbstractWidget widget, int y) {}
@@ -78,7 +80,7 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
 
     @Override protected void init() {
-        UiTheme.refresh();
+        UiLocale.refresh();UiTheme.refresh();
         positionedScroll=positionedNavScroll=Integer.MIN_VALUE;
         navigation.clear(); sidebarControls.clear(); sidebarArt.clear(); controls.clear(); art.clear(); pinnedArt.clear();
         searchOptions.clear();
@@ -98,7 +100,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         navigation.add(addWidget(new PinkUi.Action(panelX+47,panelY+panelHeight-42,sideWidth-55,30,"Settings",false,()->open(Page.SYNC)).selected(()->page==Page.SYNC)));
         navigation.add(addWidget(new PinkUi.Action(panelX + panelWidth - 32, panelY + 14, 20, 20, "×", false, this::onClose)));
         searchField=new PinkUi.Field(font,contentX,panelY+54,contentWidth,"Search Settings",24);
-        searchField.setMaxLength(128);searchField.setHint(Component.literal("Search settings..."));searchField.setValue(searchQuery);
+        searchField.setMaxLength(128);searchField.setHint(UiText.component("Search settings..."));searchField.setValue(searchQuery);
         searchField.setResponder(value->{
             searchQuery=value;scroll=0;activity();
             page=Page.SEARCH;rebuildWidgets();setFocused(searchField);searchField.moveCursorToEnd(false);
@@ -209,7 +211,7 @@ public final class CosmeticsScreen extends ThemedScreen {
 
     private void navSection(String title) {
         int y = navRowY + 7;
-        sidebarArt.add(g -> text(g, font, title, panelX + 15, y, DIM, sideWidth - 26));
+        sidebarArt.add(g -> uiText(g, font, title, panelX + 15, y, DIM, sideWidth - 26));
         navRowY += 21;
     }
     private void navItem(String name, Page target) {
@@ -220,7 +222,7 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
     private void navAction(String name, Runnable callback, BooleanSupplier selected) {
         var widget = new PinkUi.Action(panelX + 8, navRowY, sideWidth - 18, 23, name, false, callback).leftAligned().selected(selected);
-        widget.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(name)));
+        widget.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.component(name)));
         sidebarControls.add(new Placement(addWidget(widget), navRowY)); navRowY += 26;
     }
     private int maxNavScroll() { return Math.max(0, navContentBottom - navBottom); }
@@ -282,7 +284,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         rowY += 3;
     }
     private void paragraph(String text, int color) {
-        for (var line : font.split(Component.literal(text), Math.max(1, contentWidth))) {
+        for (var line : font.split(UiText.component(text), Math.max(1, contentWidth))) {
             int y = rowY; art.add(bounded(y,y+12,g -> g.text(font, line, contentX, y, color, false))); rowY += 12;
         }
         rowY += 5;
@@ -438,7 +440,7 @@ public final class CosmeticsScreen extends ThemedScreen {
 
     private void positionRecipients(){
         fullButton("Back to Sharing",()->open(Page.PARTY),false);
-        for(var line:font.split(Component.literal("Only selected players receive your position in Selected Players mode."),contentWidth)){
+        for(var line:font.split(UiText.component("Only selected players receive your position in Selected Players mode."),contentWidth)){
             int y=rowY;art.add(g->g.text(font,line,contentX,y,MUTED,false));rowY+=12;
         }rowY+=16;
         var search=fieldRow("Search Nickname or Account","Search Nickname or Account",blockedPlayerSearch,64,"",220,value->{});
@@ -451,18 +453,18 @@ public final class CosmeticsScreen extends ThemedScreen {
             .filter(p->p.name().toLowerCase(Locale.ROOT).contains(query)||p.nickname().toLowerCase(Locale.ROOT).contains(query))
             .sorted(java.util.Comparator.comparing(PresenceSync.SyncedPlayer::name,String.CASE_INSENSITIVE_ORDER)).toList();
         for(var player:matches){
-            int row=card(50);label(player.nickname(),contentX+12,row+10,TEXT,contentWidth-116);label(player.name(),contentX+12,row+29,DIM,contentWidth-116);
+            int row=card(50);rawLabel(player.nickname(),contentX+12,row+10,TEXT,contentWidth-116);rawLabel(player.name(),contentX+12,row+29,DIM,contentWidth-116);
             boolean selected=PlayerBlocklist.contains(ConfigManager.positionSharingTargets,player.uuid(),player.name());
             var action=add(new PinkUi.Action(contentX+contentWidth-92,row+12,80,26,selected?"Selected":"Select",false,()->selectPositionRecipient(new PlayerBlocklist.Entry(player.uuid(),player.name()))));
             action.active=!selected&&ConfigManager.positionSharingTargets.size()<com.customcosmetics.features.party.PositionAudience.MAX_TARGETS;
         }
         label("Selected Players",contentX,rowY+4,PINK,contentWidth);rowY+=24;
         if(ConfigManager.positionSharingTargets.isEmpty()){
-            for(var line:font.split(Component.literal("No selected players. Your position will not be shared in this mode."),contentWidth-24)){
+            for(var line:font.split(UiText.component("No selected players. Your position will not be shared in this mode."),contentWidth-24)){
                 int y=rowY+10;art.add(g->g.text(font,line,contentX+12,y,DIM,false));rowY+=12;
             }rowY+=20;
         }
-        for(var entry:ConfigManager.positionSharingTargets){int row=card(38);label(entry.account(),contentX+12,row+14,TEXT,contentWidth-116);
+        for(var entry:ConfigManager.positionSharingTargets){int row=card(38);rawLabel(entry.account(),contentX+12,row+14,TEXT,contentWidth-116);
             add(new PinkUi.Action(contentX+contentWidth-92,row+6,80,26,"Remove",false,()->{
                 ConfigManager.positionSharingTargets=ConfigManager.positionSharingTargets.stream().filter(e->!e.equals(entry)).toList();changed();rebuildWidgets();
             }));
@@ -511,8 +513,8 @@ public final class CosmeticsScreen extends ThemedScreen {
         label("Preview", contentX + 12, y + 12, PINK, contentWidth - 24);
         art.add(g -> {
             if (minecraft.player == null) {
-                text(g, font, "Player preview unavailable", contentX + 12, y + 59, MUTED, contentWidth - 24);
-                text(g, font, "Requires an active world", contentX + 12, y + 77, DIM, contentWidth - 24);
+                uiText(g, font, "Player preview unavailable", contentX + 12, y + 59, MUTED, contentWidth - 24);
+                uiText(g, font, "Requires an active world", contentX + 12, y + 77, DIM, contentWidth - 24);
                 return;
             }
             Component name = NickRenderUtils.previewNickname(minecraft.player.getName().getString());
@@ -670,7 +672,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         ConfigManager.nickTweaksNickChanger = com.customcosmetics.config.NicknameLimit.limit(ConfigManager.nickTweaksNickChanger);
         var nickname = fieldRow("Nick Changer","Nick Changer",ConfigManager.nickTweaksNickChanger,
             com.customcosmetics.config.NicknameLimit.MAX_LENGTH,"Color codes: &0–&f, &r",220,value -> {});
-        nickname.setHint(Component.literal("Account name (40 characters max)"));
+        nickname.setHint(UiText.component("Account name (40 characters max)"));
         nickname.setResponder(value -> {
             String limited = com.customcosmetics.config.NicknameLimit.limit(value);
             if (!value.equals(limited)) { nickname.setValue(limited); return; }
@@ -703,7 +705,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         if(matches.isEmpty()){label("No matching synced players.",contentX+12,rowY+10,DIM,contentWidth-24);rowY+=30;}
         for(var player:matches){
             String alias=player.nickname();if(alias.isBlank())alias=player.name();
-            int row=card(50);label(alias,contentX+12,row+10,TEXT,contentWidth-116);label(player.name(),contentX+12,row+29,DIM,contentWidth-116);
+            int row=card(50);label(alias,contentX+12,row+10,TEXT,contentWidth-116);rawLabel(player.name(),contentX+12,row+29,DIM,contentWidth-116);
             boolean blocked=PlayerBlocklist.contains(blockList(),player.uuid(),player.name());
             var action=add(new PinkUi.Action(contentX+contentWidth-92,row+12,80,26,blocked?"Blocked":"Block",false,()->{
                 var entries=new ArrayList<>(blockList());entries.add(new PlayerBlocklist.Entry(player.uuid(),player.name()));
@@ -713,14 +715,14 @@ public final class CosmeticsScreen extends ThemedScreen {
         rowY+=8;label("Blocked Players",contentX,rowY+4,PINK,contentWidth);rowY+=24;
         if(blockList().isEmpty()){label("No blocked players.",contentX+12,rowY+10,DIM,contentWidth-24);rowY+=30;}
         for(var entry:blockList()){
-            int row=card(38);label(entry.account(),contentX+12,row+14,TEXT,contentWidth-116);
+            int row=card(38);rawLabel(entry.account(),contentX+12,row+14,TEXT,contentWidth-116);
             add(new PinkUi.Action(contentX+contentWidth-92,row+6,80,26,"Unblock",false,()->{
                 blockList(blockList().stream().filter(value->!value.equals(entry)).toList());changed();rebuildWidgets();
             }));
         }
         int y=card(68);label("Account Name",contentX+12,y+10,TEXT,contentWidth-24);
         var field=input(contentX+12,y+28,contentWidth-126,"Blocked Account Name",blockedPlayerName,16,value->{});
-        field.setHint(Component.literal("Minecraft username"));
+        field.setHint(UiText.component("Minecraft username"));
         var block=add(new PinkUi.Action(contentX+contentWidth-102,y+28,90,26,"Block",true,()->{
             String name=blockedPlayerName.strip();
             if(!com.customcosmetics.config.PlayerBlocklist.valid(name))return;
@@ -835,7 +837,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         if (entries.isEmpty()) { label("No saved presets", contentX + 12, rowY, MUTED, contentWidth - 24); rowY += 25; }
         for (var entry : entries.entrySet()) {
             int top = card(92), w = (contentWidth - 30) / 2;
-            label(entry.getKey(), contentX + 12, top + 11, TEXT, contentWidth - 24);
+            rawLabel(entry.getKey(), contentX + 12, top + 11, TEXT, contentWidth - 24);
             var colors = entry.getValue();
             label(colors.chromaEnabled() ? "Chroma" : switch (colors.style()) {
                 case "shimmer" -> "Shimmer"; case "smooth" -> "Smooth"; case "segmented" -> "Segmented"; default -> "Per Character";
@@ -878,6 +880,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         rebuildWidgets();
     }
     private void sync() {
+        fullButton("Language: "+UiText.name(ConfigManager.uiLanguage),()->{UiLocale.cycle();rebuildWidgets();},false,"Language preference applies only to this mod.");
         fullButton("Interface",()->open(Page.THEME),false,"Theme colors and animations");
         section("General", "Preferences and feature availability.");
         fullButton("Module Manager",()->open(Page.MODULES),false,"Enable or disable whole features without losing their settings.");
@@ -891,7 +894,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         section("Connections", "Choose how your cosmetics and teammates stay in sync.");
         fullButton("Mode: "+(ConfigManager.offlineMode?"Offline":"Online"),()->{
             com.customcosmetics.config.CosmeticsMode.setOffline(!ConfigManager.offlineMode);activity();rebuildWidgets();
-        },false).setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal("Offline: local cosmetics only. No remote connections.")));
+        },false).setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.component("Offline: local cosmetics only. No remote connections.")));
         toggleRow("Automatic Sync", "", () -> ConfigManager.syncEnabled, v -> ConfigManager.syncEnabled = v);
         refreshIntervalField = fieldRow("Refresh Interval (seconds)","Refresh Interval",
             Integer.toString(ConfigManager.getSyncRefreshIntervalSeconds()),8,"30–7200 seconds (2 hours)",100,value -> {
@@ -949,7 +952,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         toggleRow("Share Skin via P2P","Only established Sharing direct connections. No relay or server upload.",()->ConfigManager.skinP2pSharing,v->ConfigManager.skinP2pSharing=v);
         toggleRow("Receive P2P Skins","Restore the original skin when the direct connection ends.",()->ConfigManager.skinP2pReceiving,v->ConfigManager.skinP2pReceiving=v);
         label("Established P2P peers: "+com.customcosmetics.features.skins.LocalSkins.directCount(),contentX,rowY+5,MUTED,contentWidth);rowY+=24;
-        for(var line:font.split(Component.literal("PNG up to 10 MiB. Model pixels are preserved. Skin transfers share an 8 Mbps upload limit, with missing-chunk retries."),contentWidth-16)){int y=rowY;art.add(g->g.text(font,line,contentX+8,y,MUTED,false));rowY+=12;}
+        for(var line:font.split(UiText.component("PNG up to 10 MiB. Model pixels are preserved. Skin transfers share an 8 Mbps upload limit, with missing-chunk retries."),contentWidth-16)){int y=rowY;art.add(g->g.text(font,line,contentX+8,y,MUTED,false));rowY+=12;}
     }
     private void mapEditor(){
         toggleRow("Freecam","WASD / Jump / Sneak: fly. Sprint: faster. Bind a key in Controls.",com.customcosmetics.features.map.Freecam::active,v->com.customcosmetics.features.map.MapCommands.run(()->com.customcosmetics.features.map.Freecam.setEnabled(v)));
@@ -981,8 +984,8 @@ public final class CosmeticsScreen extends ThemedScreen {
         int y=card(108);
         art.add(g->{
             if (y - scroll >= viewBottom || y + 108 - scroll <= viewTop) return;
-            text(g,font,connectionRosterTitle,contentX+12,y+12,PINK,contentWidth-24);
-            text(g,font,connectionRosterSource,contentX+12,y+28,MUTED,contentWidth-24);
+            uiText(g,font,connectionRosterTitle,contentX+12,y+12,PINK,contentWidth-24);
+            uiText(g,font,connectionRosterSource,contentX+12,y+28,MUTED,contentWidth-24);
             for(int i=0;i<connectionLines.size();i++)text(g,font,connectionLines.get(i),contentX+12,y+48+i*12,MUTED,contentWidth-24);
         });
     }
@@ -1000,7 +1003,7 @@ public final class CosmeticsScreen extends ThemedScreen {
     private void credit() {
         int y = rowY + 4;
         art.add(g -> { g.pose().pushMatrix(); g.pose().translate(contentX,y); g.pose().scale(.8f,.8f);
-            text(g,font,"Thanks to Baity / raueyhs.",0,0,DIM,(int)(contentWidth/.8f)); g.pose().popMatrix(); });
+            uiText(g,font,"Thanks to Baity / raueyhs.",0,0,DIM,(int)(contentWidth/.8f)); g.pose().popMatrix(); });
         rowY += 22;
     }
     private record NumericSetting(String title,DoubleSupplier getter,double min,double max,double step,double defaultValue,DoubleConsumer setter,String description) {
@@ -1069,7 +1072,8 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
     private Consumer<GuiGraphicsExtractor> bounded(int top,int bottom,Consumer<GuiGraphicsExtractor> draw){return g->{if(drawingPinned||bottom>viewTop+scroll&&top<viewBottom+scroll)draw.accept(g);};}
     private int row(int height){int y=rowY;art.add(bounded(y,y+height,g->g.fill(contentX,y+height-1,contentX+contentWidth,y+height,BORDER)));rowY+=height+3;return y;}
-    private void label(String label, int x, int y, int color, int width) {
+    private void label(String label,int x,int y,int color,int width){rawLabel(UiText.tr(label),x,y,color,width);}
+    private void rawLabel(String label, int x, int y, int color, int width) {
         if (width <= 0) return;
         String fitted = font.width(label) <= width ? label
             : font.plainSubstrByWidth(label, Math.max(0, width - font.width("…"))) + "…";
@@ -1077,12 +1081,12 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
     private void toggleRow(String title, String description, BooleanSupplier getter, Consumer<Boolean> setter) {
         indexOption(title,description,rowY);
-        var titleLines = font.split(Component.literal(title), Math.max(1, contentWidth - 66));
+        var titleLines = font.split(UiText.component(title), Math.max(1, contentWidth - 66));
         int titleHeight = Math.max(18, titleLines.size() * 11);
         int y = row(Math.max(35,16+titleHeight));
         for (int i=0;i<titleLines.size();i++){var line=titleLines.get(i);int ty=y+11+i*11;art.add(bounded(ty,ty+11,g->g.text(font,line,contentX+8,ty,TEXT,false)));}
         var toggle=add(new PinkUi.Toggle(contentX+4,y+9,title,getter,()->{setter.accept(!getter.getAsBoolean());changed();}).rowWidth(contentWidth-16));
-        if(!description.isEmpty())toggle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(description)));
+        if(!description.isEmpty())toggle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.component(description)));
     }
 
     private void sliderRow(String title, String description, DoubleSupplier getter, double min, double max, double step, double defaultValue, DoubleConsumer setter) {
@@ -1094,8 +1098,8 @@ public final class CosmeticsScreen extends ThemedScreen {
         boolean inline=contentWidth>=400;
         int fieldWidth=inline?Math.min(preferredWidth,contentWidth/2):contentWidth-20;
         int textWidth=inline?contentWidth-fieldWidth-30:contentWidth-20;
-        var titles=font.split(Component.literal(title), Math.max(1, textWidth));
-        var lines=hint.isEmpty()?List.<net.minecraft.util.FormattedCharSequence>of():font.split(Component.literal(hint),Math.max(1,textWidth));
+        var titles=font.split(UiText.component(title), Math.max(1, textWidth));
+        var lines=hint.isEmpty()?List.<net.minecraft.util.FormattedCharSequence>of():font.split(UiText.component(hint),Math.max(1,textWidth));
         int titleHeight = titles.size() * 11;
         int fieldTop = inline ? 9 : 10 + titleHeight + 4;
         int hintTop = inline ? 10 + titleHeight + 4 : fieldTop + 28;
@@ -1116,7 +1120,7 @@ public final class CosmeticsScreen extends ThemedScreen {
     private PinkUi.Action fullButton(String text,Runnable callback,boolean primary,String description){
         indexOption(text,description,rowY);
         PinkUi.Action button = add(new PinkUi.Action(contentX, rowY, contentWidth, 28, text, primary, callback).leftAligned());
-        button.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(description.isEmpty() ? text : description)));
+        button.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.component(description.isEmpty() ? text : description)));
         rowY += 36;
         return button;
     }
@@ -1157,6 +1161,8 @@ public final class CosmeticsScreen extends ThemedScreen {
     @Override public void tick() { updateSyncNowButton(); if (page == Page.SYNC) updateConnectionStatus(); }
 
     @Override public boolean mouseScrolled(double mx, double my, double horizontal, double vertical) {
+        mx=UiEntrance.pointer(mx,panelX+panelWidth/2d,entranceScale);
+        my=UiEntrance.pointer(my,panelY+panelHeight/2d,entranceScale);
         activity();
         if (blockingMode != null) blockingMode.closeMenu();
         if (blockingStyle != null) blockingStyle.closeMenu();
@@ -1171,6 +1177,7 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
 
     @Override public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        event=entranceEvent(event);
         if (blockingStyle != null && blockingStyle.menuClick(event)) { activity(); return true; }
         if (blockingMode != null && blockingMode.menuClick(event)) { activity(); return true; }
         boolean closing = event.button() == ClientInput.MOUSE_LEFT && event.x() >= panelX + panelWidth - 32
@@ -1223,6 +1230,7 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
 
     @Override public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
+        event=entranceEvent(event);dx/=entranceScale;dy/=entranceScale;
         activity();
         if (draggingNavigation) {
             navScroll = navigationScrollbar().offsetAtPointer(event.y(), scrollGrabOffset); positionNavigation(); return true;
@@ -1232,6 +1240,7 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
 
     @Override public boolean mouseReleased(MouseButtonEvent event) {
+        event=entranceEvent(event);
         if (draggingScroll || draggingNavigation) { draggingScroll = false; draggingNavigation = false; return true; }
         return super.mouseReleased(event);
     }
@@ -1261,16 +1270,27 @@ public final class CosmeticsScreen extends ThemedScreen {
         return handled;
     }
 
+    private MouseButtonEvent entranceEvent(MouseButtonEvent event){
+        if(entranceScale==1)return event;
+        return new MouseButtonEvent(UiEntrance.pointer(event.x(),panelX+panelWidth/2d,entranceScale),UiEntrance.pointer(event.y(),panelY+panelHeight/2d,entranceScale),event.buttonInfo());
+    }
     @Override public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
+        entranceScale=UiEntrance.scale(entrance.value(1,ConfigManager.uiAnimationsEnabled));
+        boolean opening=entranceScale!=1;
+        if(opening){
+            mx=(int)Math.round(UiEntrance.pointer(mx,panelX+panelWidth/2d,entranceScale));
+            my=(int)Math.round(UiEntrance.pointer(my,panelY+panelHeight/2d,entranceScale));
+            g.pose().pushMatrix();g.pose().translate(panelX+panelWidth/2f,panelY+panelHeight/2f);g.pose().scale(entranceScale,entranceScale);g.pose().translate(-panelX-panelWidth/2f,-panelY-panelHeight/2f);
+        }
         mouseX = mx; mouseY = my;
         NickRenderUtils.beginClickGuiRenderScope();
         try {
             outline(g,panelX,panelY,panelWidth,panelHeight,5,BORDER,PANEL);
             rounded(g,panelX+1,panelY+1,sideWidth,panelHeight-2,4,SIDEBAR);
             g.fill(panelX + sideWidth, panelY + 1, panelX + sideWidth + 1, panelY + panelHeight - 1, BORDER);
-            text(g,font,"CustomCosmetics",panelX+15,panelY+20,TEXT,sideWidth-26);
-            text(g,font,"2.0",panelX+15,panelY+35,DIM,sideWidth-26);
-            text(g,font,pageTitle(),contentX,panelY+21,TEXT,contentWidth-28);
+            uiText(g,font,"CustomCosmetics",panelX+15,panelY+20,TEXT,sideWidth-26);
+            uiText(g,font,"2.0",panelX+15,panelY+35,DIM,sideWidth-26);
+            uiText(g,font,pageTitle(),contentX,panelY+21,TEXT,contentWidth-28);
             g.fill(contentX, panelY + 83, contentX + contentWidth, panelY + 84, BORDER);
             positionNavigation();
             g.enableScissor(panelX + 1, navTop, panelX + sideWidth - 6, navBottom);
@@ -1310,11 +1330,11 @@ public final class CosmeticsScreen extends ThemedScreen {
                 int tw = Math.min(contentWidth, font.width(notice) + 24);
                 int x = contentX + (contentWidth - tw) / 2;
                 outline(g,x,viewBottom-34,tw,28,4,PINK_DARK,CARD);
-                text(g, font, notice, x + 12, viewBottom - 24, PINK, tw - 24);
+                uiText(g, font, notice, x + 12, viewBottom - 24, PINK, tw - 24);
             }
             if (blockingMode != null) blockingMode.drawMenu(g, mx, my, viewTop, viewBottom);
             if (blockingStyle != null) blockingStyle.drawMenu(g, mx, my, viewTop, viewBottom);
-        } finally { NickRenderUtils.endClickGuiRenderScope(); }
+        } finally { NickRenderUtils.endClickGuiRenderScope();if(opening)g.pose().popMatrix(); }
     }
 
     @Override public boolean isPauseScreen() { return false; }

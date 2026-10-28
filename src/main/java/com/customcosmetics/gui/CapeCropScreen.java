@@ -31,15 +31,15 @@ public final class CapeCropScreen extends ThemedScreen {
         addRenderableWidget(new PinkUi.Action(x+34+cell*2,y+h-32,cell,22,"Cancel",false,this::onClose));
     }
     @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float dt){
-        outline(g,x,y,w,h,10,BORDER,PANEL);text(g,font,"Crop Cape",x+14,y+15,PINK,w-28);
+        outline(g,x,y,w,h,10,BORDER,PANEL);uiText(g,font,"Crop Cape",x+14,y+15,PINK,w-28);
         if(texture!=null)g.blit(texture,(int)bx,(int)by,(int)(bx+source.getWidth()*scale),(int)(by+source.getHeight()*scale),0,1,0,1);
         int left=(int)(bx+crop.x()*scale),top=(int)(by+crop.y()*scale),right=(int)(bx+(crop.x()+crop.width())*scale),bottom=(int)(by+(crop.y()+crop.height())*scale);
         g.fill((int)bx,(int)by,(int)(bx+source.getWidth()*scale),top,0x90000000);g.fill((int)bx,bottom,(int)(bx+source.getWidth()*scale),(int)(by+source.getHeight()*scale),0x90000000);
         g.fill((int)bx,top,left,bottom,0x90000000);g.fill(right,top,(int)(bx+source.getWidth()*scale),bottom,0x90000000);
         g.fill(left,top,right,top+1,PINK);g.fill(left,bottom-1,right,bottom,PINK);g.fill(left,top,left+1,bottom,PINK);g.fill(right-1,top,right,bottom,PINK);
         int quality=CapeImages.cropScale(crop);
-        text(g,font,"Cape face: up to "+(10*quality)+" x "+(16*quality)+" · Max 2 MiB",x+14,y+h-72,DIM,w-28);
-        text(g,font,notice,x+14,y+h-55,MUTED,w-28);super.extractRenderState(g,mx,my,dt);
+        uiText(g,font,"Cape face: up to "+(10*quality)+" x "+(16*quality)+" · Max 2 MiB",x+14,y+h-72,DIM,w-28);
+        uiText(g,font,notice,x+14,y+h-55,MUTED,w-28);super.extractRenderState(g,mx,my,dt);
     }
     private boolean inside(double mx,double my){return mx>=bx&&my>=by&&mx<bx+source.getWidth()*scale&&my<by+source.getHeight()*scale;}
     @Override public boolean mouseClicked(MouseButtonEvent event,boolean twice){if(event.button()==0&&inside(event.x(),event.y())){dragging=true;return true;}return super.mouseClicked(event,twice);}

@@ -29,7 +29,7 @@ public final class AccessoryAdjustmentScreen extends ThemedScreen {
     @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float dt){
         outline(g,x,y,w,h,10,BORDER,PANEL);text(g,font,AccessoryCatalog.slot(slot).label()+" · Position",x+12,y+14,PINK,w-24);
         int half=(w-24)/2;CapePreview.drawAccessories(g,x+12,y+37,half,preview,true,WardrobeCamera.DEFAULT);CapePreview.drawAccessories(g,x+12+half,y+37,half,preview,false,WardrobeCamera.DEFAULT);
-        text(g,font,"16 pixels = 1 block · Shared with your outfit.",x+12,y+h-48,MUTED,w-24);super.extractRenderState(g,mx,my,dt);
+        uiText(g,font,"16 pixels = 1 block · Shared with your outfit.",x+12,y+h-48,MUTED,w-24);super.extractRenderState(g,mx,my,dt);
     }
     @Override public void onClose(){ConfigManager.requestSave();ClientUiAccess.setScreen(minecraft,parent);}
     @Override public boolean isPauseScreen(){return false;}

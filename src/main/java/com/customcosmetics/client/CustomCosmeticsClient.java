@@ -26,6 +26,7 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
     public void onInitializeClient() {
         CosmeticsConfigDir.init();
         ConfigManager.loadConfig();
+        com.customcosmetics.gui.UiLocale.refresh();
         com.customcosmetics.features.cape.CapeCosmetics.init();
         com.customcosmetics.features.nickname.NicknamePresets.init();
         com.customcosmetics.features.items.ItemCosmetics.init();

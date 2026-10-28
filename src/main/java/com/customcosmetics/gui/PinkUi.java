@@ -84,6 +84,8 @@ public final class PinkUi {
         for (int i = 0; i < w; i++) g.fill(x + i, y, x + i + 1, y + h, mix(start, end, i / (double) Math.max(1, w - 1)));
     }
 
+    public static void uiText(GuiGraphicsExtractor g,Font font,String source,int x,int y,int color,int maxWidth){text(g,font,UiText.tr(source),x,y,color,maxWidth);}
+
     public static void text(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color, int maxWidth) {
         if (maxWidth <= 0) return;
         String result = font.width(text) > maxWidth ? font.plainSubstrByWidth(text, Math.max(0, maxWidth - font.width("…"))) + "…" : text;
@@ -94,7 +96,8 @@ public final class PinkUi {
         private final Runnable action;
         private final boolean primary;
         private BooleanSupplier selected = () -> false;
-        private boolean leftAligned;
+        private boolean leftAligned,rawLabel;
+        private int cachedLanguage=-1;
         private String cachedLabel;
         private int cachedWidth = -1, cachedLabelWidth;
         private Component cachedMessage;
@@ -111,6 +114,7 @@ public final class PinkUi {
 
         public Action selected(BooleanSupplier selected) { this.selected = selected; return this; }
         public Action leftAligned() { leftAligned = true; return this; }
+        public Action rawLabel(){rawLabel=true;cachedMessage=null;return this;}
 
         @Override protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
             boolean hot = isMouseOver(mx,my) && active;
@@ -158,9 +162,9 @@ public final class PinkUi {
                     g.fill(center-highlight/2,by,center+(highlight+1)/2,by+1,alpha(PINK,Math.round(150*Math.clamp(visual,0,1))));
                 }
                 Font font = Minecraft.getInstance().font;
-                if (cachedMessage != getMessage() || cachedWidth != width) {
-                    cachedMessage = getMessage(); cachedWidth = width;
-                    String original = getMessage().getString();
+                if (cachedMessage != getMessage() || cachedWidth != width || cachedLanguage!=UiText.revision()) {
+                    cachedMessage = getMessage(); cachedWidth = width;cachedLanguage=UiText.revision();
+                    String original = UiText.display(getMessage().getString(),rawLabel);
                     int available = Math.max(0, width - (leftAligned ? 22 : 12));
                     cachedLabel = font.width(original) <= available ? original
                         : font.plainSubstrByWidth(original, Math.max(0, available - font.width("…"))) + "…";
@@ -192,6 +196,7 @@ public final class PinkUi {
             }
             return false;
         }
+        @Override protected net.minecraft.network.chat.MutableComponent createNarrationMessage(){return wrapDefaultNarrationMessage(rawLabel?getMessage():UiText.component(getMessage().getString()));}
         @Override protected void updateWidgetNarration(NarrationElementOutput output) { defaultButtonNarrationText(output); }
     }
 
@@ -229,7 +234,7 @@ public final class PinkUi {
     }
 
     public static final class Slider extends AbstractSliderButton {
-        private final String label;
+        private final String label,displayLabel;
         private final double min, max, step;
         private final DoubleConsumer setter;
         private int labelSpace;
@@ -239,7 +244,7 @@ public final class PinkUi {
         public Slider(int x, int y, int w, String label, double value, double min, double max, double step, DoubleConsumer setter) {
             super(x, y, w, 30, Component.literal(label), Math.clamp((value - min) / (max - min), 0, 1));
             UiTheme.refresh();knob=new UiMotion((float)this.value);
-            this.label = label;
+            this.label = label;this.displayLabel=UiText.tr(label);
             this.min = min;
             this.max = max;
             this.step = step;
@@ -256,7 +261,7 @@ public final class PinkUi {
         @Override protected void applyValue() { setter.accept(actual()); }
         @Override public void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
             Font font = Minecraft.getInstance().font;
-            text(g, font, label, getX(), getY(), TEXT, width - labelSpace);
+            text(g, font, displayLabel, getX(), getY(), TEXT, width - labelSpace);
             int trackY = getY() + 21;
             rounded(g, getX(), trackY, width, 3, 1, BORDER);
             int progress = Math.round(knob.value((float)value,com.customcosmetics.config.ConfigManager.uiAnimationsEnabled)*(width-8));
@@ -285,6 +290,8 @@ public final class PinkUi {
             setTextShadow(false);
             setTextColor(TEXT);
         }
+
+        @Override protected net.minecraft.network.chat.MutableComponent createNarrationMessage(){return UiText.component(getMessage().getString()).append(secret?"":" "+getValue());}
 
         public void invalid(boolean invalid) { this.invalid = invalid; setTextColor(invalid ? 0xFFFF7F9B : TEXT); }
         public int insetY() { return paddingY; }
@@ -324,7 +331,7 @@ public final class PinkUi {
         private int[] hueColumns=new int[0];
 
         public ColorPicker(int x, int y, int width, int height, int rgb, IntConsumer setter) {
-            super(x, y, width, height, Component.literal("Color: hue, saturation and value"));
+            super(x, y, width, height, UiText.component("Color: hue, saturation and value"));
             this.setter = setter;
             setColor(rgb);
         }
@@ -384,6 +391,7 @@ public final class PinkUi {
             setter.accept(Color.HSBtoRGB(hue, saturation, brightness) & 0xFFFFFF);
             return true;
         }
+        @Override protected net.minecraft.network.chat.MutableComponent createNarrationMessage(){return wrapDefaultNarrationMessage(UiText.component(getMessage().getString()));}
         @Override protected void updateWidgetNarration(NarrationElementOutput output) { defaultButtonNarrationText(output); }
     }
 }

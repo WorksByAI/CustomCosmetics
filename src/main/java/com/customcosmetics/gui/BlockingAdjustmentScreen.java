@@ -58,9 +58,9 @@ public final class BlockingAdjustmentScreen extends ThemedScreen {
         return super.mouseScrolled(mx,my,horizontal,vertical);
     }
     @Override public void extractRenderState(GuiGraphicsExtractor graphics,int mx,int my,float dt){
-        outline(graphics,x,y,w,h,10,BORDER,PANEL);text(graphics,font,"Adjust Blocking",x+16,y+16,PINK,w-32);
+        outline(graphics,x,y,w,h,10,BORDER,PANEL);uiText(graphics,font,"Adjust Blocking",x+16,y+16,PINK,w-32);
         int previewHeight=top-y-58;outline(graphics,x+16,y+38,w-32,previewHeight,6,BORDER,0x80303943);
-        text(graphics,font,"Preview",x+24,y+46,PINK,w-48);
+        uiText(graphics,font,"Preview",x+24,y+46,PINK,w-48);
         BlockingPreview.draw(graphics,x+18,y+58,w-36,Math.max(1,previewHeight-23),animate?(System.currentTimeMillis()%800)/800f:0);
         position();graphics.enableScissor(x+10,top,x+w-10,bottom);
         for(var placement:controls)if(placement.widget().visible)placement.widget().extractRenderState(graphics,mx,my,dt);

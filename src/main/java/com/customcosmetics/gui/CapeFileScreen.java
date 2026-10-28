@@ -27,7 +27,7 @@ public final class CapeFileScreen extends ThemedScreen {
             var entries=stream.filter(p->Files.isDirectory(p)||p.getFileName().toString().toLowerCase(Locale.ROOT).matches(".*\\.(png|jpg|jpeg|bmp|gif)$"))
                 .sorted(Comparator.comparing((Path p)->!Files.isDirectory(p)).thenComparing(p->p.getFileName().toString().toLowerCase(Locale.ROOT))).limit(500).toList();
             for(var path:entries){boolean folder=Files.isDirectory(path);String label=(folder?"[Folder] ":"")+path.getFileName();
-                var button=addWidget(new PinkUi.Action(x+14,top+files.size()*28,w-28,24,label,false,()->{if(folder)open(path);else select(path);}));files.add(button);
+                var button=addWidget(new PinkUi.Action(x+14,top+files.size()*28,w-28,24,label,false,()->{if(folder)open(path);else select(path);}).rawLabel());files.add(button);
             }
         }catch(Exception error){notice="Cannot read folder: "+error.getMessage();}
         scroll=Math.clamp(scroll,0,maxScroll());position();
@@ -40,7 +40,7 @@ public final class CapeFileScreen extends ThemedScreen {
     @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float dt){
         outline(g,x,y,w,h,10,BORDER,PANEL);text(g,font,atlas?"Choose Cape + Elytra":"Choose Image to Crop",x+14,y+15,PINK,w-28);position();
         g.enableScissor(x+10,top,x+w-10,bottom);for(var file:files)if(file.visible)file.extractRenderState(g,mx,my,dt);g.disableScissor();
-        text(g,font,notice,x+14,y+h-50,MUTED,w-28);super.extractRenderState(g,mx,my,dt);
+        uiText(g,font,notice,x+14,y+h-50,MUTED,w-28);super.extractRenderState(g,mx,my,dt);
     }
     @Override public void onClose(){CosmeticsScreen.childInteraction();ClientUiAccess.setScreen(minecraft,parent);}
     @Override public boolean isPauseScreen(){return false;}

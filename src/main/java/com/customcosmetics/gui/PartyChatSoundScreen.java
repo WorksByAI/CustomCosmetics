@@ -26,7 +26,7 @@ public final class PartyChatSoundScreen extends ThemedScreen {
             var ordered=new LinkedHashSet<String>();PartyChatSound.PRESETS.keySet().stream().filter(available::contains).forEach(ordered::add);
             ordered.addAll(available);sounds=List.copyOf(ordered);
         }
-        var search=addRenderableWidget(new PinkUi.Field(font,x+12,y+34,w-24,"Search Sounds",22));search.setMaxLength(128);search.setHint(Component.literal("Search sounds…"));search.setValue(query);search.setResponder(value->{query=value;offset=0;filter();});
+        var search=addRenderableWidget(new PinkUi.Field(font,x+12,y+34,w-24,"Search Sounds",22));search.setMaxLength(128);search.setHint(UiText.component("Search sounds…"));search.setValue(query);search.setResponder(value->{query=value;offset=0;filter();});
         for(int i=0;i<Math.max(1,(h-132)/26);i++){
             int index=i;
             rows.add(addRenderableWidget(new PinkUi.Action(x+12,y+65+i*26,w-24,24,"",false,()->choose(offset+index))
@@ -46,7 +46,7 @@ public final class PartyChatSoundScreen extends ThemedScreen {
     private void choose(int index){if(index>=filtered.size())return;ConfigManager.partyChatSound=filtered.get(index);ConfigManager.requestSave();PartyChatSound.preview(minecraft);onClose();}
     @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float dt){
         g.fill(0,0,width,height,0x70000000);outline(g,x,y,w,h,12,BORDER,PANEL);text(g,font,getTitle().getString(),x+12,y+13,PINK,w-24);
-        if(filtered.isEmpty())text(g,font,"No matching sounds",x+16,y+70,MUTED,w-32);
+        if(filtered.isEmpty())uiText(g,font,"No matching sounds",x+16,y+70,MUTED,w-32);
         super.extractRenderState(g,mx,my,dt);
     }
     @Override public boolean isPauseScreen(){return false;}

@@ -25,7 +25,7 @@ public final class MapPresetScreen extends ThemedScreen {
     @Override protected void init(){
         rows.clear();w=Math.min(620,width-16);h=Math.min(326,height-16);x=(width-w)/2;y=(height-h)/2;
         left=Math.max(108,(w-36)*2/5);right=x+left+24;detailWidth=x+w-12-right;
-        search=addRenderableWidget(new PinkUi.Field(font,x+12,y+36,left,"Search presets",20));search.setMaxLength(48);search.setHint(Component.literal("Search presets…"));search.setValue(query);search.setResponder(v->{query=v;offset=0;filter();});
+        search=addRenderableWidget(new PinkUi.Field(font,x+12,y+36,left,"Search presets",20));search.setMaxLength(48);search.setHint(UiText.component("Search presets…"));search.setValue(query);search.setResponder(v->{query=v;offset=0;filter();});
         nameField=addRenderableWidget(new PinkUi.Field(font,right,y+51,detailWidth,"Preset name",20));nameField.setMaxLength(48);nameField.setValue(name);nameField.setResponder(v->{name=v;confirmation="";status="";updateButtons();});
         int half=(detailWidth-6)/2;
         int listHalf=(left-6)/2;
@@ -41,7 +41,7 @@ public final class MapPresetScreen extends ThemedScreen {
         addRenderableWidget(new PinkUi.Action(x+12,y+h-25,w-24,18,"Back",false,this::onClose));
         for(int i=0;i<Math.max(1,(h-134)/25);i++){
             int index=i;
-            rows.add(addRenderableWidget(new PinkUi.Action(x+12,y+62+i*25,left,23,"",false,()->select(offset+index)).selected(()->offset+index<filtered.size()&&filtered.get(offset+index).name().equals(selected))));
+            rows.add(addRenderableWidget(new PinkUi.Action(x+12,y+62+i*25,left,23,"",false,()->select(offset+index)).rawLabel().selected(()->offset+index<filtered.size()&&filtered.get(offset+index).name().equals(selected))));
         }
         reload();
     }
@@ -75,11 +75,11 @@ public final class MapPresetScreen extends ThemedScreen {
     @Override public boolean mouseScrolled(double mx,double my,double horizontal,double vertical){if(mx>=x+12&&mx<right&&my>=y+62&&my<y+h-68){offset=Math.clamp(offset-(int)Math.signum(vertical)*3,0,Math.max(0,filtered.size()-rows.size()));updateButtons();return true;}return super.mouseScrolled(mx,my,horizontal,vertical);}
     @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float dt){
         outline(g,x,y,w,h,10,BORDER,PANEL);text(g,font,getTitle().getString(),x+12,y+13,PINK,w-24);
-        text(g,font,"Preset name",right,y+37,MUTED,detailWidth);
+        uiText(g,font,"Preset name",right,y+37,MUTED,detailWidth);
         var info=selectedInfo;
         text(g,font,info==null?"Select a preset or save a new one.":info.room(),right,y+81,TEXT,detailWidth);
         text(g,font,selectedCount,right,y+94,MUTED,detailWidth);
-        if(h>=290){text(g,font,"Here: "+MapEditor.roomLabel(),right,y+117,MUTED,detailWidth);text(g,font,"Position and facing align automatically.",right,y+131,MUTED,detailWidth);}
+        if(h>=290){uiText(g,font,"Here: "+MapEditor.roomLabel(),right,y+117,MUTED,detailWidth);uiText(g,font,"Position and facing align automatically.",right,y+131,MUTED,detailWidth);}
         if(filtered.isEmpty())text(g,font,entries.isEmpty()?"No saved presets yet":"No matching presets",x+16,y+70,MUTED,left-8);
         text(g,font,status.isEmpty()?"Scroll the list to browse · "+entries.size()+" presets":status,x+12,y+h-38,status.isEmpty()?MUTED:PINK,w-24);
         super.extractRenderState(g,mx,my,dt);

@@ -49,7 +49,7 @@ public final class WaypointScreen extends ThemedScreen {
                 addRenderableWidget(new Action(x + 12, y + 72 + i * 27, left, 24,
                         (item.enabled() ? "" : "○ ") + item.name(), false, () -> {
                     selected = item.id(); pointOffset = 0; message = ""; rebuildWidgets();
-                }).selected(() -> item.id().equals(selected)));
+                }).rawLabel().selected(() -> item.id().equals(selected)));
             }
             if (group != null && pointIndex < group.points().size()) {
                 Point point = group.points().get(pointIndex);
@@ -151,20 +151,20 @@ public final class WaypointScreen extends ThemedScreen {
     }
     @Override public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
         outline(g, x, y, w, h, 10, BORDER, PANEL);
-        text(g, font, "Waypoints", x + 12, y + 16, PINK, w - 140);
-        if (w >= 600) text(g, font, "Current: " + (here.isBlank() ? "Waiting for Hypixel SkyBlock" : SkyblockIslands.name(here)),
+        uiText(g, font, "Waypoints", x + 12, y + 16, PINK, w - 140);
+        if (w >= 600) uiText(g, font, "Current: " + (here.isBlank() ? "Waiting for Hypixel SkyBlock" : SkyblockIslands.name(here)),
                 x + 334, y + 43, MUTED, w - 346);
-        text(g, font, "Groups on this island · " + groups.size(), x + 12, y + 58, TEXT, left);
+        uiText(g, font, "Groups on this island · " + groups.size(), x + 12, y + 58, TEXT, left);
         text(g, font, group == null ? "Create a group to begin" : group.name() + " · " + group.points().size() +
                 (group.scope().equals(here) ? " · Here" : " · Other area"), right, y + 58, TEXT, detail);
-        if (groups.isEmpty()) text(g, font, "No groups yet", x + 16, y + 81, MUTED, left - 8);
-        else if (group != null && group.points().isEmpty()) text(g, font, "Add your current position or enter coordinates.", right, y + 81, MUTED, detail);
+        if (groups.isEmpty()) uiText(g, font, "No groups yet", x + 16, y + 81, MUTED, left - 8);
+        else if (group != null && group.points().isEmpty()) uiText(g, font, "Add your current position or enter coordinates.", right, y + 81, MUTED, detail);
         if (group != null) for (int i = 0; i < rows && pointOffset + i < group.points().size(); i++)
             g.fill(right + 2, y + 78 + i * 27, right + 4, y + 90 + i * 27, 0xff000000 | group.points().get(pointOffset + i).color());
         String feedback = !Waypoints.status().isEmpty() ? Waypoints.status() : message;
         text(g, font, feedback.isEmpty() ? "Scroll either list · Click a waypoint to edit · Display options control marker count" : feedback,
                 x + 12, y + h - 41, feedback.isEmpty() ? MUTED : PINK, w - 24);
-        text(g, font, "Ordered routes: /ccos waypoint ordered next | previous | reset", x + 12, y + h - 25, DIM, w - 24);
+        uiText(g, font, "Ordered routes: /ccos waypoint ordered next | previous | reset", x + 12, y + h - 25, DIM, w - 24);
         super.extractRenderState(g, mx, my, dt);
     }
     @Override public boolean isPauseScreen() { return false; }

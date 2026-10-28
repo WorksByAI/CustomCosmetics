@@ -26,7 +26,7 @@ final class BlockingModeDropdown extends PinkUi.Action {
     void closeMenu() { open = false; }
     @Override public void onClick(MouseButtonEvent event, boolean doubleClick) { toggle(); }
     @Override protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
-        setMessage(Component.literal("Blocking List: " + Mode.parse(ConfigManager.swordBlockingListMode).label + "  ▾"));
+        setMessage(UiText.component("Blocking List: " + Mode.parse(ConfigManager.swordBlockingListMode).label + "  ▾"));
         super.extractWidgetRenderState(g, mx, my, dt);
     }
     void drawMenu(GuiGraphicsExtractor g, int mx, int my, int top, int bottom) {

@@ -155,26 +155,26 @@ final class WaypointEditScreen extends ThemedScreen {
         boolean headerMessage = compact() && original != null && original.ordered() && !groupMode && !message.isEmpty();
         text(g, font, headerMessage ? message : (existing ? "Edit " : "New ") + getTitle().getString(), x + 12, y + 13, PINK,
                 existing ? w - 140 : w - 24);
-        text(g, font, "Name", x + 12, y + (compact() ? 27 : 32), MUTED, w - 24);
+        uiText(g, font, "Name", x + 12, y + (compact() ? 27 : 32), MUTED, w - 24);
         if (groupMode) {
             if (!compact() || message.isEmpty())
-                text(g, font, "Scope: " + (scope.isBlank() ? "Not set" : scope), x + 12, y + (compact() ? 173 : 190), TEXT, w - 24);
+                uiText(g, font, "Scope: " + (scope.isBlank() ? "Not set" : scope), x + 12, y + (compact() ? 173 : 190), TEXT, w - 24);
             if (!compact()) {
-            text(g, font, "Groups follow their SkyBlock island across server instances.", x + 12, y + 208, MUTED, w - 24);
-            text(g, font, "Ordered: previous (red), current (white), next (green).", x + 12, y + 222, MUTED, w - 24);
-            text(g, font, "Activation radius is adjustable under Display Options.", x + 12, y + 236, MUTED, w - 24);
+            uiText(g, font, "Groups follow their SkyBlock island across server instances.", x + 12, y + 208, MUTED, w - 24);
+            uiText(g, font, "Ordered: previous (red), current (white), next (green).", x + 12, y + 222, MUTED, w - 24);
+            uiText(g, font, "Activation radius is adjustable under Display Options.", x + 12, y + 236, MUTED, w - 24);
             }
         } else {
             int third = (w - 36) / 3;
-            text(g, font, "X", x + 12, y + (compact() ? 64 : 78), MUTED, third);
-            text(g, font, "Y", x + 18 + third, y + (compact() ? 64 : 78), MUTED, third);
-            text(g, font, "Z", x + 24 + third * 2, y + (compact() ? 64 : 78), MUTED, third);
-            text(g, font, "Color · AARRGGBB (or RRGGBB)", x + 12, y + (compact() ? 100 : 125), MUTED, w - 24);
+            uiText(g, font, "X", x + 12, y + (compact() ? 64 : 78), MUTED, third);
+            uiText(g, font, "Y", x + 18 + third, y + (compact() ? 64 : 78), MUTED, third);
+            uiText(g, font, "Z", x + 24 + third * 2, y + (compact() ? 64 : 78), MUTED, third);
+            uiText(g, font, "Color · AARRGGBB (or RRGGBB)", x + 12, y + (compact() ? 100 : 125), MUTED, w - 24);
             if (!compact()) text(g, font, original.ordered() ? "Route position: " + (orderIndex + 1) : "Group: " + original.name(),
                     x + 12, y + 236, MUTED, w - 24);
         }
         if (!(compact() && original != null && original.ordered() && !groupMode))
-            text(g, font, message, x + 12, y + h - 51, PINK, w - 24);
+            uiText(g, font, message, x + 12, y + h - 51, PINK, w - 24);
         super.extractRenderState(g, mx, my, dt);
     }
     @Override public boolean isPauseScreen() { return false; }

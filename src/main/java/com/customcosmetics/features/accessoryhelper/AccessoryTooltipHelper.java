@@ -188,7 +188,7 @@ public final class AccessoryTooltipHelper {
         if (catalog.get(id) == null) return;
         var view = index.view(profileKey);
         if (!view.complete()) {
-            lines.add(Component.literal("Accessory: Scan every Accessory Bag page").withColor(0xAAAAAA));
+            lines.add(com.customcosmetics.gui.UiText.component("Accessory: Scan every Accessory Bag page").withColor(0xAAAAAA));
             return;
         }
         var report = catalog.report(id, view.highest());
@@ -212,8 +212,8 @@ public final class AccessoryTooltipHelper {
             case UPGRADABLE -> " (" + report.ownedTier() + "/" + report.highestTier() + ")";
             case MISSING -> report.highestTier() > 1 ? " (" + report.candidateTier() + "/" + report.highestTier() + ")" : "";
         };
-        lines.add(Component.literal("Accessory: ").withColor(0xF57542)
-                .append(Component.literal(label).withColor(color))
+        lines.add(com.customcosmetics.gui.UiText.component("Accessory: ").withColor(0xF57542)
+                .append(com.customcosmetics.gui.UiText.component(label).withColor(color))
                 .append(Component.literal(tiers).withColor(0xF8F8FF)));
     }
     public static String notice() { return notice; }

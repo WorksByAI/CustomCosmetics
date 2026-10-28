@@ -41,7 +41,7 @@ public final class BlockingItemsScreen extends ThemedScreen {
         button(x + 24 + half, y + 42, half, "Whitelist", () -> switchList(true)).selected(() -> white);
         search = new PinkUi.Field(font, x + 16, y + 76, w - 32, "Search weapons");
         search.setMaxLength(128); search.setValue(query);
-        search.setHint(Component.literal("Search name or item ID"));
+        search.setHint(UiText.component("Search name or item ID"));
         search.setResponder(value -> { CosmeticsScreen.childInteraction(); query = value; offset = 0; refreshRows(); });
         fixed.add(addWidget(search));
         int part = (w - 50) / 4;
@@ -127,11 +127,11 @@ public final class BlockingItemsScreen extends ThemedScreen {
     }
     @Override public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
         outline(g, x, y, w, h, 11, BORDER, PANEL);
-        text(g, font, "Blocking Lists · " + selected().size() + " selected", x + 16, y + 17, PINK, w - 32);
+        uiText(g, font, "Blocking Lists · " + selected().size() + " selected", x + 16, y + 17, PINK, w - 32);
         for (AbstractWidget widget : fixed) widget.extractRenderState(g, mx, my, dt);
         g.enableScissor(x + 15, listTop, x + w - 15, listBottom);
         for (WeaponChoice row : rows) if (row.visible) row.extractRenderState(g, mx, my, dt);
-        if (filtered.isEmpty()) text(g, font, "No matching weapons", x + 28, listTop + 16, MUTED, w - 56);
+        if (filtered.isEmpty()) uiText(g, font, "No matching weapons", x + 28, listTop + 16, MUTED, w - 56);
         if (filtered.size() > rows.size()) {
             int track = rows.size() * 36;
             int thumb = Math.max(14, track * rows.size() / filtered.size());
@@ -167,7 +167,7 @@ public final class BlockingItemsScreen extends ThemedScreen {
             outline(g, getX(), getY(), getWidth(), getHeight(), 5, isFocused() ? PINK : BORDER,
                 isHoveredOrFocused() ? 0x27FFFFFF : CARD);
             outline(g, getX() + 9, getY() + 9, 14, 14, 3, checked ? PINK : BORDER, checked ? PINK_DARK : SIDEBAR);
-            if (checked) text(g, font, "✓", getX() + 12, getY() + 12, PINK, 10);
+            if (checked) uiText(g, font, "✓", getX() + 12, getY() + 12, PINK, 10);
             text(g, font, entry.name(), getX() + 32, getY() + 5, checked ? PINK : TEXT, getWidth() - 42);
             text(g, font, entry.id(), getX() + 32, getY() + 18, MUTED, getWidth() - 42);
             } finally {if(effect)g.pose().popMatrix();}

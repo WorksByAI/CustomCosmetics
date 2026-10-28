@@ -21,6 +21,7 @@ public final class StudioGameTest implements FabricClientGameTest {
         try(var world=context.worldBuilder().create()){
             world.getServer().runCommand("gamemode creative @a");context.waitTicks(10);
             SettingsGuiGameTest.checkViewportVisibility(context);
+            SettingsGuiGameTest.checkLocalizationAndEntrance(context);
             context.getInput().resizeWindow(1600,1000);
             context.runOnClient(client->{
                 client.options.guiScale().set(2);ConfigManager.animationsEnabled=false;BlockingAdjustment.reset();

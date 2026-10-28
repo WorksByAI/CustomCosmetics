@@ -15,7 +15,7 @@ public final class RepositoryButton extends PinkUi.Action {
 
     public RepositoryButton(int x, int y) {
         super(x, y, 30, 30, "GitHub source code", false, () -> RepositoryLinks.openUri(REPOSITORY));
-        setTooltip(Tooltip.create(Component.literal("GitHub · CustomCosmetics source")));
+        setTooltip(Tooltip.create(UiText.component("GitHub · CustomCosmetics source")));
     }
 
     @Override protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {

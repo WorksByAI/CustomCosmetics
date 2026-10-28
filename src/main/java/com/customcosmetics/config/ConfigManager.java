@@ -33,6 +33,7 @@ public final class ConfigManager {
     public static boolean smolpeopleMode = false;
     public static volatile int disabledModules=0;
     public static String uiThemeMode="dark";
+    public static String uiLanguage="auto";
     public static int uiAccentColor=0x6DB29A;
     public static boolean uiAnimationsEnabled=true;
     public static boolean uiBackgroundBlur=false;
@@ -183,6 +184,7 @@ public final class ConfigManager {
             }
             if(accessories==null)accessories=com.customcosmetics.features.accessories.AccessoriesSettings.NONE;
             uiThemeMode="light".equals(uiThemeMode)?"light":"dark";
+            uiLanguage=com.customcosmetics.gui.UiText.normalize(uiLanguage);
             uiAccentColor&=0xFFFFFF;
             damageSplashStyle=com.customcosmetics.features.damage.DamageAnimation.normalize(damageSplashStyle);
             damageSplashColorMode=com.customcosmetics.features.damage.DamageColors.normalize(damageSplashColorMode);

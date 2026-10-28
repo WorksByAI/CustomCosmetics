@@ -14,8 +14,8 @@ public final class CommandTooltips {
         var hover=style.getHoverEvent();if(hover!=null&&!(hover instanceof HoverEvent.ShowText))return style;
         var previous=hover instanceof HoverEvent.ShowText text?text.value():null;
         // Cooperate with standalone tooltip mods or servers already showing the same real command.
-        if(previous!=null&&previous.getString().lines().anyMatch(line->line.equals(PREFIX+run.command())))return style;
-        var preview=Component.literal(PREFIX).withStyle(ChatFormatting.GRAY)
+        if(previous!=null&&previous.getString().lines().anyMatch(line->(line.equals(PREFIX+run.command())||line.equals(com.customcosmetics.gui.UiText.zh(PREFIX)+run.command()))))return style;
+        var preview=com.customcosmetics.gui.UiText.component(PREFIX).withStyle(ChatFormatting.GRAY)
             .append(Component.literal(run.command()).withStyle(ChatFormatting.YELLOW));
         return style.withHoverEvent(new HoverEvent.ShowText(previous==null?preview:previous.copy().append("\n").append(preview)));
     }

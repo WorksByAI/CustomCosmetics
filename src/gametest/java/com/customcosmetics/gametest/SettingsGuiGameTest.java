@@ -143,6 +143,41 @@ final class SettingsGuiGameTest {
         System.out.println("SETTINGS_GUI_MEMORY_DEV_LAYOUT_AND_FILES_OK");
     }
 
+    public static void checkLocalizationAndEntrance(ClientGameTestContext context)throws Exception{
+        context.getInput().resizeWindow(1600,1000);context.waitTicks(3);
+        String gameLanguage=context.computeOnClient(client->client.options.languageCode);
+        context.runOnClient(client->{ConfigManager.uiLanguage="auto";ConfigManager.uiAnimationsEnabled=true;ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SYNC));});
+        context.waitFor(client->{try{return (Float)read(ClientUiAccess.screen(client),"entranceScale")<.999f;}catch(Exception e){throw new AssertionError(e);}},20);
+        context.takeScreenshot("interface-opening-spring");
+        // Click at the visible transformed position, while the entrance is still moving.
+        var point=context.computeOnClient(client->{var screen=ClientUiAccess.screen(client);var w=widget(client,"Interface",PinkUi.Action.class);double scale=(Float)read(screen,"entranceScale"),cx=(Integer)read(screen,"panelX")+(Integer)read(screen,"panelWidth")/2d,cy=(Integer)read(screen,"panelY")+(Integer)read(screen,"panelHeight")/2d,pixels=client.getWindow().getGuiScale();return new double[]{(cx+(w.getX()+w.getWidth()/2d-cx)*scale)*pixels,(cy+(w.getY()+w.getHeight()/2d-cy)*scale)*pixels};});
+        context.getInput().setCursorPos(point[0],point[1]);context.getInput().pressMouse(ClientInput.MOUSE_LEFT);context.waitTicks(5);
+        context.runOnClient(client->{if(read(ClientUiAccess.screen(client),"page")!=CosmeticsScreen.Page.THEME)throw new AssertionError("Opening transform broke pointer dispatch");});
+        click(context,"Settings",PinkUi.Action.class);click(context,"Language:",PinkUi.Action.class);context.getInput().setCursorPos(1595,995);context.waitTicks(5);
+        context.runOnClient(client->{
+            if(!ConfigManager.uiLanguage.equals("zh_cn")||!UiText.language().equals("zh_cn"))throw new AssertionError("Language switch did not take effect immediately");
+            if(!gameLanguage.equals(client.options.languageCode))throw new AssertionError("Mod language altered Minecraft's language");
+            var action=widget(client,"Settings",PinkUi.Action.class);if(!"设置".equals(read(action,"cachedLabel")))throw new AssertionError("Sidebar still rendered its English label");
+            if(!com.customcosmetics.utils.MessageUtils.createMessageWithPrefix("Syncing remote data...").getString().contains("正在同步"))throw new AssertionError("Mod feedback was not translated");
+        });context.takeScreenshot("interface-chinese-settings");
+        click(context,"Interface",PinkUi.Action.class);click(context,"Mode: Dark",PinkUi.Action.class);context.getInput().setCursorPos(1595,995);context.waitTicks(4);context.takeScreenshot("interface-chinese-light-theme");
+        click(context,"Mode: Light",PinkUi.Action.class);click(context,"Settings",PinkUi.Action.class);
+        type(context,"Search Settings","护符");context.waitTicks(4);context.takeScreenshot("interface-chinese-search");
+        click(context,"Accessory Helper Tooltip",PinkUi.Action.class);
+        context.runOnClient(client->{if(read(ClientUiAccess.screen(client),"page")!=CosmeticsScreen.Page.ITEMS)throw new AssertionError("Chinese search did not reach the setting");});
+        click(context,"NickTweaks",PinkUi.Action.class);
+        context.runOnClient(client->{ConfigManager.nickTweaksNickChanger="Settings";ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.NICK));});context.waitTicks(3);
+        context.runOnClient(client->{if(!((PinkUi.Field)widget(client,"Nick Changer",PinkUi.Field.class)).getValue().equals("Settings"))throw new AssertionError("Localization changed user text");});
+        context.takeScreenshot("interface-chinese-nickname");
+        click(context,"Settings",PinkUi.Action.class);click(context,"Language:",PinkUi.Action.class);context.waitTicks(4);
+        context.runOnClient(client->{if(!ConfigManager.uiLanguage.equals("en_us")||!UiText.tr("Settings").equals("Settings"))throw new AssertionError("Explicit English selection failed");ConfigManager.nickTweaksNickChanger="";ClientUiAccess.setScreen(client,null);});
+        ConfigManager.awaitPendingSaves();var settings=JsonParser.parseString(Files.readString(CosmeticsConfigDir.getCosmeticsConfigDir().resolve("config.json"))).getAsJsonObject().getAsJsonObject("settings");
+        if(!settings.get("uiLanguage").getAsString().equals("en_us"))throw new AssertionError("Language choice was not saved");
+        context.runOnClient(client->{ConfigManager.uiAnimationsEnabled=false;ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SYNC));});context.waitTicks(2);
+        context.runOnClient(client->{if((Float)read(ClientUiAccess.screen(client),"entranceScale")!=1)throw new AssertionError("Reduced motion still scaled the panel");ConfigManager.uiAnimationsEnabled=true;ClientUiAccess.setScreen(client,null);});
+        System.out.println("CHINESE_ENGLISH_LANGUAGE_OVERRIDE_SEARCH_USER_TEXT_PERSISTENCE_AND_OPENING_INPUT_OK");
+    }
+
     /** Clicking beyond one pane must not leave that pane hidden by the input clipping mask. */
     public static void checkViewportVisibility(ClientGameTestContext context) throws Exception {
         context.getInput().resizeWindow(1280,800);context.waitTicks(3);

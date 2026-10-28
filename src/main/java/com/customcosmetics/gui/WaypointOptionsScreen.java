@@ -98,11 +98,11 @@ final class WaypointOptionsScreen extends ThemedScreen {
         outline(g, x, y, w, h, 10, BORDER, PANEL);
         text(g, font, performance ? "Waypoint Performance & Extras" : "Waypoint Options", x + 12, y + 14, PINK, w - 24);
         if (!performance) {
-            text(g, font, "Line Color (AARRGGBB)", x + 12, y + 125, MUTED, w - 24);
+            uiText(g, font, "Line Color (AARRGGBB)", x + 12, y + 125, MUTED, w - 24);
             if (h >= 270) text(g, font, message.isEmpty() ? "Choose the block and beacon style in each group's editor." : message,
                     x + 12, y + 190, message.isEmpty() ? MUTED : PINK, w - 24);
         } else if (h >= 270)
-            text(g, font, "The visible-marker limit and distance cap keep rendering work bounded.",
+            uiText(g, font, "The visible-marker limit and distance cap keep rendering work bounded.",
                     x + 12, y + 190, MUTED, w - 24);
         super.extractRenderState(g, mx, my, dt);
     }

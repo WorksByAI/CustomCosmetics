@@ -81,7 +81,7 @@ public final class ShortcutsScreen extends ThemedScreen {
         if (kind == ShortcutRules.Kind.KEY) {
             captureButton = button(x + 12, y + 64, full, keyLabel(), false, () -> {
                 recording = true; captured.clear(); status = "Hold up to 4 keys/buttons, then release. Esc cancels.";
-                captureButton.setMessage(Component.literal("Recording…"));
+                captureButton.setMessage(UiText.component("Recording…"));
                 setFocused(captureButton);
             });
         } else {
@@ -138,7 +138,7 @@ public final class ShortcutsScreen extends ThemedScreen {
     }
     private void capture(InputConstants.Key key) {
         if (!key.equals(InputConstants.UNKNOWN) && captured.size() < 4) captured.add(key.getName());
-        captureButton.setMessage(Component.literal("Recording: " + String.join(" + ", captured.stream()
+        captureButton.setMessage(UiText.component("Recording: " + String.join(" + ", captured.stream()
             .map(name -> InputConstants.getKey(name).getDisplayName().getString()).toList())));
     }
     private boolean finishCapture() {
@@ -185,9 +185,9 @@ public final class ShortcutsScreen extends ThemedScreen {
                 case KEY -> "Bindings work only in-game. Holding a key never repeats.";
             };
             text(g, font, help, x + 12, y + 136, MUTED, w - 24);
-            text(g, font, status, x + 12, y + 150, PINK, w - 24);
+            uiText(g, font, status, x + 12, y + 150, PINK, w - 24);
         } else {
-            if (filtered.isEmpty()) text(g, font, "No shortcuts yet. Choose New to add one.", x + 16, y + 76, MUTED, w - 32);
+            if (filtered.isEmpty()) uiText(g, font, "No shortcuts yet. Choose New to add one.", x + 16, y + 76, MUTED, w - 32);
             text(g, font, status.isEmpty() ? filtered.size() + " shortcuts · Click to edit · Scroll to browse" : status, x + 12, y + h - 27, status.isEmpty() ? MUTED : PINK, w - 24);
         }
         super.extractRenderState(g, mx, my, dt);

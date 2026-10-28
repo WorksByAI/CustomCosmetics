@@ -14,17 +14,20 @@ public final class SettingsSearch {
         private final List<Prepared> entries;
         public Index(Collection<Entry> entries) {
             this.entries = entries.stream().distinct().map(entry -> new Prepared(entry, fold(entry.title()),
-                fold(entry.section() + " " + entry.title() + " " + entry.description()))).toList();
+                fold(entry.section() + " " + entry.title() + " " + entry.description()+" "+UiText.zh(entry.section())+" "+UiText.zh(entry.title())+" "+UiText.zh(entry.description())))).toList();
         }
         public List<Entry> find(String query) {
             if(query==null||query.isBlank())return List.of();
-            String normalized=fold(query.length()>128?query.substring(0,128):query);
+            String bounded=query.length()>128?query.substring(0,128):query;
+            String normalized=fold(bounded);
             for(var alias:ALIASES.entrySet())normalized=normalized.replace(alias.getKey()," "+alias.getValue()+" ");
             String needle=fold(normalized);if(needle.isEmpty())return List.of();
-            String[] terms=needle.split("\\s+");
+            String[] terms=needle.split("\\s+"),original=fold(bounded).split("\\s+");
             return entries.stream().filter(entry -> {
-                for (String term : terms) if (!entry.haystack().contains(term)) return false;
-                return true;
+                boolean aliases=true,translated=true;
+                for(String term:terms)if(!entry.haystack().contains(term)){aliases=false;break;}
+                for(String term:original)if(!entry.haystack().contains(term)){translated=false;break;}
+                return aliases||translated;
             }).sorted(Comparator.comparingInt((Prepared entry) -> entry.title().equals(needle)?0:entry.title().startsWith(needle)?1:2)
                 .thenComparing(entry -> entry.entry().section()).thenComparing(entry -> entry.entry().title()))
                 .map(Prepared::entry).toList();

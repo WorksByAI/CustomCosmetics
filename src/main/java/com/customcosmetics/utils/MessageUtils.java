@@ -22,7 +22,7 @@ public class MessageUtils {
     private static final int MESSAGE_COLOR = com.customcosmetics.gui.PinkUi.PINK & 0xFFFFFF;
 
     public static MutableComponent createMessageWithPrefix(String message) {
-        return createMessageWithPrefix(Component.literal(message));
+        return createMessageWithPrefix(com.customcosmetics.gui.UiText.component(message));
     }
     
     public static MutableComponent createMessageWithPrefix(MutableComponent message) {
@@ -50,6 +50,7 @@ public class MessageUtils {
     }
     
     public static void sendMessage(String message) {
+        com.customcosmetics.gui.UiLocale.refresh();
         sendCustomMessage(createMessageWithPrefix(message));
     }
     
@@ -82,10 +83,12 @@ public class MessageUtils {
     }
 
     public static void sendSyncResult(boolean success, boolean isNotification) {
+        com.customcosmetics.gui.UiLocale.refresh();
         sendCustomMessage(createSyncResult(success, isNotification));
     }
 
     public static void sendSyncResult(boolean success, boolean isNotification, SyncFailure failure) {
+        com.customcosmetics.gui.UiLocale.refresh();
         sendCustomMessage(createSyncResult(success, isNotification, failure));
     }
 
@@ -95,11 +98,11 @@ public class MessageUtils {
 
     public static MutableComponent createSyncResult(boolean success, boolean isNotification, SyncFailure failure) {
         String base = success ? "Succeeded to sync remote data!" : failure == null ? "Failed to sync remote data."
-            : "Failed to sync remote data: " + failure.description() + ".";
-        MutableComponent msg = Component.literal(base);
+            : com.customcosmetics.gui.UiText.tr("Failed to sync remote data: ") + com.customcosmetics.gui.UiText.tr(failure.description()) + ".";
+        MutableComponent msg = com.customcosmetics.gui.UiText.component(base);
 
         if (isNotification) {
-            MutableComponent stop = Component.literal("[stop notifications]")
+            MutableComponent stop = com.customcosmetics.gui.UiText.component("[stop notifications]")
                 .withStyle(style -> style
                     .withUnderlined(true)
                     .withClickEvent(new ClickEvent.RunCommand("/customcosmetics notification off")));

@@ -8,7 +8,8 @@ import net.minecraft.network.chat.Component;
 
 /** Common chrome for every mod dialog; no global render or client-tick hook. */
 public abstract class ThemedScreen extends Screen {
-    protected ThemedScreen(Component title){super(title);UiTheme.refresh();}
+    protected ThemedScreen(Component title){super(localizeTitle(title));UiTheme.refresh();}
+    private static Component localizeTitle(Component title){UiLocale.refresh();return UiText.component(title.getString());}
     @Override public void extractBackground(GuiGraphicsExtractor g,int mx,int my,float dt){
         if(minecraft.level==null)super.extractBackground(g,mx,my,dt);
         else if(ConfigManager.uiBackgroundBlur)g.blurBeforeThisStratum();

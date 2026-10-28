@@ -97,18 +97,18 @@ public final class NicknameSegmentsScreen extends ThemedScreen {
     @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float delta){
         NickRenderUtils.beginClickGuiRenderScope();
         try{
-            outline(g,x,y,w,h,11,BORDER,PANEL);text(g,font,"Gradient Segments",x+16,y+17,PINK,w-32);
+            outline(g,x,y,w,h,11,BORDER,PANEL);uiText(g,font,"Gradient Segments",x+16,y+17,PINK,w-32);
             Component preview=NickRenderUtils.previewSegments(rawName(),validDrafts(),ConfigManager.nickTweaksGradientStartColor,ConfigManager.nickTweaksGradientEndColor);
             float scale=Math.min(2,(w-40)/(float)Math.max(1,font.width(preview)));
             g.pose().pushMatrix();g.pose().translate(x+(w-font.width(preview)*scale)/2f,y+45);g.pose().scale(scale,scale);g.text(font,preview,0,0,TEXT,false);g.pose().popMatrix();
-            text(g,font,"Use visible character positions, starting at 1.",x+16,y+80,MUTED,w-32);
-            text(g,font,"Color codes take priority. Unlisted characters use the base gradient.",x+16,y+94,DIM,w-32);
+            uiText(g,font,"Use visible character positions, starting at 1.",x+16,y+80,MUTED,w-32);
+            uiText(g,font,"Color codes take priority. Unlisted characters use the base gradient.",x+16,y+94,DIM,w-32);
             g.enableScissor(x+15,top,x+w-15,bottom);g.pose().pushMatrix();g.pose().translate(0,-scroll);
             int cardWidth=w-48,rangeWidth=Math.max(36,(cardWidth-60)/6),colorWidth=Math.max(62,(cardWidth-50-2*rangeWidth)/2);
             for(int i=0;i<drafts.size();i++){
-                int row=top+i*105;outline(g,x+16,row,w-40,96,6,BORDER,CARD);text(g,font,"Segment "+(i+1),x+26,row+14,PINK,w-132);
-                text(g,font,"From",x+24,row+32,MUTED,rangeWidth);text(g,font,"To",x+32+rangeWidth,row+32,MUTED,rangeWidth);
-                text(g,font,"Start Color",x+40+rangeWidth*2,row+32,MUTED,colorWidth);text(g,font,"End Color",x+48+rangeWidth*2+colorWidth,row+32,MUTED,colorWidth);
+                int row=top+i*105;outline(g,x+16,row,w-40,96,6,BORDER,CARD);uiText(g,font,"Segment "+(i+1),x+26,row+14,PINK,w-132);
+                uiText(g,font,"From",x+24,row+32,MUTED,rangeWidth);uiText(g,font,"To",x+32+rangeWidth,row+32,MUTED,rangeWidth);
+                uiText(g,font,"Start Color",x+40+rangeWidth*2,row+32,MUTED,colorWidth);uiText(g,font,"End Color",x+48+rangeWidth*2+colorWidth,row+32,MUTED,colorWidth);
                 try{var value=drafts.get(i).value();gradient(g,x+26,row+84,w-64,4,value.start(),value.end());}catch(IllegalArgumentException ignored){}
             }
             g.pose().popMatrix();for(var placement:body)if(placement.widget().visible)placement.widget().extractRenderState(g,mx,my,delta);g.disableScissor();

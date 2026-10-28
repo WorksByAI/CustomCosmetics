@@ -46,7 +46,7 @@ public final class ItemChoiceScreen extends ThemedScreen {
         fixed.clear(); rows.clear();
         w=Math.min(600,width-16);h=Math.min(436,height-16);x=(width-w)/2;y=(height-h)/2;
         var search=new PinkUi.Field(font,x+16,y+42,w-32,"Search");
-        search.setMaxLength(128);search.setValue(query);search.setHint(Component.literal("Search name or ID"));
+        search.setMaxLength(128);search.setValue(query);search.setHint(UiText.component("Search name or ID"));
         search.setResponder(value -> { CosmeticsScreen.childInteraction();query=value;offset=0;refresh(); });
         fixed.add(addWidget(search));
         fixed.add(addWidget(new PinkUi.Action(x+16,y+h-36,w-32,26,"Back",false,this::onClose)));

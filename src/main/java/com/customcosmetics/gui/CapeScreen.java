@@ -43,19 +43,19 @@ public final class CapeScreen extends ThemedScreen {
         });if(!started){choosing=false;notice="A system file picker is already open.";}
     }
     @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float dt){
-        outline(g,x,y,w,h,10,BORDER,PANEL);text(g,font,"Cape",x+14,y+15,PINK,w-28);
+        outline(g,x,y,w,h,10,BORDER,PANEL);uiText(g,font,"Cape",x+14,y+15,PINK,w-28);
         int previewHeight=Math.max(30,h-172);outline(g,x+14,y+37,w-28,previewHeight,6,BORDER,CARD);
         var texture=CapeCosmetics.preview();
-        text(g,font,"Preview · "+(CapeCosmetics.hasLocal()?"Local Cape":texture!=null?"Approved Cape":"Current Cape"),x+24,y+47,PINK,w-48);
+        uiText(g,font,"Preview · "+(CapeCosmetics.hasLocal()?"Local Cape":texture!=null?"Approved Cape":"Current Cape"),x+24,y+47,PINK,w-48);
         if(texture!=null){int side=Math.min(90,previewHeight-33),ph=Math.max(1,side);g.blit(texture,x+30,y+69,x+30+Math.max(1,ph*10/16),y+69+ph,1f/64,11f/64,1f/32,17f/32);}
         if(minecraft.player!=null)CapePreview.draw(g,x+w/4,y+58,w*3/4-20,Math.max(1,previewHeight-25));
-        else text(g,font,"Enter a world for the player preview.",x+24,y+75,MUTED,w-48);
+        else uiText(g,font,"Enter a world for the player preview.",x+24,y+75,MUTED,w-48);
         text(g,font,RemoteAccess.online()?"Online: approved capes are shared. Local edits stay private.":"Offline: local cape only. Nothing is uploaded.",x+14,y+h-130,MUTED,w-28);
         submit.active=!choosing&&CapeSync.canSubmit();removeButton.active=!choosing;
         cropButton.active=atlasButton.active=!choosing&&!com.customcosmetics.compatibility.NativeFileDialogs.busy();
         String state=CapeSync.status();long cooldown=CapeSync.cooldownSeconds();if(cooldown>0)state+=" · Next submission in "+(cooldown/3600)+"h "+(cooldown%3600/60)+"m";
         text(g,font,state,x+14,y+h-52,MUTED,w-28);
-        if(!notice.isBlank())text(g,font,notice,x+14,y+h-66,PINK,w-28);
+        if(!notice.isBlank())uiText(g,font,notice,x+14,y+h-66,PINK,w-28);
         super.extractRenderState(g,mx,my,dt);
     }
     @Override public void onClose(){CosmeticsScreen.childInteraction();ClientUiAccess.setScreen(minecraft,parent);}

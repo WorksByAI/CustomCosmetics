@@ -27,7 +27,7 @@ public final class MapBlockScreen extends ThemedScreen {
     @Override protected void init(){
         if(catalog.isEmpty())for(var block:BuiltInRegistries.BLOCK){String id=BuiltInRegistries.BLOCK.getKey(block).toString();if(MapEditor.selectable(id))catalog.add(new BlockChoice(id,block.getName().getString(),MapEditor.icon(block.defaultBlockState())));}
         catalog.sort(Comparator.comparing(BlockChoice::id));fixed.clear();cells.clear();w=Math.min(540,width-16);h=Math.min(400,height-16);x=(width-w)/2;y=(height-h)/2;
-        var search=new PinkUi.Field(font,x+12,y+34,w-24,"Search blocks");search.setMaxLength(128);search.setValue(query);search.setHint(Component.literal("Search block name or ID"));search.setResponder(value->{query=value;offset=0;refresh();});fixed.add(addWidget(search));
+        var search=new PinkUi.Field(font,x+12,y+34,w-24,"Search blocks");search.setMaxLength(128);search.setValue(query);search.setHint(UiText.component("Search block name or ID"));search.setResponder(value->{query=value;offset=0;refresh();});fixed.add(addWidget(search));
         fixed.add(addWidget(new PinkUi.Action(x+12,y+64,(w-30)/2,22,"All Blocks",false,()->{favoritesOnly=false;offset=0;refresh();}).selected(()->!favoritesOnly)));
         fixed.add(addWidget(new PinkUi.Action(x+18+(w-30)/2,y+64,(w-30)/2,22,"Favorites",false,()->{favoritesOnly=true;offset=0;refresh();}).selected(()->favoritesOnly)));
         fixed.add(addWidget(new PinkUi.Action(x+12,y+h-30,w-24,22,"Back",false,this::onClose)));
@@ -52,7 +52,7 @@ public final class MapBlockScreen extends ThemedScreen {
         selectedId=selected.get();for(var cell:cells)if(cell.visible)cell.extractRenderState(g,mx,my,dt);
         for(var cell:cells)if(cell.visible)cell.extractIcon(g);
         String hint="Left: select · Right: favorite · "+filtered.size()+" blocks";for(var cell:cells)if(cell.visible&&cell.isMouseOver(mx,my))hint=cell.value.label+" · "+cell.value.id;
-        text(g,font,hint,x+12,y+h-44,MUTED,w-24);if(filtered.isEmpty())text(g,font,"No matching blocks",x+15,top+12,MUTED,w-30);
+        text(g,font,hint,x+12,y+h-44,MUTED,w-24);if(filtered.isEmpty())uiText(g,font,"No matching blocks",x+15,top+12,MUTED,w-30);
         int total=(filtered.size()+columns-1)/columns;if(total>rows){var bar=ScrollBarLayout.of(top,rows*26,rows,total,total-rows);rounded(g,x+w-12,top,3,rows*26,1,BORDER);rounded(g,x+w-12,bar.thumbStart(offset),3,bar.thumbLength(),1,PINK);}
     }
     @Override public boolean isPauseScreen(){return false;}

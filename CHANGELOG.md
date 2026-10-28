@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.0-dev.4
+
+- Add Simplified Chinese and per-mod language selection with bilingual settings search.
+- Add a spring opening transition with pointer coordinates matching the animated panel.
+
 ## 2.0.0-dev.3
 
 - Restore sidebar and settings visibility after clipped clicks in light and dark themes.

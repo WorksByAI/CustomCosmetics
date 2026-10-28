@@ -40,9 +40,9 @@ final class WaypointLineColorScreen extends ThemedScreen {
     }
     @Override public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
         outline(g, x, y, w, h, 10, BORDER, PANEL);
-        text(g, font, "Line Color", x + 12, y + 14, PINK, w - 24);
+        uiText(g, font, "Line Color", x + 12, y + 14, PINK, w - 24);
         rounded(g, x + 12, y + 133, w - 24, 22, 5, color);
-        text(g, font, "#" + String.format(Locale.ROOT, "%08X", color), x + 18, y + 140, TEXT, w - 36);
+        uiText(g, font, "#" + String.format(Locale.ROOT, "%08X", color), x + 18, y + 140, TEXT, w - 36);
         super.extractRenderState(g, mx, my, dt);
     }
     @Override public boolean isPauseScreen() { return false; }

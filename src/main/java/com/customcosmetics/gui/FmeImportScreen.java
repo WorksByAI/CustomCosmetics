@@ -16,9 +16,9 @@ public final class FmeImportScreen extends ThemedScreen {
     public FmeImportScreen(Screen parent){super(Component.literal("Import FME Config"));this.parent=parent;}
     @Override protected void init(){
         w=Math.min(640,width-16);h=Math.min(258,height-16);x=(width-w)/2;y=(height-h)/2;
-        path=addRenderableWidget(new PinkUi.Field(font,x+12,y+40,w-116,"FME config path"));path.setMaxLength(4096);path.setHint(Component.literal("FME JSON file or folder"));path.setResponder(v->{plan=null;if(apply!=null)apply.active=false;});
+        path=addRenderableWidget(new PinkUi.Field(font,x+12,y+40,w-116,"FME config path"));path.setMaxLength(4096);path.setHint(UiText.component("FME JSON file or folder"));path.setResponder(v->{plan=null;if(apply!=null)apply.active=false;});
         addRenderableWidget(new PinkUi.Action(x+w-96,y+40,84,24,"Browse",false,this::browse));
-        addRenderableWidget(new PinkUi.Action(x+12,y+72,w-24,22,"Replace Existing Room Layouts: OFF",false,()->{replace=!replace;for(var child:children())if(child instanceof PinkUi.Action button&&button.getMessage().getString().startsWith("Replace Existing"))button.setMessage(Component.literal("Replace Existing Room Layouts: "+(replace?"ON":"OFF")));}).selected(()->replace));
+        addRenderableWidget(new PinkUi.Action(x+12,y+72,w-24,22,"Replace Existing Room Layouts: OFF",false,()->{replace=!replace;for(var child:children())if(child instanceof PinkUi.Action button&&button.getMessage().getString().startsWith("Replace Existing"))button.setMessage(UiText.component("Replace Existing Room Layouts: "+(replace?"ON":"OFF")));}).selected(()->replace));
         addRenderableWidget(new PinkUi.Action(x+12,y+h-32,(w-36)/3,22,"Preview",false,this::preview));
         apply=addRenderableWidget(new PinkUi.Action(x+18+(w-36)/3,y+h-32,(w-36)/3,22,"Import",true,this::apply));apply.active=false;
         addRenderableWidget(new PinkUi.Action(x+24+2*((w-36)/3),y+h-32,(w-36)/3,22,"Back",false,this::onClose));
