@@ -53,7 +53,7 @@ public final class ItemAppearanceScreen extends ThemedScreen {
         action(x+16,y+36,w-32,"Select Item",this::chooseItem);
         int fx=x+previewWidth+24,fw=w-previewWidth-40;
         nameField=new PinkUi.Field(font,fx,y+90,fw,"Custom Name");nameField.setMaxLength(ItemAppearanceStore.MAX_NAME);nameField.setValue(draftName);
-        nameField.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.component("Colors: &0–&f, &r, &#RRGGBB")));nameField.setHint(UiText.component("Empty = original name"));nameField.setResponder(value->{draftName=value;status="";CosmeticsScreen.childInteraction();});body.add(new Placement(addWidget(nameField),nameField.getY()));
+        nameField.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent("Colors: &0–&f, &r, &#RRGGBB")));nameField.setHint(UiText.component("Empty = original name"));nameField.setResponder(value->{draftName=value;status="";CosmeticsScreen.childInteraction();});body.add(new Placement(addWidget(nameField),nameField.getY()));
         modelField=new PinkUi.Field(font,fx,y+136,Math.max(56,fw-102),"Model ID",24);modelField.setMaxLength(256);modelField.setValue(draftModel);
         modelField.setHint(UiText.component("e.g. golden_axe or namespace:model"));modelField.setResponder(value->{draftModel=value;status="";CosmeticsScreen.childInteraction();});body.add(new Placement(addWidget(modelField),modelField.getY()));
         var selectModel=action(fx+fw-96,y+136,96,"Select Model",this::chooseModel);controls.remove(selectModel);body.add(new Placement(selectModel,selectModel.getY()));

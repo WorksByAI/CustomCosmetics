@@ -94,12 +94,13 @@ class LicensePackagingTest {
             assertEquals("tory@toryhi.com",metadata.getAsJsonObject("contact").get("email").getAsString());
         }
     }
-    @Test void chineseUiUsesNativeFallbackWithoutBundlingSystemFonts()throws Exception{
+    @Test void chineseUiBundlesOnlyTheLicensedWenKaiFont()throws Exception{
         try(var zip=new ZipFile(System.getProperty("customcosmetics.binaryJar"))){
-            assertTrue(zip.stream().noneMatch(e->e.getName().matches("(?i).*\\.(ttf|ttc|otf)$")));
+            assertEquals(java.util.List.of("assets/customcosmetics/font/lxgwwenkai-medium.ttf"),zip.stream().map(java.util.zip.ZipEntry::getName).filter(n->n.matches("(?i).*\\.(ttf|ttc|otf)$")).toList());
+            assertNotNull(zip.getEntry("LICENSES/LXGW-WenKai-OFL.txt"));
             var entry=zip.getEntry("assets/customcosmetics/font/gui_chinese.json");assertNotNull(entry);
             String definition=new String(zip.getInputStream(entry).readAllBytes(),StandardCharsets.UTF_8);
-            assertTrue(definition.contains("minecraft:uniform"));assertTrue(definition.contains("system/yahei.ttc"));
+            assertTrue(definition.contains("minecraft:uniform"));assertTrue(definition.contains("customcosmetics:lxgwwenkai-medium.ttf"));
         }
     }
     private static final Path ROOT = Path.of(System.getProperty("customcosmetics.projectDir"));

@@ -30,6 +30,7 @@ public final class PinkUi {
 
     public static void rounded(GuiGraphicsExtractor g, int x, int y, int width, int height, int radius, int color) {
         if (width <= 0 || height <= 0) return;
+        if((color>>>24)==255){smoothRounded(g,x,y,width,height,radius,color);return;}
         radius = Math.min(radius, Math.min(width, height) / 2);
         g.fill(x, y + radius, x + width, y + height - radius, color);
         for (int i = 0; i < radius; i++) {
@@ -41,6 +42,7 @@ public final class PinkUi {
 
     public static void outline(GuiGraphicsExtractor g, int x, int y, int w, int h, int r, int border, int fill) {
         if (w <= 0 || h <= 0) return;
+        if((fill>>>24)==255){smoothOutline(g,x,y,w,h,r,border,fill);return;}
         r = Math.min(r, Math.min(w, h) / 2);
         // Draw the border as a ring so translucent fills do not reveal a solid border underneath.
         rounded(g, x + 1, y + 1, w - 2, h - 2, Math.max(0, r - 1), fill);
@@ -71,6 +73,44 @@ public final class PinkUi {
     }
 
     static int alpha(int color,int opacity){return Math.clamp(opacity,0,255)<<24|(color&0xFFFFFF);}
+
+    private static final float[][] SOFT_CORNERS=softCorners();
+    private static float[][] softCorners(){
+        var table=new float[129][];
+        for(int r=0;r<table.length;r++){
+            table[r]=new float[r];
+            for(int row=0;row<r;row++){double dy=r-row-.5;table[r][row]=(float)(r-Math.sqrt(r*r-dy*dy));}
+        }
+        return table;
+    }
+    private static void smoothRounded(GuiGraphicsExtractor g,int x,int y,int w,int h,int radius,int color){
+        int pixels=Math.clamp((int)Minecraft.getInstance().getWindow().getGuiScale(),1,8);
+        g.pose().pushMatrix();g.pose().scale(1f/pixels,1f/pixels);
+        try{softRounded(g,x*pixels,y*pixels,w*pixels,h*pixels,radius*pixels,color);}
+        finally{g.pose().popMatrix();}
+    }
+    /** Coverage edges at physical-pixel resolution; no blur target, shader or per-frame mask allocation. */
+    public static void smoothOutline(GuiGraphicsExtractor g,int x,int y,int w,int h,int radius,int border,int fill){
+        int pixels=Math.clamp((int)Minecraft.getInstance().getWindow().getGuiScale(),1,8);
+        g.pose().pushMatrix();g.pose().scale(1f/pixels,1f/pixels);
+        try{
+            softRounded(g,x*pixels,y*pixels,w*pixels,h*pixels,radius*pixels,border);
+            softRounded(g,(x+1)*pixels,(y+1)*pixels,(w-2)*pixels,(h-2)*pixels,Math.max(0,radius-1)*pixels,fill);
+        }finally{g.pose().popMatrix();}
+    }
+    private static void softRounded(GuiGraphicsExtractor g,int x,int y,int w,int h,int r,int color){
+        if(w<=0||h<=0)return;r=Math.min(128,Math.min(r,Math.min(w,h)/2));
+        g.fill(x,y+r,x+w,y+h-r,color);
+        for(int row=0;row<r;row++){
+            float inset=SOFT_CORNERS[r][row];int edge=(int)inset,solid=(int)Math.ceil(inset);
+            int coverage=Math.round((1-(inset-edge))*(color>>>24));
+            for(int side=0;side<2;side++){
+                int yy=side==0?y+row:y+h-1-row;
+                g.fill(x+solid,yy,x+w-solid,yy+1,color);
+                if(solid!=edge&&coverage>0){int shade=alpha(color,coverage);g.fill(x+edge,yy,x+edge+1,yy+1,shade);g.fill(x+w-edge-1,yy,x+w-edge,yy+1,shade);}
+            }
+        }
+    }
 
     public static int mix(int from, int to, double t) {
         t = Math.clamp(t, 0, 1);
@@ -133,22 +173,10 @@ public final class PinkUi {
             int border=primary?PINK:isFocused()?PINK:leftAligned?bg:BORDER;
             if(hot||visual>.01f)border=mix(border,PINK,Math.max(0,warmth)*.65);
             int x=getX(),y=getY();
-            // Expand inside the fixed hitbox gutter; neighboring layout and pointer targets never move.
-            float scale=1+Math.min(.04f,4f/Math.max(1,width))*visual-.045f*compression;
-            float scaleY=1+.06f*visual-.06f*compression;
-            float lift=-1.2f*visual+compression*.7f;
-            boolean transform=Math.abs(scale-1)>.0001f||Math.abs(lift)>.001f;
-            if(transform){g.pose().pushMatrix();g.pose().translate(x+width/2f,y+height/2f+lift);g.pose().scale(scale,scaleY);g.pose().translate(-x-width/2f,-y-height/2f);}
-            try {
-                int inset=Math.max(0,Math.round(2-2*Math.clamp(visual,0,1)));
+            {
+                int inset=Math.clamp(Math.round(2-2*Math.clamp(visual,0,1)+compression),0,3);
                 int bx=x+inset,by=y+1,bw=width-inset*2,bh=height-2;
-                if(visual>.01f){
-                    // Three inexpensive translucent contours, no blur pass or animated texture.
-                    rounded(g,bx-2,by-1,bw+4,bh+5,6,alpha(0x000000,Math.round(20*visual)));
-                    outline(g,bx-2,by-2,bw+4,bh+4,6,alpha(PINK,Math.round(13*visual)),0);
-                    outline(g,bx-1,by-1,bw+2,bh+2,5,alpha(PINK,Math.round(26*visual)),0);
-                }
-                outline(g,bx,by,bw,bh,4,border,active?bg:SIDEBAR);
+                smoothOutline(g,bx,by,bw,bh,4,border,active?bg:SIDEBAR);
                 if(animate&&active&&sweep<1){
                     int band=Math.min(48,Math.max(18,bw/4));
                     int center=bx-band+Math.round((bw+band*2)*sweep);
@@ -174,18 +202,14 @@ public final class PinkUi {
                 if(picked>.01f&&leftAligned)rounded(g,x+5,y+6,2,Math.max(1,Math.round((height-12)*picked)),1,PINK);
                 g.text(font,cachedLabel,x+(leftAligned?11:(width-cachedLabelWidth)/2),y+(height-9)/2,
                     !active?DIM:primary?INK:TEXT,false);
-            } finally {if(transform)g.pose().popMatrix();}
+            }
         }
 
-        /** Shared hover zoom for icon and catalogue buttons which draw custom contents. */
+        /** Keep custom catalogue text pixel-aligned; feedback comes from color and inset changes. */
         protected boolean beginHoverTransform(GuiGraphicsExtractor g,int mx,int my){
             boolean animate=com.customcosmetics.config.ConfigManager.uiAnimationsEnabled;
-            float over=hover.value(isMouseOver(mx,my)&&active?1:0,animate),push=press.value(0,animate);
-            if(!animate||Math.abs(over)<.001f&&Math.abs(push)<.001f)return false;
-            float cx=getX()+width/2f,cy=getY()+height/2f;
-            g.pose().pushMatrix();g.pose().translate(cx,cy-1.2f*over+.7f*push);
-            g.pose().scale(1+Math.min(.04f,4f/Math.max(1,width))*over-.045f*push,1+.06f*over-.06f*push);
-            g.pose().translate(-cx,-cy);return true;
+            hover.value(isMouseOver(mx,my)&&active?1:0,animate);press.value(0,animate);
+            return false;
         }
 
         @Override public void onClick(MouseButtonEvent event, boolean doubleClick) { press.snap(1);action.run(); }
@@ -277,6 +301,7 @@ public final class PinkUi {
     public static final class Field extends EditBox {
         private boolean invalid;
         private boolean secret;
+        private Component cleanHint;
         private final int paddingY, paddingX, boxHeight;
         private final UiMotion focus=new UiMotion(0);
 
@@ -296,6 +321,7 @@ public final class PinkUi {
 
         public void invalid(boolean invalid) { this.invalid = invalid; setTextColor(invalid ? 0xFFFF7F9B : TEXT); }
         public int insetY() { return paddingY; }
+        @Override public void setHint(Component hint){cleanHint=hint;super.setHint(Component.empty());}
         public Field secret(boolean value) { secret = value; return this; }
 
         @Override public void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
@@ -307,7 +333,15 @@ public final class PinkUi {
                 int span=Math.round((total-8)*focused),center=boxX+total/2;
                 g.fill(center-span/2,boxY+boxHeight-1,center+(span+1)/2,boxY+boxHeight,alpha(PINK,Math.round(200*focused)));
             }
-            if (!secret) super.extractWidgetRenderState(g, mx, my, dt);
+            if (!secret) {
+                super.extractWidgetRenderState(g, mx, my, dt);
+                // Vanilla's hint path always draws a shadow even when textShadow is false.
+                if(getValue().isEmpty()&&!isFocused()&&cleanHint!=null){
+                    g.enableScissor(getX(),getY()-1,getX()+width,getY()+height+2);
+                    g.text(UiFonts.get(Minecraft.getInstance().font),cleanHint,getX(),getY(),MUTED,false);
+                    g.disableScissor();
+                }
+            }
             else {
                 Font font = UiFonts.get(Minecraft.getInstance().font);
                 int visible = Math.max(1,width / Math.max(1,font.width("*"))), cursor = getCursorPosition();

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.0-dev.7
+
+- Keep chat and item tooltip text on the active game font.
+- Bundle LXGW WenKai for Chinese settings and improve hover edges and text clarity.
+- Preserve armor and visibility in accessory previews.
+
 ## 2.0.0-dev.6
 
 - Add verified startup updates with automatic restart.

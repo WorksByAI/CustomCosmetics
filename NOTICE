@@ -192,3 +192,10 @@ Reference revision: ba49c64ae8274e92b8b9e9d4dc60576fece5be4b (2024-08-13).
 CustomCosmetics adds modern block-name conversion, canonical room persistence,
 new-room fingerprint fallback, a block palette and visual-only editing.
 No code or assets from the unlicensed FunnyMapExtras decompiled mirror are included.
+
+LXGW WenKai Medium
+------------------
+Unmodified LXGW WenKai Medium 1.522 is bundled for mod interface text.
+Copyright 2021-2026 LXGW; Copyright 2020 The Klee Project Authors.
+Source: https://github.com/lxgw/LxgwWenKai
+License: SIL Open Font License 1.1; see LICENSES/LXGW-WenKai-OFL.txt.

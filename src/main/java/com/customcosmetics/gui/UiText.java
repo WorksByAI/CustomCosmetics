@@ -37,7 +37,10 @@ public final class UiText {
     public static int revision(){return revision;}
     public static String language(){return effective;}
     public static String name(String choice){return switch(normalize(choice)){case "zh_cn"->"简体中文";case "en_us"->"English";default->tr("Follow Game");};}
-    public static net.minecraft.network.chat.MutableComponent component(String source){var text=net.minecraft.network.chat.Component.literal(tr(source));return effective.equals("zh_cn")?text.withStyle(style->style.withFont(UiFonts.CHINESE)):text;}
+    /** Translation must not override the active font in chat, item tooltips or other game text. */
+    public static net.minecraft.network.chat.MutableComponent component(String source){return net.minecraft.network.chat.Component.literal(tr(source));}
+    /** Explicitly opt mod-screen tooltips into the interface font; never use for game messages. */
+    public static net.minecraft.network.chat.MutableComponent guiComponent(String source){var text=component(source);return effective.equals("zh_cn")?text.withStyle(style->style.withFont(UiFonts.CHINESE)):text;}
     public static String slotLabel(String id,String source){return effective.equals("zh_cn")?ZH.getOrDefault("customcosmetics.slot."+id,zh(source)):source;}
     public static String display(String source,boolean raw){return raw?source:tr(source);}
     public static String tr(String source){return effective.equals("zh_cn")?zh(source):source;}

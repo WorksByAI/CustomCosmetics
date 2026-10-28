@@ -12,6 +12,31 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /** Click the compact controls and inspect saved files in the isolated test instance. */
 final class SettingsGuiGameTest {
+    static void checkAccessoryEquipment(ClientGameTestContext context){
+        var saved=new java.util.EnumMap<net.minecraft.world.entity.EquipmentSlot,net.minecraft.world.item.ItemStack>(net.minecraft.world.entity.EquipmentSlot.class);
+        context.runOnClient(client->{
+            var backend=com.mojang.blaze3d.systems.RenderSystem.getDevice().getDeviceInfo().backendName();
+            System.out.println("UI_TEST_ACTUAL_BACKEND="+backend);
+            if(Boolean.getBoolean("customcosmetics.requireVulkan")&&!backend.equalsIgnoreCase("Vulkan"))throw new AssertionError("Requested Vulkan fell back to "+backend);
+            for(var slot:net.minecraft.world.entity.EquipmentSlot.values())saved.put(slot,client.player.getItemBySlot(slot).copy());
+            client.player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST,new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_CHESTPLATE));
+            client.player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS,new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_LEGGINGS));
+            client.player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET,new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_BOOTS));
+            client.player.setInvisible(true);
+            try{
+                var renderer=client.getEntityRenderDispatcher();
+                var extract=java.util.Arrays.stream(renderer.getClass().getMethods()).filter(m->m.getName().equals("extractEntity")&&m.getParameterCount()==2).findFirst().orElseThrow();
+                var state=(net.minecraft.client.renderer.entity.state.AvatarRenderState)extract.invoke(renderer,client.player,1f);
+                var prepare=CapePreview.class.getDeclaredMethod("prepareState",net.minecraft.client.renderer.entity.state.AvatarRenderState.class,boolean.class);prepare.setAccessible(true);prepare.invoke(null,state,false);
+                if(!state.chestEquipment.is(net.minecraft.world.item.Items.DIAMOND_CHESTPLATE)||!state.legsEquipment.is(net.minecraft.world.item.Items.DIAMOND_LEGGINGS)||!state.feetEquipment.is(net.minecraft.world.item.Items.DIAMOND_BOOTS)||state.isInvisible||state.isInvisibleToPlayer)throw new AssertionError("Accessory preview lost equipment or inherited invisibility");
+            }catch(ReflectiveOperationException error){throw new AssertionError(error);}
+            ConfigManager.uiLanguage="zh_cn";ConfigManager.uiThemeMode="light";
+            ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.ACCESSORIES));
+        });
+        context.waitTicks(10);context.takeScreenshot("wenkai-accessory-preview-preserves-armor");
+        context.runOnClient(client->{for(var entry:saved.entrySet())client.player.setItemSlot(entry.getKey(),entry.getValue());client.player.setInvisible(false);ConfigManager.uiLanguage="en_us";ClientUiAccess.setScreen(client,null);});
+        System.out.println("ACCESSORY_PREVIEW_EQUIPMENT_AND_INVISIBILITY_OK");
+    }
     static void check(ClientGameTestContext context) throws Exception {
         context.runOnClient(client -> {
             ConfigManager.syncEnabled = false;
@@ -175,13 +200,12 @@ final class SettingsGuiGameTest {
                 var button=widget(client,color.label,PinkUi.Action.class);
                 if(!UiText.tr(color.label).equals(read(button,"cachedLabel")))throw new AssertionError("Rank color still English: "+color.label);
             }
-            if(SystemUiFont.loaded()!=SystemUiFont.source().isPresent())throw new AssertionError("System font load state does not match availability");
             var own=UiFonts.get(client.font);
-            String sample="微软雅黑中文护符设置";
+            String sample="霞鹜文楷中文护符设置";
             int actual=own.width(sample);
             var styled=net.minecraft.network.chat.Component.literal(sample).withStyle(style->style.withFont(UiFonts.CHINESE));
             if(actual<=0||actual!=client.font.width(styled))throw new AssertionError("GUI font provider differs from mod-owned styled text");
-            System.out.println("CHINESE_FONT_NATIVE_OK systemYaHei="+SystemUiFont.loaded()+" width="+actual);
+            System.out.println("CHINESE_FONT_NATIVE_OK bundledWenKai width="+actual);
         });context.takeScreenshot("interface-chinese-rank-font");
         context.runOnClient(client->ClientUiAccess.setScreen(client,new WardrobeScreen(null,"back")));context.waitTicks(4);
         context.runOnClient(client->{if(ClientUiAccess.screen(client).children().stream().filter(PinkUi.Action.class::isInstance).map(PinkUi.Action.class::cast).noneMatch(w->w.getMessage().getString().equals("背部")))throw new AssertionError("Body slot was translated as navigation Back");});
@@ -196,7 +220,7 @@ final class SettingsGuiGameTest {
         System.out.println("CHINESE_ENGLISH_LANGUAGE_OVERRIDE_SEARCH_USER_TEXT_PERSISTENCE_AND_OPENING_INPUT_OK");
     }
 
-    /** A real pack changes W into a wide space; preview pixels must follow it, while UI stays YaHei. */
+    /** A real pack changes W into a wide space; preview pixels must follow it, while UI stays WenKai. */
     public static void checkPreviewGameFont(ClientGameTestContext context)throws Exception{
         String language=ConfigManager.uiLanguage,nick=ConfigManager.nickTweaksNickChanger;
         boolean enabled=ConfigManager.nickTweaksEnabled,bold=ConfigManager.nickTweaksBoldSelf,
@@ -225,7 +249,7 @@ final class SettingsGuiGameTest {
                 if(method.invoke(ClientUiAccess.screen(client))!=client.font)throw new AssertionError("Preview is using the themed UI font");
                 if(UiFonts.get(client.font).width("WWW")==57)throw new AssertionError("Fixture did not distinguish UI and game fonts");
             });
-            if(previewInk(context)!=0)throw new AssertionError("Preview drew YaHei W glyphs instead of the active pack's spaces");
+            if(previewInk(context)!=0)throw new AssertionError("Preview drew GUI W glyphs instead of the active pack's spaces");
             context.takeScreenshot("preview-game-font-resource-pack");
         }finally{
             context.runOnClient(client->client.getResourcePackRepository().setSelected(selected));

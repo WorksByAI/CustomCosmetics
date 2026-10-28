@@ -227,7 +227,7 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
     private void navAction(String name, Runnable callback, BooleanSupplier selected) {
         var widget = new PinkUi.Action(panelX + 8, navRowY, sideWidth - 18, 23, name, false, callback).leftAligned().selected(selected);
-        widget.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.component(name)));
+        widget.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent(name)));
         sidebarControls.add(new Placement(addWidget(widget), navRowY)); navRowY += 26;
     }
     private int maxNavScroll() { return Math.max(0, navContentBottom - navBottom); }
@@ -899,7 +899,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         section("Connections", "Choose how your cosmetics and teammates stay in sync.");
         fullButton("Mode: "+(ConfigManager.offlineMode?"Offline":"Online"),()->{
             com.customcosmetics.config.CosmeticsMode.setOffline(!ConfigManager.offlineMode);activity();rebuildWidgets();
-        },false).setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.component("Offline: local cosmetics only. No remote connections.")));
+        },false).setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent("Offline: local cosmetics only. No remote connections.")));
         toggleRow("Automatic Sync", "", () -> ConfigManager.syncEnabled, v -> ConfigManager.syncEnabled = v);
         refreshIntervalField = fieldRow("Refresh Interval (seconds)","Refresh Interval",
             Integer.toString(ConfigManager.getSyncRefreshIntervalSeconds()),8,"30–7200 seconds (2 hours)",100,value -> {
@@ -1027,10 +1027,10 @@ public final class CosmeticsScreen extends ThemedScreen {
         PinkUi.Field[] number=new PinkUi.Field[1];
         number[0]=add(new PinkUi.Field(font,x+width-70,y,48,setting.title()+" value",22));number[0].setMaxLength(7);number[0].setValue(String.format(Locale.ROOT,"%.2f",setting.getter().getAsDouble()));
         var reset=add(new PinkUi.Action(x+width-18,y+2,18,18,"Reset",false,()->{setting.setter().accept(setting.defaultValue());changed();rebuildWidgets();}).displayAs("↺"));
-        reset.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.component("Reset")));
+        reset.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent("Reset")));
         var slider=add(new PinkUi.Slider(x,y+1,width,setting.title(),setting.getter().getAsDouble(),setting.min(),setting.max(),setting.step(),value->{setting.setter().accept(value);changed();if(!number[0].isFocused())number[0].setValue(String.format(Locale.ROOT,"%.2f",value));}).labelSpace(76));
         number[0].setResponder(value->{activity();if(!number[0].isFocused())return;try{double parsed=Double.parseDouble(value);boolean valid=Double.isFinite(parsed)&&parsed>=setting.min()&&parsed<=setting.max();number[0].invalid(!valid);if(valid)slider.setActual(parsed);}catch(NumberFormatException error){number[0].invalid(true);}});
-        slider.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.component(setting.description().isEmpty()?setting.title():setting.description())));
+        slider.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent(setting.description().isEmpty()?setting.title():setting.description())));
     }
 
     private void updateSyncNowButton() {
@@ -1081,7 +1081,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         indexOption(title,description,y);label(title,x+6,y+9,TEXT,w-50);
         art.add(bounded(y,y+30,g->g.fill(x,y+29,x+w,y+30,BORDER)));
         var toggle=add(new PinkUi.Toggle(x+2,y+6,title,getter,()->{setter.accept(!getter.getAsBoolean());changed();}).rowWidth(w-6));
-        toggle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.component(description.isEmpty()?title:description)));
+        toggle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent(description.isEmpty()?title:description)));
         if(join)pendingToggleRight=false;else{rowY+=32;pendingToggleY=y;pendingToggleBottom=rowY;pendingToggleRight=paired;}
     }
 
@@ -1094,7 +1094,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         int fieldWidth=inline?Math.min(preferredWidth,contentWidth/2):contentWidth-12,y=row(inline?30:51);
         label(title,contentX+6,y+8,TEXT,inline?contentWidth-fieldWidth-24:contentWidth-12);
         var field=input(inline?contentX+contentWidth-fieldWidth-6:contentX+6,y+(inline?4:25),fieldWidth,name,value,maximum,setter);
-        if(!hint.isEmpty())field.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.component(hint)));return field;
+        if(!hint.isEmpty())field.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent(hint)));return field;
     }
     private PinkUi.Field input(int x, int y, int width, String name, String value, int maximum, Consumer<String> setter) {
         PinkUi.Field field = new PinkUi.Field(font, x, y, width, name,22);
@@ -1112,7 +1112,7 @@ public final class CosmeticsScreen extends ThemedScreen {
     private PinkUi.Action fullButton(String text,Runnable callback,boolean primary,String description){
         indexOption(text,description,rowY);
         PinkUi.Action button = add(new PinkUi.Action(contentX, rowY, contentWidth, 24, text, primary, callback).leftAligned());
-        button.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.component(description.isEmpty() ? text : description)));
+        button.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent(description.isEmpty() ? text : description)));
         rowY += 30;
         return button;
     }

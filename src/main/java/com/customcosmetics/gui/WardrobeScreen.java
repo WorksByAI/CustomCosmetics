@@ -51,7 +51,7 @@ public final class WardrobeScreen extends ThemedScreen {
         button(x+w-216,y+h-31,118,22,"Adjust Position",()->ClientUiAccess.setScreen(minecraft,new AccessoryAdjustmentScreen(this,slot)));
     }
     private void cycle(int direction){var slots=AccessoryCatalog.slots(collection);int index=0;for(int i=0;i<slots.size();i++)if(slots.get(i).id().equals(slot))index=i;slot=slots.get(Math.floorMod(index+direction,slots.size())).id();page=0;rebuildWidgets();}
-    private PinkUi.Action button(int x,int y,int w,int h,String label,Runnable action){var button=new PinkUi.Action(x,y,w,h,label,false,()->{CosmeticsScreen.childInteraction();action.run();});button.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.component(label)));widgets.add(addWidget(button));return button;}
+    private PinkUi.Action button(int x,int y,int w,int h,String label,Runnable action){var button=new PinkUi.Action(x,y,w,h,label,false,()->{CosmeticsScreen.childInteraction();action.run();});button.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent(label)));widgets.add(addWidget(button));return button;}
     private void update(java.util.function.UnaryOperator<AccessoriesSettings.Part> change){ConfigManager.accessories=ConfigManager.accessories.with(slot,change.apply(ConfigManager.accessories.part(slot)));changed();}
     private void changed(){CosmeticsScreen.childInteraction();ConfigManager.requestSave();}
     private void colorField(int x,int y,int w,String title,boolean accent){

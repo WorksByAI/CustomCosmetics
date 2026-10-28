@@ -17,9 +17,9 @@ public final class CapeScreen extends ThemedScreen {
         addRenderableWidget(new PinkUi.Action(x+w-164,y+10,150,22,"Blocked Capes",false,()->ClientUiAccess.setScreen(minecraft,new CosmeticsScreen(this,CosmeticsScreen.Page.BLOCKED_CAPES))));
         int buttonY=y+h-119,cell=(w-38)/2;
         cropButton=addRenderableWidget(new PinkUi.Action(x+14,buttonY,cell,24,"Choose Image & Crop",false,()->choose(false)));
-        cropButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.component("Choose a regular image, crop it into a cape, then submit it for review.")));
+        cropButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent("Choose a regular image, crop it into a cape, then submit it for review.")));
         atlasButton=addRenderableWidget(new PinkUi.Action(x+24+cell,buttonY,cell,24,"Choose Vanilla-Format Cape Image",false,()->choose(true)));
-        atlasButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.component("Choose a PNG in Minecraft's cape texture format; no cropping needed.")));
+        atlasButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent("Choose a PNG in Minecraft's cape texture format; no cropping needed.")));
         removeButton=addRenderableWidget(new PinkUi.Action(x+14,buttonY+31,cell,24,"Remove Local Cape",false,()->{try{CapeCosmetics.clearLocal();notice="Local cape removed.";}catch(Exception error){notice=error.getMessage();}}));
         submit=addRenderableWidget(new PinkUi.Action(x+24+cell,buttonY+31,cell,24,"Submit for Review",true,()->{notice="";CapeSync.submit();}));
         boolean administrator=RemoteAccess.online()&&CapeAdministrators.includes(minecraft.getUser().getProfileId());int part=administrator?(w-48)/3:cell;

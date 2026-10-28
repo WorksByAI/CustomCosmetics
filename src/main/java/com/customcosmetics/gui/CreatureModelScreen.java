@@ -25,7 +25,7 @@ public final class CreatureModelScreen extends ThemedScreen {
         for(int i=0;i<perPage&&page*perPage+i<choices.size();i++){
             var choice=choices.get(page*perPage+i);
             var button=new PinkUi.Action(x+12+(i%columns)*(cell+6),y+70+(i/columns)*30,cell,25,choice.label,false,()->{CreatureModels.select(choice);CosmeticsScreen.childInteraction();onClose();}).selected(()->ConfigManager.creatureModel.equals(choice.id));
-            button.setTooltip(Tooltip.create(UiText.component(choice.label)));addRenderableWidget(button);
+            button.setTooltip(Tooltip.create(UiText.guiComponent(choice.label)));addRenderableWidget(button);
         }
         addRenderableWidget(new PinkUi.Action(x+12,y+h-30,32,22,"‹",false,()->{page--;rebuildWidgets();})).active=page>0;
         addRenderableWidget(new PinkUi.Action(x+108,y+h-30,32,22,"›",false,()->{page++;rebuildWidgets();})).active=page+1<pages;

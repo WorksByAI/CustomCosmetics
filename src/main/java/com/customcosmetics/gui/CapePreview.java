@@ -28,7 +28,7 @@ public final class CapePreview {
             var dispatcher=client.getEntityRenderDispatcher();
             if(extract==null)extract=java.util.Arrays.stream(dispatcher.getClass().getMethods()).filter(m->m.getName().equals("extractEntity")&&m.getParameterCount()==2).findFirst().orElseThrow();
             var state=(AvatarRenderState)extract.invoke(dispatcher,client.player,1f);
-            prepareState(state);
+            prepareState(state,capeOnly);
             ((com.customcosmetics.features.accessories.AccessoryRenderState)state).customcosmetics$hideAccessories(capeOnly);
             if(!capeOnly)state.showCape=false;
             if(entity==null)entity=java.util.Arrays.stream(graphics.getClass().getMethods()).filter(m->m.getName().equals("entity")&&m.getParameterCount()==9).findFirst().orElseThrow();
@@ -42,16 +42,23 @@ public final class CapePreview {
     }
     /** Neutral preview only; never clear equipment on the actual player. */
     static void prepareState(AvatarRenderState state){
+        prepareState(state,true);
+    }
+    static void prepareState(AvatarRenderState state,boolean capeOnly){
         ((com.customcosmetics.features.accessories.AccessoryRenderState)state).customcosmetics$hideAccessories(true);
         state.bodyRot=state.yRot=state.xRot=state.walkAnimationSpeed=state.walkAnimationPos=0;
         state.capeFlap=state.capeLean=state.capeLean2=state.swimAmount=0;
         com.customcosmetics.compatibility.CapePreviewSwing.clear(state);
         state.showCape=true;state.nameTag=null;state.pose=net.minecraft.world.entity.Pose.STANDING;
+        state.isInvisible=state.isInvisibleToPlayer=false;
         state.isCrouching=state.isFallFlying=state.isVisuallySwimming=state.isPassenger=state.isUsingItem=state.isAutoSpinAttack=false;
-        state.rightHandItemState.clear();state.leftHandItemState.clear();state.headItem.clear();state.heldOnHead.clear();
+        state.rightHandItemState.clear();state.leftHandItemState.clear();state.heldOnHead.clear();
         state.rightHandItemStack=state.leftHandItemStack=net.minecraft.world.item.ItemStack.EMPTY;
         state.rightArmPose=state.leftArmPose=net.minecraft.client.model.HumanoidModel.ArmPose.EMPTY;
-        state.headEquipment=state.chestEquipment=state.legsEquipment=state.feetEquipment=net.minecraft.world.item.ItemStack.EMPTY;
+        if(capeOnly){
+            state.headItem.clear();state.wornHeadType=null;state.wornHeadProfile=null;
+            state.headEquipment=state.chestEquipment=state.legsEquipment=state.feetEquipment=net.minecraft.world.item.ItemStack.EMPTY;
+        }
         state.parrotOnLeftShoulder=state.parrotOnRightShoulder=null;state.arrowCount=state.stingerCount=0;
     }
 }

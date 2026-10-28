@@ -10,6 +10,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(CapePreview.class)
 public class CapePreviewProbeMixin {
-    @Inject(method="prepareState",at=@At("TAIL"))
-    private static void preview(AvatarRenderState state,CallbackInfo ci){CapeGameTest.observePreview(state);}
+    @Inject(method="prepareState(Lnet/minecraft/client/renderer/entity/state/AvatarRenderState;Z)V",at=@At("TAIL"))
+    private static void preview(AvatarRenderState state,boolean capeOnly,CallbackInfo ci){if(capeOnly)CapeGameTest.observePreview(state);}
 }

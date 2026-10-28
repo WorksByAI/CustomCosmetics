@@ -25,6 +25,7 @@ public final class StudioGameTest implements FabricClientGameTest {
             SettingsGuiGameTest.checkViewportVisibility(context);
             SettingsGuiGameTest.checkLocalizationAndEntrance(context);
             SettingsGuiGameTest.checkPreviewGameFont(context);
+            SettingsGuiGameTest.checkAccessoryEquipment(context);
             context.getInput().resizeWindow(1600,1000);
             context.runOnClient(client->{
                 client.options.guiScale().set(2);ConfigManager.animationsEnabled=false;BlockingAdjustment.reset();
