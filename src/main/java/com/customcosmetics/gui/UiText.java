@@ -40,7 +40,7 @@ public final class UiText {
     /** Translation must not override the active font in chat, item tooltips or other game text. */
     public static net.minecraft.network.chat.MutableComponent component(String source){return net.minecraft.network.chat.Component.literal(tr(source));}
     /** Explicitly opt mod-screen tooltips into the interface font; never use for game messages. */
-    public static net.minecraft.network.chat.MutableComponent guiComponent(String source){var text=component(source);return effective.equals("zh_cn")?text.withStyle(style->style.withFont(UiFonts.CHINESE)):text;}
+    public static net.minecraft.network.chat.MutableComponent guiComponent(String source){var text=component(source);return UiFonts.modern()?text.withStyle(style->style.withFont(UiFonts.CHINESE)):text;}
     public static String slotLabel(String id,String source){return effective.equals("zh_cn")?ZH.getOrDefault("customcosmetics.slot."+id,zh(source)):source;}
     public static String display(String source,boolean raw){return raw?source:tr(source);}
     public static String tr(String source){return effective.equals("zh_cn")?zh(source):source;}

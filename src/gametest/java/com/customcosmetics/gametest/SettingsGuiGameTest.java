@@ -12,6 +12,31 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /** Click the compact controls and inspect saved files in the isolated test instance. */
 final class SettingsGuiGameTest {
+    static void checkFontChoiceAndTooltip(ClientGameTestContext context)throws Exception{
+        context.getInput().resizeWindow(1600,1000);context.waitTicks(3);
+        context.runOnClient(client->{ConfigManager.uiLanguage="en_us";ConfigManager.uiFont="vanilla";ConfigManager.uiAnimationsEnabled=true;ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SYNC));});context.waitTicks(5);
+        click(context,"Font:",PinkUi.Action.class);context.waitTicks(2);context.getInput().pressKey(ClientInput.DOWN);context.getInput().pressKey(ClientInput.ENTER);context.waitTicks(3);
+        context.runOnClient(client->{
+            if(!ConfigManager.uiFont.equals("modern"))throw new AssertionError("Font dropdown failed to select Modern");
+            var sample=net.minecraft.network.chat.Component.literal("Settings 中文").withStyle(style->style.withFont(UiFonts.CHINESE));
+            if(UiFonts.get(client.font).width("Settings 中文")!=client.font.width(sample))throw new AssertionError("Modern font was not used for English UI");
+        });context.takeScreenshot("font-modern-english");
+        context.runOnClient(client->{ConfigManager.uiLanguage="zh_cn";ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SYNC));});context.waitTicks(4);context.takeScreenshot("font-modern-chinese");
+        click(context,"Font:",PinkUi.Action.class);context.waitTicks(2);context.getInput().pressKey(ClientInput.UP);context.getInput().pressKey(ClientInput.ENTER);context.waitTicks(3);
+        context.runOnClient(client->{
+            if(!ConfigManager.uiFont.equals("vanilla")||UiFonts.get(client.font).width("Settings 中文")!=client.font.width("Settings 中文"))throw new AssertionError("Vanilla did not restore the active game font");
+            ConfigManager.saveConfig();
+        });context.takeScreenshot("font-vanilla-chinese");
+        context.runOnClient(client->{ConfigManager.uiLanguage="en_us";ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SYNC));});context.waitTicks(5);
+        var pointer=context.computeOnClient(client->{var w=widget(client,"Snaplook Keybind",PinkUi.Action.class);double scale=client.getWindow().getGuiScale();return new double[]{(w.getX()+20)*scale,(w.getY()+w.getHeight()/2d)*scale};});
+        context.getInput().setCursorPos(pointer[0],pointer[1]);context.waitTicks(8);context.takeScreenshot("tooltip-motion-start");
+        for(int i=0;i<8;i++){context.getInput().setCursorPos(pointer[0]+i*7.5,pointer[1]);context.waitTicks(1);}
+        context.runOnClient(client->{
+            var screen=(ThemedScreen)ClientUiAccess.screen(client);var positioner=read(screen,"tooltipPositioner");var motion=(TooltipMotion)read(positioner,"motion");double pixels=client.getWindow().getGuiScale();
+            if(motion.x(pixels)<=0||Math.rint(motion.x(pixels)*pixels)!=motion.x(pixels)*pixels)throw new AssertionError("Tooltip is not aligned to physical pixels");
+        });context.takeScreenshot("tooltip-motion-following");context.runOnClient(client->ClientUiAccess.setScreen(client,null));
+        System.out.println("FONT_DROPDOWN_BOTH_LANGUAGES_AND_TOOLTIP_PHYSICAL_PIXELS_OK");
+    }
     static void checkAccessoryEquipment(ClientGameTestContext context){
         var saved=new java.util.EnumMap<net.minecraft.world.entity.EquipmentSlot,net.minecraft.world.item.ItemStack>(net.minecraft.world.entity.EquipmentSlot.class);
         context.runOnClient(client->{
@@ -27,8 +52,10 @@ final class SettingsGuiGameTest {
                 var renderer=client.getEntityRenderDispatcher();
                 var extract=java.util.Arrays.stream(renderer.getClass().getMethods()).filter(m->m.getName().equals("extractEntity")&&m.getParameterCount()==2).findFirst().orElseThrow();
                 var state=(net.minecraft.client.renderer.entity.state.AvatarRenderState)extract.invoke(renderer,client.player,1f);
+                state.nameTag=net.minecraft.network.chat.Component.literal("Preview name");state.scoreText=net.minecraft.network.chat.Component.literal("4347 ❤");
                 var prepare=CapePreview.class.getDeclaredMethod("prepareState",net.minecraft.client.renderer.entity.state.AvatarRenderState.class,boolean.class);prepare.setAccessible(true);prepare.invoke(null,state,false);
                 if(!state.chestEquipment.is(net.minecraft.world.item.Items.DIAMOND_CHESTPLATE)||!state.legsEquipment.is(net.minecraft.world.item.Items.DIAMOND_LEGGINGS)||!state.feetEquipment.is(net.minecraft.world.item.Items.DIAMOND_BOOTS)||state.isInvisible||state.isInvisibleToPlayer)throw new AssertionError("Accessory preview lost equipment or inherited invisibility");
+                if(state.nameTag!=null||state.scoreText!=null)throw new AssertionError("Accessory preview retained a name or below-name health label");
             }catch(ReflectiveOperationException error){throw new AssertionError(error);}
             ConfigManager.uiLanguage="zh_cn";ConfigManager.uiThemeMode="light";
             ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.ACCESSORIES));
@@ -85,10 +112,10 @@ final class SettingsGuiGameTest {
         String longNickname = "&d" + "Cherry".repeat(10);
         type(context,"Nick Changer",longNickname);
         context.runOnClient(client -> {
-            if (!ConfigManager.nickTweaksNickChanger.equals(longNickname.substring(0,40)))
-                throw new AssertionError("Nickname input is not capped at 40 raw characters including format codes");
+            if (!ConfigManager.nickTweaksNickChanger.equals(longNickname.substring(0,30)))
+                throw new AssertionError("Nickname input is not capped at 30 raw characters including format codes");
         });
-        System.out.println("NICKNAME_GUI_FORTY_RAW_CHARACTERS_OK");
+        System.out.println("NICKNAME_GUI_THIRTY_RAW_CHARACTERS_OK");
         bottom(context); context.takeScreenshot("nick-options-capitalized");
         click(context,"Chroma",PinkUi.Action.class);
         context.runOnClient(client -> {
@@ -171,7 +198,7 @@ final class SettingsGuiGameTest {
     public static void checkLocalizationAndEntrance(ClientGameTestContext context)throws Exception{
         context.getInput().resizeWindow(1600,1000);context.waitTicks(3);
         String gameLanguage=context.computeOnClient(client->client.options.languageCode);
-        context.runOnClient(client->{ConfigManager.uiLanguage="auto";ConfigManager.uiAnimationsEnabled=true;ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SYNC));});
+        context.runOnClient(client->{ConfigManager.uiLanguage="auto";ConfigManager.uiFont="modern";ConfigManager.uiAnimationsEnabled=true;ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SYNC));});
         context.waitFor(client->{try{return (Float)read(ClientUiAccess.screen(client),"entranceScale")<.999f;}catch(Exception e){throw new AssertionError(e);}},20);
         context.takeScreenshot("interface-opening-spring");
         // Click at the visible transformed position, while the entrance is still moving.
@@ -188,7 +215,7 @@ final class SettingsGuiGameTest {
         click(context,"Interface",PinkUi.Action.class);click(context,"Mode: Dark",PinkUi.Action.class);context.getInput().setCursorPos(1595,995);context.waitTicks(4);context.takeScreenshot("interface-chinese-light-theme");
         click(context,"Mode: Light",PinkUi.Action.class);click(context,"Settings",PinkUi.Action.class);
         type(context,"Search Settings","护符");context.waitTicks(4);context.takeScreenshot("interface-chinese-search");
-        click(context,"Accessory Helper Tooltip",PinkUi.Action.class);
+        click(context,"Accessory Helper",PinkUi.Action.class);
         context.runOnClient(client->{if(read(ClientUiAccess.screen(client),"page")!=CosmeticsScreen.Page.ITEMS)throw new AssertionError("Chinese search did not reach the setting");});
         click(context,"NickTweaks",PinkUi.Action.class);
         context.runOnClient(client->{ConfigManager.nickTweaksNickChanger="Settings";ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.NICK));});context.waitTicks(3);
@@ -508,7 +535,8 @@ final class SettingsGuiGameTest {
         }
     }
     private static Object read(Object object,String name) throws Exception {
-        var field = object.getClass().getDeclaredField(name); field.setAccessible(true); return field.get(object);
+        for(Class<?> type=object.getClass();type!=null;type=type.getSuperclass())try{var field=type.getDeclaredField(name);field.setAccessible(true);return field.get(object);}catch(NoSuchFieldException missing){}
+        throw new NoSuchFieldException(name);
     }
     private static AbstractWidget widget(net.minecraft.client.Minecraft client,String prefix,Class<?> type) {
         return ClientUiAccess.screen(client).children().stream().filter(type::isInstance).map(child -> (AbstractWidget) child)

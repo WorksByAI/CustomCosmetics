@@ -46,6 +46,7 @@ public final class MapEditor {
     public static BlockPos blockPos(MapEdits.Position p){return new BlockPos(p.x(),p.y(),p.z());}
     public static Path roomsPath(){return roomsFile;}
     public static Path settingsPath(){return file;}
+    public static String roomOriginWorkerThread(){return restorer.originWorkerThread();}
     public static void init(){try{
         var candidate=new MapStorage(CosmeticsConfigDir.getCosmeticsConfigDir());var root=candidate.initialize();
         var loadedPresets=candidate.loadPresets();ROOMS.load(candidate.rooms);
@@ -107,10 +108,12 @@ public final class MapEditor {
         if(level!=client.level){saveRoomEdits();level=client.level;visible=Map.of();DATA.reset();GhostBlocks.reset();pendingSaves.clear();appliedRooms.clear();appliedLayouts.clear();DungeonRooms.reset();restorer.reset();anchor=null;first=second=null;editing=false;nextScan=0;lastRoom="None";kuudraContext=inKuudra(client);}
         syncArea(client);DungeonRooms.context(client);MapEditorUi.tick(client);long now=System.currentTimeMillis();if(now>=nextRoomSave){nextRoomSave=now+750;saveRoomEdits();}
         MaterialReplacement.tick(client);MapRegionFill.tick(client);boolean active=enabled&&allowed(client);
-        if(!active){restorer.cancel();if(!visible.isEmpty()){visible=Map.of();dirty(DATA.snapshot().keySet());}return;}
-        DungeonRooms.scanStep();
+        if(!active){restorer.reset();if(!visible.isEmpty()){visible=Map.of();dirty(DATA.snapshot().keySet());}return;}
+        // With no saved layouts or active editing, discovery has no consumer.
+        // In particular, merely enabling the module must not scan an empty run.
+        if(editing||ROOMS.count()!=0||hasLegacyPresets())DungeonRooms.scanStep();
         if(now>=nextScan){nextScan=now+2000;savePending();}
-        if(autoRooms&&!busy()&&!MapRegionFill.busy()){applyRooms();if(!editing)scanRooms(client);}else restorer.cancel();visible=DATA.snapshot();
+        if(autoRooms&&!busy()&&!MapRegionFill.busy()){if(ROOMS.count()!=0)applyRooms();else restorer.reset();if(!editing)scanRooms(client);}else restorer.cancel();visible=DATA.snapshot();
     }
     public static void refresh(){var next=enabled&&allowed(Minecraft.getInstance())?DATA.snapshot():Map.<MapEdits.Position,MapEdits.Edit>of();if(next==visible){save();return;}refresh(DATA.snapshot().keySet());}
     private static void refresh(Collection<MapEdits.Position> changes){visible=enabled&&allowed(Minecraft.getInstance())?DATA.snapshot():Map.of();dirty(changes);save();}
@@ -350,7 +353,10 @@ public final class MapEditor {
     }
     private static final Set<String> appliedRooms=new HashSet<>();
     private static int presetScanCursor;
-    private static void scanRooms(Minecraft client){if(PRESETS.values().stream().noneMatch(p->p.fingerprint().matches("[a-f0-9]{64}"))||!inDungeon(client))return;
+    private static boolean hasLegacyPresets(){
+        for(var preset:PRESETS.values()){String hash=preset.fingerprint();if(hash.length()!=64)continue;boolean valid=true;for(int i=0;i<64;i++){char c=hash.charAt(i);if(!(c>='0'&&c<='9'||c>='a'&&c<='f')){valid=false;break;}}if(valid)return true;}return false;
+    }
+    private static void scanRooms(Minecraft client){if(!hasLegacyPresets()||!inDungeon(client))return;
         int cell=Math.floorMod(presetScanCursor++,36),x=-185+(cell/6)*32,z=-185+(cell%6)*32;{
             var origin=new MapEdits.Position(x,0,z);String key=x+":"+z;if(appliedRooms.contains(key))return;
             for(int turns=0;turns<4;turns++){String hash=fingerprint(origin,turns);if(hash.isEmpty())break;

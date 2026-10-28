@@ -571,7 +571,7 @@ public final class CosmeticsScreen extends ThemedScreen {
 
     private void itemCosmetics() {
         section("SkyBlock accessories", "See collected tiers when hovering accessories.");
-        toggleRow("Accessory Helper Tooltip", "Open every Accessory Bag page once per profile to record ownership.",
+        toggleRow("Accessory Helper", "Show ownership tooltips and missing accessories beside the Accessory Bag.",
             () -> ConfigManager.accessoryHelperTooltipEnabled, value -> ConfigManager.accessoryHelperTooltipEnabled = value);
         fullButton("Clear This Profile's Bag Scan", () -> {
             boolean cleared = com.customcosmetics.features.accessoryhelper.AccessoryTooltipHelper.clearCurrent();
@@ -678,7 +678,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         ConfigManager.nickTweaksNickChanger = com.customcosmetics.config.NicknameLimit.limit(ConfigManager.nickTweaksNickChanger);
         var nickname = fieldRow("Nick Changer","Nick Changer",ConfigManager.nickTweaksNickChanger,
             com.customcosmetics.config.NicknameLimit.MAX_LENGTH,"Color codes: &0–&f, &r",220,value -> {});
-        nickname.setHint(UiText.component("Account name (40 characters max)"));
+        nickname.setHint(UiText.component("Nickname (30 characters max)"));
         nickname.setResponder(value -> {
             String limited = com.customcosmetics.config.NicknameLimit.limit(value);
             if (!value.equals(limited)) { nickname.setValue(limited); return; }
@@ -886,6 +886,9 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
     private void sync() {
         fullButton("Language: "+UiText.name(ConfigManager.uiLanguage),()->{UiLocale.cycle();rebuildWidgets();},false,"Language preference applies only to this mod.");
+        indexOption("Font","Vanilla Modern",rowY);
+        var fontChoice=add(new OptionDropdown(contentX,rowY,contentWidth,"Font",java.util.List.of(new OptionDropdown.Option("vanilla","Vanilla"),new OptionDropdown.Option("modern","Modern")),()->ConfigManager.uiFont,value->{ConfigManager.uiFont=value;changed();rebuildWidgets();}).rawOptions());
+        choiceMenus.add(fontChoice);rowY+=30;
         fullButton("Interface",()->open(Page.THEME),false,"Theme colors and animations");
         section("General", "Preferences and feature availability.");
         fullButton("Module Manager",()->open(Page.MODULES),false,"Enable or disable whole features without losing their settings.");
@@ -949,7 +952,7 @@ public final class CosmeticsScreen extends ThemedScreen {
 
     private PinkUi.Action fullButton(String title,Runnable action){return fullButton(title,action,false);}
     private void skins(){
-        paragraph("Inspired by CustomSkinLoader. Shared skins are visible to peers only after a successful P2P connection. Global replacements are local-only. Use at your own risk.",MUTED);
+        paragraph("Inspired by CustomSkinLoader. Shared skins are visible to peers only after a successful P2P connection. Global replacements are local-only. You are responsible for any consequences of using this feature; the mod developers accept no liability.",MUTED);
         fullButton("Blocked Skins",()->open(Page.BLOCKED_SKINS),false);
         section("Other Players", "");
         dropdown("Other Players",List.of("original","steve","alex","custom"),()->ConfigManager.otherPlayerSkinMode,com.customcosmetics.features.skins.LocalSkins::otherMode);
@@ -962,7 +965,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         toggleRow("Show My Local Skin","Your local import works without a server connection.",()->ConfigManager.localSkinEnabled,v->ConfigManager.localSkinEnabled=v);
         fullButton("Remove Local Skin",()->{try{com.customcosmetics.features.skins.LocalSkins.clear();}catch(java.io.IOException error){com.customcosmetics.features.cape.CapeCosmetics.notice(error.getMessage());}});
         fullButton("Skin Model: "+(ConfigManager.localSkinSlim?"Slim (Alex)":"Wide (Steve)"),()->{com.customcosmetics.features.skins.LocalSkins.slim(!ConfigManager.localSkinSlim);rebuildWidgets();});
-        toggleRow("Share Skin via P2P","Only established Sharing direct connections. No relay or server upload.",()->ConfigManager.skinP2pSharing,v->ConfigManager.skinP2pSharing=v);
+        toggleRow("Share Skin via P2P","Skin sharing only supports P2P. Turning this option off stops sharing.",()->ConfigManager.skinP2pSharing,v->ConfigManager.skinP2pSharing=v);
         toggleRow("Receive P2P Skins","Restore the original skin when the direct connection ends.",()->ConfigManager.skinP2pReceiving,v->ConfigManager.skinP2pReceiving=v);
         label("Established P2P peers: "+com.customcosmetics.features.skins.LocalSkins.directCount(),contentX,rowY+5,MUTED,contentWidth);rowY+=24;
     }
@@ -1161,6 +1164,8 @@ public final class CosmeticsScreen extends ThemedScreen {
         if (blockingStyle != null) blockingStyle.closeMenu();
         if (StudioLayout.contains(mx, my, panelX + 1, navTop, panelX + sideWidth, navBottom)) {
             navScroll = Math.clamp((int) Math.round(navScroll - vertical * 36), 0, maxNavScroll());
+            // Separate disjoint UI regions from the full-panel background. Native GUI
+            // overlap ordering otherwise searches the accumulated background subtree per quad.
             positionNavigation(); return true;
         }
         if (mx < contentX || mx > contentX + contentWidth + 10 || my < viewTop || my > viewBottom) return super.mouseScrolled(mx, my, horizontal, vertical);
@@ -1186,6 +1191,8 @@ public final class CosmeticsScreen extends ThemedScreen {
             scrollGrabOffset = event.y() >= thumb && event.y() < thumb + bar.thumbLength()
                 ? (int) event.y() - thumb : bar.thumbLength() / 2;
             draggingNavigation = true; navScroll = bar.offsetAtPointer(event.y(), scrollGrabOffset);
+            // Separate disjoint UI regions from the full-panel background. Native GUI
+            // overlap ordering otherwise searches the accumulated background subtree per quad.
             positionNavigation(); return true;
         }
         if (event.button() == com.customcosmetics.compatibility.ClientInput.MOUSE_LEFT && maxScroll() > 0 && event.x() >= contentX + contentWidth + 2
@@ -1288,13 +1295,19 @@ public final class CosmeticsScreen extends ThemedScreen {
             text(g,font,DISPLAY_VERSION,panelX+44,panelY+34,DIM,sideWidth-50);
             uiText(g,font,pageTitle(),contentX,panelY+21,TEXT,contentWidth-28);
             g.fill(contentX, panelY + 83, contentX + contentWidth, panelY + 84, BORDER);
+            // Separate disjoint UI regions from the full-panel background. Native GUI
+            // overlap ordering otherwise searches the accumulated background subtree per quad.
+            g.nextStratum();
             positionNavigation();
             g.enableScissor(panelX + 1, navTop, panelX + sideWidth - 6, navBottom);
             g.pose().pushMatrix(); g.pose().translate(0, -navScroll);
             for (var draw : sidebarArt) draw.accept(g);
             g.pose().popMatrix();
-            for (var placement : sidebarControls) if (placement.widget().visible)
+            g.nextStratum();
+            for (var placement : sidebarControls) if (placement.widget().visible) {
+                g.nextStratum();
                 placement.widget().extractRenderState(g, mx, my >= navTop && my < navBottom ? my : Integer.MIN_VALUE, dt);
+            }
             g.disableScissor();
             if (maxNavScroll() > 0) {
                 var bar = navigationScrollbar();
@@ -1306,14 +1319,20 @@ public final class CosmeticsScreen extends ThemedScreen {
             try{for(Consumer<GuiGraphicsExtractor> draw:pinnedArt)draw.accept(g);}finally{drawingPinned=false;}
             for (AbstractWidget widget : navigation) widget.extractRenderState(g, mx, my, dt);
 
+            g.nextStratum();
             positionControls();
             g.enableScissor(contentX - 1, viewTop, contentX + contentWidth + 1, viewBottom);
             g.pose().pushMatrix();
             g.pose().translate(0, -(float) Math.round(scroll));
             for (Consumer<GuiGraphicsExtractor> draw : art) draw.accept(g);
             g.pose().popMatrix();
-            for (Placement p : controls) if (p.widget().visible)
+            g.nextStratum();
+            for (Placement p : controls) if (p.widget().visible) {
+                // Widget ordering is explicit: avoid searching every preceding control
+                // for intersections with each of this control's nine-slice pieces.
+                g.nextStratum();
                 p.widget().extractRenderState(g, mx, my >= viewTop && my < viewBottom ? my : Integer.MIN_VALUE, dt);
+            }
             g.disableScissor();
             if (maxScroll() > 0) {
                 var bar = contentScrollbar();

@@ -17,7 +17,9 @@ public class CreatureModelMixin {
         at = @At("RETURN"))
     private EntityRenderState customcosmetics$creatureModel(EntityRenderState result, Entity entity, float partialTick) {
         if (!CreatureModels.extractingPlayerEffects && entity instanceof AbstractClientPlayer player && result instanceof AvatarRenderState original) {
-            return CreatureModels.replace(player, original, partialTick);
+            if(!com.customcosmetics.client.ModErrors.active(com.customcosmetics.client.ModErrors.Key.CREATURE))return original;
+            try{return CreatureModels.replace(player, original, partialTick);}
+            catch(RuntimeException|LinkageError|AssertionError failure){com.customcosmetics.client.ModErrors.report(com.customcosmetics.client.ModErrors.Key.CREATURE,failure);return original;}
         }
         return result;
     }

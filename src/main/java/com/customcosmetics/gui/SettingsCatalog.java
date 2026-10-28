@@ -47,7 +47,7 @@ public final class SettingsCatalog {
         add(entries, "Damage Splash", "DAMAGE", "Requires Rainbow: select the Rainbow color mode first.", "Rainbow Speed");
         add(entries, "Damage Splash", "DAMAGE", "Requires Gradient: select the Gradient color mode first.", "Gradient Start|Gradient End");
         add(entries, "Item Customization", "ITEMS", "Custom item names and models resource packs", "Enabled|Customize Items");
-        add(entries, "Item Customization", "ITEMS", "SkyBlock accessory bag collected upgrade tooltip tier", "Accessory Helper Tooltip|Clear This Profile's Bag Scan");
+        add(entries, "Item Customization", "ITEMS", "SkyBlock accessory bag collected upgrade tooltip tier", "Accessory Helper|Missing Accessories|Clear This Profile's Bag Scan");
         add(entries, "Equipments", "ACCESSORIES", "Accessories outfit wardrobe style colors size shoulder", "Blocked Equipments|Open Wardrobe|Clear Outfit");
         add(entries, "Cape", "CAPE", "Cape visibility local import texture upload approval",
             "Show Custom Capes|Choose Image & Crop|Choose Vanilla-Format Cape Image|Submit for Review");
@@ -63,7 +63,7 @@ public final class SettingsCatalog {
         add(entries, "Map Editor", "MAP", "Local visual map dungeon Kuudra rooms",
             "Freecam|Freecam Speed (blocks/s)|Map Editor|Dungeon Only|Force Dungeon|Force Kuudra|Edit Mode|Import FME Config|Choose Block / Favorites|Replace Materials|Editor HUD|Reset This Room|Block Material|Undo|Clear Current Edits|Automatically Restore Rooms|Preset Manager");
         add(entries, "Settings", "SYNC", "General preferences",
-            "Language|Interface|Module Manager|Check for Updates|Command Tooltips|Snaplook|Snaplook View|Snaplook Keybind…");
+            "Language|Font|Vanilla|Modern|Interface|Module Manager|Check for Updates|Command Tooltips|Snaplook|Snaplook View|Snaplook Keybind…");
         add(entries,"Interface","THEME","Local theme colors and finite screen animations","Mode|Accent Color|Interface Animations|Background Blur|Reset Theme");
         add(entries, "Settings", "SYNC", "Connections automatic sync online offline",
             "Mode|Automatic Sync|Refresh Interval (seconds)|Notifications|Sync Now");

@@ -16,6 +16,28 @@ class PartyPeerClientTest {
         for(int i=0;i<210;i++){if(i%100==0){arena.a.permit(ids(),arena.now);arena.b.permit(ids(),arena.now);}arena.step(true);}assertEquals(Set.of(B),arena.a.direct());assertFalse(received.isEmpty());assertArrayEquals(bytes,received.getLast().bytes());assertTrue(received.getLast().slim());assertTrue(arena.sent.stream().allMatch(p->p.bytes.length<=1200));
         arena.run(3200,false);assertTrue(arena.a.direct().isEmpty());int count=received.size();arena.run(500,false);assertEquals(count,received.size());
     }
+    @Test void appearanceOnlyPeersConnectWithoutPublishingOrGrantingPositionsAndRevokeImmediately()throws Exception{
+        var arena=new Arena(60000);arena.states=false;
+        var audience=com.customcosmetics.features.party.PositionAudience.PARTY;
+        arena.a.context(new PartyPeerClient.Context(A,101,1,WORLD,PartyRoster.EMPTY,true,audience,false,Set.of(B)));
+        arena.b.context(new PartyPeerClient.Context(B,102,1,WORLD,PartyRoster.EMPTY,true,audience,false,Set.of(A)));
+        arena.a.permit(ids(),arena.now);arena.b.permit(ids(),arena.now+arena.offset);
+        var ga=offer(true);ga.addProperty("appearance",true);ga.addProperty("sendPosition",false);ga.addProperty("receivePosition",false);
+        var gb=offer(false);gb.addProperty("appearance",true);gb.addProperty("sendPosition",false);gb.addProperty("receivePosition",false);
+        arena.a.offer(ga,arena.now);arena.b.offer(gb,arena.now+arena.offset);
+        var features=new JsonObject();features.addProperty("creatureModel","sheep");arena.a.appearance(AppearanceTransfer.encode(features));
+        arena.run(1800,true);
+        assertEquals(Set.of(B),arena.a.connected());assertEquals(Set.of(A),arena.b.connected());
+        assertTrue(arena.a.direct().isEmpty());assertTrue(arena.b.direct().isEmpty(),"Appearance readiness must not suppress relay positions");
+        assertEquals("sheep",arena.b.appearances().get(A).user().creatureModel());assertTrue(arena.ar.isEmpty());assertTrue(arena.br.isEmpty());
+        assertTrue(arena.sent.stream().allMatch(packet->packet.bytes.length<=1200));
+        arena.run(1800,false);assertTrue(arena.b.appearances().isEmpty(),"Broken authenticated path must restore HTTP fallback");
+        arena.b.context(new PartyPeerClient.Context(B,102,1,WORLD,PartyRoster.EMPTY,true,audience,false,Set.of()));assertTrue(arena.b.appearances().isEmpty());assertEquals(0,arena.b.size());
+    }
+    @Test void aLegacyGrantCannotAuthorizeAppearanceWithoutPositionConsent()throws Exception{
+        var arena=new Arena(0);arena.a.context(new PartyPeerClient.Context(A,101,1,WORLD,PartyRoster.EMPTY,true,com.customcosmetics.features.party.PositionAudience.PARTY,false,Set.of(B)));
+        arena.a.permit(ids(),arena.now);var grant=offer(true);grant.addProperty("sendPosition",false);grant.addProperty("receivePosition",false);arena.a.offer(grant,arena.now);assertEquals(0,arena.a.size());assertTrue(arena.a.appearances().isEmpty());
+    }
     private static final UUID A=UUID.fromString("12345678-1234-4234-8234-123456789abc"),B=UUID.fromString("82345678-1234-4234-8234-123456789abc");
     private static final String ID="1".repeat(32),WORLD="a".repeat(64),KEY="2".repeat(64);
     private static final PartyRoster ROSTER=new PartyRoster(Set.of(A,B),Set.of(),"fixture");
@@ -31,11 +53,12 @@ class PartyPeerClientTest {
         final InetSocketAddress aa=new InetSocketAddress("127.0.0.1",30001),ba;
         final ArrayDeque<Packet> wire=new ArrayDeque<>();final List<JsonObject> ar=new ArrayList<>(),br=new ArrayList<>();final List<Packet> sent=new ArrayList<>();
         final PartyPeerClient a=new PartyPeerClient((bytes,to)->wire.add(new Packet(true,bytes,to)),ar::add),b=new PartyPeerClient((bytes,to)->wire.add(new Packet(false,bytes,to)),br::add);
+        boolean states=true;
         long now=10000,seq;final long offset;
         Arena(long offset)throws Exception {this(offset,false);}
         Arena(long offset,boolean destinationDependentMapping)throws Exception {this.offset=offset;ba=new InetSocketAddress("127.0.0.1",destinationDependentMapping?40002:30002);a.context(new PartyPeerClient.Context(A,101,1,WORLD,ROSTER,true));b.context(new PartyPeerClient.Context(B,102,1,WORLD,ROSTER,true));
             a.permit(ids(),now);b.permit(ids(),now+offset);a.offer(offer(true),now);b.offer(offer(false),now+offset);}
-        void step(boolean deliver){now+=20;a.tick(now,20);b.tick(now+offset,20);a.publish(position(++seq,now),now);b.publish(position(seq,now+offset),now+offset);
+        void step(boolean deliver){now+=20;a.tick(now,20);b.tick(now+offset,20);if(states){a.publish(position(++seq,now),now);b.publish(position(seq,now+offset),now+offset);}
             int count=0;while(!wire.isEmpty()){var p=wire.remove();sent.add(p);assertTrue(++count<256,"Probe reply loop");
                 if(deliver){if(p.fromA&&p.destination.equals(ba))b.receive(p.bytes,aa,now+offset);else if(!p.fromA&&p.destination.equals(aa))a.receive(p.bytes,ba,now);}}
         }

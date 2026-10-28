@@ -11,11 +11,12 @@ public final class UiFonts {
     public static final FontDescription.Resource CHINESE=new FontDescription.Resource(Identifier.fromNamespaceAndPath("customcosmetics","gui_chinese"));
     private static Font base,view;
     private UiFonts(){}
+    public static boolean modern(){return "modern".equals(com.customcosmetics.config.ConfigManager.uiFont);}
     public static Font get(Font original){
         if(base!=original){
             var provider=((UiFontAccess)(Object)original).customcosmetics$provider();
             view=new Font(new Font.Provider(){
-                public GlyphSource glyphs(FontDescription description){return provider.glyphs(UiText.language().equals("zh_cn")&&description.equals(FontDescription.DEFAULT)?CHINESE:description);}
+                public GlyphSource glyphs(FontDescription description){return provider.glyphs(modern()&&description.equals(FontDescription.DEFAULT)?CHINESE:description);}
                 public EffectGlyph effect(){return provider.effect();}
             });base=original;
         }

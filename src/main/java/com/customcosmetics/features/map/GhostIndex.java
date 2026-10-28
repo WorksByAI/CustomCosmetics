@@ -27,7 +27,10 @@ public final class GhostIndex {
     };
     private int size;
     public GhostIndex(Collection<MapEdits.Edit> edits){
-        for(var edit:edits){var p=edit.position();if(edit.originallyAir())addGhost(edit);else ordinaryChunks.addTo(chunk(p.x()>>4,p.z()>>4),1);}
+        this(edits,()->false);
+    }
+    GhostIndex(Collection<MapEdits.Edit> edits,java.util.function.BooleanSupplier cancelled){
+        int checked=0;for(var edit:edits){if((checked++&255)==0&&cancelled.getAsBoolean())throw new java.util.concurrent.CancellationException("Map context changed");var p=edit.position();if(edit.originallyAir())addGhost(edit);else ordinaryChunks.addTo(chunk(p.x()>>4,p.z()>>4),1);}
     }
     private static long section(int x,int y,int z){return ((long)x&0x3fffffL)<<42|((long)z&0x3fffffL)<<20|((long)y&0xfffffL);}
     private static long chunk(int x,int z){return (long)x&0xffffffffL|(long)z<<32;}

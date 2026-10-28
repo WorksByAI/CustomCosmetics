@@ -34,7 +34,12 @@ public final class RoomLayouts {
     public Boolean originallyAir(String key,MapEdits.Position relative){return origins.getOrDefault(canonicalKey(key),Map.of()).get(relative);}
     Map<MapEdits.Position,Boolean> originSnapshot(String key){return origins.getOrDefault(canonicalKey(key),Map.of());}
     public void rememberOrigin(String key,MapEdits.Position relative,boolean air){rememberOrigins(key,Map.of(relative,air));}
-    public void rememberOrigins(String key,Map<MapEdits.Position,Boolean> additions){key=canonicalKey(key);var edits=rooms.getOrDefault(key,Map.of());var existing=origins.getOrDefault(key,Map.of());var updates=new HashMap<MapEdits.Position,Boolean>();additions.forEach((p,air)->{if(edits.containsKey(p))updates.put(p,air);});var values=MapEdits.change(existing,updates);if(values!=existing){origins.put(key,values);dirty=true;dirtyRooms.add(key);}}
+    public void rememberOrigins(String key,Map<MapEdits.Position,Boolean> additions){rememberOrigins(key,additions,null);}
+    void rememberOrigins(String key,Map<MapEdits.Position,Boolean> additions,java.util.function.BooleanSupplier cancelled){
+        key=canonicalKey(key);var edits=rooms.getOrDefault(key,Map.of());var existing=origins.getOrDefault(key,Map.of());var updates=new HashMap<MapEdits.Position,Boolean>();int checked=0;
+        for(var e:additions.entrySet()){if(cancelled!=null&&(checked++&255)==0&&cancelled.getAsBoolean())throw new java.util.concurrent.CancellationException("Map context changed");if(edits.containsKey(e.getKey()))updates.put(e.getKey(),e.getValue());}
+        var values=MapEdits.change(existing,updates,cancelled);if(values!=existing){origins.put(key,values);dirty=true;dirtyRooms.add(key);}
+    }
     /** Shared boss geometry; existing shared data wins, then F7, then M7-only coordinates. */
     public static Map<String,FmeImport.Layout> sharedBossLayouts(Map<String,FmeImport.Layout> source){
         var result=new TreeMap<>(source);var merged=new LinkedHashMap<MapEdits.Position,String>();boolean found=false;

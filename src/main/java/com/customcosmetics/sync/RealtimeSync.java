@@ -8,12 +8,17 @@ import com.customcosmetics.features.party.*;
 import net.minecraft.client.Minecraft;
 import java.util.*;
 
-/** One realtime channel for visual blocking and party markers. Cosmetics and chat stay independent. */
+/** One realtime channel for visual blocking and party markers. Appearance prefers authenticated direct peers; blocking retains its realtime cadence. */
 public final class RealtimeSync {
     private static RealtimeClient live;private static String endpoint="";private static PresenceAuthClient.Session identity;
+    private static long nextAppearance;
     private static long generation,nextAttempt;private static boolean authenticating;private static BlockHand hand=BlockHand.NONE;private static String item="";
     private RealtimeSync(){}
-    public static boolean enabled(){return !"udp".equals(ConfigManager.syncBlockingTransport)||PositionSharing.enabled();}
+    private static final int APPEARANCE_MODULES=com.customcosmetics.config.FeatureModules.Feature.NICK.bit()|com.customcosmetics.config.FeatureModules.Feature.PLAYER_SIZE.bit()|com.customcosmetics.config.FeatureModules.Feature.SMOL.bit()|com.customcosmetics.config.FeatureModules.Feature.EQUIPMENT.bit()|com.customcosmetics.config.FeatureModules.Feature.CREATURE_MODEL.bit()|com.customcosmetics.config.FeatureModules.Feature.SKINS.bit();
+    private static boolean appearanceEnabled(){
+        return ConfigManager.syncEnabled&&ConfigManager.partyP2pEnabled&&com.customcosmetics.client.ModErrors.active(com.customcosmetics.client.ModErrors.Key.APPEARANCE)&&(ConfigManager.disabledModules&APPEARANCE_MODULES)!=APPEARANCE_MODULES;
+    }
+    public static boolean enabled(){return !"udp".equals(ConfigManager.syncBlockingTransport)||PositionSharing.enabled()||appearanceEnabled();}
     public static void block(BlockHand value,String id){
         boolean share=(ConfigManager.swordBlockingEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ANIMATIONS))&&ConfigManager.swordBlockingSyncEnabled&&ConfigManager.syncEnabled;
         hand=share?value:BlockHand.NONE;item=share?id:"";if(live!=null)live.block(hand,item);
@@ -29,19 +34,24 @@ public final class RealtimeSync {
         if(live!=null)return live.diagnostics();
         return List.of("Realtime: "+(authenticating?"Waiting for Minecraft authentication":identity==null?"No authenticated realtime session":"Waiting to connect; retry in "+Math.max(0,nextAttempt-System.currentTimeMillis())+"ms"));
     }
-    public static void disconnect(){if(live==null&&endpoint.isEmpty()&&identity==null&&!authenticating&&nextAttempt==0)return;generation++;if(live!=null)live.close();live=null;endpoint="";identity=null;nextAttempt=0;authenticating=false;}
+    public static void disconnect(){PresenceSync.peerAppearances(Map.of());nextAppearance=0;if(live==null&&endpoint.isEmpty()&&identity==null&&!authenticating&&nextAttempt==0)return;generation++;if(live!=null)live.close();live=null;endpoint="";identity=null;nextAttempt=0;authenticating=false;}
     public static void onSettingsClosed(){if(live!=null&&live.requestedUdpPort()!=ConfigManager.getSyncP2pPort())disconnect();}
     public static void tick(Minecraft client){
         boolean blocking=(ConfigManager.swordBlockingEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ANIMATIONS))&&ConfigManager.swordBlockingSyncEnabled&&ConfigManager.syncEnabled;
+        boolean appearance=appearanceEnabled()&&PresenceWorld.isHypixel(client);
         boolean party=PartyFeatures.sharingPositions()&&!PartyFeatures.roster().empty();
         var audience=PositionSharing.audience(client);boolean locations=audience.receive()||audience.publishes(PartyFeatures.roster(),party);
-        if(!enabled()||!RemoteAccess.online()||client.player==null||client.level==null||client.hasSingleplayerServer()||!blocking&&!party&&!locations){disconnect();return;}
+        if(!enabled()||!RemoteAccess.online()||client.player==null||client.level==null||client.hasSingleplayerServer()||!blocking&&!party&&!locations&&!appearance){disconnect();return;}
         String base=PresenceSync.serviceBaseUrl(),key=base+"|"+ConfigManager.syncBlockingTransport;var auth=PresenceSync.actionSession();
         if(!key.equals(endpoint)||auth!=identity){disconnect();endpoint=key;identity=auth;}
         if(live!=null&&!live.closed()){
             var world=PresenceWorld.read(client);var player=client.player;var roster=PartyFeatures.roster();
-            live.update(new RealtimeClient.View(world.world(),blocking?world.players():Set.of(),roster,PresenceWorld.environment(client),party,(party||locations)&&ConfigManager.partyP2pEnabled,audience),
-                blocking?hand:BlockHand.NONE,blocking?item:"",audience.publishes(roster,party)?new PartyClient.Position(player.getX(),player.getY(),player.getZ(),player.getBbWidth(),player.getBbHeight()):null);return;
+            live.update(new RealtimeClient.View(world.world(),blocking?world.players():Set.of(),roster,PresenceWorld.environment(client),party,(party||locations||appearance)&&ConfigManager.partyP2pEnabled,audience,appearance?world.players():Set.of()),
+                blocking?hand:BlockHand.NONE,blocking?item:"",audience.publishes(roster,party)?new PartyClient.Position(player.getX(),player.getY(),player.getZ(),player.getBbWidth(),player.getBbHeight()):null);
+            long now=System.nanoTime()/1_000_000;
+            if(appearance&&now>=nextAppearance){nextAppearance=now+5000;live.appearance(PresenceSync.capturePeerAppearance());}
+            else if(!appearance){nextAppearance=0;live.appearance(null);}
+            PresenceSync.peerAppearances(appearance?live.appearances():Map.of());return;
         }
         if(System.currentTimeMillis()<nextAttempt||authenticating)return;nextAttempt=System.currentTimeMillis()+5000;
         long version=generation;

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.0-dev.8
+
+- Add Vanilla/Modern interface fonts, smoother tooltips and an optional missing-accessory bag panel.
+- Fix player previews and reduce UI rendering and map transition overhead.
+- Limit nicknames to 30 characters and isolate recoverable feature errors.
+- Prefer 5-second P2P appearance sync with relay fallback; share an 8 Mbps server egress budget.
+
 ## 2.0.0-dev.7
 
 - Keep chat and item tooltip text on the active game font.

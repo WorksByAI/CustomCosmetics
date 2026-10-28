@@ -34,6 +34,7 @@ public final class ConfigManager {
     public static volatile int disabledModules=0;
     public static String uiThemeMode="dark";
     public static String uiLanguage="auto";
+    public static String uiFont="vanilla";
     public static int uiAccentColor=0xFFA8CA;
     public static boolean uiAnimationsEnabled=true;
     public static boolean uiBackgroundBlur=false;
@@ -77,7 +78,7 @@ public final class ConfigManager {
     public static volatile boolean updateCheckEnabled = true;
     public static boolean updateOnNextLaunch=false;
     public static boolean commandTooltipsEnabled=true;
-    public static boolean accessoryHelperTooltipEnabled=true;
+    public static boolean accessoryHelperTooltipEnabled=false;
     public static boolean waypointShowLabels=true,waypointShowDistance=false;
     public static boolean waypointRenderLine=true,waypointAllowSkipping=true,waypointAllowBackwards=true;
     public static double waypointLineWidth=5;
@@ -87,7 +88,7 @@ public final class ConfigManager {
     public static boolean snaplookEnabled=true;
     public static String snaplookPerspective="back";
     public static boolean capeEnabled = true;
-    public static boolean localSkinEnabled=true,localSkinSlim=false,skinP2pSharing=false,skinP2pReceiving=true;
+    public static boolean localSkinEnabled=true,localSkinSlim=false,skinP2pSharing=true,skinP2pReceiving=true;
     public static volatile java.util.List<PlayerBlocklist.Entry> skinBlockedPlayers=java.util.List.of();
     public static volatile String otherPlayerSkinMode="original";
     public static boolean otherPlayerSkinSlim=false;
@@ -189,6 +190,7 @@ public final class ConfigManager {
             if(accessories==null)accessories=com.customcosmetics.features.accessories.AccessoriesSettings.NONE;
             uiThemeMode="light".equals(uiThemeMode)?"light":"dark";
             uiLanguage=com.customcosmetics.gui.UiText.normalize(uiLanguage);
+            uiFont="modern".equals(uiFont)?"modern":"vanilla";
             uiAccentColor&=0xFFFFFF;
             damageSplashStyle=com.customcosmetics.features.damage.DamageAnimation.normalize(damageSplashStyle);
             damageSplashColorMode=com.customcosmetics.features.damage.DamageColors.normalize(damageSplashColorMode);

@@ -19,13 +19,14 @@ public final class StudioGameTest implements FabricClientGameTest {
     @Override public void runTest(ClientGameTestContext context) {
         if(Boolean.getBoolean("customcosmetics.updateRestartProbe")){try{UpdateRestartGameTest.run(context);}catch(Exception error){throw new AssertionError(error);}return;}
         try{SettingsGuiGameTest.checkUpdateOffer(context);}catch(Exception error){throw new AssertionError(error);}
-        context.runOnClient(client->{ConfigManager.syncEnabled=false;ConfigManager.swordBlockingSyncEnabled=false;});
+        context.runOnClient(client->{ConfigManager.syncEnabled=false;ConfigManager.swordBlockingSyncEnabled=false;ConfigManager.offlineMode=false;FeatureModules.all(true);});
         try(var world=context.worldBuilder().create()){
             world.getServer().runCommand("gamemode creative @a");context.waitTicks(10);
             SettingsGuiGameTest.checkViewportVisibility(context);
             SettingsGuiGameTest.checkLocalizationAndEntrance(context);
             SettingsGuiGameTest.checkPreviewGameFont(context);
             SettingsGuiGameTest.checkAccessoryEquipment(context);
+            SettingsGuiGameTest.checkFontChoiceAndTooltip(context);
             context.getInput().resizeWindow(1600,1000);
             context.runOnClient(client->{
                 client.options.guiScale().set(2);ConfigManager.animationsEnabled=false;BlockingAdjustment.reset();

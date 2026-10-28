@@ -24,10 +24,18 @@ public final class CapePreview {
     }
     private static void draw(GuiGraphicsExtractor graphics,int x,int y,int width,int height,boolean capeOnly,boolean front,WardrobeCamera camera){
         var client=Minecraft.getInstance();if(client.player==null||width<1||height<1)return;
+        if(!com.customcosmetics.client.ModErrors.active(com.customcosmetics.client.ModErrors.Key.PREVIEW)){unavailable(graphics,x,y,width);return;}
         CapeCosmetics.beginPreview();try{
             var dispatcher=client.getEntityRenderDispatcher();
             if(extract==null)extract=java.util.Arrays.stream(dispatcher.getClass().getMethods()).filter(m->m.getName().equals("extractEntity")&&m.getParameterCount()==2).findFirst().orElseThrow();
-            var state=(AvatarRenderState)extract.invoke(dispatcher,client.player,1f);
+            Object extracted;
+            com.customcosmetics.features.creature.CreatureModels.beginAvatarPreview();
+            try{extracted=extract.invoke(dispatcher,client.player,1f);}
+            finally{com.customcosmetics.features.creature.CreatureModels.endAvatarPreview();}
+            if(!(extracted instanceof AvatarRenderState state)){
+                com.customcosmetics.client.ModErrors.report(com.customcosmetics.client.ModErrors.Key.PREVIEW,new IllegalStateException("Unexpected player preview state: "+(extracted==null?"null":extracted.getClass().getName())));
+                unavailable(graphics,x,y,width);return;
+            }
             prepareState(state,capeOnly);
             ((com.customcosmetics.features.accessories.AccessoryRenderState)state).customcosmetics$hideAccessories(capeOnly);
             if(!capeOnly)state.showCape=false;
@@ -37,9 +45,13 @@ public final class CapePreview {
             var rotation=new Quaternionf().rotationZ((float)Math.PI).rotateY((front?(float)Math.PI:0)+(capeOnly?0:(float)Math.toRadians(camera.yaw())));
             if(!capeOnly)rotation.rotateX((float)Math.toRadians(camera.pitch()));
             entity.invoke(graphics,state,(float)Math.max(capeOnly?12:6,height/framing)*(capeOnly?1:camera.zoom()),new Vector3f(0,capeOnly?1:1.15f,0),rotation,null,x,y,x+width,y+height);
-        }catch(ReflectiveOperationException error){throw new IllegalStateException("Cannot render cape preview",error);}
+        }catch(ReflectiveOperationException|RuntimeException|LinkageError|AssertionError error){
+            Throwable cause=error instanceof java.lang.reflect.InvocationTargetException wrapped&&wrapped.getCause()!=null?wrapped.getCause():error;
+            com.customcosmetics.client.ModErrors.report(com.customcosmetics.client.ModErrors.Key.PREVIEW,cause);unavailable(graphics,x,y,width);
+        }
         finally{CapeCosmetics.endPreview();}
     }
+    private static void unavailable(GuiGraphicsExtractor g,int x,int y,int width){PinkUi.uiText(g,UiFonts.get(Minecraft.getInstance().font),"Player preview unavailable",x+6,y+12,PinkUi.MUTED,Math.max(1,width-12));}
     /** Neutral preview only; never clear equipment on the actual player. */
     static void prepareState(AvatarRenderState state){
         prepareState(state,true);
@@ -49,7 +61,7 @@ public final class CapePreview {
         state.bodyRot=state.yRot=state.xRot=state.walkAnimationSpeed=state.walkAnimationPos=0;
         state.capeFlap=state.capeLean=state.capeLean2=state.swimAmount=0;
         com.customcosmetics.compatibility.CapePreviewSwing.clear(state);
-        state.showCape=true;state.nameTag=null;state.pose=net.minecraft.world.entity.Pose.STANDING;
+        state.showCape=true;state.nameTag=null;state.scoreText=null;state.pose=net.minecraft.world.entity.Pose.STANDING;
         state.isInvisible=state.isInvisibleToPlayer=false;
         state.isCrouching=state.isFallFlying=state.isVisuallySwimming=state.isPassenger=state.isUsingItem=state.isAutoSpinAttack=false;
         state.rightHandItemState.clear();state.leftHandItemState.clear();state.heldOnHead.clear();

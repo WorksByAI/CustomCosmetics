@@ -9,4 +9,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class UiRenderProbeMixin {
     @Inject(method="extractRenderState",at=@At("HEAD")) private void begin(CallbackInfo ci){UiPerformanceGameTest.begin();}
     @Inject(method="extractRenderState",at=@At("RETURN")) private void end(CallbackInfo ci){UiPerformanceGameTest.end();}
+    @Mixin(net.minecraft.client.Minecraft.class)
+    public static class Frames {
+        @Inject(method="renderFrame",at={@At(value="INVOKE",target="Lnet/minecraft/client/renderer/GameRenderer;render(Lnet/minecraft/client/DeltaTracker;Z)V"),@At(value="INVOKE",target="Lnet/minecraft/client/renderer/GameRenderer;render()V")},require=1,expect=1)
+        private void frame(boolean renderLevel,CallbackInfo callback){if(renderLevel)UiPerformanceGameTest.frame();}
+    }
 }

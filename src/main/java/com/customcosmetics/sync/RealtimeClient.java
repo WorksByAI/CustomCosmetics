@@ -15,7 +15,8 @@ import java.util.concurrent.*;
 /** Shared counters and world scope for primary UDP and home WSS; never touches game networking. */
 public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
     interface DatagramFactory {DatagramSocket open()throws SocketException;}
-    public record View(String world,Set<UUID> players,PartyRoster roster,int environment,boolean esp,boolean p2p,PositionAudience audience){
+    public record View(String world,Set<UUID> players,PartyRoster roster,int environment,boolean esp,boolean p2p,PositionAudience audience,Set<UUID> appearancePlayers){
+        public View(String world,Set<UUID> players,PartyRoster roster,int environment,boolean esp,boolean p2p,PositionAudience audience){this(world,players,roster,environment,esp,p2p,audience,Set.of());}
         public View(String world,Set<UUID> players,PartyRoster roster,int environment,boolean esp,boolean p2p){this(world,players,roster,environment,esp,p2p,PositionAudience.PARTY);}
         public View(String world,Set<UUID> players,PartyRoster roster,int environment,boolean esp){this(world,players,roster,environment,esp,false);}
     }
@@ -31,6 +32,8 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
     private volatile boolean closed,ready,udpSelected;private volatile View desired=new View("",Set.of(),PartyRoster.EMPTY,0,false);
     private volatile Block block=new Block(BlockHand.NONE,"");private volatile PartyClient.Position position;
     private volatile Map<UUID,BlockingTransport.Pose> blocks=Map.of();private volatile Map<UUID,PartyClient.Teammate> teammates=Map.of();
+    private volatile Map<UUID,PresenceSync.PeerAppearance> appearanceSnapshot=Map.of();
+    private volatile java.util.function.Supplier<JsonObject> appearanceSource;private java.util.function.Supplier<JsonObject> encodedSource;private String encodedAppearance;
     private volatile Set<UUID> directSnapshot=Set.of();private volatile String statusSnapshot="Connecting";
     private long nextStatusSnapshot;
     private final Map<String,Stamp> seen=new HashMap<>();private final StringBuilder fragments=new StringBuilder();
@@ -70,8 +73,12 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
         updateView(view,hand,itemId,position);
     }
     private synchronized void updateView(View view,BlockHand hand,String itemId,PartyClient.Position position){
-        if(!sameScope(view,desired)){blocks=Map.of();teammates=Map.of();directSnapshot=Set.of();peers.close();connections.clear();}
+        if(!sameScope(view,desired)){blocks=Map.of();teammates=Map.of();directSnapshot=Set.of();appearanceSnapshot=Map.of();peers.close();connections.clear();}
         else if(!view.players().equals(desired.players())){var kept=new HashMap<>(blocks);kept.keySet().retainAll(view.players());blocks=Map.copyOf(kept);connections.retainBlocking(view.players());}
+        if(!view.appearancePlayers().equals(desired.appearancePlayers())){
+            peers.restrictAppearancePlayers(view.appearancePlayers());
+            var kept=new HashMap<>(appearanceSnapshot);kept.keySet().retainAll(view.appearancePlayers());appearanceSnapshot=Map.copyOf(kept);
+        }
         desired=view;block=new Block(hand,hand==BlockHand.NONE?"":itemId);this.position=position;
         if(!view.equals(sent)){statusSnapshot="Connecting";nextStatusSnapshot=0;}
     }
@@ -87,6 +94,8 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
     public String status(){return statusSnapshot;}
     synchronized boolean usingUdpRelay(){return udpSelected;}
     public Set<UUID> directPeers(){return directSnapshot;}
+    public Map<UUID,PresenceSync.PeerAppearance> appearances(){return appearanceSnapshot;}
+    public void appearance(java.util.function.Supplier<JsonObject> source){appearanceSource=source;}
     public int requestedUdpPort(){return requestedUdpPort;}
     public synchronized List<String> diagnostics(){
         long now=clock();var lines=new ArrayList<String>();
@@ -124,7 +133,17 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
         if(now-lastWs>10000){fail("WSS control replies timed out");return;}
         boolean selected=!forceWss&&udp!=null&&route.select(now);udpSelected=selected;
         if(selected!=lastRoute){lastRoute=selected;pendingStates.clear();sentBlock=null;nextBlock=nextPosition=nextRelayPosition=nextProbe=nextUdpProbe=0;}
-        if(ready())peers.context(new PartyPeerClient.Context(self,epoch,scope,desired.world(),desired.roster(),desired.p2p()&&!forceWss&&udp!=null,desired.audience(),desired.esp()));
+        if(ready())peers.context(new PartyPeerClient.Context(self,epoch,scope,desired.world(),desired.roster(),desired.p2p()&&!forceWss&&udp!=null,desired.audience(),desired.esp(),desired.appearancePlayers()));
+        var source=appearanceSource;
+        if(source!=encodedSource&&peers.size()>0){
+            encodedSource=source;
+            try{
+            if(source==null){encodedAppearance=null;peers.appearance(null);}else{
+                var document=source.get();String signature=document.toString();
+                if(!signature.equals(encodedAppearance)){peers.appearance(AppearanceTransfer.encode(document));encodedAppearance=signature;}
+            }
+            }catch(RuntimeException|LinkageError|AssertionError error){peers.appearance(null);com.customcosmetics.client.ModErrors.report(com.customcosmetics.client.ModErrors.Key.APPEARANCE,error);}
+        }
         peers.tick(now,selected?route.udpMs():route.wssMs());
         if(peers.changed())nextPosition=nextRelayPosition=nextUdpProbe=nextProbe=0;
         if(udp!=null&&now>=nextUdpProbe){nextUdpProbe=now+1000;var m=new JsonObject();m.addProperty("type","probe");m.addProperty("ping",now);m.addProperty("active",selected);
@@ -136,6 +155,8 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
             if(sent==null||!sameScope(desired,sent)){scope++;seen.clear();pendingStates.clear();nextRelayPosition=0;}
             sent=desired;nextView=now+10000;var m=new JsonObject();m.addProperty("type","view");m.addProperty("scope",scope);m.addProperty("world",sent.world());m.addProperty("rosterSequence",++rosterSequence);
             m.addProperty("p2p",sent.p2p()&&!forceWss);
+            m.addProperty("appearanceVersion",sent.appearancePlayers().isEmpty()?0:1);
+            var appearancePlayers=new JsonArray();sent.appearancePlayers().stream().sorted().limit(2048).forEach(id->appearancePlayers.add(id.toString()));m.add("appearancePlayers",appearancePlayers);
             var players=new JsonArray();sent.players().stream().sorted().limit(2048).forEach(id->players.add(id.toString()));m.add("players",players);
             var roster=new JsonObject();var members=new JsonArray();sent.roster().members().stream().sorted().forEach(id->members.add(id.toString()));roster.add("members",members);
             var names=new JsonArray();sent.roster().names().stream().sorted().forEach(names::add);roster.add("names",names);roster.addProperty("environment",sent.environment());roster.addProperty("esp",sent.esp());roster.add("sharing",sent.audience().json());m.add("roster",roster);
@@ -155,7 +176,8 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
         } finally { publishReadState(); }
     }
     private void publishReadState(){
-        directSnapshot=closed?Set.of():peers.direct();
+        directSnapshot=closed?Set.of():peers.connected();
+        appearanceSnapshot=closed?Map.of():peers.appearances();
         if(!ready()){statusSnapshot="Connecting";nextStatusSnapshot=0;return;}
         long now=clock();
         if(now>=nextStatusSnapshot){nextStatusSnapshot=now+50;statusSnapshot=connections.status(true,directSnapshot,now);}
@@ -242,5 +264,5 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
     @Override public CompletionStage<?> onPong(WebSocket ws,java.nio.ByteBuffer data){ws.request(1);return null;}
     @Override public CompletionStage<?> onClose(WebSocket ws,int code,String reason){fail("WSS closed (code "+code+")");return null;}
     @Override public void onError(WebSocket ws,Throwable error){fail("WSS error ("+error.getClass().getSimpleName()+")");}
-    @Override public synchronized void close(){if(closed)return;closed=true;ready=false;token=null;peers.close();pendingStates.clear();blocks=Map.of();teammates=Map.of();directSnapshot=Set.of();statusSnapshot="Connecting";if(udp!=null)udp.close();if(socket!=null)socket.abort();if(connecting!=null)connecting.cancel(true);worker.shutdownNow();http.shutdownNow();RemoteAccess.release(this);}
+    @Override public synchronized void close(){if(closed)return;closed=true;ready=false;token=null;peers.close();pendingStates.clear();blocks=Map.of();teammates=Map.of();directSnapshot=Set.of();appearanceSnapshot=Map.of();statusSnapshot="Connecting";if(udp!=null)udp.close();if(socket!=null)socket.abort();if(connecting!=null)connecting.cancel(true);worker.shutdownNow();http.shutdownNow();RemoteAccess.release(this);}
 }

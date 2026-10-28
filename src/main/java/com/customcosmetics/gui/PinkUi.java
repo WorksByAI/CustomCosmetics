@@ -18,99 +18,31 @@ import java.util.function.BooleanSupplier;
 import java.util.function.DoubleConsumer;
 import java.util.function.IntConsumer;
 
-/** Code-drawn controls: no textures or rendering dependencies on another mod. */
+/** Native controls with small shared coverage sprites; no dependency on another mod. */
 public final class PinkUi {
     // Legacy public names retained for every existing dialog; palette changes update all of them.
     public static int PANEL=0xFF1A1E23,SIDEBAR=0xFF14181C,CARD=0xFF22272D,BORDER=0xFF333A42;
     public static int PINK=0xFFFFA8CA,PINK_DARK=0x24FFA8CA,TEXT=0xFFE8ECF0,MUTED=0xFFA2ACB6,DIM=0xFF798592,INK=0xFF101619,HOVER=0xFF303840;
-    private static final int[][] CORNERS=corners();
-    private static int[][] corners(){var result=new int[17][];for(int r=0;r<result.length;r++){result[r]=new int[r];for(int row=0;row<r;row++){double dy=r-row-.5;result[r][row]=(int)Math.ceil(r-Math.sqrt(r*r-dy*dy));}}return result;}
-
-    private PinkUi() {}
-
-    public static void rounded(GuiGraphicsExtractor g, int x, int y, int width, int height, int radius, int color) {
-        if (width <= 0 || height <= 0) return;
-        if((color>>>24)==255){smoothRounded(g,x,y,width,height,radius,color);return;}
-        radius = Math.min(radius, Math.min(width, height) / 2);
-        g.fill(x, y + radius, x + width, y + height - radius, color);
-        for (int i = 0; i < radius; i++) {
-            int inset = roundedInset(radius,i);
-            g.fill(x + inset, y + i, x + width - inset, y + i + 1, color);
-            g.fill(x + inset, y + height - i - 1, x + width - inset, y + height - i, color);
-        }
+    private static final net.minecraft.resources.Identifier[] FILLS=shapeIds("fill_"),RINGS=shapeIds("ring_");
+    private static net.minecraft.resources.Identifier[] shapeIds(String kind){var ids=new net.minecraft.resources.Identifier[17];for(int r=1;r<ids.length;r++)ids[r]=net.minecraft.resources.Identifier.fromNamespaceAndPath("customcosmetics","rounded/"+kind+r);return ids;}
+    private PinkUi(){}
+    public static void rounded(GuiGraphicsExtractor g,int x,int y,int w,int h,int radius,int color){
+        if(w<=0||h<=0||(color>>>24)==0)return;
+        int r=Math.clamp(radius,0,Math.min(16,Math.min(w,h)/2));
+        if(r==0)g.fill(x,y,x+w,y+h,color);
+        else com.customcosmetics.compatibility.GuiSprites.draw(g,FILLS[r],x,y,w,h,color);
     }
-
-    public static void outline(GuiGraphicsExtractor g, int x, int y, int w, int h, int r, int border, int fill) {
-        if (w <= 0 || h <= 0) return;
-        if((fill>>>24)==255){smoothOutline(g,x,y,w,h,r,border,fill);return;}
-        r = Math.min(r, Math.min(w, h) / 2);
-        // Draw the border as a ring so translucent fills do not reveal a solid border underneath.
-        rounded(g, x + 1, y + 1, w - 2, h - 2, Math.max(0, r - 1), fill);
-        int curvedRows = Math.max(1, r);
-        for (int row = 0; row < Math.min(h, curvedRows * 2); row++) {
-            int actualRow = row < curvedRows ? row : h - curvedRows * 2 + row;
-            int edge = Math.min(actualRow, h - 1 - actualRow);
-            int outer = roundedInset(r, edge);
-            if (actualRow == 0 || actualRow == h - 1) {
-                g.fill(x + outer, y + actualRow, x + w - outer, y + actualRow + 1, border);
-            } else {
-                int inner = 1 + roundedInset(Math.max(0, r - 1), edge - 1);
-                g.fill(x + outer, y + actualRow, x + inner, y + actualRow + 1, border);
-                g.fill(x + w - inner, y + actualRow, x + w - outer, y + actualRow + 1, border);
-            }
-        }
-        if (h > curvedRows * 2) {
-            g.fill(x, y + curvedRows, x + 1, y + h - curvedRows, border);
-            g.fill(x + w - 1, y + curvedRows, x + w, y + h - curvedRows, border);
-        }
+    public static void outline(GuiGraphicsExtractor g,int x,int y,int w,int h,int radius,int border,int fill){
+        if(w<=0||h<=0)return;
+        int r=Math.clamp(radius,0,Math.min(16,Math.min(w,h)/2));
+        rounded(g,x+1,y+1,w-2,h-2,Math.max(0,r-1),fill);
+        if((border>>>24)==0)return;
+        if(r>0)com.customcosmetics.compatibility.GuiSprites.draw(g,RINGS[r],x,y,w,h,border);
+        else{g.fill(x,y,x+w,y+1,border);g.fill(x,y+h-1,x+w,y+h,border);g.fill(x,y+1,x+1,y+h-1,border);g.fill(x+w-1,y+1,x+w,y+h-1,border);}
     }
-
-    private static int roundedInset(int radius, int row) {
-        if (row >= radius || radius == 0) return 0;
-        if(radius<CORNERS.length)return CORNERS[radius][Math.max(0,row)];
-        double dy = radius - row - 0.5;
-        return (int) Math.ceil(radius - Math.sqrt(radius * radius - dy * dy));
-    }
-
+    /** Rounded masks are pre-baked and submitted as a bounded native nine-slice sprite. */
+    public static void smoothOutline(GuiGraphicsExtractor g,int x,int y,int w,int h,int r,int border,int fill){outline(g,x,y,w,h,r,border,fill);}
     static int alpha(int color,int opacity){return Math.clamp(opacity,0,255)<<24|(color&0xFFFFFF);}
-
-    private static final float[][] SOFT_CORNERS=softCorners();
-    private static float[][] softCorners(){
-        var table=new float[129][];
-        for(int r=0;r<table.length;r++){
-            table[r]=new float[r];
-            for(int row=0;row<r;row++){double dy=r-row-.5;table[r][row]=(float)(r-Math.sqrt(r*r-dy*dy));}
-        }
-        return table;
-    }
-    private static void smoothRounded(GuiGraphicsExtractor g,int x,int y,int w,int h,int radius,int color){
-        int pixels=Math.clamp((int)Minecraft.getInstance().getWindow().getGuiScale(),1,8);
-        g.pose().pushMatrix();g.pose().scale(1f/pixels,1f/pixels);
-        try{softRounded(g,x*pixels,y*pixels,w*pixels,h*pixels,radius*pixels,color);}
-        finally{g.pose().popMatrix();}
-    }
-    /** Coverage edges at physical-pixel resolution; no blur target, shader or per-frame mask allocation. */
-    public static void smoothOutline(GuiGraphicsExtractor g,int x,int y,int w,int h,int radius,int border,int fill){
-        int pixels=Math.clamp((int)Minecraft.getInstance().getWindow().getGuiScale(),1,8);
-        g.pose().pushMatrix();g.pose().scale(1f/pixels,1f/pixels);
-        try{
-            softRounded(g,x*pixels,y*pixels,w*pixels,h*pixels,radius*pixels,border);
-            softRounded(g,(x+1)*pixels,(y+1)*pixels,(w-2)*pixels,(h-2)*pixels,Math.max(0,radius-1)*pixels,fill);
-        }finally{g.pose().popMatrix();}
-    }
-    private static void softRounded(GuiGraphicsExtractor g,int x,int y,int w,int h,int r,int color){
-        if(w<=0||h<=0)return;r=Math.min(128,Math.min(r,Math.min(w,h)/2));
-        g.fill(x,y+r,x+w,y+h-r,color);
-        for(int row=0;row<r;row++){
-            float inset=SOFT_CORNERS[r][row];int edge=(int)inset,solid=(int)Math.ceil(inset);
-            int coverage=Math.round((1-(inset-edge))*(color>>>24));
-            for(int side=0;side<2;side++){
-                int yy=side==0?y+row:y+h-1-row;
-                g.fill(x+solid,yy,x+w-solid,yy+1,color);
-                if(solid!=edge&&coverage>0){int shade=alpha(color,coverage);g.fill(x+edge,yy,x+edge+1,yy+1,shade);g.fill(x+w-edge-1,yy,x+w-edge,yy+1,shade);}
-            }
-        }
-    }
 
     public static int mix(int from, int to, double t) {
         t = Math.clamp(t, 0, 1);
@@ -212,11 +144,12 @@ public final class PinkUi {
             return false;
         }
 
-        @Override public void onClick(MouseButtonEvent event, boolean doubleClick) { press.snap(1);action.run(); }
+        private void activate(){press.snap(1);if(!com.customcosmetics.client.ModErrors.action(action))active=false;}
+        @Override public void onClick(MouseButtonEvent event, boolean doubleClick) {activate();}
         @Override public boolean keyPressed(KeyEvent event) {
             if (active && (event.key() == ClientInput.ENTER || event.key() == ClientInput.SPACE || event.key() == ClientInput.NUMPAD_ENTER)) {
                 playButtonClickSound(Minecraft.getInstance().getSoundManager());
-                press.snap(1);action.run();
+                activate();
                 return true;
             }
             return false;
@@ -302,6 +235,7 @@ public final class PinkUi {
         private boolean invalid;
         private boolean secret;
         private Component cleanHint;
+        private boolean responderFailed;
         private final int paddingY, paddingX, boxHeight;
         private final UiMotion focus=new UiMotion(0);
 
@@ -322,6 +256,7 @@ public final class PinkUi {
         public void invalid(boolean invalid) { this.invalid = invalid; setTextColor(invalid ? 0xFFFF7F9B : TEXT); }
         public int insetY() { return paddingY; }
         @Override public void setHint(Component hint){cleanHint=hint;super.setHint(Component.empty());}
+        @Override public void setResponder(java.util.function.Consumer<String> responder){responderFailed=false;super.setResponder(responder==null?null:value->{if(!responderFailed&&!com.customcosmetics.client.ModErrors.action(responder,value)){responderFailed=true;active=false;}});}
         public Field secret(boolean value) { secret = value; return this; }
 
         @Override public void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {

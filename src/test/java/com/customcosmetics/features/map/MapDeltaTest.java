@@ -7,6 +7,20 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MapDeltaTest {
+    @Test void recentCoordinatesAreImmutableAndIndependentOfTheCallerUpdateMap(){
+        var p=new MapEdits.Position(1,2,3);var updates=new HashMap<MapEdits.Position,String>();updates.put(p,"minecraft:stone");
+        Map<MapEdits.Position,String> before=Map.of();var after=MapEdits.change(before,updates);updates.clear();
+        assertEquals("minecraft:stone",after.get(p));assertEquals(Set.of(p),MapEdits.differences(before,after));
+        assertThrows(UnsupportedOperationException.class,()->MapEdits.differences(before,after).clear());
+    }
+    @Test void cancelledOriginPreparationCannotPublishAPartialOriginMap(){
+        var rooms=new RoomLayouts();var frame=new RoomLayouts.Frame("floor:M7","Boss",new MapEdits.Position(0,0,0),0);
+        var edits=new HashMap<MapEdits.Position,Optional<String>>();var additions=new HashMap<MapEdits.Position,Boolean>();
+        for(int i=0;i<1000;i++){var p=new MapEdits.Position(i,64,0);edits.put(p,Optional.of("minecraft:stone"));additions.put(p,false);}
+        rooms.changeAll(frame,edits);var checks=new java.util.concurrent.atomic.AtomicInteger();
+        assertThrows(java.util.concurrent.CancellationException.class,()->rooms.rememberOrigins(frame.key(),additions,()->checks.incrementAndGet()==2));
+        assertTrue(rooms.originSnapshot(frame.key()).isEmpty());assertEquals(1000,rooms.edits(frame.key()).size());
+    }
     @TempDir Path directory;
     private static final MapEdits.Position P=new MapEdits.Position(5,6,7);
     /** A million-entry base that fails immediately if a supposedly sparse edit enumerates it. */

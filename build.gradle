@@ -515,6 +515,25 @@ if(providers.gradleProperty('ui_performance_game_only').getOrElse('false').toBoo
         inputs.property 'ui_performance_game_only',true
         inputs.file('build.gradle')
         filesMatching('fabric.mod.json'){filter{line->line.replace('com.customcosmetics.gametest.BlockingGameTest','com.customcosmetics.gametest.UiPerformanceGameTest')}}
-        filesMatching('customcosmetics-test.mixins.json'){filter{line->line.contains('"client":')?'  "client": ["UiRenderProbeMixin", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],':line}}
+        filesMatching('customcosmetics-test.mixins.json'){filter{line->line.contains('"client":')?'  "client": ["UiRenderProbeMixin", "UiRenderProbeMixin$Frames", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],':line}}
+    }
+}
+
+if (providers.gradleProperty('preview_game_only').getOrElse('false').toBoolean()) {
+    sourceSets.gametest.java.include '**/PreviewCrashGameTest.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
+    tasks.named('processGametestResources') {
+        inputs.property 'preview_game_only', true
+        filesMatching('fabric.mod.json') { filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest','com.customcosmetics.gametest.PreviewCrashGameTest') } }
+        filesMatching('customcosmetics-test.mixins.json') { filter { line -> line.contains('"client":') ? '  "client": ["UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line } }
+    }
+}
+
+if (providers.gradleProperty('map_exit_game_only').getOrElse('false').toBoolean()) {
+    sourceSets.gametest.java.include '**/MapExitRegressionGameTest.java', '**/MapAdventureGameTest.java', '**/FreecamGameTest.java', '**/mixin/FreecamProbe.java', '**/mixin/MapAdventureScopeMixin.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
+    tasks.named('processGametestResources') {
+        inputs.property 'map_exit_game_only', true
+        inputs.file('build.gradle')
+        filesMatching('fabric.mod.json') { filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest','com.customcosmetics.gametest.MapExitRegressionGameTest') } }
+        filesMatching('customcosmetics-test.mixins.json') { filter { line -> line.contains('"client":') ? '  "client": ["MapAdventureScopeMixin", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line } }
     }
 }

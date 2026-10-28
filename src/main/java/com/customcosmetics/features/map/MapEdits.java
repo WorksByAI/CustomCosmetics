@@ -15,13 +15,16 @@ public final class MapEdits {
     static <V> Map<Position,V> own(Map<Position,V> builder){return builder.isEmpty()?Map.of():new Snapshot<>(builder);}
     /** Sparse copy-on-write updates. A null value removes a coordinate without copying the base map. */
     static <V> Map<Position,V> change(Map<Position,V> previous,Map<Position,V> updates){
+        return change(previous,updates,null);
+    }
+    static <V> Map<Position,V> change(Map<Position,V> previous,Map<Position,V> updates,java.util.function.BooleanSupplier cancelled){
         var effective=new HashMap<Position,V>();int size=previous.size();
-        updates.forEach((p,v)->{if(!Objects.equals(previous.get(p),v))effective.put(p,v);});
+        int checked=0;for(var e:updates.entrySet()){if(cancelled!=null&&(checked++&255)==0&&cancelled.getAsBoolean())throw new java.util.concurrent.CancellationException("Map context changed");if(!Objects.equals(previous.get(e.getKey()),e.getValue()))effective.put(e.getKey(),e.getValue());}
         if(effective.isEmpty())return previous;
-        for(var e:effective.entrySet()){if(e.getValue()==null)size--;else if(!previous.containsKey(e.getKey()))size++;}
+        for(var e:effective.entrySet()){if(cancelled!=null&&(checked++&255)==0&&cancelled.getAsBoolean())throw new java.util.concurrent.CancellationException("Map context changed");if(e.getValue()==null)size--;else if(!previous.containsKey(e.getKey()))size++;}
         Map<Position,V> base=previous;Map<Position,V> combined=effective;
         if(previous instanceof Delta<V> delta&&delta.updates.size()<4096&&effective.size()<4096){base=delta.base;combined=new HashMap<>(delta.updates);combined.putAll(effective);}
-        return new Delta<>(base,combined,size,previous,Set.copyOf(effective.keySet()));
+        return new Delta<>(base,combined,size,previous,Collections.unmodifiableSet(effective.keySet()));
     }
     static Set<Position> differences(Map<Position,?> a,Map<Position,?> b){
         if(a==b)return Set.of();

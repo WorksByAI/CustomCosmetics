@@ -23,6 +23,9 @@ public final class DungeonRooms {
     private static final RoomLayouts.Frame KUUDRA_FRAME=new RoomLayouts.Frame(KUUDRA_KEY,"Kuudra's Hollow",new MapEdits.Position(0,0,0),0);
     private static Object contextLevel;private static boolean dungeon,offlineBoss,kuudra;private static String floor="";private static int scanCursor;
     private static List<MapEdits.Position> cachedCenters=List.of();private static int centerX,centerZ;
+    private static long discoveryPasses;
+    /** Monotonic diagnostic counter; does not reset across arena transitions. */
+    public static long discoveryPasses(){return discoveryPasses;}
     private DungeonRooms(){}
     public static void init(){
         // Vanilla's flattening table maps legacy block metadata to modern names (no mod registry IDs).
@@ -37,7 +40,7 @@ public final class DungeonRooms {
         }catch(Exception error){throw new IllegalStateException("Could not read FunnyMap room catalog",error);}
     }
     public static void reset(){tiles.clear();frames.clear();nextDiscovery.clear();cachedCenters=List.of();scanCursor=0;contextLevel=null;dungeon=false;offlineBoss=false;kuudra=false;floor="";}
-    public static void context(Minecraft client){boolean nextOffline=MapEditor.offlineBoss(client),nextKuudra=MapEditor.inKuudra(client);if(contextLevel!=client.level||offlineBoss!=nextOffline||kuudra!=nextKuudra){tiles.clear();frames.clear();nextDiscovery.clear();}offlineBoss=nextOffline;kuudra=nextKuudra;contextLevel=client.level;dungeon=MapEditor.inMapArea(client);floor=dungeon&&!kuudra?MapEditor.floor():"";}
+    public static void context(Minecraft client){boolean nextOffline=MapEditor.offlineBoss(client),nextKuudra=MapEditor.inKuudra(client),nextDungeon=MapEditor.inMapArea(client);if(contextLevel!=client.level||offlineBoss!=nextOffline||kuudra!=nextKuudra||dungeon!=nextDungeon){tiles.clear();frames.clear();nextDiscovery.clear();cachedCenters=List.of();scanCursor=0;}offlineBoss=nextOffline;kuudra=nextKuudra;contextLevel=client.level;dungeon=nextDungeon;floor=dungeon&&!kuudra?MapEditor.floor():"";}
     private static String cell(int x,int z){return x+":"+z;}
     private static List<MapEdits.Position> scanCenters(){
         // Recognition must use the same block scan with automatic and forced dungeon context.
@@ -72,6 +75,7 @@ public final class DungeonRooms {
     }
     private static void scan(Collection<MapEdits.Position> centers){
         var client=Minecraft.getInstance();if(!dungeon||offlineBoss||kuudra)return;
+        discoveryPasses++;
         MapEditor.ROOMS.anchors().forEach((key,anchor)->{if(key.startsWith("room:"))definitions.put(anchor.baseCore(),new Definition(key.substring(5),anchor.baseCore()));});
         for(var center:centers){int x=center.x(),z=center.z();String cell=cell(x,z);if(tiles.containsKey(cell))continue;Integer core=core(x,z);if(core!=null&&definitions.containsKey(core))tiles.put(cell,new Tile(x,z,core,definitions.get(core)));}
         for(var tile:tiles.values()){
@@ -89,7 +93,8 @@ public final class DungeonRooms {
         }
         // New or changed rooms absent from the legacy catalog still get rotation-aware local layouts.
         for(var center:centers){int x=center.x(),z=center.z();if(x< -185||x> -25||z< -185||z> -25)continue;String key=cell(x,z);if(frames.containsKey(key)||tiles.containsKey(key))continue;var origin=new MapEdits.Position(x,0,z);String best=null;int turn=0;
-            for(int i=0;i<4;i++){String hash=RoomFingerprint.compute(origin,i,p->{var at=MapEditor.blockPos(p);if(!MapEditor.loaded(at))return null;return BuiltInRegistries.BLOCK.getKey(MapEditor.realState(at).getBlock()).toString();});if(hash.isEmpty()){best=null;break;}if(best==null||hash.compareTo(best)<0){best=hash;turn=i;}}
+            var hashes=RoomFingerprint.rotations(origin,p->{var at=MapEditor.blockPos(p);if(!MapEditor.loaded(at))return null;return BuiltInRegistries.BLOCK.getKey(MapEditor.realState(at).getBlock()).toString();});
+            for(int i=0;i<4;i++){String hash=hashes[i];if(hash.isEmpty()){best=null;break;}if(best==null||hash.compareTo(best)<0){best=hash;turn=i;}}
             if(best!=null)frames.put(key,new RoomLayouts.Frame("fingerprint:"+best,"Room "+best.substring(0,8),origin,turn));
         }
     }

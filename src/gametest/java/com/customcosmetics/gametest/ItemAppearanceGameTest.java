@@ -217,8 +217,49 @@ final class ItemAppearanceGameTest {
         context.runOnClient(client->{client.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);ItemCosmetics.store().put(C,new ItemAppearanceStore.Appearance("",""));ItemCosmetics.save();});
         checkHeadSkins(context);
         checkAccessoryTooltips(context);
+        checkMissingBagPanel(context);
         world.getServer().runCommand("item replace entity @a armor.head with minecraft:air");
         System.out.println("ITEM_APPEARANCE_GAME_TEST_OK");
+    }
+    private static void checkMissingBagPanel(ClientGameTestContext context){
+        var saved=new java.util.HashMap<java.lang.reflect.Field,Object>();var oldEnabled=ConfigManager.accessoryHelperTooltipEnabled;var oldOffline=ConfigManager.offlineMode;
+        var panel=new AtomicReference<Object>();var bag=new AtomicReference<net.minecraft.client.gui.screens.inventory.ContainerScreen>();
+        try{
+            context.runOnClient(client->{try{
+                var type=com.customcosmetics.features.accessoryhelper.AccessoryTooltipHelper.class;
+                for(String name:java.util.List.of("catalog","index","onSkyblock","profileKey","lastScreen","loaded","writable","ticks","screenFirstTick","lastRefresh")){var f=type.getDeclaredField(name);f.setAccessible(true);saved.put(f,f.get(null));}
+                var root=new com.google.gson.JsonObject();var metadata=new java.util.HashMap<String,com.customcosmetics.features.accessoryhelper.AccessoryItemCatalog.Item>();
+                for(int i=0;i<45;i++)for(int tier=1;tier<=2;tier++){
+                    String id=(tier==1?"CHARM_":"CHARM_UPGRADE_")+i;var entry=new com.google.gson.JsonObject();entry.addProperty("family","F_"+i);entry.addProperty("tier",tier);root.add(id,entry);
+                    metadata.put(id,new com.customcosmetics.features.accessoryhelper.AccessoryItemCatalog.Item(id,"Charm "+i+(tier==2?" Upgrade":""),tier==1?"PAPER":"GOLD_NUGGET",0,"","COMMON"));
+                }
+                var catalog=com.customcosmetics.features.accessoryhelper.AccessoryCatalog.parse(root.toString());var index=new com.customcosmetics.features.accessoryhelper.AccessoryBagIndex(catalog);index.update("bag-fixture",1,2,java.util.Set.of("CHARM_0"));
+                var screen=new net.minecraft.client.gui.screens.inventory.ContainerScreen(net.minecraft.world.inventory.ChestMenu.sixRows(1,client.player.getInventory()),client.player.getInventory(),net.minecraft.network.chat.Component.literal("Accessory Bag (1/2)"));bag.set(screen);
+                for(var f:saved.keySet())f.set(null,switch(f.getName()){case "catalog"->catalog;case "index"->index;case "profileKey"->"bag-fixture";case "lastScreen"->screen;case "ticks"->1;case "screenFirstTick"->Integer.MAX_VALUE-100;case "lastRefresh"->System.currentTimeMillis();default->true;});
+                var items=com.customcosmetics.features.accessoryhelper.AccessoryItems.class;
+                for(String name:java.util.List.of("items","nextAttempt")){var f=items.getDeclaredField(name);f.setAccessible(true);saved.put(f,f.get(null));f.set(null,name.equals("items")?metadata:Long.MAX_VALUE);}
+                ConfigManager.accessoryHelperTooltipEnabled=true;ConfigManager.offlineMode=true;ClientUiAccess.setScreen(client,screen);
+            }catch(ReflectiveOperationException error){throw new AssertionError(error);}});
+            context.getInput().resizeWindow(1100,800);context.waitTicks(3);
+            context.runOnClient(client->{try{
+                var field=net.minecraft.client.gui.screens.inventory.AbstractContainerScreen.class.getDeclaredField("customcosmetics$missing");field.setAccessible(true);panel.set(field.get(bag.get()));
+                if(panel.get()==null||!((java.util.List<?>)readPanel(panel.get(),"entries")).isEmpty())throw new AssertionError("Incomplete scan displayed missing accessories");
+                var index=(com.customcosmetics.features.accessoryhelper.AccessoryBagIndex)saved.keySet().stream().filter(f->f.getName().equals("index")).findFirst().orElseThrow().get(null);index.update("bag-fixture",2,2,java.util.Set.of());
+            }catch(ReflectiveOperationException error){throw new AssertionError(error);}});context.waitTicks(2);context.takeScreenshot("missing-accessories-complete-bag-grid");
+            context.runOnClient(client->{try{if(((java.util.List<?>)readPanel(panel.get(),"entries")).size()!=44)throw new AssertionError("Missing family filter incorrect");}catch(Exception error){throw new AssertionError(error);}});
+            panelClick(context,panel,1);context.waitTicks(2);
+            context.runOnClient(client->{try{if((Integer)readPanel(panel.get(),"page")!=1)throw new AssertionError("Missing panel pagination failed");}catch(Exception error){throw new AssertionError(error);}});
+            panelClick(context,panel,2);context.waitTicks(2);
+            context.runOnClient(client->{try{if(((java.util.List<?>)readPanel(panel.get(),"entries")).size()!=1)throw new AssertionError("Upgrade filter incorrect");}catch(Exception error){throw new AssertionError(error);}});
+            panelClick(context,panel,2);context.waitTicks(1);panelClick(context,panel,3);context.waitTicks(2);context.takeScreenshot("missing-accessories-all-tiers-filter");
+            context.runOnClient(client->{try{if(((java.util.List<?>)readPanel(panel.get(),"entries")).size()!=89)throw new AssertionError("All-tier filter incorrect");ConfigManager.accessoryHelperTooltipEnabled=false;if(com.customcosmetics.features.accessoryhelper.AccessoryTooltipHelper.bagCatalog(bag.get())!=null)throw new AssertionError("Disabled shared helper still exposes panel data");}catch(Exception error){throw new AssertionError(error);}});
+            System.out.println("MISSING_BAG_PANEL_PARTIAL_SCAN_PAGING_FILTERS_SHARED_DISABLE_OK");
+        }finally{context.runOnClient(client->{ConfigManager.accessoryHelperTooltipEnabled=oldEnabled;ConfigManager.offlineMode=oldOffline;ClientUiAccess.setScreen(client,null);for(var e:saved.entrySet())try{e.getKey().set(null,e.getValue());}catch(IllegalAccessException error){throw new AssertionError(error);}});}
+    }
+    private static Object readPanel(Object panel,String name)throws ReflectiveOperationException{var f=panel.getClass().getDeclaredField(name);f.setAccessible(true);return f.get(panel);}
+    private static void panelClick(ClientGameTestContext context,AtomicReference<Object> panel,int action){
+        var point=context.computeOnClient(client->{try{int x=(Integer)readPanel(panel.get(),"x"),w=(Integer)readPanel(panel.get(),"w"),footer=(Integer)readPanel(panel.get(),"footer");double scale=client.getWindow().getGuiScale();return new double[]{(action==1?x+w-12:x+w/2d)*scale,(footer+(action==1?10:action==2?31:52))*scale};}catch(Exception error){throw new AssertionError(error);}});
+        context.getInput().setCursorPos(point[0],point[1]);context.getInput().pressMouse(com.customcosmetics.compatibility.ClientInput.MOUSE_LEFT);
     }
     private static void checkAccessoryTooltips(ClientGameTestContext context){
         context.runOnClient(client->{

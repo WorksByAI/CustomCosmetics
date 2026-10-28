@@ -39,13 +39,16 @@ public final class GhostBlocks {
     private static final java.util.function.Consumer<MapEdits.Edit> collectGhost=e->{var current=MapEditor.visible().get(e.position());if(current!=null&&current.originallyAir())candidates.add(current);};
     private record Built(Map<MapEdits.Position,MapEdits.Edit> source,GhostIndex index){}
     private static java.util.concurrent.CompletableFuture<Built> building;
+    private static java.util.concurrent.atomic.AtomicBoolean buildCancelled;
     /** Disconnects have no subsequent world-render callback to release large immutable snapshots. */
     static void reset(){
+        if(buildCancelled!=null)buildCancelled.set(true);buildCancelled=null;
         if(building!=null)building.cancel(false);building=null;indexed=null;index=EMPTY_INDEX;
         entities.clear();candidates.clear();parts.clear();world=null;
     }
     private static void updateIndex(Map<MapEdits.Position,MapEdits.Edit> edits){
         if(edits.isEmpty()){
+            if(buildCancelled!=null)buildCancelled.set(true);buildCancelled=null;
             if(building!=null){building.cancel(false);building=null;}
             if(index!=EMPTY_INDEX){index=EMPTY_INDEX;entities.clear();candidates.clear();}
             indexed=edits;return;
@@ -55,7 +58,7 @@ public final class GhostBlocks {
         var changes=indexed==null?null:MapEdits.differences(indexed,edits);
         if(index!=EMPTY_INDEX&&changes!=null&&changes.size()<=64){for(var p:changes){index.update(p,indexed.get(p),edits.get(p));entities.remove(p);}indexed=edits;return;}
         if(edits.size()<8192){index=new GhostIndex(edits.values());indexed=edits;entities.keySet().retainAll(edits.keySet());}
-        else if(building==null)building=java.util.concurrent.CompletableFuture.supplyAsync(()->new Built(edits,new GhostIndex(edits.values())),MapWork.EXECUTOR);
+        else if(building==null){var cancelled=new java.util.concurrent.atomic.AtomicBoolean();buildCancelled=cancelled;building=java.util.concurrent.CompletableFuture.supplyAsync(()->new Built(edits,new GhostIndex(edits.values(),cancelled::get)),MapWork.EXECUTOR);}
     }
     public static List<MapEdits.Edit> nearby(double x,double y,double z,int radius){var edits=MapEditor.visible();updateIndex(edits);var result=new ArrayList<MapEdits.Edit>();index.nearby(x,y,z,radius,4096,e->{var current=edits.get(e.position());if(current!=null&&current.originallyAir())result.add(current);});return result;}
     public static int examinedCandidates;

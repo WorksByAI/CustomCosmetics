@@ -4,6 +4,16 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class GhostIndexTest {
+    @Test void leavingAnArenaStopsObsoleteLargeIndexWorkWithinOneBatch(){
+        var visited=new java.util.concurrent.atomic.AtomicInteger();var cancelled=new java.util.concurrent.atomic.AtomicBoolean();
+        Collection<MapEdits.Edit> edits=new AbstractCollection<>(){
+            public int size(){return 2_000_000;}
+            public Iterator<MapEdits.Edit> iterator(){return new Iterator<>(){int at;public boolean hasNext(){return at<size();}public MapEdits.Edit next(){int n=at++;visited.incrementAndGet();if(n==300)cancelled.set(true);return new MapEdits.Edit(new MapEdits.Position(n,64,0),"minecraft:stone",false);}};}
+        };
+        assertThrows(java.util.concurrent.CancellationException.class,()->new GhostIndex(edits,cancelled::get));
+        assertTrue(visited.get()<=557,"Cancelled work kept walking a two-million-block source");
+        assertTrue(visited.get()>=301);
+    }
     @Test void denseGhostQueriesHaveAHardCandidateBudgetAndPreferNearbySections(){
         var edits=new ArrayList<MapEdits.Edit>();for(int x=-32;x<32;x++)for(int z=-32;z<32;z++)edits.add(new MapEdits.Edit(new MapEdits.Position(x,64,z),"minecraft:stone",true));
         var index=new GhostIndex(edits);var found=new ArrayList<MapEdits.Edit>();index.nearby(1,65,1,96,100,found::add);assertEquals(100,found.size());assertTrue(found.stream().allMatch(e->e.position().x()>=0&&e.position().x()<16&&e.position().z()>=0&&e.position().z()<16));

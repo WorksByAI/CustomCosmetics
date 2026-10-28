@@ -97,6 +97,7 @@ public final class AccessoryTooltipHelper {
         refreshCatalog();
     }
     private static void refreshCatalog() {
+        if(ConfigManager.offlineMode)return;
         if (refreshing || WRITER.isShutdown() || System.currentTimeMillis() - lastRefresh < Duration.ofHours(24).toMillis()) return;
         refreshing = true;
         lastRefresh = System.currentTimeMillis();
@@ -217,6 +218,9 @@ public final class AccessoryTooltipHelper {
                 .append(Component.literal(tiers).withColor(0xF8F8FF)));
     }
     public static String notice() { return notice; }
+    /** Tick-owned recognition and cached ownership only: no scanning, parsing or I/O in rendering. */
+    public static AccessoryCatalog bagCatalog(Object screen){return enabled()&&onSkyblock&&lastScreen==screen?catalog:null;}
+    public static AccessoryBagIndex.View bagView(){return index==null?AccessoryBagIndex.View.EMPTY:index.view(profileKey);}
     public static boolean clearCurrent() {
         if (!loaded) load();
         if (!writable || profileKey.isEmpty()) return false;

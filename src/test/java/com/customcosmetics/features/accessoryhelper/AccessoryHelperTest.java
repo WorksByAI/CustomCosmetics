@@ -7,6 +7,31 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class AccessoryHelperTest {
+    @Test void missingPanelRespectsFamiliesCompleteScansAndTierFilters(){
+        var catalog=catalog();var index=new AccessoryBagIndex(catalog);
+        index.update("profile",1,2,Set.of("SPEED_TALISMAN"));
+        assertTrue(MissingAccessories.list(catalog,index.view("profile"),MissingAccessories.Filter.ALL,true).isEmpty());
+        index.update("profile",2,2,Set.of());
+        var missing=MissingAccessories.list(catalog,index.view("profile"),MissingAccessories.Filter.MISSING,false);
+        assertEquals(java.util.List.of("ABICASE"),missing.stream().map(AccessoryCatalog.Entry::id).toList());
+        var upgrades=MissingAccessories.list(catalog,index.view("profile"),MissingAccessories.Filter.UPGRADES,false);
+        assertEquals(java.util.List.of("SPEED_RING"),upgrades.stream().map(AccessoryCatalog.Entry::id).toList());
+        assertEquals(3,MissingAccessories.list(catalog,index.view("profile"),MissingAccessories.Filter.UPGRADES,true).size());
+        assertEquals(2,MissingAccessories.list(catalog,index.view("profile"),MissingAccessories.Filter.ALL,false).size());
+        index.clear("profile");assertTrue(MissingAccessories.list(catalog,index.view("profile"),MissingAccessories.Filter.ALL,true).isEmpty());
+    }
+    @Test void itemDisplayFeedUsesOnlyPublishedAccessoryIdsAndSurvivesMalformedRows(){
+        var data=AccessoryItemCatalog.parse("""
+            {"success":true,"items":[
+              {"id":"SPEED_TALISMAN","name":"§fSpeed Talisman","material":"SUGAR_CANE","tier":"COMMON"},
+              {"id":"ABICASE","name":"Abicase","material":"SKULL_ITEM","skin":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+              {"id":"SPEED_RING","name":"broken"},
+              {"id":"NOT_AN_ACCESSORY","name":"Sword","material":"DIAMOND_SWORD"}]}
+            """,catalog());
+        assertEquals(2,data.size());assertEquals("Speed Talisman",data.get("SPEED_TALISMAN").name());
+        assertEquals(64,data.get("ABICASE").texture().length());
+        assertThrows(IllegalArgumentException.class,()->AccessoryItemCatalog.parse("{\"success\":false}",catalog()));
+    }
     private static AccessoryCatalog catalog() {
         return AccessoryCatalog.parse("""
             {"SPEED_TALISMAN":{"family":"SPEED","tier":1},

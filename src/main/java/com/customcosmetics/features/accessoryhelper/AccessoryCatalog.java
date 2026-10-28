@@ -12,8 +12,10 @@ public final class AccessoryCatalog {
     public record Entry(String id, String family, int tier, int highestTier) {}
     public record Report(Status status, int ownedTier, int candidateTier, int highestTier) {}
     private final Map<String, Entry> entries;
+    private final java.util.List<Entry> ordered;
 
-    private AccessoryCatalog(Map<String, Entry> entries) { this.entries = Map.copyOf(entries); }
+    private AccessoryCatalog(Map<String, Entry> entries) { this.entries = Map.copyOf(entries);ordered=entries.values().stream().sorted(java.util.Comparator.comparing(Entry::family).thenComparingInt(Entry::tier).thenComparing(Entry::id)).toList(); }
+    public java.util.List<Entry> entries(){return ordered;}
     public static AccessoryCatalog empty() { return new AccessoryCatalog(Map.of()); }
     public static AccessoryCatalog parse(String json) { return parse(JsonParser.parseString(json).getAsJsonObject()); }
     static AccessoryCatalog parse(JsonObject root) {

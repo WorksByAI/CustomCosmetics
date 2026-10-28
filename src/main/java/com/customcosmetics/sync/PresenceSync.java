@@ -95,8 +95,15 @@ public final class PresenceSync {
     public record RemoteNickname(UUID uuid, String name, ChromaProfile profile) {}
     public record RemoteRank(UUID uuid,String name,String prefix,boolean administrator) {}
     private record RemoteSnapshot(Map<UUID, RemoteUserState> users, Map<String, ChromaProfile> profiles,
-                                  List<RemoteNickname> nicknames, boolean hasSmol, Map<UUID,RankSettings> ranks, List<RemoteRank> rankProfiles) {}
-    private static volatile RemoteSnapshot remoteSnapshot = new RemoteSnapshot(Map.of(), Map.of(), List.of(), false, Map.of(), List.of());
+                                  List<RemoteNickname> nicknames, boolean hasSmol, Map<UUID,RankSettings> ranks, List<RemoteRank> rankProfiles, java.util.Set<UUID> omitted) {}
+    private static volatile RemoteSnapshot remoteSnapshot = new RemoteSnapshot(Map.of(), Map.of(), List.of(), false, Map.of(), List.of(), java.util.Set.of());
+    private static RemoteSnapshot relaySnapshot=remoteSnapshot;
+    private static volatile Map<UUID,PeerAppearance> peerSnapshots=Map.of();
+    private static volatile long lastFetchStarted;
+    private static boolean peerFallbackPending;
+    /** Only decoded, authenticated peer appearance; server authority is deliberately absent. */
+    public record PeerAppearance(UUID uuid,RemoteUserState user,ChromaProfile profile,RankSettings rank,String signature){}
+
     /** Opaque identity for client-render caches; changes whenever synchronized appearance changes. */
     public static Object appearanceSnapshot() { return remoteSnapshot; }
     public static List<RemoteRank> remoteRanks() { return RemoteAccess.online()?remoteSnapshot.rankProfiles():List.of(); }
@@ -216,7 +223,8 @@ public final class PresenceSync {
         SESSIONS.reset();
         lastReportedSignature = "";
         nextReportAllowedAt = 0;
-        remoteSnapshot = new RemoteSnapshot(Map.of(), Map.of(), List.of(), false, Map.of(), List.of());
+        remoteSnapshot = new RemoteSnapshot(Map.of(), Map.of(), List.of(), false, Map.of(), List.of(), java.util.Set.of());
+        relaySnapshot=remoteSnapshot;peerSnapshots=Map.of();peerFallbackPending=false;
         NickRenderUtils.invalidateLocalTargetsCache();
         STARTUP_NOTICE.addressChanged();
     }
@@ -445,6 +453,9 @@ public final class PresenceSync {
         wasAutoSyncActive = active;
         SyncCadence.Due due = CADENCE.tick(System.currentTimeMillis(), active,
             ConfigManager.getSyncRefreshIntervalSeconds() * 1000L);
+        if(active&&peerFallbackPending&&!FETCHING.get()&&System.currentTimeMillis()-lastFetchStarted>=15_250){
+            peerFallbackPending=false;CADENCE.noteRead(System.currentTimeMillis());requestRemoteRefresh(false);
+        }
         if (due.read()) {
             requestRemoteRefresh(false);
             attemptReport(System.currentTimeMillis(), true, false);
@@ -578,7 +589,8 @@ public final class PresenceSync {
         for (int attempt = 0; attempt <= NETWORK_RETRY_COUNT; attempt++) {
             HttpURLConnection connection = null;
             try {
-                connection = openHttpConnection(url, attempt);
+                lastFetchStarted=System.currentTimeMillis();
+                connection = openHttpConnection(peerFetchUrl(url,peerSnapshots.keySet()), attempt);
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(CONNECT_TIMEOUT_MS);
                 connection.setReadTimeout(FETCH_READ_TIMEOUT_MS);
@@ -655,7 +667,7 @@ public final class PresenceSync {
         Module chromaModule = ModuleManager.getModuleByName("NickTweaks");
         boolean nickTweaksEnabled = chromaModule != null && chromaModule.isEnabled();
         boolean chromaEnabled = ConfigManager.nickTweaksChromaEnabled;
-        boolean smolEnabled = ConfigManager.smolpeopleMode;
+        boolean smolEnabled = ConfigManager.smolpeopleMode && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SMOL);
         double chromaSize = Math.max(0.1, Math.min(12.0, ConfigManager.nickTweaksChromaSize));
         double chromaAmount = Math.max(0.0, Math.min(0.4, ConfigManager.nickTweaksChromaChroma));
         double chromaLightness = Math.max(0.2, Math.min(1.0, ConfigManager.nickTweaksChromaLightness));
@@ -695,14 +707,11 @@ public final class PresenceSync {
         return state;
     }
 
-    private static boolean reportLocalState(String url, LocalUserState state, boolean forceRemoteSync, PresenceAuthClient.Session session) throws SyncRequestException {
-        JsonObject root = new JsonObject();
-        root.addProperty("version", 1);
-
-        JsonObject user = new JsonObject();
-        user.addProperty("uuid", state.uuid().toString());
-        user.addProperty("name", state.name());
-
+    /** Capture immutable settings on the client thread; JSON/compression run on the network worker. */
+    static java.util.function.Supplier<JsonObject> capturePeerAppearance(){
+        var state=snapshotLocalState();return state==null?null:()->encodeAppearance(state);
+    }
+    private static JsonObject encodeAppearance(LocalUserState state){
         JsonObject features = new JsonObject();
 
         JsonObject nickTweaks = new JsonObject();
@@ -749,6 +758,18 @@ public final class PresenceSync {
         features.add("playerSize",state.playerSize().json());
         features.add("accessories",state.accessories().json());
         features.addProperty("creatureModel",state.creatureModel());
+        return features;
+    }
+
+    private static boolean reportLocalState(String url, LocalUserState state, boolean forceRemoteSync, PresenceAuthClient.Session session) throws SyncRequestException {
+        JsonObject root = new JsonObject();
+        root.addProperty("version", 1);
+
+        JsonObject user = new JsonObject();
+        user.addProperty("uuid", state.uuid().toString());
+        user.addProperty("name", state.name());
+
+        JsonObject features=encodeAppearance(state);
         user.add("features", features);
 
         JsonObject meta = new JsonObject();
@@ -1014,12 +1035,61 @@ public final class PresenceSync {
             }catch(RuntimeException ignored){}
         }
         return new RemoteSnapshot(Map.copyOf(newUsers), Map.copyOf(newChromaByName),
-            List.copyOf(newNicknames), newUsers.values().stream().anyMatch(RemoteUserState::smolPeopleEnabled),Map.copyOf(newRanks),List.copyOf(newRankProfiles));
+            List.copyOf(newNicknames), newUsers.values().stream().anyMatch(RemoteUserState::smolPeopleEnabled),Map.copyOf(newRanks),List.copyOf(newRankProfiles),parsePeerExclusions(root));
     }
 
+    static String peerFetchUrl(String url,java.util.Set<UUID> peers){
+        if(peers.isEmpty())return url;
+        String ids=peers.stream().sorted().limit(16).map(UUID::toString).collect(java.util.stream.Collectors.joining(","));
+        return url+(url.contains("?")?"&":"?")+"peerExcluded="+ids;
+    }
+    private static java.util.Set<UUID> parsePeerExclusions(JsonObject root){
+        if(!root.has("appearanceVersion")||root.get("appearanceVersion").getAsInt()!=1||!root.has("peerExcluded")||!root.get("peerExcluded").isJsonArray())return java.util.Set.of();
+        var array=root.getAsJsonArray("peerExcluded");if(array.size()>16)return java.util.Set.of();
+        var ids=new java.util.HashSet<UUID>();for(var value:array)try{ids.add(UUID.fromString(value.getAsString()));}catch(RuntimeException invalid){}
+        return java.util.Set.copyOf(ids);
+    }
+    static PeerAppearance decodePeerAppearance(UUID uuid,String name,JsonObject features){
+        if(uuid==null||name==null||!name.matches("[A-Za-z0-9_]{3,16}"))throw new IllegalArgumentException("Invalid peer identity");
+        var user=new JsonObject();user.addProperty("name",name);user.add("features",features.deepCopy());
+        var nick=user.getAsJsonObject("features").getAsJsonObject("nickTweaks");
+        if(nick!=null&&nick.has("nickChanger"))nick.addProperty("nickChanger",com.customcosmetics.config.NicknameLimit.limit(nick.get("nickChanger").getAsString()));
+        var meta=new JsonObject();meta.addProperty("lastSeenAt",java.time.Instant.now().toString());user.add("meta",meta);
+        var users=new JsonObject();users.add(uuid.toString(),user);var root=new JsonObject();root.addProperty("authVersion",2);root.add("users",users);
+        var decoded=decodePayload(root);return new PeerAppearance(uuid,decoded.users().get(uuid),decoded.profiles().get(name.toLowerCase(Locale.ROOT)),decoded.ranks().getOrDefault(uuid,RankSettings.OFF),features.toString());
+    }
+    /** Client-thread publication; unchanged heartbeats retain the render cache identity. */
+    static void peerAppearances(Map<UUID,PeerAppearance> next){
+        if(next==peerSnapshots)return;
+        if(!next.keySet().containsAll(peerSnapshots.keySet()))peerFallbackPending=true;
+        peerSnapshots=next;rebuildCombinedSnapshot();
+    }
     private static void publishSnapshot(RemoteSnapshot decoded) {
-        remoteSnapshot = decoded;
+        if(!decoded.omitted().isEmpty()){
+            var retained=new HashMap<UUID,PeerAppearance>();
+            for(var id:decoded.omitted()){
+                var user=relaySnapshot.users().get(id);if(user!=null)retained.put(id,new PeerAppearance(id,user,relaySnapshot.profiles().get(user.name().toLowerCase(Locale.ROOT)),relaySnapshot.ranks().getOrDefault(id,RankSettings.OFF),""));
+            }
+            decoded=combine(decoded,retained);
+        }
+        relaySnapshot=decoded;rebuildCombinedSnapshot();
+    }
+    private static void rebuildCombinedSnapshot(){
+        remoteSnapshot=peerSnapshots.isEmpty()?relaySnapshot:combine(relaySnapshot,peerSnapshots);
         NickRenderUtils.invalidateLocalTargetsCache();
+    }
+    private static RemoteSnapshot combine(RemoteSnapshot base,Map<UUID,PeerAppearance> peers){
+        var users=new HashMap<>(base.users());var profiles=new HashMap<>(base.profiles());var ranks=new HashMap<>(base.ranks());
+        var nicknames=new ArrayList<>(base.nicknames());nicknames.removeIf(nick->peers.containsKey(nick.uuid()));
+        var rankProfiles=new ArrayList<>(base.rankProfiles());rankProfiles.removeIf(rank->rank.administrator()||peers.containsKey(rank.uuid()));
+        for(var peer:peers.values()){
+            var previous=users.put(peer.uuid(),peer.user());if(previous!=null)profiles.remove(previous.name().toLowerCase(Locale.ROOT));
+            ranks.put(peer.uuid(),peer.rank());if(peer.profile()!=null){profiles.put(peer.user().name().toLowerCase(Locale.ROOT),peer.profile());nicknames.add(new RemoteNickname(peer.uuid(),peer.user().name(),peer.profile()));}
+            if(peer.rank().enabled())rankProfiles.add(new RemoteRank(peer.uuid(),peer.user().name(),peer.rank().prefix(),false));
+        }
+        // RankAppearance resolves duplicate targets in order: authoritative prefixes must be last.
+        for(var rank:base.rankProfiles())if(rank.administrator())rankProfiles.add(rank);
+        return new RemoteSnapshot(Map.copyOf(users),Map.copyOf(profiles),List.copyOf(nicknames),users.values().stream().anyMatch(RemoteUserState::smolPeopleEnabled),Map.copyOf(ranks),List.copyOf(rankProfiles),base.omitted());
     }
 
     private static void applyPayload(String json, boolean overrideOwnState) {

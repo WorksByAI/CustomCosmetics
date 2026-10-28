@@ -245,15 +245,22 @@ class ConfigManagerTest {
         ConfigManager.animationSwingSpeed = 1; ConfigManager.resetAnimations(); assertEquals(0,ConfigManager.animationSwingSpeed);
     }
     @TempDir Path directory;
+    @Test void languageFontAndSharedAccessorySettingPersistIndependently()throws Exception{
+        var path=directory.resolve("interface.json");
+        ConfigManager.uiLanguage="zh_cn";ConfigManager.uiFont="modern";ConfigManager.accessoryHelperTooltipEnabled=false;ConfigManager.save(path);
+        ConfigManager.uiLanguage="en_us";ConfigManager.uiFont="vanilla";ConfigManager.accessoryHelperTooltipEnabled=true;ConfigManager.load(path);
+        assertEquals("zh_cn",ConfigManager.uiLanguage);assertEquals("modern",ConfigManager.uiFont);assertFalse(ConfigManager.accessoryHelperTooltipEnabled);
+        Files.writeString(path,"{\"settings\":{\"uiFont\":\"unknown\"}}");ConfigManager.load(path);assertEquals("vanilla",ConfigManager.uiFont);
+    }
     @Test void nicknameIsLimitedWhenReadingAndSavingConfiguration() throws Exception {
         var path = directory.resolve("config.json");
         String value = "&d" + "昵称".repeat(30);
         ConfigManager.nickTweaksNickChanger = value; ConfigManager.save(path);
-        assertEquals(value.substring(0,40), ConfigManager.nickTweaksNickChanger);
-        assertEquals(value.substring(0,40), JsonParser.parseString(Files.readString(path)).getAsJsonObject()
+        assertEquals(value.substring(0,30), ConfigManager.nickTweaksNickChanger);
+        assertEquals(value.substring(0,30), JsonParser.parseString(Files.readString(path)).getAsJsonObject()
             .getAsJsonObject("settings").get("nickTweaksNickChanger").getAsString());
         Files.writeString(path,"{\"settings\":{\"nickTweaksNickChanger\":\"" + value + "\"}}");
-        ConfigManager.load(path); assertEquals(value.substring(0,40), ConfigManager.nickTweaksNickChanger);
+        ConfigManager.load(path); assertEquals(value.substring(0,30), ConfigManager.nickTweaksNickChanger);
     }
     private final Map<Field,Object> original = new HashMap<>();
     @BeforeEach void isolate() throws Exception {
