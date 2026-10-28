@@ -1198,9 +1198,11 @@ public final class CosmeticsScreen extends ThemedScreen {
             return true;
         }
         if (event.y() < viewTop || event.y() >= viewBottom) {
+            positionedScroll=Integer.MIN_VALUE; // Input clipping changes visibility even without scrolling.
             for (Placement placement : controls) placement.widget().visible = false;
         }
         if (event.y() < navTop || event.y() >= navBottom) {
+            positionedNavScroll=Integer.MIN_VALUE;
             for (Placement placement : sidebarControls) placement.widget().visible = false;
         }
         try { return super.mouseClicked(event, doubleClick); }

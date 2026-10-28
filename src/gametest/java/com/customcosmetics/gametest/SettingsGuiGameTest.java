@@ -143,6 +143,54 @@ final class SettingsGuiGameTest {
         System.out.println("SETTINGS_GUI_MEMORY_DEV_LAYOUT_AND_FILES_OK");
     }
 
+    /** Clicking beyond one pane must not leave that pane hidden by the input clipping mask. */
+    public static void checkViewportVisibility(ClientGameTestContext context) throws Exception {
+        context.getInput().resizeWindow(1280,800);context.waitTicks(3);
+        for(String mode:java.util.List.of("light","dark")){
+            context.runOnClient(client->{client.options.guiScale().set(2);ConfigManager.uiThemeMode=mode;ConfigManager.uiAnimationsEnabled=false;
+                ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.THEME));});
+            click(context,"Accent Color",PinkUi.Field.class);
+            context.runOnClient(client->{
+                var screen=ClientUiAccess.screen(client);var field=widget(client,"Accent Color",PinkUi.Field.class);
+                if(field.getY()+field.getHeight()/2<=(Integer)read(screen,"navBottom"))throw new AssertionError("Fixture did not click beyond the sidebar viewport");
+                assertPaneVisibility(screen,"sidebarControls",(Integer)read(screen,"navTop"),(Integer)read(screen,"navBottom"));
+            });
+            click(context,"Search Settings",PinkUi.Field.class);
+            context.runOnClient(client->{var screen=ClientUiAccess.screen(client);
+                assertPaneVisibility(screen,"controls",(Integer)read(screen,"viewTop"),(Integer)read(screen,"viewBottom"));
+                assertPaneVisibility(screen,"sidebarControls",(Integer)read(screen,"navTop"),(Integer)read(screen,"navBottom"));});
+            context.getInput().setCursorPos(1270,790);context.waitTicks(3);
+            assertSidebarPixels(context,mode);
+            context.takeScreenshot("theme-"+mode+"-sidebar-after-field-and-search-clicks");
+        }
+        context.runOnClient(client->{ConfigManager.uiThemeMode="dark";ConfigManager.uiAnimationsEnabled=true;ClientUiAccess.setScreen(client,null);});
+        System.out.println("THEME_LIGHT_DARK_SIDEBAR_PIXELS_AND_CLIPPED_INPUT_VISIBILITY_RESTORE_OK");
+    }
+    private static void assertPaneVisibility(Object screen,String listName,int top,int bottom)throws Exception{
+        for(Object placement:(java.util.List<?>)read(screen,listName)){
+            var method=placement.getClass().getDeclaredMethod("widget");method.setAccessible(true);var w=(AbstractWidget)method.invoke(placement);
+            int inset=listName.equals("controls")&&w instanceof PinkUi.Field field?field.insetY():0;
+            boolean expected=w.getBottom()+inset>top&&w.getY()-inset<bottom;
+            if(w.visible!=expected)throw new AssertionError(listName+" visibility was not restored after a clipped click: "+w.getMessage().getString());
+        }
+    }
+    private static void assertSidebarPixels(ClientGameTestContext context,String mode)throws Exception{
+        var count=new java.util.concurrent.CompletableFuture<Integer>();
+        context.runOnClient(client->{
+            var w=widget(client,"NickTweaks",PinkUi.Action.class);double scale=client.getWindow().getGuiScale();
+            int expected=PinkUi.TEXT,left=(int)((w.getX()+11)*scale),top=(int)((w.getY()+(w.getHeight()-9)/2)*scale);
+            java.lang.reflect.Method method;
+            try{method=client.gameRenderer.getClass().getMethod("mainRenderTarget");}catch(NoSuchMethodException legacy){method=client.getClass().getMethod("getMainRenderTarget");}
+            var target=method.invoke(method.getDeclaringClass().isInstance(client.gameRenderer)?client.gameRenderer:client);
+            net.minecraft.client.Screenshot.takeScreenshot((com.mojang.blaze3d.pipeline.RenderTarget)target,image->{try(image){int found=0;
+                for(int y=top;y<top+(int)(9*scale);y++)for(int x=left;x<left+(int)(client.font.width("NickTweaks")*scale);x++){
+                    int c=image.getPixel(x,y);if(Math.abs((c>>16&255)-(expected>>16&255))<15&&Math.abs((c>>8&255)-(expected>>8&255))<15&&Math.abs((c&255)-(expected&255))<15)found++;
+                }count.complete(found);
+            }catch(Throwable error){count.completeExceptionally(error);}});
+        });context.waitFor(client->count.isDone());
+        if(count.join()<40)throw new AssertionError(mode+" sidebar label is not visibly rendered in the theme text color: "+count.join());
+    }
+
     /** Native theme editing, persistent local preferences, and both high/low contrast modes. */
     private static void checkTheme(ClientGameTestContext context) throws Exception {
         context.getInput().resizeWindow(1600,1000);context.waitTicks(3);

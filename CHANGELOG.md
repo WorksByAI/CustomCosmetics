@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.0-dev.3
+
+- Restore sidebar and settings visibility after clipped clicks in light and dark themes.
+
 ## 2.0.0-dev.2
 
 - Add spring hover zoom, lift, edge glow, a brief highlight sweep and click rebound.
