@@ -8,6 +8,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.*;
 import net.minecraft.client.player.RemotePlayer;
 import net.minecraft.world.entity.player.PlayerModelType;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.nio.file.*;
 import java.util.concurrent.atomic.*;
 public final class SkinGameTest implements FabricClientGameTest {
@@ -20,12 +21,49 @@ public final class SkinGameTest implements FabricClientGameTest {
             context.runOnClient(client->{original.set(client.player.getSkin());var path=Path.of("skin-fixture.png");Files.write(path,png(0xffff33bb));imported.set(LocalSkins.importFile(path));});context.waitFor(client->imported.get().isDone());imported.get().join();context.waitTicks(3);
             context.runOnClient(client->{check(client.player.getSkin().body().texturePath().getNamespace().equals("customcosmetics"),"Local skin did not replace the player skin");check(client.player.getSkin().cape()==original.get().cape(),"Local skin replaced the cape");LocalSkins.slim(true);check(client.player.getSkin().model()==PlayerModelType.SLIM,"Slim skin model selection did not apply");ConfigManager.offlineMode=false;var player=new RemotePlayer(client.level,new com.mojang.authlib.GameProfile(PEER,"SkinPeer"));player.setId(-29101);player.setPos(0,65,0);client.level.addEntity(player);DIRECT=Set.of(PEER);});context.waitTicks(2);
             context.runOnClient(client->LocalSkins.exchange().received(PEER,new SkinTransfer.Document(png(0xff11dddd),true)));context.waitFor(client->((RemotePlayer)client.level.getEntity(-29101)).getSkin().body().texturePath().getNamespace().equals("customcosmetics"));context.waitTicks(4);capture(context,"skins-direct-peer-texture");
+            checkGlobalAndBlocks(context);
             context.runOnClient(client->{var skin=((RemotePlayer)client.level.getEntity(-29101)).getSkin();check(skin.model()==PlayerModelType.SLIM,"Direct skin lost model metadata");DIRECT=Set.of();});context.waitTicks(2);
             context.runOnClient(client->{check(!((RemotePlayer)client.level.getEntity(-29101)).getSkin().body().texturePath().getNamespace().equals("customcosmetics"),"Remote skin stayed visible after P2P ended");check(client.player.getSkin().body().texturePath().getNamespace().equals("customcosmetics"),"Losing P2P removed the private local skin");ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SKINS));});context.waitTicks(4);capture(context,"skins-local-preview-settings");
             context.runOnClient(client->{ClientUiAccess.setScreen(client,new SkinImportScreen(null));});context.waitTicks(3);capture(context,"skins-import-screen");
             context.runOnClient(client->{LocalSkins.clear();ConfigManager.offlineMode=true;ClientUiAccess.setScreen(client,null);check(!client.player.getSkin().body().texturePath().getNamespace().equals("customcosmetics"),"Removing local skin did not restore original");});
             System.out.println("SKINS_LOCAL_IMPORT_SLIM_CAPE_PRESERVATION_DIRECT_RENDER_DISCONNECT_FALLBACK_GUI_OK");
         }catch(Exception error){throw new AssertionError(error);}finally{DIRECT=Set.of();}
+    }
+    private static void checkGlobalAndBlocks(ClientGameTestContext context)throws Exception{
+        var original=new AtomicReference<net.minecraft.world.entity.player.PlayerSkin>();var own=new AtomicReference<net.minecraft.resources.Identifier>();var wire=new AtomicReference<String>();
+        UUID second=UUID.fromString("32345678-1234-4234-8234-123456789abc");
+        context.runOnClient(client->{
+            var peer=(RemotePlayer)client.level.getEntity(-29101);
+            var another=new RemotePlayer(client.level,new com.mojang.authlib.GameProfile(second,"OtherPeer"));another.setId(-29102);client.level.addEntity(another);
+            own.set(client.player.getSkin().body().texturePath());ConfigManager.skinP2pSharing=true;wire.set(LocalSkins.exchange().local().hash());
+            com.customcosmetics.sync.PlayerBlocks.set(com.customcosmetics.sync.PlayerBlocks.Kind.SKIN,List.of(new com.customcosmetics.config.PlayerBlocklist.Entry(null,"skinpeer")));
+            check(!LocalSkins.exchange().receiving(PEER,"SkinPeer"),"Blocked peer can request skin downloads");
+            check(!peer.getSkin().body().texturePath().getNamespace().equals("customcosmetics"),"Account-only block did not restore Mojang skin immediately");
+            LocalSkins.otherMode("steve");check(another.getSkin().body().texturePath().getPath().endsWith("wide/steve.png"),"Global Steve did not affect a non-P2P player");
+            check(!peer.getSkin().body().texturePath().getNamespace().equals("customcosmetics"),"Global mode overrode the Mojang-only block");
+            com.customcosmetics.sync.PlayerBlocks.set(com.customcosmetics.sync.PlayerBlocks.Kind.SKIN,List.of());
+            check(peer.getSkin().body().texturePath().equals(another.getSkin().body().texturePath()),"Global mode did not apply to all other players");
+            LocalSkins.otherMode("alex");ConfigManager.offlineMode=true;
+            check(peer.getSkin().body().texturePath().getPath().endsWith("slim/alex.png")&&peer.getSkin().model()==PlayerModelType.SLIM,"Global Alex does not work locally/offline");
+            check(client.player.getSkin().body().texturePath().equals(own.get()),"Global mode changed the local player's own skin");
+        });
+        var imported=new AtomicReference<CompletableFuture<Void>>();
+        context.runOnClient(client->{var file=Path.of("other-skin-fixture.png");Files.write(file,png(0xff5588ff));imported.set(LocalSkins.importOther(file));});
+        context.waitFor(client->imported.get().isDone());imported.get().join();context.waitTicks(3);
+        context.runOnClient(client->{
+            var a=((RemotePlayer)client.level.getEntity(-29101)).getSkin();var b=((RemotePlayer)client.level.getEntity(-29102)).getSkin();
+            check(a.body().texturePath().getNamespace().equals("customcosmetics")&&a.body().texturePath().equals(b.body().texturePath()),"Custom global skin differs between players");
+            check(client.player.getSkin().body().texturePath().equals(own.get()),"Custom global skin leaked onto self");
+            check(LocalSkins.exchange().local().hash().equals(wire.get()),"Local-only global skin leaked into outbound P2P document");
+            check(!LocalSkins.exchange().receiving(second,"OtherPeer"),"Global override kept downloading invisible peer skins");
+            ConfigManager.otherPlayerSkinSlim=true;check(LocalSkins.skin(second,b).model()==PlayerModelType.SLIM,"Global slim model preference was ignored");
+            int before=ConfigManager.disabledModules;com.customcosmetics.config.FeatureModules.set(com.customcosmetics.config.FeatureModules.Feature.SKINS,false);
+            check(!((RemotePlayer)client.level.getEntity(-29102)).getSkin().body().texturePath().getNamespace().equals("customcosmetics"),"Disabled skin module kept overriding players");ConfigManager.disabledModules=before;
+            ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SKINS));
+        });context.waitTicks(3);capture(context,"skins-global-local-only-settings");
+        context.runOnClient(client->{ConfigManager.offlineMode=false;ConfigManager.skinP2pSharing=false;LocalSkins.otherMode("original");LocalSkins.exchange().received(PEER,new SkinTransfer.Document(png(0xff11dddd),true));});
+        context.waitFor(client->((RemotePlayer)client.level.getEntity(-29101)).getSkin().body().texturePath().getNamespace().equals("customcosmetics"));
+        System.out.println("SKIN_BLOCKING_GLOBAL_STEVE_ALEX_CUSTOM_SELF_EXCLUSION_NO_P2P_LEAK_AND_MODULE_GATE_OK");
     }
     private static byte[] png(int color){try{var image=new java.awt.image.BufferedImage(64,64,java.awt.image.BufferedImage.TYPE_INT_ARGB);for(int y=0;y<64;y++)for(int x=0;x<64;x++)image.setRGB(x,y,color);var bytes=new java.io.ByteArrayOutputStream();javax.imageio.ImageIO.write(image,"PNG",bytes);return SkinImages.normalize(bytes.toByteArray());}catch(Exception error){throw new AssertionError(error);}}
     private static void check(boolean valid,String error){if(!valid)throw new AssertionError(error);}

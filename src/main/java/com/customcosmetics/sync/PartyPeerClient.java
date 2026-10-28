@@ -149,8 +149,8 @@ public final class PartyPeerClient implements AutoCloseable {
         }
         var result=Set.copyOf(next);if(!result.equals(selected)){for(var p:peers.values())if(result.contains(p.uuid)!=selected.contains(p.uuid))p.nextProbe=0;selected=result;changed=true;}
         if(skinSource!=SkinTransfer.Source.NONE&&!peers.isEmpty()){
-            var local=skinSource.local();boolean receive=skinSource.receiving();var ordered=new ArrayList<>(peers.values());int first=Math.floorMod(skinRoundRobin++,ordered.size());
-            for(int i=0;i<ordered.size();i++){var p=ordered.get((first+i)%ordered.size());if(p.want&&p.remoteWant&&p.address!=null)p.skin.tick(now,local,receive,m->sendSkin(p,m,now));else p.skin.suspend();}
+            var local=skinSource.local();var ordered=new ArrayList<>(peers.values());int first=Math.floorMod(skinRoundRobin++,ordered.size());
+            for(int i=0;i<ordered.size();i++){var p=ordered.get((first+i)%ordered.size());if(p.want&&p.remoteWant&&p.address!=null)p.skin.tick(now,local,skinSource.receiving(p.uuid,p.name),m->sendSkin(p,m,now));else p.skin.suspend();}
         }
     }
     private boolean sendSkin(Peer peer,JsonObject message,long now){
@@ -206,7 +206,7 @@ public final class PartyPeerClient implements AutoCloseable {
             if(type.equals("skin")){
                 if(skinSource==SkinTransfer.Source.NONE||!selected.contains(p.uuid)||!p.remoteWant||m.get("scope").getAsLong()!=p.scope||!m.get("world").getAsString().equals(context.world()))return true;
                 var path=p.paths.get(source);if(path==null||path.good<3||now-path.lastPong>path.freshness())return true;
-                p.skin.receive(m,now,skinSource.local(),skinSource.receiving());return true;
+                p.skin.receive(m,now,skinSource.local(),skinSource.receiving(p.uuid,p.name));return true;
             }
             if(!type.equals("state")||m.get("scope").getAsLong()!=p.scope||!m.get("world").getAsString().equals(context.world()))return true;
             String channel=m.get("channel").getAsString();long ttl=channel.equals("position")?3000:channel.equals("blocking")?1250:0;

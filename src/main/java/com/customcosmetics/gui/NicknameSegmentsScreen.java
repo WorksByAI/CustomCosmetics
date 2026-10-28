@@ -98,9 +98,10 @@ public final class NicknameSegmentsScreen extends ThemedScreen {
         NickRenderUtils.beginClickGuiRenderScope();
         try{
             outline(g,x,y,w,h,11,BORDER,PANEL);uiText(g,font,"Gradient Segments",x+16,y+17,PINK,w-32);
+            var gameFont=previewFont();
             Component preview=NickRenderUtils.previewSegments(rawName(),validDrafts(),ConfigManager.nickTweaksGradientStartColor,ConfigManager.nickTweaksGradientEndColor);
-            float scale=Math.min(2,(w-40)/(float)Math.max(1,font.width(preview)));
-            g.pose().pushMatrix();g.pose().translate(x+(w-font.width(preview)*scale)/2f,y+45);g.pose().scale(scale,scale);g.text(font,preview,0,0,TEXT,false);g.pose().popMatrix();
+            float scale=Math.min(2,(w-40)/(float)Math.max(1,gameFont.width(preview)));
+            g.pose().pushMatrix();g.pose().translate(x+(w-gameFont.width(preview)*scale)/2f,y+45);g.pose().scale(scale,scale);g.text(gameFont,preview,0,0,TEXT,false);g.pose().popMatrix();
             uiText(g,font,"Use visible character positions, starting at 1.",x+16,y+80,MUTED,w-32);
             uiText(g,font,"Color codes take priority. Unlisted characters use the base gradient.",x+16,y+94,DIM,w-32);
             g.enableScissor(x+15,top,x+w-15,bottom);g.pose().pushMatrix();g.pose().translate(0,-scroll);

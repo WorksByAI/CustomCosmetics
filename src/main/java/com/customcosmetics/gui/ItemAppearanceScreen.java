@@ -47,36 +47,36 @@ public final class ItemAppearanceScreen extends ThemedScreen {
         draftArmorColor=appearance.armorColor()==null?"":hex(appearance.armorColor());status="";scroll=0;
     }
     @Override protected void init(){
-        controls.clear();body.clear();w=Math.min(620,width-16);h=Math.min(370,height-16);x=(width-w)/2;y=(height-h)/2;
-        bodyTop=y+80;bodyBottom=y+h-74;scroll=Math.clamp(scroll,0,maxScroll());
-        previewWidth=Math.clamp(w/3,82,160);
-        action(x+16,y+42,w-32,"Select Item",this::chooseItem);
+        controls.clear();body.clear();w=Math.min(620,width-16);h=Math.min(410,height-16);x=(width-w)/2;y=(height-h)/2;
+        bodyTop=y+70;bodyBottom=y+h-56;scroll=Math.clamp(scroll,0,maxScroll());
+        previewWidth=Math.clamp(w/4,82,130);
+        action(x+16,y+36,w-32,"Select Item",this::chooseItem);
         int fx=x+previewWidth+24,fw=w-previewWidth-40;
-        nameField=new PinkUi.Field(font,fx,y+99,fw,"Custom Name");nameField.setMaxLength(ItemAppearanceStore.MAX_NAME);nameField.setValue(draftName);
-        nameField.setHint(UiText.component("Empty = original name"));nameField.setResponder(value->{draftName=value;status="";CosmeticsScreen.childInteraction();});body.add(new Placement(addWidget(nameField),nameField.getY()));
-        modelField=new PinkUi.Field(font,fx,y+174,fw,"Model ID");modelField.setMaxLength(256);modelField.setValue(draftModel);
+        nameField=new PinkUi.Field(font,fx,y+90,fw,"Custom Name");nameField.setMaxLength(ItemAppearanceStore.MAX_NAME);nameField.setValue(draftName);
+        nameField.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.component("Colors: &0–&f, &r, &#RRGGBB")));nameField.setHint(UiText.component("Empty = original name"));nameField.setResponder(value->{draftName=value;status="";CosmeticsScreen.childInteraction();});body.add(new Placement(addWidget(nameField),nameField.getY()));
+        modelField=new PinkUi.Field(font,fx,y+136,Math.max(56,fw-102),"Model ID",24);modelField.setMaxLength(256);modelField.setValue(draftModel);
         modelField.setHint(UiText.component("e.g. golden_axe or namespace:model"));modelField.setResponder(value->{draftModel=value;status="";CosmeticsScreen.childInteraction();});body.add(new Placement(addWidget(modelField),modelField.getY()));
-        var selectModel=action(fx,y+209,fw,"Select Model",this::chooseModel);controls.remove(selectModel);body.add(new Placement(selectModel,selectModel.getY()));
-        headTextureField=new PinkUi.Field(font,fx,y+266,fw,"Head Skin");headTextureField.setMaxLength(8192);
+        var selectModel=action(fx+fw-96,y+136,96,"Select Model",this::chooseModel);controls.remove(selectModel);body.add(new Placement(selectModel,selectModel.getY()));
+        headTextureField=new PinkUi.Field(font,fx,y+185,fw,"Head Skin");headTextureField.setMaxLength(8192);
         headTextureField.setValue(draftHeadTexture);headTextureField.setHint(UiText.component("Texture URL, hash or Base64 (empty = original)"));
         headTextureField.setResponder(value->{draftHeadTexture=value;status="";CosmeticsScreen.childInteraction();});
         body.add(new Placement(addWidget(headTextureField),headTextureField.getY()));
         int headHalf=(fw-6)/2;
-        var selectHead=action(fx,y+301,headHalf,"Select Head Skin",this::chooseHeadSkin);
+        var selectHead=action(fx,y+215,headHalf,"Select Head Skin",this::chooseHeadSkin);
         controls.remove(selectHead);body.add(new Placement(selectHead,selectHead.getY()));
-        var clearHead=action(fx+headHalf+6,y+301,fw-headHalf-6,"Original Head Skin",()->{draftHeadTexture="";headTextureField.setValue("");});
+        var clearHead=action(fx+headHalf+6,y+215,fw-headHalf-6,"Original Head Skin",()->{draftHeadTexture="";headTextureField.setValue("");});
         controls.remove(clearHead);body.add(new Placement(clearHead,clearHead.getY()));
         headTextureField.active=selectHead.active=clearHead.active=!uuid.isEmpty();
-        armorModelField=new PinkUi.Field(font,fx,y+358,fw,"Armor Model ID");armorModelField.setMaxLength(256);
+        armorModelField=new PinkUi.Field(font,fx,y+261,Math.max(56,fw-158),"Armor Model ID",24);armorModelField.setMaxLength(256);
         armorModelField.setValue(draftArmorModel);armorModelField.setHint(UiText.component("e.g. minecraft:leather"));
         armorModelField.setResponder(value->{draftArmorModel=value;status="";CosmeticsScreen.childInteraction();});
         body.add(new Placement(addWidget(armorModelField),armorModelField.getY()));
         int half=(fw-6)/2;
-        var leather=action(fx,y+388,half,"Use Leather",()->{draftHeadTexture="";headTextureField.setValue("");draftArmorModel="minecraft:leather";armorModelField.setValue(draftArmorModel);});
+        var leather=action(fx+fw-152,y+261,73,"Use Leather",()->{draftHeadTexture="";headTextureField.setValue("");draftArmorModel="minecraft:leather";armorModelField.setValue(draftArmorModel);});
         controls.remove(leather);body.add(new Placement(leather,leather.getY()));
-        var original=action(fx+half+6,y+388,fw-half-6,"Original Armor",()->{draftArmorModel="";armorModelField.setValue("");});
+        var original=action(fx+fw-73,y+261,73,"Original Armor",()->{draftArmorModel="";armorModelField.setValue("");});
         controls.remove(original);body.add(new Placement(original,original.getY()));
-        armorColorField=new PinkUi.Field(font,fx,y+452,fw,"Armor Color");armorColorField.setMaxLength(7);
+        armorColorField=new PinkUi.Field(font,fx,y+309,fw,"Armor Color");armorColorField.setMaxLength(7);
         armorColorField.setValue(draftArmorColor);armorColorField.setHint(UiText.component("Empty = original color"));
         armorColorField.setResponder(value->{
             draftArmorColor=value;status="";
@@ -84,7 +84,7 @@ public final class ItemAppearanceScreen extends ThemedScreen {
             CosmeticsScreen.childInteraction();
         });
         body.add(new Placement(addWidget(armorColorField),armorColorField.getY()));
-        armorPicker=new PinkUi.ColorPicker(fx,y+483,fw,82,draftArmorColor.matches("#?[0-9a-fA-F]{6}")
+        armorPicker=new PinkUi.ColorPicker(fx,y+340,fw,54,draftArmorColor.matches("#?[0-9a-fA-F]{6}")
             ?Integer.parseInt(draftArmorColor.replace("#",""),16):0xA06540,
             color->armorColorField.setValue(hex(color)));
         body.add(new Placement(addWidget(armorPicker),armorPicker.getY()));
@@ -180,32 +180,38 @@ public final class ItemAppearanceScreen extends ThemedScreen {
         for(var widget:controls)widget.extractRenderState(g,mx,my,delta);
         g.enableScissor(x+15,bodyTop,x+w-15,bodyBottom);g.pose().pushMatrix();g.pose().translate(0,-scroll);
         int fx=x+previewWidth+24,fw=w-previewWidth-40;
-        outline(g,x+16,y+85,previewWidth-8,154,6,BORDER,CARD);uiText(g,font,"Preview",x+26,y+96,PINK,previewWidth-28);
+        outline(g,x+16,y+76,previewWidth-8,140,6,BORDER,CARD);uiText(g,font,"Preview",x+26,y+87,PINK,previewWidth-28);
         if(!item.isEmpty()){
             var preview=preview();
-            g.pose().pushMatrix();g.pose().translate(x+16+(previewWidth-8)/2f-24,y+130);g.pose().scale(3,3);g.item(preview,0,0);g.pose().popMatrix();
+            g.pose().pushMatrix();g.pose().translate(x+16+(previewWidth-8)/2f-24,y+114);g.pose().scale(3,3);g.item(preview,0,0);g.pose().popMatrix();
+            var gameFont=previewFont();
             Component name=draftName.isEmpty()?preview.getHoverName():ItemNameText.cached(draftName);
-            float scale=Math.min(1,(previewWidth-28)/(float)Math.max(1,font.width(name)));
-            g.pose().pushMatrix();g.pose().translate(x+26,y+214);g.pose().scale(scale,scale);g.text(font,name,0,0,TEXT,false);g.pose().popMatrix();
+            float scale=Math.min(1,(previewWidth-28)/(float)Math.max(1,gameFont.width(name)));
+            g.pose().pushMatrix();g.pose().translate(x+26,y+187);g.pose().scale(scale,scale);g.text(gameFont,name,0,0,TEXT,false);g.pose().popMatrix();
         }
-        uiText(g,font,"Custom Name",fx,y+85,TEXT,fw);uiText(g,font,"Colors: &0–&f, &r, &#RRGGBB",fx,y+135,MUTED,fw);
-        uiText(g,font,"Model ID",fx,y+159,TEXT,fw);
-        uiText(g,font,"Head Skin (item and worn appearance)",fx,y+250,TEXT,fw);
-        uiText(g,font,"Worn Armor Model ID",fx,y+342,TEXT,fw);
-        uiText(g,font,"Armor Color (#RRGGBB)",fx,y+436,TEXT,fw);
+        uiText(g,font,"Custom Name",fx,y+76,TEXT,fw);
+        uiText(g,font,"Model ID",fx,y+122,TEXT,fw);
+        uiText(g,font,"Head Skin (item and worn appearance)",fx,y+171,TEXT,fw);
+        uiText(g,font,"Worn Armor Model ID",fx,y+247,TEXT,fw);
+        uiText(g,font,"Armor Color (#RRGGBB)",fx,y+295,TEXT,fw);
         if(ArmorAppearance.editable(item)&&!draftArmorColor.isEmpty()&&draftArmorColor.matches("#?[0-9a-fA-F]{6}"))
-            rounded(g,x+24,y+229,24,8,2,0xFF000000|Integer.parseInt(draftArmorColor.replace("#",""),16));
+            rounded(g,x+24,y+200,24,8,2,0xFF000000|Integer.parseInt(draftArmorColor.replace("#",""),16));
         g.pose().popMatrix();for(var placement:body)if(placement.widget().visible)placement.widget().extractRenderState(g,mx,my,delta);g.disableScissor();
         if(maxScroll()>0){var bar=scrollbar();rounded(g,x+w-10,bodyTop,3,bodyBottom-bodyTop,1,BORDER);rounded(g,x+w-10,bar.thumbStart(scroll),3,bar.thumbLength(),1,PINK);}
-        uiText(g,font,status.isEmpty()?(uuid.isEmpty()?"Select a SkyBlock item with a unique item UUID.":""):status,x+16,y+h-61,MUTED,w-32);
+        uiText(g,font,status.isEmpty()?(uuid.isEmpty()?"Select a SkyBlock item with a unique item UUID.":""):status,x+16,y+h-53,MUTED,w-32);
     }
-    private int maxScroll(){return Math.max(0,y+574-bodyBottom);}
+    private int maxScroll(){return Math.max(0,y+404-bodyBottom);}
     private ScrollBarLayout scrollbar(){int viewport=Math.max(0,bodyBottom-bodyTop);return ScrollBarLayout.of(bodyTop,viewport,viewport,viewport+maxScroll(),maxScroll());}
     private void positionBody(){for(var p:body){p.widget().setY(p.y()-scroll);p.widget().visible=p.widget().getY()+p.widget().getHeight()>bodyTop&&p.widget().getY()<bodyBottom;}}
     @Override public boolean mouseScrolled(double mx,double my,double horizontal,double vertical){
         CosmeticsScreen.childInteraction();if(mx>=x&&mx<x+w&&my>=bodyTop&&my<bodyBottom){scroll=Math.clamp(scroll-(int)Math.signum(vertical)*24,0,maxScroll());positionBody();return true;}return super.mouseScrolled(mx,my,horizontal,vertical);
     }
     @Override public boolean mouseClicked(MouseButtonEvent event,boolean doubleClick){
+        // Scissored body widgets must never intercept the fixed header/footer.
+        if(event.y()<bodyTop||event.y()>=bodyBottom){
+            for(var control:controls)if(control.mouseClicked(event,doubleClick)){setFocused(control);return true;}
+            return false;
+        }
         if(event.button()==com.customcosmetics.compatibility.ClientInput.MOUSE_LEFT&&maxScroll()>0
                 &&event.x()>=x+w-18&&event.x()<x+w&&event.y()>=bodyTop&&event.y()<bodyBottom){
             var bar=scrollbar();int thumbTop=bar.thumbStart(scroll);

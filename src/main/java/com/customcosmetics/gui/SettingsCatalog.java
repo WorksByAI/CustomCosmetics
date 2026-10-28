@@ -18,7 +18,7 @@ public final class SettingsCatalog {
     private static List<SettingsSearch.Entry> create() {
         var entries = new ArrayList<SettingsSearch.Entry>();
         add(entries, "Player Size", "SIZE", "Proportions scale body",
-            "Enabled|Size X|Size Y|Size Z|Reset Player Size|SmolPeople|Limb Swing Speed|Creature Model|" +
+            "Enabled|X|Y|Z|Reset Player Size|SmolPeople|Limb Swing Speed|Creature Model|" +
                 java.util.Arrays.stream(com.customcosmetics.features.creature.CreatureModels.Choice.values())
                     .map(choice -> choice.label).collect(java.util.stream.Collectors.joining("|")));
         add(entries, "NickTweaks", "NICK", "Nickname name color codes",
@@ -36,7 +36,7 @@ public final class SettingsCatalog {
             "Save Current Colors|Save / Update");
         add(entries, "Animations", "ANIMATIONS", "Sword blocking item whitelist blacklist pose",
             "Sword Blocking|Adjust Blocking|Blocking List Mode|Edit Blocking Lists|Apply Lists to Other Players|Share Blocking");
-        add(entries, "Animations", "ANIMATIONS", "Sword blocking item whitelist blacklist pose Default Jigsaw", "Blocking Style");
+        add(entries, "Animations", "ANIMATIONS", "Sword blocking item whitelist blacklist pose Vanilla Smooth Default Jigsaw", "Blocking Style");
         add(entries, "Animations", "ANIMATIONS", "Held item view model position rotation scale",
             "View Model|Item Scale|Position X|Position Y|Position Z|Rotation X|Rotation Y|Rotation Z|Swing X|Swing Y|Swing Z|Disable Hand Movement|Disable Equip Animation|Disable Swing Animation|Reset View Model");
         add(entries, "Animations", "ANIMATIONS", "Requires Disable Swing Animation to be enabled.", "Terminator Only");
@@ -50,7 +50,7 @@ public final class SettingsCatalog {
         add(entries, "Item Customization", "ITEMS", "SkyBlock accessory bag collected upgrade tooltip tier", "Accessory Helper Tooltip|Clear This Profile's Bag Scan");
         add(entries, "Equipments", "ACCESSORIES", "Accessories outfit wardrobe style colors size shoulder", "Blocked Equipments|Open Wardrobe|Clear Outfit");
         add(entries, "Cape", "CAPE", "Cape visibility local import texture upload approval",
-            "Show Custom Capes|Choose Image & Crop|Choose Cape + Elytra|Submit for Review");
+            "Show Custom Capes|Choose Image & Crop|Choose Vanilla-Format Cape Image|Submit for Review");
         add(entries, "Sharing", "PARTY", "Party teammates markers locations",
             "Party ESP|Chams|Connection Notifications|Max Display Distance (blocks)|ESP Style|ESP Color|Fill Opacity|Outline Width|Tracers|Tracer Color|Show Names|Nametag Style|Hide Names Within (blocks)|Nametag Scaling|Nametag Size|Distant Markers");
         add(entries, "Sharing", "PARTY", "Party chat messages", "IRC For Party Members|Chat Prefix");
@@ -59,7 +59,7 @@ public final class SettingsCatalog {
         add(entries, "Sharing", "PARTY", "Location position sharing audience selected players",
             "Share My Position|Audience|Selected Players|Show Shared Positions|Location Tracers|Location Tracer Color");
         add(entries, "Skins", "SKINS", "Local skin import PNG Alex Steve P2P",
-            "Import Local Skin|Show My Local Skin|Remove Local Skin|Skin Model|Share Skin via P2P|Receive P2P Skins");
+            "Import Local Skin|Show My Local Skin|Remove Local Skin|Skin Model|Share Skin via P2P|Receive P2P Skins|Blocked Skins|Other Players|Import Global Skin|Slim Global Skin");
         add(entries, "Map Editor", "MAP", "Local visual map dungeon Kuudra rooms",
             "Freecam|Freecam Speed (blocks/s)|Map Editor|Dungeon Only|Force Dungeon|Force Kuudra|Edit Mode|Import FME Config|Choose Block / Favorites|Replace Materials|Editor HUD|Reset This Room|Block Material|Undo|Clear Current Edits|Automatically Restore Rooms|Preset Manager");
         add(entries, "Settings", "SYNC", "General preferences",

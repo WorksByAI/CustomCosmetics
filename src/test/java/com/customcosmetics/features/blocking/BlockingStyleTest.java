@@ -5,8 +5,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class BlockingStyleTest {
     @Test void styleNamesAndConfigurationValuesRemainDistinct() {
-        assertEquals("Default",BlockingStyle.DEFAULT.label); assertEquals("default",BlockingStyle.DEFAULT.value());
-        assertEquals("Jigsaw",BlockingStyle.JIGSAW.label); assertEquals("jigsaw",BlockingStyle.JIGSAW.value());
+        assertEquals("Vanilla",BlockingStyle.DEFAULT.label); assertEquals("default",BlockingStyle.DEFAULT.value());
+        assertEquals("Smooth",BlockingStyle.JIGSAW.label); assertEquals("jigsaw",BlockingStyle.JIGSAW.value());
         assertEquals(BlockingStyle.JIGSAW,BlockingStyle.parse(" JIGSAW "));
         assertSame(BlockingStyle.JIGSAW.value(),BlockingStyle.JIGSAW.value());
     }

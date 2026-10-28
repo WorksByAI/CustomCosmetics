@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.0-dev.6
+
+- Add verified startup updates with automatic restart.
+- Use the active game font for cosmetic previews.
+- Add skin blocking and local Steve, Alex or custom overrides for other players.
+- Compact settings, add a searchable creature picker, refresh the logo and improve translations.
+
 ## 2.0.0-dev.5
 
 - Restore the original pink default accent and simplify interface copy.

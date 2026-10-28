@@ -75,6 +75,7 @@ public final class ConfigManager {
     public static double nickTweaksShimmerInterval = 2;
     public static volatile boolean offlineMode = false;
     public static volatile boolean updateCheckEnabled = true;
+    public static boolean updateOnNextLaunch=false;
     public static boolean commandTooltipsEnabled=true;
     public static boolean accessoryHelperTooltipEnabled=true;
     public static boolean waypointShowLabels=true,waypointShowDistance=false;
@@ -87,6 +88,9 @@ public final class ConfigManager {
     public static String snaplookPerspective="back";
     public static boolean capeEnabled = true;
     public static boolean localSkinEnabled=true,localSkinSlim=false,skinP2pSharing=false,skinP2pReceiving=true;
+    public static volatile java.util.List<PlayerBlocklist.Entry> skinBlockedPlayers=java.util.List.of();
+    public static volatile String otherPlayerSkinMode="original";
+    public static boolean otherPlayerSkinSlim=false;
     public static java.util.List<PlayerBlocklist.Entry> capeBlockedPlayers = java.util.List.of();
     public static boolean partyEspEnabled=true,partyChatEnabled=true;
     public static boolean partyChatSoundEnabled=false;
@@ -202,6 +206,8 @@ public final class ConfigManager {
             nickTweaksBlockedPlayers = com.customcosmetics.config.PlayerBlocklist.normalize(nickTweaksBlockedPlayers);
             accessoriesBlockedPlayers = PlayerBlocklist.normalize(accessoriesBlockedPlayers);
             capeBlockedPlayers = PlayerBlocklist.normalize(capeBlockedPlayers);
+            skinBlockedPlayers = PlayerBlocklist.normalize(skinBlockedPlayers);
+            otherPlayerSkinMode = com.customcosmetics.features.skins.SkinRules.mode(otherPlayerSkinMode);
             smolLimbSwingSpeed = Math.clamp(smolLimbSwingSpeed, 0.5, 5.0);
             playerSizeX=com.customcosmetics.features.playersize.PlayerSizeSettings.bounded(playerSizeX);
             playerSizeY=com.customcosmetics.features.playersize.PlayerSizeSettings.bounded(playerSizeY);

@@ -10,6 +10,11 @@ import net.minecraft.network.chat.Component;
 public abstract class ThemedScreen extends Screen {
     protected final net.minecraft.client.gui.Font font;
     protected ThemedScreen(Component title){super(localizeTitle(title));font=UiFonts.get(super.font);UiTheme.refresh();}
+    /** Content previews use the live game renderer, including resource packs and font-mod hooks. */
+    protected final net.minecraft.client.gui.Font previewFont(){
+        var active=minecraft.font;
+        return active!=null?active:super.font;
+    }
     private static Component localizeTitle(Component title){UiLocale.refresh();return UiText.component(title.getString());}
     @Override public void extractBackground(GuiGraphicsExtractor g,int mx,int my,float dt){
         if(minecraft.level==null)super.extractBackground(g,mx,my,dt);

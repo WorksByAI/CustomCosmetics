@@ -76,7 +76,7 @@ public final class CapeGameTest implements FabricClientGameTest {
             var graphics=highResolution.createGraphics();try{graphics.setColor(new java.awt.Color(0x00FF6A));graphics.fillRect(0,0,2048,1024);}finally{graphics.dispose();}
             var atlasFile=file.getParent().resolve("high-resolution-2048x1024.png");javax.imageio.ImageIO.write(highResolution,"png",atlasFile.toFile());
             context.runOnClient(client->{fileSelections.add(NativeFileDialogs.Result.selected(atlasFile.toString()));ClientUiAccess.setScreen(client,new CapeScreen(null));});
-            var atlasHash=CapeImages.hash(CapeImages.atlasPng(highResolution));click(context,"Choose Cape + Elytra");context.waitFor(client->CapeImages.hash(CapeCosmetics.localPng()).equals(atlasHash));context.waitTicks(4);
+            var atlasHash=CapeImages.hash(CapeImages.atlasPng(highResolution));click(context,"Choose Vanilla-Format Cape Image");context.waitFor(client->CapeImages.hash(CapeCosmetics.localPng()).equals(atlasHash));context.waitTicks(4);
             context.runOnClient(client->{
                 var local=CapeCosmetics.localPng();if(local==null)throw new AssertionError("High-resolution cape was rejected by the real file picker");
                 var saved=CapeImages.decode(local);if(saved.getWidth()!=2048||saved.getHeight()!=1024||client.player.getSkin().cape()==null)throw new AssertionError("High-resolution cape was resized or failed to reach the real player skin");
@@ -133,7 +133,7 @@ public final class CapeGameTest implements FabricClientGameTest {
     private static void testFileDialog(ClientGameTestContext context,Path file)throws Exception{
         var before=CapeImages.hash(CapeCosmetics.localPng());fileSelections.add(NativeFileDialogs.Result.cancelled());click(context,"Choose Image & Crop");context.waitTicks(3);
         context.runOnClient(client->{if(!(ClientUiAccess.screen(client) instanceof CapeScreen)||NativeFileDialogs.busy()||!before.equals(CapeImages.hash(CapeCosmetics.localPng())))throw new AssertionError("Cancelling the system picker changed the local cape");});
-        deferFileSelection=true;click(context,"Choose Cape + Elytra");context.waitTicks(2);
+        deferFileSelection=true;click(context,"Choose Vanilla-Format Cape Image");context.waitTicks(2);
         context.runOnClient(client->{if(!NativeFileDialogs.busy()||delayedFileSelection==null)throw new AssertionError("A second dialog is not guarded");ClientUiAccess.setScreen(client,null);delayedFileSelection.accept(NativeFileDialogs.Result.selected(file.toString()));delayedFileSelection=null;});context.waitTicks(3);
         context.runOnClient(client->{if(ClientUiAccess.screen(client)!=null||NativeFileDialogs.busy()||!before.equals(CapeImages.hash(CapeCosmetics.localPng())))throw new AssertionError("A late OS selection reopened a closed screen");ClientUiAccess.setScreen(client,new CapeScreen(null));});
         fileSelections.add(NativeFileDialogs.Result.unavailableResult());click(context,"Choose Image & Crop");context.waitTicks(3);context.runOnClient(client->{if(!(ClientUiAccess.screen(client) instanceof CapeFileScreen))throw new AssertionError("Unavailable native picker did not offer the in-game fallback");ClientUiAccess.setScreen(client,new CapeScreen(null));});

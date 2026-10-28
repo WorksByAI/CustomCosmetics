@@ -24,6 +24,8 @@ public final class GitHubUpdateCheck {
     private final String installed;
     private final BooleanSupplier enabled;
     private final AtomicBoolean started = new AtomicBoolean();
+    private volatile boolean completed;
+    public boolean settled(){return completed&&started.get()&&pending.get()==null;}
     private final AtomicReference<String> pending = new AtomicReference<>();
 
     public GitHubUpdateCheck(String installed) { this(installed,()->true); }
@@ -37,11 +39,12 @@ public final class GitHubUpdateCheck {
     }
     void start(Supplier<Optional<String>> fetch, Executor executor) {
         if (!enabled.getAsBoolean() || !started.compareAndSet(false, true)) return;
+        completed=false;
         executor.execute(() -> {
             if(!enabled.getAsBoolean()){started.set(false);return;}
             try { fetch.get().filter(value->enabled.getAsBoolean()).ifPresent(pending::set); }
             catch (RuntimeException unavailable) { /* An update check must never interrupt the game. */ }
-            finally{if(!enabled.getAsBoolean())started.set(false);}
+            finally{completed=true;if(!enabled.getAsBoolean())started.set(false);}
         });
     }
     public String poll(boolean worldReady) { if(!enabled.getAsBoolean()){pending.set(null);return null;}return worldReady ? pending.getAndSet(null) : null; }

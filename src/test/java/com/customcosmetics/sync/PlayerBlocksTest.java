@@ -36,7 +36,7 @@ class PlayerBlocksTest {
     }
     @Test void commandTreeExposesEveryActionAndFeatureWithAPlayerArgument(){
         var root=PlayerBlockCommands.command().build();
-        for(String action:List.of("add","remove"))for(String feature:List.of("accessories","nick","cape")){
+        for(String action:List.of("add","remove"))for(String feature:List.of("accessories","nick","cape","skin")){
             var node=root.getChild(action).getChild(feature);assertNotNull(node.getCommand());assertNotNull(node.getChild("player").getCommand());
         }
     }

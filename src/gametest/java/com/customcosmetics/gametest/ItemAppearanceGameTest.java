@@ -171,7 +171,9 @@ final class ItemAppearanceGameTest {
         context.getInput().resizeWindow(854,480);context.waitTicks(3);context.takeScreenshot("item-cosmetics-compact-editor");
         context.getInput().setCursorPos(600,250);
         for(int i=0;i<5;i++){context.getInput().scroll(-1);context.waitTicks(1);}
-        context.takeScreenshot("item-cosmetics-compact-editor-scrolled");click(context,"Select Model");click(context,"Back");
+        context.takeScreenshot("item-cosmetics-compact-editor-scrolled");
+        for(int i=0;i<5;i++){context.getInput().scroll(1);context.waitTicks(1);}
+        click(context,"Select Model");click(context,"Back");
         click(context,"Reset Item");context.runOnClient(client->{if(!ItemCosmetics.store().get(A).empty())throw new AssertionError("Reset kept the override");});
         click(context,"Done");context.waitTicks(3);
         world.getServer().runCommand("item replace entity @a armor.head with minecraft:player_head[minecraft:custom_data={id:\"WARDEN_HELMET\",uuid:\""+C+"\"}]");

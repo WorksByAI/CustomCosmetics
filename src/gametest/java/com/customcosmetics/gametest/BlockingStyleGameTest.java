@@ -37,7 +37,7 @@ final class BlockingStyleGameTest {
         context.runOnClient(client -> ClientUiAccess.setScreen(client, new CosmeticsScreen(null, CosmeticsScreen.Page.ANIMATIONS)));
         context.waitTicks(2);
         context.runOnClient(client -> {
-            if (!styleControl(client).getMessage().getString().contains("Jigsaw")) throw new AssertionError("Reopening lost the selected style");
+            if (!styleControl(client).getMessage().getString().contains("Smooth")) throw new AssertionError("Reopening lost the selected style");
         });
         clickStyle(context); context.getInput().pressKey(ClientInput.UP); context.getInput().pressKey(ClientInput.ENTER);
         context.runOnClient(client -> {

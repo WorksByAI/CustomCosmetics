@@ -12,6 +12,6 @@ public abstract class CapeSkinMixin {
     @ModifyReturnValue(method="getSkin",at=@At("RETURN"))
     private PlayerSkin customcosmetics$cape(PlayerSkin original){
         var player=(AbstractClientPlayer)(Object)this;
-        return com.customcosmetics.features.skins.LocalSkins.skin(player.getUUID(),CapeCosmetics.skin(player.getUUID(),original));
+        return com.customcosmetics.features.skins.LocalSkins.skin(player.getUUID(),player.getGameProfile().name(),CapeCosmetics.skin(player.getUUID(),original));
     }
 }

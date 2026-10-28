@@ -7,13 +7,13 @@ import java.util.*;
 
 /** Independent, local-only filters. Identity lookup uses the existing sync cache. */
 public final class PlayerBlocks {
-    public enum Kind { ACCESSORIES, NICK, CAPE }
+    public enum Kind { ACCESSORIES, NICK, CAPE, SKIN }
     public record Result(boolean changed,String message){}
     private PlayerBlocks(){}
-    public static List<PlayerBlocklist.Entry> entries(Kind kind){return switch(kind){case NICK->ConfigManager.nickTweaksBlockedPlayers;case ACCESSORIES->ConfigManager.accessoriesBlockedPlayers;case CAPE->ConfigManager.capeBlockedPlayers;};}
+    public static List<PlayerBlocklist.Entry> entries(Kind kind){return switch(kind){case NICK->ConfigManager.nickTweaksBlockedPlayers;case ACCESSORIES->ConfigManager.accessoriesBlockedPlayers;case CAPE->ConfigManager.capeBlockedPlayers;case SKIN->ConfigManager.skinBlockedPlayers;};}
     public static void set(Kind kind,List<PlayerBlocklist.Entry> entries){
         var clean=PlayerBlocklist.normalize(entries);
-        switch(kind){case NICK->ConfigManager.nickTweaksBlockedPlayers=clean;case ACCESSORIES->ConfigManager.accessoriesBlockedPlayers=clean;case CAPE->ConfigManager.capeBlockedPlayers=clean;}
+        switch(kind){case NICK->ConfigManager.nickTweaksBlockedPlayers=clean;case ACCESSORIES->ConfigManager.accessoriesBlockedPlayers=clean;case CAPE->ConfigManager.capeBlockedPlayers=clean;case SKIN->ConfigManager.skinBlockedPlayers=clean;}
         ConfigManager.requestSave();if(kind==Kind.NICK)NickRenderUtils.invalidateLocalTargetsCache();
     }
     public static boolean blocked(Kind kind,UUID uuid,String account){return PlayerBlocklist.contains(entries(kind),uuid,account);}

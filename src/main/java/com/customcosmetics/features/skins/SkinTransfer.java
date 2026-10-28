@@ -9,6 +9,7 @@ public final class SkinTransfer {
     public static final int CHUNK=640,WINDOW=64;
     public interface Source {
         Source NONE=new Source(){public Document local(){return null;}public boolean receiving(){return false;}public void received(UUID id,Document skin){}};
+        default boolean receiving(UUID id,String account){return receiving();}
         Document local();boolean receiving();void received(UUID id,Document skin);
     }
     public interface Send {boolean send(JsonObject packet);}
@@ -27,7 +28,7 @@ public final class SkinTransfer {
         if(reply!=null&&send.send(reply))reply=null;
         String key=local==null?"":local.hash()+":"+local.slim();
         if(!Objects.equals(key,announced)||now>=nextOffer){var m=new JsonObject();m.addProperty("op",local==null?"clear":"offer");m.addProperty("window",WINDOW);if(local!=null){m.addProperty("hash",local.hash());m.addProperty("size",local.size());m.addProperty("slim",local.slim());}if(send.send(m)){if(!Objects.equals(key,announced)){outgoing.clear();manifestSeen=false;}announced=key;nextOffer=now+(manifestSeen?5000:750);}}
-        if(!receiving||chunks!=null&&now-lastProgress>30000)resetIncoming();
+        if(!receiving){resetIncoming();installed=null;}else if(chunks!=null&&now-lastProgress>30000)resetIncoming();
         if(chunks!=null&&now>=nextRequest){
             var wanted=new JsonArray();int missing=0;
             for(int i=0;i<chunks.length&&missing<remoteWindow;i++)if(chunks[i]==null){missing++;if(now>=requestDue[i])wanted.add(i);}

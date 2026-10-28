@@ -18,7 +18,7 @@ final class BlockingStyleDropdown extends PinkUi.Action {
     private int highlighted, menuTop;
     private static final int MENU_HEIGHT = 60;
     BlockingStyleDropdown(int x, int y, int width) {
-        super(x, y, width, 28, "Blocking Style", false, () -> {});
+        super(x, y, width, 24, "Blocking Style", false, () -> {});
     }
     private void toggle() {
         open = !open;
@@ -35,7 +35,7 @@ final class BlockingStyleDropdown extends PinkUi.Action {
         if (!open || !visible) return;
         menuTop = Math.clamp(getBottom() + 4, top, Math.max(top, bottom - MENU_HEIGHT));
         g.nextStratum();
-        outline(g, getX(), menuTop, getWidth(), MENU_HEIGHT, 6, PINK, 0xFF252830);
+        outline(g, getX(), menuTop, getWidth(), MENU_HEIGHT, 6, PINK, PANEL);
         for (var style : BlockingStyle.values()) {
             int y = menuTop + 4 + style.ordinal() * 26;
             boolean hovered = mx >= getX() && mx < getRight() && my >= y && my < y + 26;

@@ -81,7 +81,7 @@ final class SettingsGuiGameTest {
         context.runOnClient(client -> {
             var scale = widget(client,"Item Scale value",PinkUi.Field.class);
             var x = widget(client,"Position X value",PinkUi.Field.class);
-            if (scale.getY() != x.getY() || scale.getX() == x.getX()) throw new AssertionError("Animations are not laid out in two columns");
+            if (scale.getY() != x.getY() || scale.getX() == x.getX()) throw new AssertionError("Animation controls are not arranged in a compact grid");
             if (scale.getWidth() + 12 != 48) throw new AssertionError("Numeric field has not been compacted");
         });
         type(context,"Item Scale value","1.25");
@@ -194,6 +194,100 @@ final class SettingsGuiGameTest {
         context.runOnClient(client->{ConfigManager.uiAnimationsEnabled=false;ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SYNC));});context.waitTicks(2);
         context.runOnClient(client->{if((Float)read(ClientUiAccess.screen(client),"entranceScale")!=1)throw new AssertionError("Reduced motion still scaled the panel");ConfigManager.uiAnimationsEnabled=true;ClientUiAccess.setScreen(client,null);});
         System.out.println("CHINESE_ENGLISH_LANGUAGE_OVERRIDE_SEARCH_USER_TEXT_PERSISTENCE_AND_OPENING_INPUT_OK");
+    }
+
+    /** A real pack changes W into a wide space; preview pixels must follow it, while UI stays YaHei. */
+    public static void checkPreviewGameFont(ClientGameTestContext context)throws Exception{
+        String language=ConfigManager.uiLanguage,nick=ConfigManager.nickTweaksNickChanger;
+        boolean enabled=ConfigManager.nickTweaksEnabled,bold=ConfigManager.nickTweaksBoldSelf,
+            custom=ConfigManager.nickTweaksCustomNickColorEnabled,chroma=ConfigManager.nickTweaksChromaEnabled,
+            motion=ConfigManager.uiAnimationsEnabled;
+        var selected=context.computeOnClient(client->new java.util.ArrayList<>(client.getResourcePackRepository().getSelectedIds()));
+        int original=context.computeOnClient(client->client.font.width("WWW"));
+        var pack=context.computeOnClient(client->client.getResourcePackDirectory().resolve("cc-preview-font-test"));
+        var format=net.minecraft.SharedConstants.getCurrentVersion().packVersion(net.minecraft.server.packs.PackType.CLIENT_RESOURCES);
+        Files.createDirectories(pack.resolve("assets/minecraft/font"));
+        Files.writeString(pack.resolve("pack.mcmeta"),"{\"pack\":{\"description\":\"Preview font regression fixture\",\"min_format\":["+format.major()+","+format.minor()+"],\"max_format\":["+format.major()+","+format.minor()+"]}}");
+        Files.writeString(pack.resolve("assets/minecraft/font/default.json"),"{\"providers\":[{\"type\":\"space\",\"advances\":{\"W\":19}},{\"type\":\"reference\",\"id\":\"minecraft:uniform\"}]}");
+        try{
+            context.runOnClient(client->{
+                ConfigManager.uiLanguage="zh_cn";ConfigManager.nickTweaksEnabled=true;ConfigManager.nickTweaksNickChanger="WWW";
+                ConfigManager.nickTweaksBoldSelf=false;ConfigManager.nickTweaksCustomNickColorEnabled=false;ConfigManager.nickTweaksChromaEnabled=false;ConfigManager.uiAnimationsEnabled=false;
+                com.customcosmetics.utils.NickRenderUtils.invalidateLocalTargetsCache();
+                ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.NICK));
+                var repo=client.getResourcePackRepository();repo.reload();var ids=new java.util.ArrayList<>(selected);ids.add("file/cc-preview-font-test");repo.setSelected(ids);
+                if(!repo.getSelectedIds().contains("file/cc-preview-font-test"))throw new AssertionError("Font pack was not selected");
+            });
+            var reload=context.computeOnClient(client->client.reloadResourcePacks());context.waitFor(client->reload.isDone(),600);reload.join();context.waitFor(client->overlayCleared(client),600);context.waitTicks(3);
+            context.runOnClient(client->{
+                if(client.font.width("WWW")!=57)throw new AssertionError("Default game font did not apply pack advances");
+                var method=ThemedScreen.class.getDeclaredMethod("previewFont");method.setAccessible(true);
+                if(method.invoke(ClientUiAccess.screen(client))!=client.font)throw new AssertionError("Preview is using the themed UI font");
+                if(UiFonts.get(client.font).width("WWW")==57)throw new AssertionError("Fixture did not distinguish UI and game fonts");
+            });
+            if(previewInk(context)!=0)throw new AssertionError("Preview drew YaHei W glyphs instead of the active pack's spaces");
+            context.takeScreenshot("preview-game-font-resource-pack");
+        }finally{
+            context.runOnClient(client->client.getResourcePackRepository().setSelected(selected));
+            var reload=context.computeOnClient(client->client.reloadResourcePacks());context.waitFor(client->reload.isDone(),600);reload.join();context.waitFor(client->overlayCleared(client),600);context.waitTicks(3);
+        }
+        try{
+            context.runOnClient(client->{if(client.font.width("WWW")!=original)throw new AssertionError("Default font did not recover after pack removal");});
+            if(previewInk(context)<30)throw new AssertionError("Restored game font did not draw the preview");
+            context.runOnClient(client->{ConfigManager.nickTweaksNickChanger="测试Player";com.customcosmetics.utils.NickRenderUtils.invalidateLocalTargetsCache();});context.waitTicks(3);
+            context.takeScreenshot("preview-active-game-font");
+            System.out.println("PREVIEW_ACTIVE_DEFAULT_FONT_RESOURCE_PACK_PIXELS_AND_RELOAD_OK");
+        }finally{
+            context.runOnClient(client->{
+                ConfigManager.uiLanguage=language;ConfigManager.nickTweaksNickChanger=nick;ConfigManager.nickTweaksEnabled=enabled;ConfigManager.nickTweaksBoldSelf=bold;
+                ConfigManager.nickTweaksCustomNickColorEnabled=custom;ConfigManager.nickTweaksChromaEnabled=chroma;ConfigManager.uiAnimationsEnabled=motion;
+                com.customcosmetics.utils.NickRenderUtils.invalidateLocalTargetsCache();ClientUiAccess.setScreen(client,null);UiLocale.refresh();
+            });
+        }
+    }
+    private static boolean overlayCleared(net.minecraft.client.Minecraft client){
+        try{return client.gui.getClass().getMethod("overlay").invoke(client.gui)==null;}
+        catch(NoSuchMethodException legacy){try{return client.getClass().getMethod("getOverlay").invoke(client)==null;}catch(ReflectiveOperationException error){throw new AssertionError(error);}}
+        catch(ReflectiveOperationException error){throw new AssertionError(error);}
+    }
+    private static int previewInk(ClientGameTestContext context)throws Exception{
+        var count=new java.util.concurrent.CompletableFuture<Integer>();
+        context.runOnClient(client->{
+            var screen=ClientUiAccess.screen(client);double scale=client.getWindow().getGuiScale();
+            var layout=StudioLayout.of(client.getWindow().getGuiScaledWidth(),client.getWindow().getGuiScaledHeight());
+            int left=(int)(((Integer)read(screen,"contentX")+16)*scale),top=(int)((layout.contentTop()+35)*scale);
+            java.lang.reflect.Method method;
+            try{method=client.gameRenderer.getClass().getMethod("mainRenderTarget");}catch(NoSuchMethodException legacy){method=client.getClass().getMethod("getMainRenderTarget");}
+            var target=method.invoke(method.getDeclaringClass().isInstance(client.gameRenderer)?client.gameRenderer:client);
+            net.minecraft.client.Screenshot.takeScreenshot((com.mojang.blaze3d.pipeline.RenderTarget)target,image->{try(image){int ink=0;
+                for(int y=top;y<top+(int)(17*scale);y++)for(int x=left;x<left+(int)(120*scale);x++){
+                    int c=image.getPixel(x,y);if((c>>16&255)>140&&(c>>8&255)>140&&(c&255)>140)ink++;
+                }count.complete(ink);
+            }catch(Throwable error){count.completeExceptionally(error);}});
+        });context.waitFor(client->count.isDone());return count.join();
+    }
+
+    public static void checkUpdateOffer(ClientGameTestContext context)throws Exception{
+        var type=com.customcosmetics.update.UpdateChecker.class;var field=type.getDeclaredField("check");field.setAccessible(true);Object original=field.get(null);
+        boolean enabled=ConfigManager.updateCheckEnabled,offline=ConfigManager.offlineMode;String language=ConfigManager.uiLanguage;
+        try{
+            var fake=new com.customcosmetics.update.GitHubUpdateCheck("2.0.0-dev.6");
+            var start=fake.getClass().getDeclaredMethod("start",java.util.function.Supplier.class,java.util.concurrent.Executor.class);start.setAccessible(true);
+            start.invoke(fake,(java.util.function.Supplier<java.util.Optional<String>>)()->java.util.Optional.of("2.0.0"),(java.util.concurrent.Executor)Runnable::run);field.set(null,fake);
+            context.runOnClient(client->{ConfigManager.updateCheckEnabled=true;ConfigManager.offlineMode=false;ConfigManager.uiLanguage="zh_cn";ClientUiAccess.setScreen(client,new net.minecraft.client.gui.screens.TitleScreen());com.customcosmetics.update.UpdateChecker.tick(client);});
+            context.runOnClient(client->{if(!(ClientUiAccess.screen(client) instanceof UpdateScreen))throw new AssertionError("No update popup on title screen");});context.waitTicks(4);context.takeScreenshot("startup-update-popup");
+            popupClick(context,"Update after next launch");context.runOnClient(client->{if(!ConfigManager.updateOnNextLaunch||!(ClientUiAccess.screen(client) instanceof net.minecraft.client.gui.screens.TitleScreen))throw new AssertionError("Deferred update choice was not retained");});
+            context.runOnClient(client->ClientUiAccess.setScreen(client,new UpdateScreen(ClientUiAccess.screen(client),"2.0.0-dev.6","2.0.0",false)));
+            popupClick(context,"Update Later");context.runOnClient(client->{if(ConfigManager.updateOnNextLaunch)throw new AssertionError("Later did not clear automatic opt-in");});
+            context.runOnClient(client->{if(!net.fabricmc.loader.api.FabricLoader.getInstance().isDevelopmentEnvironment())throw new AssertionError("Download test requires an isolated development client");ClientUiAccess.setScreen(client,new UpdateScreen(ClientUiAccess.screen(client),"2.0.0-dev.6","2.0.0",false));});
+            popupClick(context,"Update Now");context.waitFor(client->{try{return !(Boolean)read(ClientUiAccess.screen(client),"busy");}catch(Exception error){throw new AssertionError(error);}},200);
+            context.runOnClient(client->{if(!read(ClientUiAccess.screen(client),"status").equals("Update failed. Your installed mod is unchanged."))throw new AssertionError("Development update was not rejected safely");ClientUiAccess.screen(client).onClose();});
+            System.out.println("TITLE_UPDATE_THREE_CHOICES_DEFER_LATER_AND_SAFE_DEVELOPMENT_GUARD_OK");
+        }finally{field.set(null,original);context.runOnClient(client->{ConfigManager.updateCheckEnabled=enabled;ConfigManager.offlineMode=offline;ConfigManager.uiLanguage=language;ConfigManager.updateOnNextLaunch=false;UiLocale.refresh();ClientUiAccess.setScreen(client,new net.minecraft.client.gui.screens.TitleScreen());});}
+    }
+    private static void popupClick(ClientGameTestContext context,String title)throws Exception{
+        var point=context.computeOnClient(client->{var button=widget(client,title,PinkUi.Action.class);double scale=client.getWindow().getGuiScale();return new double[]{(button.getX()+button.getWidth()/2d)*scale,(button.getY()+button.getHeight()/2d)*scale};});
+        context.getInput().setCursorPos(point[0],point[1]);context.getInput().pressMouse(ClientInput.MOUSE_LEFT);context.waitTicks(2);
     }
 
     /** Clicking beyond one pane must not leave that pane hidden by the input clipping mask. */
@@ -379,11 +473,8 @@ final class SettingsGuiGameTest {
             click(context, "Chicken", PinkUi.Action.class);
             context.runOnClient(client -> {
                 var screen = ClientUiAccess.screen(client);
-                var target = widget(client, "✓ Chicken", PinkUi.Action.class);
-                if (read(screen, "page") != CosmeticsScreen.Page.SIZE || (Double) read(screen, "scroll") <= 0
-                    || !target.visible || target.getY() < (Integer) read(screen, "viewTop")
-                    || target.getBottom() > (Integer) read(screen, "viewBottom"))
-                    throw new AssertionError("Search did not reveal the currently selected creature model");
+                var target=widget(client,"Chicken",PinkUi.Action.class);
+                if(!(screen instanceof CreatureModelScreen)||!target.visible||screen.children().size()>30)throw new AssertionError("Search did not open the compact creature picker");
             });
         } finally {
             context.runOnClient(client -> {

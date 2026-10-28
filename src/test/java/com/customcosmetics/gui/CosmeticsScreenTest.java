@@ -129,7 +129,7 @@ class CosmeticsScreenTest {
             .noneMatch(field -> field.owner().name().stringValue().equals("com/customcosmetics/config/ConfigManager")
                 && Set.of("syncServerIp", "syncServerPort", "syncServerHttps").contains(field.name().stringValue())));
     }
-    @Test void nicknameOptionsUseCapitalizedLabelsAndDamageKeepsCredit() throws Exception {
+    @Test void nicknameOptionsUseCapitalizedLabelsWithoutUiCredits() throws Exception {
         var screen = read(SCREEN);
         for (String method : List.of("nickname","colors","chroma")) {
             var labels = code(screen,method).stream().filter(ConstantInstruction.class::isInstance).map(ConstantInstruction.class::cast)
@@ -137,7 +137,7 @@ class CosmeticsScreenTest {
             for (String lowercase : List.of("nick changer","bold self nick","custom nick color","gradient editor","lightness","size","speed"))
                 assertFalse(labels.contains(lowercase),lowercase);
         }
-        assertTrue(screen.methods().stream().flatMap(method -> instructions(method).stream()).filter(ConstantInstruction.class::isInstance).map(ConstantInstruction.class::cast)
+        assertFalse(screen.methods().stream().flatMap(method -> instructions(method).stream()).filter(ConstantInstruction.class::isInstance).map(ConstantInstruction.class::cast)
             .anyMatch(value -> "Thanks to Baity / raueyhs.".equals(value.constantValue())));
     }
 

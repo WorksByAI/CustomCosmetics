@@ -96,7 +96,7 @@ public final class PinkUi {
         private final Runnable action;
         private final boolean primary;
         private BooleanSupplier selected = () -> false;
-        private boolean leftAligned,rawLabel;
+        private boolean leftAligned,rawLabel;private String displayOverride;
         private int cachedLanguage=-1;
         private String cachedLabel;
         private int cachedWidth = -1, cachedLabelWidth;
@@ -114,6 +114,7 @@ public final class PinkUi {
 
         public Action selected(BooleanSupplier selected) { this.selected = selected; return this; }
         public Action leftAligned() { leftAligned = true; return this; }
+        public Action displayAs(String text){displayOverride=text;cachedMessage=null;return this;}
         public Action rawLabel(){rawLabel=true;cachedMessage=null;return this;}
 
         @Override protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
@@ -164,7 +165,7 @@ public final class PinkUi {
                 Font font = UiFonts.get(Minecraft.getInstance().font);
                 if (cachedMessage != getMessage() || cachedWidth != width || cachedLanguage!=UiText.revision()) {
                     cachedMessage = getMessage(); cachedWidth = width;cachedLanguage=UiText.revision();
-                    String original = UiText.display(getMessage().getString(),rawLabel);
+                    String original = displayOverride!=null?displayOverride:UiText.display(getMessage().getString(),rawLabel);
                     int available = Math.max(0, width - (leftAligned ? 22 : 12));
                     cachedLabel = font.width(original) <= available ? original
                         : font.plainSubstrByWidth(original, Math.max(0, available - font.width("…"))) + "…";
