@@ -43,7 +43,7 @@ class CosmeticsScreenTest {
         }
     }
     @Test void accessoryControlsStayLocalAndLayerCannotDrawFirstPersonOrSendGameplayPackets() throws Exception {
-        var screen=read("com/customcosmetics/gui/CosmeticsScreen");assertTrue(pageReferences(code(screen,"init")).contains("ACCESSORIES"));
+        var screen=read("com/customcosmetics/gui/CosmeticsScreen");assertTrue(pageReferences(code(screen,"open")).contains("ACCESSORIES"));
         for(var method:screen.methods())if(method.methodName().stringValue().toLowerCase().contains("accessor"))
             assertTrue(instructions(method).stream().filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast).noneMatch(call->call.owner().name().stringValue().startsWith("com/customcosmetics/sync/")||call.owner().name().stringValue().startsWith("java/net/")));
         var layer=read("com/customcosmetics/features/accessories/AccessoryLayer");assertEquals("net/minecraft/client/renderer/entity/layers/RenderLayer",layer.superclass().orElseThrow().name().stringValue());
@@ -69,13 +69,16 @@ class CosmeticsScreenTest {
     }
     @Test void sharingPageSeparatesPartyAndLocationSettings()throws Exception{
         var strings=code(read(SCREEN),"party").stream().filter(ConstantInstruction.class::isInstance).map(ConstantInstruction.class::cast).map(ConstantInstruction::constantValue).toList();
-        assertTrue(strings.containsAll(List.of("Party visuals","Party chat","Markers & names","Location sharing","Share My Position")));
+        assertTrue(strings.containsAll(List.of("Party visuals","Party chat","Markers & names")));
         assertTrue(strings.indexOf("Party visuals")<strings.indexOf("Party ESP"));
         assertTrue(strings.indexOf("Party chat")<strings.indexOf("IRC For Party Members"));
         assertTrue(strings.indexOf("Markers & names")<strings.indexOf("Max Display Distance (blocks)"));
-        assertTrue(strings.indexOf("Location sharing")<strings.indexOf("Share My Position"));
+        assertFalse(strings.contains("Share My Position"));
+        var location=code(read(SCREEN),"locationSharing").stream().filter(ConstantInstruction.class::isInstance).map(ConstantInstruction.class::cast).map(ConstantInstruction::constantValue).toList();
+        assertTrue(location.containsAll(List.of("Share My Position", "Show Shared Positions", "Location Tracers", "Chams")));
+        assertFalse(location.contains("Party ESP"));
         var titles=code(read(SCREEN),"pageTitle").stream().filter(ConstantInstruction.class::isInstance).map(ConstantInstruction.class::cast).map(ConstantInstruction::constantValue).toList();
-        assertTrue(titles.containsAll(List.of("Sharing","Equipments")));assertFalse(titles.contains("Party"));assertFalse(titles.contains("Accessories"));
+        assertTrue(titles.containsAll(List.of("Party Sharing","Location Sharing","Equipments")));assertFalse(titles.contains("Party"));assertFalse(titles.contains("Accessories"));
     }
     @Test void playerSizeEditsStayLocalAndNeverChangeGameplayDimensions() throws Exception {
         var screen=read(SCREEN);
@@ -108,9 +111,11 @@ class CosmeticsScreenTest {
         assertTrue(navigation.containsAll(List.of("Overview", "APPEARANCE", "SKYBLOCK", "CONNECTIONS")));
         assertTrue(navigation.indexOf("APPEARANCE") < navigation.indexOf("NickTweaks"));
         assertTrue(navigation.indexOf("SKYBLOCK") < navigation.indexOf("Animations"));
-        assertTrue(navigation.indexOf("CONNECTIONS") < navigation.indexOf("Sharing"));
-        assertTrue(code(screen,"playerPreview").stream().filter(FieldInstruction.class::isInstance)
-            .map(FieldInstruction.class::cast).anyMatch(field -> field.owner().name().stringValue().equals("com/customcosmetics/gui/PinkUi") && field.name().stringValue().equals("PINK")));
+        assertTrue(navigation.indexOf("CONNECTIONS") < navigation.indexOf("Party Sharing"));
+        assertTrue(navigation.indexOf("Party Sharing") < navigation.indexOf("Location Sharing"));
+        var previewCalls=screen.methods().stream().filter(method -> method.methodName().stringValue().equals("playerPreview") || method.methodName().stringValue().startsWith("lambda$playerPreview$")).flatMap(method -> instructions(method).stream()).filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast).toList();
+        assertTrue(previewCalls.stream().anyMatch(call -> call.owner().name().stringValue().equals("com/customcosmetics/gui/CapePreview") && call.name().stringValue().equals("drawModel")));
+        assertFalse(previewCalls.stream().anyMatch(call -> call.owner().name().stringValue().equals("com/customcosmetics/utils/NickRenderUtils")));
     }
 
     @Test

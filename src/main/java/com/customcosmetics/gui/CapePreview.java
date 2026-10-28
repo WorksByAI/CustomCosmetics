@@ -19,32 +19,44 @@ public final class CapePreview {
         drawAccessories(graphics,x,y,width,height,front,WardrobeCamera.DEFAULT);
     }
     public static void drawAccessories(GuiGraphicsExtractor graphics,int x,int y,int width,int height,boolean front,WardrobeCamera camera){draw(graphics,x,y,width,height,false,front,camera);}
+    public static void drawModel(GuiGraphicsExtractor graphics,int x,int y,int width,int height){draw(graphics,x,y,width,height,PreviewStyle.MODEL,true,WardrobeCamera.DEFAULT);}
     private static void draw(GuiGraphicsExtractor graphics,int x,int y,int width,int height,boolean capeOnly,boolean front){
         draw(graphics,x,y,width,height,capeOnly,front,WardrobeCamera.DEFAULT);
     }
     private static void draw(GuiGraphicsExtractor graphics,int x,int y,int width,int height,boolean capeOnly,boolean front,WardrobeCamera camera){
+        draw(graphics,x,y,width,height,capeOnly?PreviewStyle.CAPE:PreviewStyle.EQUIPMENT,front,camera);
+    }
+    private static void draw(GuiGraphicsExtractor graphics,int x,int y,int width,int height,PreviewStyle style,boolean front,WardrobeCamera camera){
+        boolean capeOnly=style==PreviewStyle.CAPE;
         var client=Minecraft.getInstance();if(client.player==null||width<1||height<1)return;
         if(!com.customcosmetics.client.ModErrors.active(com.customcosmetics.client.ModErrors.Key.PREVIEW)){unavailable(graphics,x,y,width);return;}
         CapeCosmetics.beginPreview();try{
             var dispatcher=client.getEntityRenderDispatcher();
             if(extract==null)extract=java.util.Arrays.stream(dispatcher.getClass().getMethods()).filter(m->m.getName().equals("extractEntity")&&m.getParameterCount()==2).findFirst().orElseThrow();
             Object extracted;
-            com.customcosmetics.features.creature.CreatureModels.beginAvatarPreview();
-            try{extracted=extract.invoke(dispatcher,client.player,1f);}
-            finally{com.customcosmetics.features.creature.CreatureModels.endAvatarPreview();}
-            if(!(extracted instanceof AvatarRenderState state)){
+            if(style==PreviewStyle.MODEL)extracted=extract.invoke(dispatcher,client.player,1f);
+            else{
+                com.customcosmetics.features.creature.CreatureModels.beginAvatarPreview();
+                try{extracted=extract.invoke(dispatcher,client.player,1f);}
+                finally{com.customcosmetics.features.creature.CreatureModels.endAvatarPreview();}
+            }
+            if(!(extracted instanceof net.minecraft.client.renderer.entity.state.EntityRenderState state)||style!=PreviewStyle.MODEL&&!(state instanceof AvatarRenderState)){
                 com.customcosmetics.client.ModErrors.report(com.customcosmetics.client.ModErrors.Key.PREVIEW,new IllegalStateException("Unexpected player preview state: "+(extracted==null?"null":extracted.getClass().getName())));
                 unavailable(graphics,x,y,width);return;
             }
-            prepareState(state,capeOnly);
-            ((com.customcosmetics.features.accessories.AccessoryRenderState)state).customcosmetics$hideAccessories(capeOnly);
-            if(!capeOnly)state.showCape=false;
+            if(state instanceof AvatarRenderState avatar)prepareState(avatar,style);
+            state.isInvisible=false;
+            if(state instanceof net.minecraft.client.renderer.entity.state.LivingEntityRenderState living){living.isInvisibleToPlayer=false;living.bodyRot=living.yRot=living.xRot=0;}
+            prepareNames(state,client.player);
             if(entity==null)entity=java.util.Arrays.stream(graphics.getClass().getMethods()).filter(m->m.getName().equals("entity")&&m.getParameterCount()==9).findFirst().orElseThrow();
-            double framing=2.2;
-            if(!capeOnly){var settings=((com.customcosmetics.features.accessories.AccessoryRenderState)state).customcosmetics$accessories();double size=1;for(var slot:com.customcosmetics.features.accessories.AccessoryCatalog.slots()){var part=settings.part(slot.id());if(part.enabled())size=Math.max(size,part.scale());}var proportions=com.customcosmetics.features.playersize.PlayerSize.settings(state.id);framing=3.8*size*Math.max(1,Math.max(proportions.x(),Math.max(proportions.y(),proportions.z())));}
+            double framing=3.1;
+            if(style==PreviewStyle.EQUIPMENT){var settings=((com.customcosmetics.features.accessories.AccessoryRenderState)state).customcosmetics$accessories();double size=1;for(var slot:com.customcosmetics.features.accessories.AccessoryCatalog.slots()){var part=settings.part(slot.id());if(part.enabled())size=Math.max(size,part.scale());}var proportions=com.customcosmetics.features.playersize.PlayerSize.settings(((AvatarRenderState)state).id);framing=3.8*size*Math.max(1,Math.max(proportions.x(),Math.max(proportions.y(),proportions.z())));}
+            if(style==PreviewStyle.MODEL){var model=com.customcosmetics.features.creature.CreatureModels.previewEntity(client.player);framing=Math.max(3.8,model.getBbHeight()*1.6);}
             var rotation=new Quaternionf().rotationZ((float)Math.PI).rotateY((front?(float)Math.PI:0)+(capeOnly?0:(float)Math.toRadians(camera.yaw())));
             if(!capeOnly)rotation.rotateX((float)Math.toRadians(camera.pitch()));
-            entity.invoke(graphics,state,(float)Math.max(capeOnly?12:6,height/framing)*(capeOnly?1:camera.zoom()),new Vector3f(0,capeOnly?1:1.15f,0),rotation,null,x,y,x+width,y+height);
+            double scale=Math.max(style==PreviewStyle.MODEL?1:capeOnly?12:6,height/framing);
+            if(style==PreviewStyle.MODEL){var model=com.customcosmetics.features.creature.CreatureModels.previewEntity(client.player);scale=Math.min(scale,width/Math.max(1,model.getBbWidth()*1.4));}
+            entity.invoke(graphics,state,(float)scale*(capeOnly?1:camera.zoom()),new Vector3f(0,capeOnly?1:1.15f,0),rotation,null,x,y,x+width,y+height);
         }catch(ReflectiveOperationException|RuntimeException|LinkageError|AssertionError error){
             Throwable cause=error instanceof java.lang.reflect.InvocationTargetException wrapped&&wrapped.getCause()!=null?wrapped.getCause():error;
             com.customcosmetics.client.ModErrors.report(com.customcosmetics.client.ModErrors.Key.PREVIEW,cause);unavailable(graphics,x,y,width);
@@ -57,17 +69,29 @@ public final class CapePreview {
         prepareState(state,true);
     }
     static void prepareState(AvatarRenderState state,boolean capeOnly){
-        ((com.customcosmetics.features.accessories.AccessoryRenderState)state).customcosmetics$hideAccessories(true);
+        prepareState(state,capeOnly?PreviewStyle.CAPE:PreviewStyle.EQUIPMENT);
+    }
+    static void prepareNames(net.minecraft.client.renderer.entity.state.EntityRenderState state,net.minecraft.client.player.AbstractClientPlayer player){
+        if(state.nameTag==null)state.nameTag=player.getDisplayName();
+        if(state.scoreText==null)state.scoreText=player.belowNameDisplay();
+        if(state.nameTagAttachment==null)state.nameTagAttachment=player.getAttachments().getNullable(net.minecraft.world.entity.EntityAttachment.NAME_TAG,0,0);
+    }
+    private static void prepareState(AvatarRenderState state,PreviewStyle style){
+        ((com.customcosmetics.features.accessories.AccessoryRenderState)state).customcosmetics$hideAccessories(style==PreviewStyle.CAPE);
         state.bodyRot=state.yRot=state.xRot=state.walkAnimationSpeed=state.walkAnimationPos=0;
         state.capeFlap=state.capeLean=state.capeLean2=state.swimAmount=0;
         com.customcosmetics.compatibility.CapePreviewSwing.clear(state);
-        state.showCape=true;state.nameTag=null;state.scoreText=null;state.pose=net.minecraft.world.entity.Pose.STANDING;
+        if(style==PreviewStyle.EQUIPMENT)state.showCape=false;
+        else if(style==PreviewStyle.CAPE)state.showCape=true;
+        state.pose=net.minecraft.world.entity.Pose.STANDING;
         state.isInvisible=state.isInvisibleToPlayer=false;
         state.isCrouching=state.isFallFlying=state.isVisuallySwimming=state.isPassenger=state.isUsingItem=state.isAutoSpinAttack=false;
-        state.rightHandItemState.clear();state.leftHandItemState.clear();state.heldOnHead.clear();
-        state.rightHandItemStack=state.leftHandItemStack=net.minecraft.world.item.ItemStack.EMPTY;
-        state.rightArmPose=state.leftArmPose=net.minecraft.client.model.HumanoidModel.ArmPose.EMPTY;
-        if(capeOnly){
+        if(style!=PreviewStyle.MODEL){
+            state.rightHandItemState.clear();state.leftHandItemState.clear();state.heldOnHead.clear();
+            state.rightHandItemStack=state.leftHandItemStack=net.minecraft.world.item.ItemStack.EMPTY;
+            state.rightArmPose=state.leftArmPose=net.minecraft.client.model.HumanoidModel.ArmPose.EMPTY;
+        }
+        if(style==PreviewStyle.CAPE){
             state.headItem.clear();state.wornHeadType=null;state.wornHeadProfile=null;
             state.headEquipment=state.chestEquipment=state.legsEquipment=state.feetEquipment=net.minecraft.world.item.ItemStack.EMPTY;
         }

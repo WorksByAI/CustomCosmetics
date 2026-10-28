@@ -21,6 +21,7 @@ public final class PreviewCrashGameTest implements FabricClientGameTest {
             });context.waitTicks(5);context.takeScreenshot("dragon-selected-skin-preview-keeps-avatar");
             context.runOnClient(client->ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.ACCESSORIES)));context.waitTicks(5);context.takeScreenshot("dragon-selected-accessory-preview-keeps-avatar");
             context.runOnClient(client->ClientUiAccess.setScreen(client,new CapeScreen(null)));context.waitTicks(5);context.takeScreenshot("dragon-selected-cape-preview-keeps-avatar");
+            context.runOnClient(client->ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SIZE)));context.waitTicks(5);context.takeScreenshot("dragon-selected-size-preview-native-name");
             context.runOnClient(client->{
                 if(!ModErrors.active(ModErrors.Key.PREVIEW))throw new AssertionError("A preview failure was hidden by recovery instead of fixed");
                 if(!(client.getEntityRenderDispatcher().extractEntity(client.player,0) instanceof EnderDragonRenderState)||!ConfigManager.creatureModel.equals("ender_dragon"))throw new AssertionError("Preview scope leaked into normal rendering or changed the selection");

@@ -233,11 +233,14 @@ final class ItemAppearanceGameTest {
                     String id=(tier==1?"CHARM_":"CHARM_UPGRADE_")+i;var entry=new com.google.gson.JsonObject();entry.addProperty("family","F_"+i);entry.addProperty("tier",tier);root.add(id,entry);
                     metadata.put(id,new com.customcosmetics.features.accessoryhelper.AccessoryItemCatalog.Item(id,"Charm "+i+(tier==2?" Upgrade":""),tier==1?"PAPER":"GOLD_NUGGET",0,"","COMMON"));
                 }
+                root.add("ARTIFACT_OF_SPACE",new com.google.gson.JsonObject());root.add("ETERNAL_CRYSTAL",new com.google.gson.JsonObject());
                 var catalog=com.customcosmetics.features.accessoryhelper.AccessoryCatalog.parse(root.toString());var index=new com.customcosmetics.features.accessoryhelper.AccessoryBagIndex(catalog);index.update("bag-fixture",1,2,java.util.Set.of("CHARM_0"));
                 var screen=new net.minecraft.client.gui.screens.inventory.ContainerScreen(net.minecraft.world.inventory.ChestMenu.sixRows(1,client.player.getInventory()),client.player.getInventory(),net.minecraft.network.chat.Component.literal("Accessory Bag (1/2)"));bag.set(screen);
                 for(var f:saved.keySet())f.set(null,switch(f.getName()){case "catalog"->catalog;case "index"->index;case "profileKey"->"bag-fixture";case "lastScreen"->screen;case "ticks"->1;case "screenFirstTick"->Integer.MAX_VALUE-100;case "lastRefresh"->System.currentTimeMillis();default->true;});
                 var items=com.customcosmetics.features.accessoryhelper.AccessoryItems.class;
                 for(String name:java.util.List.of("items","nextAttempt")){var f=items.getDeclaredField(name);f.setAccessible(true);saved.put(f,f.get(null));f.set(null,name.equals("items")?metadata:Long.MAX_VALUE);}
+                var exclusions=com.customcosmetics.features.accessoryhelper.AccessoryExclusions.class;
+                for(String name:java.util.List.of("snapshot","nextAttempt")){var f=exclusions.getDeclaredField(name);f.setAccessible(true);saved.put(f,f.get(null));f.set(null,name.equals("snapshot")?new com.customcosmetics.features.accessoryhelper.AccessoryExclusions.Snapshot(true,java.util.Set.of("ARTIFACT_OF_SPACE","ETERNAL_CRYSTAL")):Long.MAX_VALUE);}
                 ConfigManager.accessoryHelperTooltipEnabled=true;ConfigManager.offlineMode=true;ClientUiAccess.setScreen(client,screen);
             }catch(ReflectiveOperationException error){throw new AssertionError(error);}});
             context.getInput().resizeWindow(1100,800);context.waitTicks(3);

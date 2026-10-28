@@ -5,6 +5,10 @@
   "compatibilityLevel": "JAVA_25",
   "client": [
     "AccessoryBagScreenMixin",
+    "UiBlurMixin",
+    "UiFontWeightMixin$Definition",
+    "UiFontWeightMixin$Provider",
+    "UiFontWeightMixin$Bitmap",
     "UiTooltipMixin$Legacy",
     "UiTooltipMixin$Modern",
     "UiFontAccessor",

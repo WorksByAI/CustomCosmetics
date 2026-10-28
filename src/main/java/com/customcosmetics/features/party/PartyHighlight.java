@@ -29,29 +29,32 @@ public final class PartyHighlight{
         if(level!=client.level){level=client.level;TRACKS.clear();LABELS.clear();}
         boolean partyPositions=PartyFeatures.sharingPositions(),shared=PositionSharing.receiving(client);
         // Chams use loaded entity rendering directly; they need no marker candidates.
-        if(!ConfigManager.partyEspEnabled&&!ConfigManager.partyTracersEnabled&&!shared){TRACKS.clear();return List.of();}
+        boolean partyMarkers=ConfigManager.partyEspEnabled||ConfigManager.partyTracersEnabled;
+        if(!partyMarkers&&!(shared&&(ConfigManager.locationEspEnabled||ConfigManager.locationTracersEnabled))){TRACKS.clear();return List.of();}
         if((!partyPositions&&!shared)||!RemoteAccess.online()||client.level==null||client.player==null){TRACKS.clear();return List.of();}
         var roster=PartyFeatures.roster();var targets=new LinkedHashMap<UUID,Target>();
         float partial=client.getDeltaTracker().getGameTimeDeltaPartialTick(false);
         var origin=client.player.getPosition(partial);var active=new HashSet<UUID>();
         long now=System.currentTimeMillis(),renderTime=System.nanoTime()/1_000_000;
-        for(var player:client.level.players())if(partyPositions&&player!=client.player&&roster.contains(player.getUUID(),player.getGameProfile().name())){
+        for(var player:client.level.players())if(partyPositions&&partyMarkers&&player!=client.player&&roster.contains(player.getUUID(),player.getGameProfile().name())){
             var pos=player.getPosition(partial);targets.put(player.getUUID(),new Target(player.getUUID(),player.getGameProfile().name(),player.getBoundingBox().move(pos.subtract(player.position())),true));
         }
         if(shared||ConfigManager.partyFarMarkers||ConfigManager.partyTracersEnabled)for(var entry:PartySync.teammates().values()){
-            boolean party=partyPositions&&roster.contains(entry.uuid(),entry.name());
-            if(entry.expiresAt()<=now||entry.uuid().equals(client.player.getUUID())||!party&&!shared||targets.containsKey(entry.uuid()))continue;
-            if(party&&!ConfigManager.partyFarMarkers&&!ConfigManager.partyTracersEnabled)continue;
+            var source=SharingVisuals.source(partyPositions&&roster.contains(entry.uuid(),entry.name()),shared);
+            boolean party=source==SharingVisuals.Source.PARTY;
+            if(entry.expiresAt()<=now||entry.uuid().equals(client.player.getUUID())||source==SharingVisuals.Source.NONE||targets.containsKey(entry.uuid()))continue;
+            if(!SharingVisuals.esp(party)&&!PartyTracer.enabled(party))continue;
             var loaded=client.level.getPlayerByUUID(entry.uuid());
             if(loaded!=null){var pos=loaded.getPosition(partial);targets.put(entry.uuid(),new Target(entry.uuid(),entry.name(),loaded.getBoundingBox().move(pos.subtract(loaded.position())),true,party));continue;}
+            if(!SharingVisuals.farMarkers(party)&&!PartyTracer.enabled(party))continue;
             var raw=entry.position();
-            if(!PartyDisplayRange.visible(ConfigManager.partyMaxDisplayDistance,origin.distanceToSqr(raw.x(),raw.y(),raw.z())))continue;
+            if(!PartyDisplayRange.visible(SharingVisuals.maxDistance(party),origin.distanceToSqr(raw.x(),raw.y(),raw.z())))continue;
             active.add(entry.uuid());var p=TRACKS.computeIfAbsent(entry.uuid(),ignored->new PartyPositionTrack()).render(entry,renderTime);
             targets.put(entry.uuid(),new Target(entry.uuid(),entry.name(),new AABB(p.x()-p.width()/2,p.y(),p.z()-p.width()/2,p.x()+p.width()/2,p.y()+p.height(),p.z()+p.width()/2),false,party));
         }
         TRACKS.keySet().retainAll(active);
         targets.values().removeIf(target->{if(!target.loaded())return false;var box=target.box();double x=(box.minX+box.maxX)/2,y=box.minY,z=(box.minZ+box.maxZ)/2;
-            return !PartyDisplayRange.visible(ConfigManager.partyMaxDisplayDistance,origin.distanceToSqr(x,y,z));});
+            return !PartyDisplayRange.visible(SharingVisuals.maxDistance(target.party()),origin.distanceToSqr(x,y,z));});
         return List.copyOf(targets.values());
     }
     private static void render(LevelRenderContext context){
@@ -75,24 +78,24 @@ public final class PartyHighlight{
                 for(var point:line)vertices.addVertex(matrix.pose(),(float)point.x,(float)point.y,(float)point.z).setColor(PartyTracer.color(target.party()));
             });
         }
-        if(target.party()&&!ConfigManager.partyEspEnabled)return;
-        int color=ConfigManager.partyEspColor&0xFFFFFF;String mode=ConfigManager.partyEspStyle;
-        if(target.party()&&target.loaded()&&!mode.equals("none")){
-            var pose=new PoseStack();int fill=(Math.clamp((int)Math.round(ConfigManager.partyEspOpacity*255),1,220)<<24)|color;
-            double thickness=Math.min(.12,.008*ConfigManager.partyEspLineWidth*Math.max(1,distance/24));
+        if(!SharingVisuals.esp(target.party()))return;
+        int color=SharingVisuals.color(target.party())&0xFFFFFF;String mode=SharingVisuals.style(target.party());
+        if(target.loaded()&&!mode.equals("none")){
+            var pose=new PoseStack();int fill=(Math.clamp((int)Math.round(SharingVisuals.opacity(target.party())*255),1,220)<<24)|color;
+            double thickness=Math.min(.12,.008*SharingVisuals.lineWidth(target.party())*Math.max(1,distance/24));
             queue.submitCustomGeometry(pose,PartyRenderPipeline.type(),(matrix,vertices)->{
                 if(!mode.equals("outline"))PartyGeometry.box(vertices,matrix.pose(),box.minX,box.minY,box.minZ,box.maxX,box.maxY,box.maxZ,fill);
                 if(!mode.equals("fill"))PartyGeometry.outline(vertices,matrix.pose(),box.minX,box.minY,box.minZ,box.maxX,box.maxY,box.maxZ,thickness,0xFF000000|color);
             });
         }
         double nameDistanceSquared=origin.distanceToSqr((target.box().minX+target.box().maxX)/2,target.box().minY,(target.box().minZ+target.box().maxZ)/2);
-        if(PartyDisplayRange.nametagVisible(ConfigManager.partyNametagHideDistance,nameDistanceSquared)&&
-            (!target.party()||!target.loaded()&&ConfigManager.partyFarMarkers||target.loaded()&&ConfigManager.partyShowNames)){
+        if(PartyDisplayRange.nametagVisible(SharingVisuals.hideNamesWithin(target.party()),nameDistanceSquared)&&
+            (!target.loaded()&&SharingVisuals.farMarkers(target.party())||target.loaded()&&SharingVisuals.names(target.party()))){
             Vec3 rel=target.box().getCenter().add(0,target.box().getYsize()/2+.3,0).subtract(camera.pos);
             double range=Math.max(8,Math.min(128,camera.depthFar*.5));double length=rel.length();if(length>range)rel=rel.scale(range/length);
             var pose=new PoseStack();pose.translate(rel.x,rel.y,rel.z);pose.mulPose(new org.joml.Matrix4f().rotation(camera.orientation));
-            float scale=PartyNametagScale.scale(ConfigManager.partyNametagMode,ConfigManager.partyNametagSize,length,Math.min(length,range));pose.scale(scale,-scale,scale);
-            boolean vanilla="vanilla".equals(ConfigManager.partyNametagStyle);
+            float scale=PartyNametagScale.scale(SharingVisuals.nametagMode(target.party()),SharingVisuals.nametagSize(target.party()),length,Math.min(length,range));pose.scale(scale,-scale,scale);
+            boolean vanilla="vanilla".equals(SharingVisuals.nametagStyle(target.party()));
             var label=vanilla?SharingNametag.label(Minecraft.getInstance(),target.uuid(),target.name()):simpleLabel(target,Math.round(distance));
             queue.submitText(pose,-font.width(label)/2f,0,label.getVisualOrderText(),false,Font.DisplayMode.SEE_THROUGH,0xF000F0,vanilla?0xFFFFFFFF:0xFF000000|color,0x40000000,0);
         }

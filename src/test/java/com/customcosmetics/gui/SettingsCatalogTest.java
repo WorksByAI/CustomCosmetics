@@ -46,7 +46,7 @@ class SettingsCatalogTest {
     }
     @Test void nativeSearchQueriesKeepTheirSpecificPageDestinations() {
         String[][] cases = {
-            {"location tracer", "Location Tracers", "PARTY"},
+            {"location tracer", "Location Tracers", "LOCATION_SHARING"},
             {"伤害 大小", "Size", "DAMAGE"},
             {"鎏金大小", "Shimmer Size", "COLOR"},
             {"预设", "Save Current Colors", "PRESETS"},

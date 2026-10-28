@@ -27,6 +27,7 @@ public final class StudioGameTest implements FabricClientGameTest {
             SettingsGuiGameTest.checkPreviewGameFont(context);
             SettingsGuiGameTest.checkAccessoryEquipment(context);
             SettingsGuiGameTest.checkFontChoiceAndTooltip(context);
+            checkBlurAtZeroVanillaStrength(context,world);
             context.getInput().resizeWindow(1600,1000);
             context.runOnClient(client->{
                 client.options.guiScale().set(2);ConfigManager.animationsEnabled=false;BlockingAdjustment.reset();
@@ -55,6 +56,38 @@ public final class StudioGameTest implements FabricClientGameTest {
             SettingsGuiGameTest.check(context);
             System.out.println("BLOCKING_ADJUSTMENT_NATIVE_PREVIEW_AND_OFFLINE_BUTTON_OK");
         }catch(Exception error){throw new AssertionError(error);}
+    }
+    private static final class BlurProbe extends ThemedScreen {
+        BlurProbe(){super(net.minecraft.network.chat.Component.literal("Blur test"));}
+        @Override public void extractRenderState(net.minecraft.client.gui.GuiGraphicsExtractor g,int x,int y,float dt){g.fill(width/3,height/2,width*2/3,height*3/4,PinkUi.PANEL);}
+        @Override public boolean isPauseScreen(){return false;}
+    }
+    private static void checkBlurAtZeroVanillaStrength(ClientGameTestContext context,net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext world)throws Exception{
+        for(int x=-16;x<=16;x++)world.getServer().runCommand("fill "+x+" 64 0 "+x+" 78 1 minecraft:"+(x%2==0?"white_concrete":"black_concrete"));
+        world.getServer().runCommand("tp @a 0.5 65 -6 0 0");context.waitTicks(5);
+        int saved=context.computeOnClient(client->client.options.menuBackgroundBlurriness().get());boolean blur=ConfigManager.uiBackgroundBlur;
+        try{
+            context.runOnClient(client->{client.options.menuBackgroundBlurriness().set(0);ConfigManager.uiBackgroundBlur=false;ClientUiAccess.setScreen(client,new BlurProbe());});context.waitTicks(5);
+            double off=blurEnergy(context);context.takeScreenshot("menu-blur-off-vanilla-zero");
+            context.runOnClient(client->{ConfigManager.uiBackgroundBlur=true;if(client.options.getMenuBackgroundBlurriness()<5||client.options.menuBackgroundBlurriness().get()!=0)throw new AssertionError("Blur does not work independently of vanilla zero, or writes the global setting");});context.waitTicks(5);
+            double on=blurEnergy(context);context.takeScreenshot("menu-blur-on-vanilla-zero");
+            if(off<1||on>=off*.90)throw new AssertionError("Native menu blur has no pixel effect: "+off+" -> "+on);
+            context.runOnClient(client->{ClientUiAccess.setScreen(client,null);if(client.options.getMenuBackgroundBlurriness()!=0)throw new AssertionError("Menu blur override leaked into the game");});
+            System.out.println("MOD_MENU_BLUR_VANILLA_ZERO_NATIVE_PIXEL_ENERGY_OK off="+off+" on="+on);
+        }finally{context.runOnClient(client->{client.options.menuBackgroundBlurriness().set(saved);ConfigManager.uiBackgroundBlur=blur;ClientUiAccess.setScreen(client,null);});}
+    }
+    private static double blurEnergy(ClientGameTestContext context)throws Exception{
+        var measured=new CompletableFuture<Double>();
+        context.runOnClient(client->{
+            java.lang.reflect.Method method;
+            try{method=client.gameRenderer.getClass().getMethod("mainRenderTarget");}catch(NoSuchMethodException legacy){method=client.getClass().getMethod("getMainRenderTarget");}
+            var target=method.invoke(method.getDeclaringClass().isInstance(client.gameRenderer)?client.gameRenderer:client);
+            Screenshot.takeScreenshot((com.mojang.blaze3d.pipeline.RenderTarget)target,image->{try(image){
+                long energy=0,count=0;for(int y=30;y<image.getHeight()/3;y++)for(int x=40;x<image.getWidth()-41;x++){
+                    int a=image.getPixel(x,y),b=image.getPixel(x+1,y);for(int channel=0;channel<3;channel++){int delta=(a>>channel*8&255)-(b>>channel*8&255);energy+=(long)delta*delta;}count++;
+                }measured.complete(energy/(double)count);
+            }catch(Throwable error){measured.completeExceptionally(error);}});
+        });context.waitFor(client->measured.isDone());return measured.join();
     }
     private record Pixels(int count,double x,double y){}
     private static void checkNetworkButtons(ClientGameTestContext context)throws Exception {

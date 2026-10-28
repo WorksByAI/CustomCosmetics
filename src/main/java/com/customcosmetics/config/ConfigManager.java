@@ -115,12 +115,17 @@ public final class ConfigManager {
     public static double partyNametagSize=1;
     public static double partyNametagHideDistance=8;
     public static double partyMaxDisplayDistance=0;
+    public static int locationVisualsVersion=1;
+    public static boolean locationEspEnabled=true,locationChamsEnabled=false,locationFarMarkers=true,locationShowNames=true;
+    public static String locationEspStyle="outline",locationNametagMode="fixed",locationNametagStyle="simple";
+    public static int locationEspColor=0xFFA6CF;
+    public static double locationEspOpacity=.2,locationEspLineWidth=1.5,locationNametagSize=1,locationNametagHideDistance=8,locationMaxDisplayDistance=0;
     public static boolean positionSharingEnabled=false,positionSharingReceive=false;
     public static String positionSharingMode="public";
     public static java.util.List<PlayerBlocklist.Entry> positionSharingTargets=java.util.List.of();
     public static double blockingX=0, blockingY=0, blockingZ=0;
     public static double blockingRotationX=0, blockingRotationY=0, blockingRotationZ=0;
-    public static boolean swordBlockingEnabled = true;
+    public static boolean swordBlockingEnabled = false;
     public static String swordBlockingStyle = "default";
     public static boolean swordBlockingSyncEnabled = true;
     public static boolean swordBlockingListsApplyToOthers = false;
@@ -171,7 +176,7 @@ public final class ConfigManager {
     }
 
     static void load(Path path) {
-        if (!Files.exists(path)) return;
+        if (!Files.exists(path)) {loadBlockingLists(path);return;}
         try {
             JsonObject root = JsonParser.parseString(Files.readString(path, StandardCharsets.UTF_8)).getAsJsonObject();
             JsonObject settings = root.getAsJsonObject("settings");
@@ -240,6 +245,21 @@ public final class ConfigManager {
             partyNametagSize=com.customcosmetics.features.party.PartyNametagScale.size(partyNametagSize);
             partyNametagHideDistance=com.customcosmetics.features.party.PartyDisplayRange.normalize(partyNametagHideDistance);
             partyMaxDisplayDistance=com.customcosmetics.features.party.PartyDisplayRange.normalize(partyMaxDisplayDistance);
+            if(!settings.has("locationVisualsVersion")||locationVisualsVersion<1){
+                locationEspEnabled=partyEspEnabled;locationChamsEnabled=sharingChamsEnabled;
+                locationEspStyle=partyEspStyle;locationEspColor=partyEspColor;locationEspOpacity=partyEspOpacity;locationEspLineWidth=partyEspLineWidth;
+                locationFarMarkers=partyFarMarkers;locationShowNames=partyShowNames;locationNametagMode=partyNametagMode;locationNametagStyle=partyNametagStyle;
+                locationNametagSize=partyNametagSize;locationNametagHideDistance=partyNametagHideDistance;locationMaxDisplayDistance=partyMaxDisplayDistance;locationVisualsVersion=1;
+            }
+            locationEspStyle=java.util.Set.of("none","fill","outline","both").contains(locationEspStyle)?locationEspStyle:"outline";
+            locationEspColor&=0xFFFFFF;
+            locationEspOpacity=Double.isFinite(locationEspOpacity)?Math.clamp(locationEspOpacity,.05,.75):.2;
+            locationEspLineWidth=Double.isFinite(locationEspLineWidth)?Math.clamp(locationEspLineWidth,.5,4):1.5;
+            locationNametagMode=com.customcosmetics.features.party.PartyNametagScale.mode(locationNametagMode);
+            locationNametagStyle=com.customcosmetics.features.party.SharingNametag.normalize(locationNametagStyle);
+            locationNametagSize=com.customcosmetics.features.party.PartyNametagScale.size(locationNametagSize);
+            locationNametagHideDistance=com.customcosmetics.features.party.PartyDisplayRange.normalize(locationNametagHideDistance);
+            locationMaxDisplayDistance=com.customcosmetics.features.party.PartyDisplayRange.normalize(locationMaxDisplayDistance);
             partyChatPrefix=com.customcosmetics.features.party.PartyChatRules.prefix(partyChatPrefix);
             partyChatSound=com.customcosmetics.features.party.PartyChatSound.sound(partyChatSound);
             partyChatSoundVolume=com.customcosmetics.features.party.PartyChatSound.volume(partyChatSoundVolume);
@@ -252,10 +272,20 @@ public final class ConfigManager {
             swordBlockingWhitelist = com.customcosmetics.features.blocking.BlockingRules.sanitize(swordBlockingWhitelist);
         } catch (IOException | RuntimeException e) {
             LOGGER.error("Failed to read config {}", path, e);
+        } finally {
+            loadBlockingLists(path);
         }
     }
+    private static void loadBlockingLists(Path main){
+        Path lists=SwordBlockingLists.path(main);
+        SwordBlockingLists.apply(SwordBlockingLists.capture());
+        try{
+            if(Files.exists(lists))SwordBlockingLists.apply(SwordBlockingLists.read(lists));
+            else{var migrated=SwordBlockingLists.capture();SwordBlockingLists.write(lists,migrated);SwordBlockingLists.apply(migrated);}
+        }catch(IOException|RuntimeException error){LOGGER.error("Sword blocking lists {} were retained unchanged; using legacy/default lists. Saving will back up a damaged file before replacement.",lists,error);}
+    }
 
-    private record SaveRequest(Path path, JsonObject snapshot) {}
+    private record SaveRequest(Path path, JsonObject snapshot,SwordBlockingLists.Data lists) {}
     private static final java.util.concurrent.ExecutorService WRITER=java.util.concurrent.Executors.newSingleThreadExecutor(task->{
         var thread=new Thread(task,"CustomCosmetics-config-writer");thread.setDaemon(true);return thread;
     });
@@ -269,7 +299,7 @@ public final class ConfigManager {
 
     static synchronized void queueSave(Path path) {
         var snapshot=snapshot();if(snapshot==null)return;
-        queuedSave=new SaveRequest(path,snapshot);
+        queuedSave=new SaveRequest(path,snapshot,SwordBlockingLists.capture());
         if(writing)return;
         writing=true;
         WRITER.execute(()->{
@@ -279,7 +309,7 @@ public final class ConfigManager {
                     request=queuedSave;queuedSave=null;
                     if(request==null){writing=false;return;}
                 }
-                write(request.path(),request.snapshot());
+                write(request.path(),request.snapshot(),request.lists());
             }
         });
     }
@@ -292,14 +322,14 @@ public final class ConfigManager {
     }
 
     static void save(Path path) {
-        var snapshot=snapshot();if(snapshot!=null)write(path,snapshot);
+        var snapshot=snapshot();if(snapshot!=null)write(path,snapshot,SwordBlockingLists.capture());
     }
     private static JsonObject snapshot() {
         try {
             nickTweaksNickChanger = NicknameLimit.limit(nickTweaksNickChanger);
             JsonObject settings = new JsonObject();
             for (Field field : ConfigManager.class.getFields()) {
-                if (Modifier.isStatic(field.getModifiers()) && !Modifier.isTransient(field.getModifiers())) {
+                if (Modifier.isStatic(field.getModifiers()) && !Modifier.isTransient(field.getModifiers())&&!SwordBlockingLists.separate(field.getName())) {
                     settings.add(field.getName(), GSON.toJsonTree(field.get(null)));
                 }
             }
@@ -307,8 +337,10 @@ public final class ConfigManager {
             root.addProperty("version", 1);root.add("settings", settings);return root;
         } catch(IllegalAccessException error){LOGGER.error("Failed to capture config",error);return null;}
     }
-    private static void write(Path path,JsonObject root) {
+    private static void write(Path path,JsonObject root,SwordBlockingLists.Data lists) {
         try {
+            // Persist the lists first: never discard the only legacy copy after a list-write failure.
+            SwordBlockingLists.write(SwordBlockingLists.path(path),lists);
             Files.createDirectories(path.getParent());
             Path temporary = path.resolveSibling(path.getFileName() + ".tmp");
             Files.writeString(temporary, GSON.toJson(root), StandardCharsets.UTF_8);

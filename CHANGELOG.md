@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.0-dev.9
+
+- Improve Modern font readability, headings and text wrapping.
+- Simplify skin and wardrobe navigation; restore preview nametags.
+- Separate party/location visuals; fix missing-accessory filtering and menu blur.
+- Disable blocking by default, remove bulk selection and migrate blocking lists to a separate file.
+
 ## 2.0.0-dev.8
 
 - Add Vanilla/Modern interface fonts, smoother tooltips and an optional missing-accessory bag panel.

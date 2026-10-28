@@ -60,10 +60,6 @@ public final class BlockingItemsScreen extends ThemedScreen {
         int count = Math.max(1, (listBottom - listTop) / 36);
         for (int i = 0; i < count; i++) rows.add(addWidget(new WeaponChoice(x + 16, listTop + i * 36, w - 42)));
         if (!compact) {
-            button(x + 16, y + h - 69, half, "Select Results", () -> {
-                for (Entry entry : filtered) selected().add(entry.id());
-                saveSelections(); refreshRows();
-            });
             button(x + 24 + half, y + h - 69, half, "Clear Results", () -> {
                 for (Entry entry : filtered) selected().remove(entry.id());
                 saveSelections(); refreshRows();

@@ -9,6 +9,26 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ConfigManagerTest {
+    @Test void locationVisualsMigratePartyPreferencesOnceThenPersistIndependently()throws Exception{
+        var path=directory.resolve("sharing-visuals.json");
+        Files.writeString(path,"{\"settings\":{\"partyEspEnabled\":false,\"sharingChamsEnabled\":true,\"partyEspColor\":1122867,\"partyEspStyle\":\"both\",\"partyNametagStyle\":\"vanilla\",\"partyNametagSize\":2,\"partyMaxDisplayDistance\":123,\"locationTracersEnabled\":true,\"locationTracerColor\":4478310}}");
+        ConfigManager.load(path);assertEquals(1,ConfigManager.locationVisualsVersion);
+        assertFalse(ConfigManager.locationEspEnabled);assertTrue(ConfigManager.locationChamsEnabled);assertEquals(0x112233,ConfigManager.locationEspColor);
+        assertEquals("both",ConfigManager.locationEspStyle);assertEquals("vanilla",ConfigManager.locationNametagStyle);assertEquals(2,ConfigManager.locationNametagSize);assertEquals(123,ConfigManager.locationMaxDisplayDistance);
+        assertTrue(ConfigManager.locationTracersEnabled);assertEquals(0x445566,ConfigManager.locationTracerColor);
+        ConfigManager.locationEspEnabled=true;ConfigManager.locationChamsEnabled=false;ConfigManager.locationEspColor=0xABCDEF;ConfigManager.locationNametagSize=.7;ConfigManager.locationMaxDisplayDistance=99;
+        ConfigManager.partyEspColor=0x556677;ConfigManager.partyMaxDisplayDistance=7;ConfigManager.save(path);
+        ConfigManager.locationEspEnabled=false;ConfigManager.locationEspColor=0;ConfigManager.locationNametagSize=3;ConfigManager.partyEspColor=0;
+        ConfigManager.load(path);assertTrue(ConfigManager.locationEspEnabled);assertFalse(ConfigManager.locationChamsEnabled);assertEquals(0xABCDEF,ConfigManager.locationEspColor);
+        assertEquals(.7,ConfigManager.locationNametagSize);assertEquals(99,ConfigManager.locationMaxDisplayDistance);assertEquals(0x556677,ConfigManager.partyEspColor);assertEquals(7,ConfigManager.partyMaxDisplayDistance);
+    }
+    @Test void locationVisualValidationDoesNotChangeSharingConsent()throws Exception{
+        var path=directory.resolve("location-visuals.json");ConfigManager.positionSharingEnabled=false;ConfigManager.positionSharingReceive=false;
+        Files.writeString(path,"{\"settings\":{\"locationVisualsVersion\":1,\"locationEspStyle\":\"invalid\",\"locationNametagStyle\":\"invalid\",\"locationEspOpacity\":9,\"locationEspLineWidth\":-1,\"locationNametagSize\":100,\"locationMaxDisplayDistance\":-1,\"locationChamsEnabled\":true}}");
+        ConfigManager.load(path);assertEquals("outline",ConfigManager.locationEspStyle);assertEquals("simple",ConfigManager.locationNametagStyle);
+        assertEquals(.75,ConfigManager.locationEspOpacity);assertEquals(.5,ConfigManager.locationEspLineWidth);assertEquals(3,ConfigManager.locationNametagSize);assertEquals(0,ConfigManager.locationMaxDisplayDistance);
+        assertFalse(ConfigManager.positionSharingEnabled);assertFalse(ConfigManager.positionSharingReceive);
+    }
     @Test void backgroundSavesCaptureSettingsAndPersistTheLastEdit()throws Exception{
         var path=directory.resolve("queued.json");
         for(int i=0;i<30;i++){ConfigManager.nickTweaksNickChanger="Saved"+i;ConfigManager.queueSave(path);}

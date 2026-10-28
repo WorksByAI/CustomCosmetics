@@ -1,0 +1,18 @@
+{
+  "providers": [
+    {
+      "type": "ttf",
+      "file": "customcosmetics:lxgwwenkai-medium.ttf",
+      "size": 14,
+      "oversample": 2,
+      "shift": [
+        0,
+        0
+      ]
+    },
+    {
+      "type": "reference",
+      "id": "minecraft:uniform"
+    }
+  ]
+}

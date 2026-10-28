@@ -48,16 +48,19 @@ public final class SettingsCatalog {
         add(entries, "Damage Splash", "DAMAGE", "Requires Gradient: select the Gradient color mode first.", "Gradient Start|Gradient End");
         add(entries, "Item Customization", "ITEMS", "Custom item names and models resource packs", "Enabled|Customize Items");
         add(entries, "Item Customization", "ITEMS", "SkyBlock accessory bag collected upgrade tooltip tier", "Accessory Helper|Missing Accessories|Clear This Profile's Bag Scan");
-        add(entries, "Equipments", "ACCESSORIES", "Accessories outfit wardrobe style colors size shoulder", "Blocked Equipments|Open Wardrobe|Clear Outfit");
+        add(entries, "Equipments", "ACCESSORIES", "Accessories outfit wardrobe style colors size shoulder", "Open Wardrobe|Clear Outfit");
+        add(entries, "Equipments", "BLOCKED_ACCESSORIES", "Blocked accessories players outfit", "Block Other Players' Equipments");
         add(entries, "Cape", "CAPE", "Cape visibility local import texture upload approval",
             "Show Custom Capes|Choose Image & Crop|Choose Vanilla-Format Cape Image|Submit for Review");
-        add(entries, "Sharing", "PARTY", "Party teammates markers locations",
+        add(entries, "Party Sharing", "PARTY", "Party teammates markers locations",
             "Party ESP|Chams|Connection Notifications|Max Display Distance (blocks)|ESP Style|ESP Color|Fill Opacity|Outline Width|Tracers|Tracer Color|Show Names|Nametag Style|Hide Names Within (blocks)|Nametag Scaling|Nametag Size|Distant Markers");
-        add(entries, "Sharing", "PARTY", "Party chat messages", "IRC For Party Members|Chat Prefix");
-        add(entries, "Sharing", "PARTY", "Party chat notification sound resource pack",
+        add(entries, "Party Sharing", "PARTY", "Party chat messages", "IRC For Party Members|Chat Prefix");
+        add(entries, "Party Sharing", "PARTY", "Party chat notification sound resource pack",
             "Chat Notification Sound|Chat Sound|Chat Sound Volume (%)|Chat Sound Pitch|Preview Chat Sound");
-        add(entries, "Sharing", "PARTY", "Location position sharing audience selected players",
+        add(entries, "Location Sharing", "LOCATION_SHARING", "Location position sharing audience selected players",
             "Share My Position|Audience|Selected Players|Show Shared Positions|Location Tracers|Location Tracer Color");
+        add(entries, "Location Sharing", "LOCATION_SHARING", "Shared players markers ESP chams names colors distance",
+            "Location ESP|Chams|Max Display Distance (blocks)|ESP Style|ESP Color|Fill Opacity|Outline Width|Show Names|Nametag Style|Hide Names Within (blocks)|Nametag Scaling|Nametag Size|Distant Markers");
         add(entries, "Skins", "SKINS", "Local skin import PNG Alex Steve P2P",
             "Import Local Skin|Show My Local Skin|Remove Local Skin|Skin Model|Share Skin via P2P|Receive P2P Skins|Blocked Skins|Other Players|Import Global Skin|Slim Global Skin");
         add(entries, "Map Editor", "MAP", "Local visual map dungeon Kuudra rooms",

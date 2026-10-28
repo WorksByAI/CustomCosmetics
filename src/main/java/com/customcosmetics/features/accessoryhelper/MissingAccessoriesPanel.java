@@ -19,6 +19,7 @@ import static com.customcosmetics.gui.PinkUi.*;
 public final class MissingAccessoriesPanel {
     private MissingAccessories.Filter filter=MissingAccessories.Filter.MISSING;
     private boolean allTiers,collapsed,active;
+    private AccessoryExclusions.Snapshot exclusions;
     private AccessoryCatalog catalog;
     private AccessoryBagIndex.View view;
     private Map<String,AccessoryItemCatalog.Item> metadata=Map.of();
@@ -38,17 +39,19 @@ public final class MissingAccessoriesPanel {
         w=Math.min(132,space);columns=Math.clamp((w-12)/22,1,5);h=18+4*22+66;
         if(w!=lastWidth||columns!=lastColumns){dirty=true;lastWidth=w;lastColumns=columns;}
         x=left>=w?bagX-6-w:bagX+bagWidth+6;y=Math.clamp(bagY+12,4,Math.max(4,screen.height-h-4));
+        AccessoryExclusions.request();var nextExclusions=AccessoryExclusions.snapshot();
+        if(nextExclusions!=exclusions){exclusions=nextExclusions;dirty=true;}
         var nextView=AccessoryTooltipHelper.bagView();var nextMetadata=AccessoryItems.items();
         if(next!=catalog){catalog=next;AccessoryItems.request(next);dirty=true;}
         if(nextView!=view||nextMetadata!=metadata||language!=UiText.revision()){view=nextView;metadata=nextMetadata;language=UiText.revision();dirty=true;}
         UiTheme.refresh();var font=UiFonts.get(Minecraft.getInstance().font);
         if(dirty){
-            var sorted=new ArrayList<>(MissingAccessories.list(catalog,view,filter,allTiers));
+            var sorted=new ArrayList<>(exclusions.ready()?MissingAccessories.list(catalog,view,filter,allTiers,exclusions.ignored()):List.<AccessoryCatalog.Entry>of());
             sorted.sort(Comparator.comparing(e->name(e.id()),String.CASE_INSENSITIVE_ORDER));entries=List.copyOf(sorted);
             pages=Math.max(1,(entries.size()+columns*4-1)/(columns*4));page=Math.min(page,pages-1);pageText=(page+1)+"/"+pages;
-            title=UiText.tr("Missing")+" ("+entries.size()+")";
+            title=UiText.tr("Missing")+(exclusions.ready()?" ("+entries.size()+")":"");
             filterText=UiText.tr("Filter")+": "+UiText.tr(switch(filter){case MISSING->"Missing";case UPGRADES->"Upgrades";case ALL->"All";});
-            String status=catalog.size()==0?"Loading accessory metadata…":!view.complete()?"Scan every Accessory Bag page":entries.isEmpty()?"No missing accessories":"";
+            String status=catalog.size()==0||!exclusions.ready()?"Loading accessory metadata…":!view.complete()?"Scan every Accessory Bag page":entries.isEmpty()?"No missing accessories":"";
             message=status.isEmpty()?List.of():font.split(UiText.guiComponent(status),Math.max(16,w-12));icons.clear();dirty=false;
         }
         g.nextStratum();

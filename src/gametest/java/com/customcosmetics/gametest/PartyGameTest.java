@@ -175,6 +175,7 @@ public final class PartyGameTest implements FabricClientGameTest{
             remote=Map.of(shared,new PartyClient.Teammate(shared,"SharedMate",new PartyClient.Position(1,-60,5,.6,1.8),Long.MAX_VALUE),
                 FAR,new PartyClient.Teammate(FAR,"SharedFar",new PartyClient.Position(.5,-60,400,.6,1.8),Long.MAX_VALUE));
             ConfigManager.partyEspEnabled=false;ConfigManager.partyTracersEnabled=false;
+            ConfigManager.locationEspEnabled=true;ConfigManager.locationEspStyle="none";ConfigManager.locationTracersEnabled=false;ConfigManager.locationNametagHideDistance=0;
             if(!PartyHighlight.targets(client).isEmpty())throw new AssertionError("Default-off consent leaked a non-party marker");
             ConfigManager.positionSharingEnabled=true;ConfigManager.positionSharingReceive=true;
             if(!PositionSharing.audience(client).equals(PositionAudience.PARTY))throw new AssertionError("Public positions escaped the Hypixel-only restriction");
@@ -187,16 +188,24 @@ public final class PartyGameTest implements FabricClientGameTest{
             ConfigManager.partyEspEnabled=true;ConfigManager.partyTracersEnabled=true;
             for(var target:targets)PartyHighlight.submit(target,camera,queue,client.font);
             if(calls.get(0)!=0||calls.get(1)!=2)throw new AssertionError("Non-party locations must draw names, without Party ESP or tracers");
+            ConfigManager.locationEspStyle="both";calls.set(0,0);calls.set(1,0);
+            for(var target:targets)PartyHighlight.submit(target,camera,queue,client.font);
+            if(calls.get(0)!=1||calls.get(1)!=2)throw new AssertionError("Location ESP did not consume its independent settings");
+            roster.set(null,new PartyRoster(Set.of(client.player.getUUID(),shared),Set.of(),"Fixture"));
+            var overlapping=PartyHighlight.targets(client);
+            if(overlapping.stream().filter(t->t.uuid().equals(shared)).count()!=1||overlapping.stream().filter(t->t.uuid().equals(shared)).anyMatch(t->!t.party()))throw new AssertionError("Overlapping audiences doubled or overrode the party target");
+            roster.set(null,PartyRoster.EMPTY);ConfigManager.locationEspStyle="none";
             ConfigManager.partyEspEnabled=false;ConfigManager.partyTracersEnabled=false;
+            ConfigManager.locationEspEnabled=true;ConfigManager.locationEspStyle="none";ConfigManager.locationTracersEnabled=false;ConfigManager.locationNametagHideDistance=0;
             ClientUiAccess.setScreen(client,null);
         }catch(ReflectiveOperationException error){throw new AssertionError(error);}});
         context.waitTicks(4);
-        context.runOnClient(client->{ConfigManager.partyMaxDisplayDistance=10;
-            if(PartyHighlight.targets(client).size()!=1)throw new AssertionError("Shared positions ignored the distance limit");ConfigManager.partyMaxDisplayDistance=0;
+        context.runOnClient(client->{ConfigManager.locationMaxDisplayDistance=10;
+            if(PartyHighlight.targets(client).size()!=1)throw new AssertionError("Shared positions ignored the distance limit");ConfigManager.locationMaxDisplayDistance=0;
         });capture(context,"shared-non-party-names-only");
         context.runOnClient(client->{
             ConfigManager.positionSharingReceive=false;if(!PartyHighlight.targets(client).isEmpty())throw new AssertionError("Opt-out retained shared names");
-            ConfigManager.positionSharingEnabled=false;ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.PARTY));
+            ConfigManager.positionSharingEnabled=false;ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.LOCATION_SHARING));
         });
         context.waitTicks(3);clickSetting(context,"Share My Position");
         context.runOnClient(client->{if(!ConfigManager.positionSharingEnabled)throw new AssertionError("Share My Position switch failed");});
@@ -277,6 +286,7 @@ public final class PartyGameTest implements FabricClientGameTest{
             calls.set(0,0);calls.set(1,0);camera.pos=feet.add(100,0,0);
             PartyHighlight.submit(near,camera,queue,client.font);
             if(calls.get(1)!=0)throw new AssertionError("A third-person camera changed the player-to-player hide distance");
+            ConfigManager.locationEspEnabled=true;ConfigManager.locationEspStyle="none";ConfigManager.locationNametagHideDistance=8;ConfigManager.locationFarMarkers=true;ConfigManager.locationShowNames=true;
             calls.set(0,0);PartyHighlight.submit(new PartyHighlight.Target(A,"SharedNear",nearBox,true,false),camera,queue,client.font);
             if(calls.get(0)!=0||calls.get(1)!=0)throw new AssertionError("Near shared names ignored the hide threshold");
             PartyHighlight.submit(new PartyHighlight.Target(FAR,"SharedFar",farBox,false,false),camera,queue,client.font);
@@ -317,13 +327,13 @@ public final class PartyGameTest implements FabricClientGameTest{
         var style=new java.util.concurrent.atomic.AtomicReference<String>();context.runOnClient(client->{style.set(ConfigManager.nickTweaksGradientStyle);ConfigManager.nickTweaksGradientStyle="shimmer";});
         for(boolean compact:new boolean[]{false,true}){
             context.getInput().resizeWindow(compact?854:1600,compact?480:1000);context.waitTicks(3);
-            for(var page:List.of(CosmeticsScreen.Page.SIZE,CosmeticsScreen.Page.NICK,CosmeticsScreen.Page.CHROMA,CosmeticsScreen.Page.COLOR,CosmeticsScreen.Page.ANIMATIONS,CosmeticsScreen.Page.PARTY,CosmeticsScreen.Page.SYNC,CosmeticsScreen.Page.ITEMS)){
+            for(var page:List.of(CosmeticsScreen.Page.SIZE,CosmeticsScreen.Page.NICK,CosmeticsScreen.Page.CHROMA,CosmeticsScreen.Page.COLOR,CosmeticsScreen.Page.ANIMATIONS,CosmeticsScreen.Page.PARTY,CosmeticsScreen.Page.LOCATION_SHARING,CosmeticsScreen.Page.SYNC,CosmeticsScreen.Page.ITEMS)){
                 context.runOnClient(client->{try{
                     ClientUiAccess.setScreen(client,new CosmeticsScreen(null,page));var screen=(CosmeticsScreen)ClientUiAccess.screen(client);
                     int x=(Integer)uiField(screen,"contentX"),width=(Integer)uiField(screen,"contentWidth");
-                    var names=List.of("NickTweaks","Player Size","Equipments","Cape","Animations","Damage Splash","Item Customization","Sharing");
+                    var names=List.of("NickTweaks","Player Size","Skins","Equipments","Cape","Animations","Damage Splash","Item Customization","Map Editor","Party Sharing","Location Sharing");
                     var navigation=screen.children().stream().filter(child->child instanceof com.customcosmetics.gui.PinkUi.Action widget&&names.contains(widget.getMessage().getString())).map(child->(net.minecraft.client.gui.components.AbstractWidget)child).sorted(Comparator.comparingInt(net.minecraft.client.gui.components.AbstractWidget::getY)).toList();
-                    if(!navigation.stream().map(widget->widget.getMessage().getString()).toList().equals(names))throw new AssertionError("Sidebar lost its appearance/gameplay/connections groups");
+                    if(!navigation.stream().map(widget->widget.getMessage().getString()).toList().equals(names))throw new AssertionError("Sidebar lost its Appearance/SkyBlock/Connections navigation or separate sharing destinations");
                     for(var nav:navigation)if(nav.getWidth()<90||nav.getHeight()<20)throw new AssertionError("Sidebar control is too small: "+nav.getMessage().getString());
                     var settings=(net.minecraft.client.gui.components.AbstractWidget)screen.children().stream().filter(child->child instanceof com.customcosmetics.gui.PinkUi.Action widget&&widget.getMessage().getString().equals("Settings")).findFirst().orElseThrow();
                     var github=(net.minecraft.client.gui.components.AbstractWidget)screen.children().stream().filter(com.customcosmetics.gui.RepositoryButton.class::isInstance).findFirst().orElseThrow();
@@ -337,10 +347,24 @@ public final class PartyGameTest implements FabricClientGameTest{
                         if(auth.getBottom()>=disable.getY()||disable.getBottom()>=port.getY())throw new AssertionError("P2P controls must follow Proxy Auth, in order");
                     }
                     var sliders=screen.children().stream().filter(com.customcosmetics.gui.PinkUi.Slider.class::isInstance).map(com.customcosmetics.gui.PinkUi.Slider.class::cast).toList();
-                    for(var slider:sliders)if(slider.getX()<x||slider.getRight()>x+width||!compact&&slider.getWidth()>width*.6)throw new AssertionError("Slider did not use the available grid: "+page);
-                    if(compact&&sliders.stream().map(net.minecraft.client.gui.components.AbstractWidget::getY).distinct().count()!=sliders.size())throw new AssertionError("Narrow window did not stack sliders: "+page);
-                    if(!compact&&sliders.size()>1&&sliders.get(0).getY()!=sliders.get(1).getY())throw new AssertionError("Wide window did not pair related sliders: "+page);
+                    for(var slider:sliders)if(slider.getWidth()<=0||slider.getX()<x||slider.getRight()>x+width)throw new AssertionError("Slider escaped the content bounds: "+page+" / "+slider.getMessage().getString());
+                    if(page!=CosmeticsScreen.Page.SIZE){int columns=width>=520?3:width>=300?2:1,cell=(width-(columns-1)*10)/columns;
+                        for(var slider:sliders)if(slider.getWidth()!=cell)throw new AssertionError("Numeric slider width disagrees with the actual content-width grid: "+page+" / "+slider.getMessage().getString());
+                    }
+                    for(int i=0;i<sliders.size();i++)for(int j=i+1;j<sliders.size();j++){
+                        var a=sliders.get(i);var b=sliders.get(j);
+                        if(a.getX()<b.getRight()&&a.getRight()>b.getX()&&a.getY()<b.getBottom()&&a.getBottom()>b.getY())throw new AssertionError("Slider controls overlap: "+page+" / "+a.getMessage().getString()+" / "+b.getMessage().getString());
+                    }
                     if(page==CosmeticsScreen.Page.SIZE){
+                        int cell=(width-16)/3,axisY=Integer.MIN_VALUE;
+                        for(int axis=0;axis<3;axis++){
+                            String prefix=List.of("X","Y","Z").get(axis)+": ";
+                            var slider=sliders.stream().filter(value->value.getMessage().getString().startsWith(prefix)).findFirst().orElseThrow(()->new AssertionError("Missing player-size axis: "+prefix));
+                            if(axis==0)axisY=slider.getY();
+                            if(slider.getWidth()!=cell||slider.getX()!=x+axis*(cell+8)||slider.getY()!=axisY)throw new AssertionError("Player-size axes lost their shared three-column row: "+prefix);
+                        }
+                        var limb=sliders.stream().filter(value->value.getMessage().getString().startsWith("Limb Swing Speed: ")).findFirst().orElseThrow();
+                        if(limb.getX()!=x||limb.getWidth()!=width-114||limb.getY()<axisY+30)throw new AssertionError("Standalone limb speed lost its reserved reset space or next row");
                         if(screen.children().stream().anyMatch(child->child instanceof com.customcosmetics.gui.PinkUi.Action&&!(child instanceof com.customcosmetics.gui.PinkUi.Toggle)&&((net.minecraft.client.gui.components.AbstractWidget)child).getMessage().getString().equals("SmolPeople")))throw new AssertionError("SmolPeople still has a navigation entry");
                         if(screen.children().stream().noneMatch(child->child instanceof com.customcosmetics.gui.PinkUi.Toggle toggle&&toggle.getMessage().getString().startsWith("SmolPeople")))throw new AssertionError("Combined Player Size page lost the SmolPeople switch");
                     }

@@ -37,13 +37,20 @@ final class SettingsGuiGameTest {
         });context.takeScreenshot("tooltip-motion-following");context.runOnClient(client->ClientUiAccess.setScreen(client,null));
         System.out.println("FONT_DROPDOWN_BOTH_LANGUAGES_AND_TOOLTIP_PHYSICAL_PIXELS_OK");
     }
-    static void checkAccessoryEquipment(ClientGameTestContext context){
+    static void checkAccessoryEquipment(ClientGameTestContext context)throws Exception{
         var saved=new java.util.EnumMap<net.minecraft.world.entity.EquipmentSlot,net.minecraft.world.item.ItemStack>(net.minecraft.world.entity.EquipmentSlot.class);
+        var previousTeam=new java.util.concurrent.atomic.AtomicReference<net.minecraft.world.scores.PlayerTeam>();
+        var previousBelow=new java.util.concurrent.atomic.AtomicReference<net.minecraft.world.scores.Objective>();
         context.runOnClient(client->{
             var backend=com.mojang.blaze3d.systems.RenderSystem.getDevice().getDeviceInfo().backendName();
             System.out.println("UI_TEST_ACTUAL_BACKEND="+backend);
             if(Boolean.getBoolean("customcosmetics.requireVulkan")&&!backend.equalsIgnoreCase("Vulkan"))throw new AssertionError("Requested Vulkan fell back to "+backend);
             for(var slot:net.minecraft.world.entity.EquipmentSlot.values())saved.put(slot,client.player.getItemBySlot(slot).copy());
+            var board=client.level.getScoreboard();previousTeam.set(client.player.getTeam());previousBelow.set(board.getDisplayObjective(net.minecraft.world.scores.DisplaySlot.BELOW_NAME));
+            var team=board.addPlayerTeam("cc_preview_tag");team.setPlayerPrefix(net.minecraft.network.chat.Component.literal("[512] "));team.setPlayerSuffix(net.minecraft.network.chat.Component.literal(" ✦"));
+            board.addPlayerToTeam(client.player.getScoreboardName(),team);
+            var below=board.addObjective("cc_preview_health",net.minecraft.world.scores.criteria.ObjectiveCriteria.DUMMY,net.minecraft.network.chat.Component.literal("❤"),net.minecraft.world.scores.criteria.ObjectiveCriteria.RenderType.INTEGER,false,null);
+            board.getOrCreatePlayerScore(client.player,below).set(4347);board.setDisplayObjective(net.minecraft.world.scores.DisplaySlot.BELOW_NAME,below);
             client.player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST,new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_CHESTPLATE));
             client.player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS,new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_LEGGINGS));
             client.player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET,new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_BOOTS));
@@ -55,13 +62,29 @@ final class SettingsGuiGameTest {
                 state.nameTag=net.minecraft.network.chat.Component.literal("Preview name");state.scoreText=net.minecraft.network.chat.Component.literal("4347 ❤");
                 var prepare=CapePreview.class.getDeclaredMethod("prepareState",net.minecraft.client.renderer.entity.state.AvatarRenderState.class,boolean.class);prepare.setAccessible(true);prepare.invoke(null,state,false);
                 if(!state.chestEquipment.is(net.minecraft.world.item.Items.DIAMOND_CHESTPLATE)||!state.legsEquipment.is(net.minecraft.world.item.Items.DIAMOND_LEGGINGS)||!state.feetEquipment.is(net.minecraft.world.item.Items.DIAMOND_BOOTS)||state.isInvisible||state.isInvisibleToPlayer)throw new AssertionError("Accessory preview lost equipment or inherited invisibility");
-                if(state.nameTag!=null||state.scoreText!=null)throw new AssertionError("Accessory preview retained a name or below-name health label");
+                if(!"Preview name".equals(state.nameTag.getString())||!"4347 ❤".equals(state.scoreText.getString()))throw new AssertionError("Accessory preview discarded or confused the actual name and below-name score");
+                state.nameTag=null;state.nameTagAttachment=null;
+                var names=CapePreview.class.getDeclaredMethod("prepareNames",net.minecraft.client.renderer.entity.state.EntityRenderState.class,net.minecraft.client.player.AbstractClientPlayer.class);names.setAccessible(true);names.invoke(null,state,client.player);
+                if(!state.nameTag.equals(client.player.getDisplayName())||state.nameTagAttachment==null||!"4347 ❤".equals(state.scoreText.getString()))throw new AssertionError("Self preview fallback lost the actual display name, attachment or separate score");
             }catch(ReflectiveOperationException error){throw new AssertionError(error);}
             ConfigManager.uiLanguage="zh_cn";ConfigManager.uiThemeMode="light";
             ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.ACCESSORIES));
         });
         context.waitTicks(10);context.takeScreenshot("wenkai-accessory-preview-preserves-armor");
-        context.runOnClient(client->{for(var entry:saved.entrySet())client.player.setItemSlot(entry.getKey(),entry.getValue());client.player.setInvisible(false);ConfigManager.uiLanguage="en_us";ClientUiAccess.setScreen(client,null);});
+        context.runOnClient(client->{
+            if(!(ClientUiAccess.screen(client) instanceof WardrobeScreen))throw new AssertionError("Equipment entry did not route directly to the wardrobe");
+            @SuppressWarnings("unchecked") var widgets=(java.util.List<net.minecraft.client.gui.components.AbstractWidget>)read(ClientUiAccess.screen(client),"widgets");
+            var block=widgets.stream().filter(widget->widget.getMessage().getString().equals("Block Other Players' Equipments")).findFirst().orElseThrow();
+            for(var other:widgets)if(other!=block&&other.getY()<block.getBottom()&&other.getBottom()>block.getY()&&other.getX()<block.getRight()&&other.getRight()>block.getX())throw new AssertionError("Wardrobe block entry overlaps another header control");
+        });
+        click(context,"Block Other Players' Equipments",PinkUi.Action.class);context.waitTicks(3);
+        context.runOnClient(client->{if(!(ClientUiAccess.screen(client) instanceof CosmeticsScreen)||read(ClientUiAccess.screen(client),"page")!=CosmeticsScreen.Page.BLOCKED_ACCESSORIES)throw new AssertionError("Wardrobe block entry opened the wrong page");ClientUiAccess.screen(client).onClose();});context.waitTicks(3);
+        context.runOnClient(client->{if(!(ClientUiAccess.screen(client) instanceof WardrobeScreen))throw new AssertionError("Block list did not return to the same wardrobe");});
+        context.runOnClient(client->{for(var entry:saved.entrySet())client.player.setItemSlot(entry.getKey(),entry.getValue());client.player.setInvisible(false);
+            var board=client.level.getScoreboard();board.setDisplayObjective(net.minecraft.world.scores.DisplaySlot.BELOW_NAME,previousBelow.get());
+            var below=board.getObjective("cc_preview_health");if(below!=null)board.removeObjective(below);var team=board.getPlayerTeam("cc_preview_tag");if(team!=null)board.removePlayerTeam(team);
+            if(previousTeam.get()!=null)board.addPlayerToTeam(client.player.getScoreboardName(),previousTeam.get());
+            ConfigManager.uiLanguage="en_us";ClientUiAccess.setScreen(client,null);});
         System.out.println("ACCESSORY_PREVIEW_EQUIPMENT_AND_INVISIBILITY_OK");
     }
     static void check(ClientGameTestContext context) throws Exception {
@@ -183,6 +206,12 @@ final class SettingsGuiGameTest {
         ConfigManager.awaitPendingSaves();
         var file = CosmeticsConfigDir.getCosmeticsConfigDir();
         var settings = JsonParser.parseString(Files.readString(file.resolve("config.json"))).getAsJsonObject().getAsJsonObject("settings");
+        for(String field:java.util.List.of("swordBlockingListMode","swordBlockingBlacklist","swordBlockingWhitelist","swordBlockingListsApplyToOthers"))
+            if(settings.has(field))throw new AssertionError("List preference remained in config.json: "+field);
+        var lists=JsonParser.parseString(Files.readString(file.resolve("sword-blocking-lists.json"))).getAsJsonObject();
+        if(lists.get("version").getAsInt()!=1||!lists.has("mode")||!lists.has("applyToOthers")||!lists.get("blacklist").isJsonArray()||!lists.get("whitelist").isJsonArray())
+            throw new AssertionError("Independent sword blocking lists were not saved");
+        System.out.println("SWORD_BLOCKING_LISTS_SEPARATE_JSON_NATIVE_SAVE_OK");
         for (String key : new String[]{"smolFriendList","smolFriendsEnabled","syncServerIp","syncServerPort","syncServerHttps","syncServerSni","syncUdpHost","syncUdpPort"})
             if (settings.has(key)) throw new AssertionError("Main configuration still writes " + key);
         var overrides = JsonParser.parseString(Files.readString(file.resolve("customremoteserver.json"))).getAsJsonObject();
@@ -458,7 +487,7 @@ final class SettingsGuiGameTest {
                 var screen = (CosmeticsScreen) ClientUiAccess.screen(client);
                 int x = (Integer) read(screen, "panelX") + 20, top = (Integer) read(screen, "navTop");
                 screen.mouseScrolled(x, top + 20, 0, -100);
-                var sharing = widget(client, "Sharing", PinkUi.Action.class);
+                var sharing = widget(client, "Party Sharing", PinkUi.Action.class);
                 if (!sharing.visible || sharing.getY() < (Integer) read(screen, "navTop")
                     || sharing.getBottom() > (Integer) read(screen, "navBottom"))
                     throw new AssertionError("Sidebar scrolling did not expose Sharing");
@@ -469,10 +498,11 @@ final class SettingsGuiGameTest {
         context.getInput().resizeWindow(1600, 1000); context.waitTicks(3);
         for (var page : java.util.List.of(CosmeticsScreen.Page.SIZE, CosmeticsScreen.Page.NICK, CosmeticsScreen.Page.COLOR,
             CosmeticsScreen.Page.CHROMA, CosmeticsScreen.Page.PRESETS, CosmeticsScreen.Page.ANIMATIONS, CosmeticsScreen.Page.DAMAGE,
-            CosmeticsScreen.Page.ITEMS, CosmeticsScreen.Page.ACCESSORIES, CosmeticsScreen.Page.PARTY, CosmeticsScreen.Page.SKINS,
+            CosmeticsScreen.Page.ITEMS, CosmeticsScreen.Page.ACCESSORIES, CosmeticsScreen.Page.PARTY, CosmeticsScreen.Page.LOCATION_SHARING, CosmeticsScreen.Page.SKINS,
             CosmeticsScreen.Page.MAP, CosmeticsScreen.Page.SYNC, CosmeticsScreen.Page.MODULES, CosmeticsScreen.Page.THEME)) {
             context.runOnClient(client -> {
                 ClientUiAccess.setScreen(client, new CosmeticsScreen(null, page));
+                if(page==CosmeticsScreen.Page.ACCESSORIES){if(!(ClientUiAccess.screen(client) instanceof WardrobeScreen))throw new AssertionError("Legacy equipment destination still opens an intermediate page");return;}
                 @SuppressWarnings("unchecked") var options = (java.util.List<SettingsSearch.Entry>) read(ClientUiAccess.screen(client), "searchOptions");
                 for (var option : options) if (SettingsCatalog.entries().stream().noneMatch(entry -> entry.page().equals(page.name())
                     && SettingsSearch.sameSetting(option.title(), entry.title())))
@@ -486,7 +516,7 @@ final class SettingsGuiGameTest {
         context.runOnClient(client -> {
             var screen = ClientUiAccess.screen(client);
             var target = widget(client, "Location Tracer Color", PinkUi.Field.class);
-            if (read(screen, "page") != CosmeticsScreen.Page.PARTY || !target.visible
+            if (read(screen, "page") != CosmeticsScreen.Page.LOCATION_SHARING || !target.visible
                 || target.getY() < (Integer) read(screen, "viewTop") || target.getBottom() > (Integer) read(screen, "viewBottom"))
                 throw new AssertionError("Search did not reveal the current setting location");
             // A thumb press must retain the original grab point instead of recentering the list.
@@ -546,7 +576,9 @@ final class SettingsGuiGameTest {
         var position = new AtomicReference<double[]>();
         context.runOnClient(client -> {
             var screen = ClientUiAccess.screen(client); var widget = widget(client,prefix,type);
-            if (widget.getX() < (Integer) read(screen, "contentX")) {
+            if (!(screen instanceof CosmeticsScreen)) {
+                // Child screens position their controls directly; they do not own studio scroll fields.
+            } else if (widget.getX() < (Integer) read(screen, "contentX")) {
                 if (widget instanceof RepositoryButton || widget.getMessage().getString().equals("Settings")) {
                     // Footer controls are fixed outside both scroll viewports.
                 } else if (widget.getY() < (Integer) read(screen, "navTop") || widget.getBottom() > (Integer) read(screen, "navBottom")) {

@@ -33,6 +33,10 @@ final class BlockingStyleGameTest {
         var settings = com.google.gson.JsonParser.parseString(java.nio.file.Files.readString(
             CosmeticsConfigDir.getCosmeticsConfigDir().resolve("config.json"))).getAsJsonObject().getAsJsonObject("settings");
         if (!settings.get("swordBlockingStyle").getAsString().equals("jigsaw")) throw new AssertionError("Style was not saved locally");
+        for(String field:java.util.List.of("swordBlockingListMode","swordBlockingBlacklist","swordBlockingWhitelist","swordBlockingListsApplyToOthers"))if(settings.has(field))throw new AssertionError("List preference remained in config.json: "+field);
+        var lists=com.google.gson.JsonParser.parseString(java.nio.file.Files.readString(CosmeticsConfigDir.getCosmeticsConfigDir().resolve("sword-blocking-lists.json"))).getAsJsonObject();
+        if(lists.get("version").getAsInt()!=1||!lists.has("mode")||!lists.has("applyToOthers")||!lists.get("blacklist").isJsonArray()||!lists.get("whitelist").isJsonArray())throw new AssertionError("Independent sword blocking lists were not saved");
+        System.out.println("SWORD_BLOCKING_LISTS_SEPARATE_JSON_NATIVE_SAVE_OK");
         context.getInput().pressKey(ClientInput.ESCAPE);
         context.runOnClient(client -> ClientUiAccess.setScreen(client, new CosmeticsScreen(null, CosmeticsScreen.Page.ANIMATIONS)));
         context.waitTicks(2);
