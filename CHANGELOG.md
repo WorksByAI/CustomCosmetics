@@ -1,63 +1,11 @@
 # Changelog
 
-## 2.0.0-dev.10
+## 2.0.0
 
-- Use smaller regular Modern text and improve tooltip wrapping.
-- Enlarge the player model in a portrait preview beside its controls.
-
-## 2.0.0-dev.9
-
-- Improve Modern font readability, headings and text wrapping.
-- Simplify skin and wardrobe navigation; restore preview nametags.
-- Separate party/location visuals; fix missing-accessory filtering and menu blur.
-- Disable blocking by default, remove bulk selection and migrate blocking lists to a separate file.
-
-## 2.0.0-dev.8
-
-- Add Vanilla/Modern interface fonts, smoother tooltips and an optional missing-accessory bag panel.
-- Fix player previews and reduce UI rendering and map transition overhead.
-- Limit nicknames to 30 characters and isolate recoverable feature errors.
-- Prefer 5-second P2P appearance sync with relay fallback; share an 8 Mbps server egress budget.
-
-## 2.0.0-dev.7
-
-- Keep chat and item tooltip text on the active game font.
-- Bundle LXGW WenKai for Chinese settings and improve hover edges and text clarity.
-- Preserve armor and visibility in accessory previews.
-
-## 2.0.0-dev.6
-
-- Add verified startup updates with automatic restart.
-- Use the active game font for cosmetic previews.
-- Add skin blocking and local Steve, Alex or custom overrides for other players.
-- Compact settings, add a searchable creature picker, refresh the logo and improve translations.
-
-## 2.0.0-dev.5
-
-- Restore the original pink default accent and simplify interface copy.
-- Remove the nickname settings thank-you footer and equipment beta label.
-
-- Translate rank colors and built-in equipment choices into Simplified Chinese.
-- Use installed Microsoft YaHei for Chinese UI text, with Minecraft Unifont fallback.
-
-## 2.0.0-dev.4
-
-- Add Simplified Chinese and per-mod language selection with bilingual settings search.
-- Add a spring opening transition with pointer coordinates matching the animated panel.
-
-## 2.0.0-dev.3
-
-- Restore sidebar and settings visibility after clipped clicks in light and dark themes.
-
-## 2.0.0-dev.2
-
-- Add spring hover zoom, lift, edge glow, a brief highlight sweep and click rebound.
-- Animate switch thumbs, slider hover halos and field focus accents; keep hitboxes fixed.
-
-## 2.0.0-dev.1
-
-- Preview a compact interface with dark/light themes, editable accent colors and optional motion.
-- Reduce offscreen drawing and idle UI work; disable background blur by default.
+- Redesign settings with themes, animations, search, Chinese and font options.
+- Add startup updates, skin overrides and missing-accessory lists.
+- Separate party/location settings and prefer P2P appearance sync with relay fallback.
+- Improve previews, stability and UI/map performance; substantial gains are not guaranteed.
 
 ## 1.8.7
 
