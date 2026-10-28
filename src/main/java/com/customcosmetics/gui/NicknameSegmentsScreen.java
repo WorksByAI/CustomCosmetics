@@ -114,7 +114,7 @@ public final class NicknameSegmentsScreen extends ThemedScreen {
             g.pose().popMatrix();for(var placement:body)if(placement.widget().visible)placement.widget().extractRenderState(g,mx,my,delta);g.disableScissor();
             if(maxScroll()>0){var bar=bar();rounded(g,x+w-13,top,3,bottom-top,1,BORDER);rounded(g,x+w-13,bar.thumbStart(scroll),3,bar.thumbLength(),1,PINK);}
             for(var widget:fixed)widget.extractRenderState(g,mx,my,delta);
-            text(g,font,status.isEmpty()?"Apply enables segmented colors and turns Chroma off.":status,x+16,y+h-60,status.isEmpty()?DIM:PINK,w-32);
+            uiText(g,font,status.isEmpty()?"Apply enables segmented colors and turns Chroma off.":status,x+16,y+h-60,status.isEmpty()?DIM:PINK,w-32);
         }finally{NickRenderUtils.endClickGuiRenderScope();}
     }
     @Override public boolean mouseScrolled(double mx,double my,double horizontal,double vertical){

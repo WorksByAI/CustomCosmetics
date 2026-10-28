@@ -14,6 +14,7 @@ import static com.customcosmetics.gui.PinkUi.*;
 /** A real popup selection menu, drawn above the scrolling settings. */
 final class BlockingModeDropdown extends PinkUi.Action {
     private boolean open;
+    private Mode displayed;
     private int highlighted, menuTop;
 
     BlockingModeDropdown(int x, int y, int width) {
@@ -26,7 +27,8 @@ final class BlockingModeDropdown extends PinkUi.Action {
     void closeMenu() { open = false; }
     @Override public void onClick(MouseButtonEvent event, boolean doubleClick) { toggle(); }
     @Override protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
-        setMessage(UiText.component("Blocking List: " + Mode.parse(ConfigManager.swordBlockingListMode).label + "  ▾"));
+        var choice=Mode.parse(ConfigManager.swordBlockingListMode);
+        if(displayed!=choice){displayed=choice;setMessage(Component.literal("Blocking List: " + choice.label + "  ▾"));}
         super.extractWidgetRenderState(g, mx, my, dt);
     }
     void drawMenu(GuiGraphicsExtractor g, int mx, int my, int top, int bottom) {
@@ -38,7 +40,7 @@ final class BlockingModeDropdown extends PinkUi.Action {
             int y = menuTop + 4 + mode.ordinal() * 26;
             boolean hovered = mx >= getX() && mx < getRight() && my >= y && my < y + 26;
             if (hovered || mode.ordinal() == highlighted) rounded(g, getX() + 4, y, getWidth() - 8, 26, 3, PINK_DARK);
-            text(g, Minecraft.getInstance().font, mode.label, getX() + 12, y + 8,
+            uiText(g, UiFonts.get(Minecraft.getInstance().font), mode.label, getX() + 12, y + 8,
                 mode == Mode.parse(ConfigManager.swordBlockingListMode) ? PINK : TEXT, getWidth() - 24);
         }
     }

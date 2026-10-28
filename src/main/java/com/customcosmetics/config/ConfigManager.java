@@ -34,7 +34,7 @@ public final class ConfigManager {
     public static volatile int disabledModules=0;
     public static String uiThemeMode="dark";
     public static String uiLanguage="auto";
-    public static int uiAccentColor=0x6DB29A;
+    public static int uiAccentColor=0xFFA8CA;
     public static boolean uiAnimationsEnabled=true;
     public static boolean uiBackgroundBlur=false;
     public static boolean damageSplashEnabled=false, damageSplashBold=true, damageSplashCompact=false;

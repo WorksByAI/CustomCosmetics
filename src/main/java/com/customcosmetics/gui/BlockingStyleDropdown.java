@@ -14,6 +14,7 @@ import static com.customcosmetics.gui.PinkUi.*;
 /** Local first-person style selection, with the same popup/keyboard behavior as blocking lists. */
 final class BlockingStyleDropdown extends PinkUi.Action {
     private boolean open;
+    private BlockingStyle displayed;
     private int highlighted, menuTop;
     private static final int MENU_HEIGHT = 60;
     BlockingStyleDropdown(int x, int y, int width) {
@@ -26,7 +27,8 @@ final class BlockingStyleDropdown extends PinkUi.Action {
     void closeMenu() { open = false; }
     @Override public void onClick(MouseButtonEvent event, boolean doubleClick) { toggle(); }
     @Override protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
-        setMessage(UiText.component("Blocking Style: " + BlockingStyle.parse(ConfigManager.swordBlockingStyle).label + "  ▾"));
+        var choice=BlockingStyle.parse(ConfigManager.swordBlockingStyle);
+        if(displayed!=choice){displayed=choice;setMessage(Component.literal("Blocking Style: " + choice.label + "  ▾"));}
         super.extractWidgetRenderState(g, mx, my, dt);
     }
     void drawMenu(GuiGraphicsExtractor g, int mx, int my, int top, int bottom) {
@@ -38,7 +40,7 @@ final class BlockingStyleDropdown extends PinkUi.Action {
             int y = menuTop + 4 + style.ordinal() * 26;
             boolean hovered = mx >= getX() && mx < getRight() && my >= y && my < y + 26;
             if (hovered || style.ordinal() == highlighted) rounded(g, getX() + 4, y, getWidth() - 8, 26, 3, PINK_DARK);
-            text(g, Minecraft.getInstance().font, style.label, getX() + 12, y + 8,
+            uiText(g, UiFonts.get(Minecraft.getInstance().font), style.label, getX() + 12, y + 8,
                 style == BlockingStyle.parse(ConfigManager.swordBlockingStyle) ? PINK : TEXT, getWidth() - 24);
         }
     }

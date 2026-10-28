@@ -174,21 +174,21 @@ public final class ShortcutsScreen extends ThemedScreen {
     }
     @Override public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
         outline(g, x, y, w, h, 10, BORDER, PANEL);
-        text(g, font, editing ? label(kind) + " · " + (id.isEmpty() ? "New shortcut" : "Edit shortcut") : "Shortcuts", x + 12, y + 15, PINK, editing ? w - 24 : w - 128);
+        uiText(g, font, editing ? label(kind) + " · " + (id.isEmpty() ? "New shortcut" : "Edit shortcut") : "Shortcuts", x + 12, y + 15, PINK, editing ? w - 24 : w - 128);
         if (editing) {
-            text(g, font, kind == ShortcutRules.Kind.KEY ? "Press once to send one command" : kind == ShortcutRules.Kind.ALIAS ? "Command alias" : "Exact token replacement", x + 12, y + 37, MUTED, w - 24);
-            text(g, font, kind == ShortcutRules.Kind.KEY ? "Keyboard / mouse combination" : "Trigger", x + 12, y + 52, TEXT, w - 24);
-            text(g, font, kind == ShortcutRules.Kind.ARGUMENT ? "Replacement" : "Command", x + 12, y + 93, TEXT, w - 24);
+            uiText(g, font, kind == ShortcutRules.Kind.KEY ? "Press once to send one command" : kind == ShortcutRules.Kind.ALIAS ? "Command alias" : "Exact token replacement", x + 12, y + 37, MUTED, w - 24);
+            uiText(g, font, kind == ShortcutRules.Kind.KEY ? "Keyboard / mouse combination" : "Trigger", x + 12, y + 52, TEXT, w - 24);
+            uiText(g, font, kind == ShortcutRules.Kind.ARGUMENT ? "Replacement" : "Command", x + 12, y + 93, TEXT, w - 24);
             String help = switch (kind) {
                 case ALIAS -> "Arguments append automatically; $1, $2 and $* insert arguments.";
                 case ARGUMENT -> "Whole tokens only, once: /visit @friend → /visit PlayerName";
                 case KEY -> "Bindings work only in-game. Holding a key never repeats.";
             };
-            text(g, font, help, x + 12, y + 136, MUTED, w - 24);
+            uiText(g, font, help, x + 12, y + 136, MUTED, w - 24);
             uiText(g, font, status, x + 12, y + 150, PINK, w - 24);
         } else {
             if (filtered.isEmpty()) uiText(g, font, "No shortcuts yet. Choose New to add one.", x + 16, y + 76, MUTED, w - 32);
-            text(g, font, status.isEmpty() ? filtered.size() + " shortcuts · Click to edit · Scroll to browse" : status, x + 12, y + h - 27, status.isEmpty() ? MUTED : PINK, w - 24);
+            uiText(g, font, status.isEmpty() ? filtered.size() + " shortcuts · Click to edit · Scroll to browse" : status, x + 12, y + h - 27, status.isEmpty() ? MUTED : PINK, w - 24);
         }
         super.extractRenderState(g, mx, my, dt);
     }

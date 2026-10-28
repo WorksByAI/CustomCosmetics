@@ -25,7 +25,7 @@ public final class WardrobeScreen extends ThemedScreen {
         var categories=AccessoryCatalog.slots(collection);if(categories.stream().noneMatch(category->category.id().equals(slot)))slot=categories.getFirst().id();
         int tabWidth=Math.min(98,(contentW-6)/2);for(var group:AccessoryCatalog.Collection.values())button(contentX+(group.ordinal()*(tabWidth+6)),y+10,tabWidth,24,group.label,()->{collection=group;page=0;rebuildWidgets();}).selected(()->collection==group);
         if(h>=330){int gap=Math.min(26,(h-88)/categories.size());
-            for(int i=0;i<categories.size();i++){var category=categories.get(i);button(x+10,y+44+i*gap,side-8,gap-3,category.label(),()->{slot=category.id();page=0;rebuildWidgets();}).selected(()->slot.equals(category.id()));}
+            for(int i=0;i<categories.size();i++){var category=categories.get(i);button(x+10,y+44+i*gap,side-8,gap-3,UiText.slotLabel(category.id(),category.label()),()->{slot=category.id();page=0;rebuildWidgets();}).selected(()->slot.equals(category.id()));}
         }else{button(x+10,y+58,side-8,24,"‹ Part",()->cycle(-1));button(x+10,y+90,side-8,24,"Part ›",()->cycle(1));}
         previewH=h<240?0:Math.clamp(h-240,56,196);optionsTop=y+46+previewH+8;
         var styles=AccessoryCatalog.styles(slot,collection);int columns=contentW<360?2:3,rows=Math.clamp((h-179-previewH)/27,1,3);perPage=columns*rows-1;page=Math.min(page,(styles.size()-1)/perPage);
@@ -51,7 +51,7 @@ public final class WardrobeScreen extends ThemedScreen {
         button(x+w-216,y+h-31,118,22,"Adjust Position",()->ClientUiAccess.setScreen(minecraft,new AccessoryAdjustmentScreen(this,slot)));
     }
     private void cycle(int direction){var slots=AccessoryCatalog.slots(collection);int index=0;for(int i=0;i<slots.size();i++)if(slots.get(i).id().equals(slot))index=i;slot=slots.get(Math.floorMod(index+direction,slots.size())).id();page=0;rebuildWidgets();}
-    private PinkUi.Action button(int x,int y,int w,int h,String label,Runnable action){var button=new PinkUi.Action(x,y,w,h,label,false,()->{CosmeticsScreen.childInteraction();action.run();});button.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(label)));widgets.add(addWidget(button));return button;}
+    private PinkUi.Action button(int x,int y,int w,int h,String label,Runnable action){var button=new PinkUi.Action(x,y,w,h,label,false,()->{CosmeticsScreen.childInteraction();action.run();});button.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.component(label)));widgets.add(addWidget(button));return button;}
     private void update(java.util.function.UnaryOperator<AccessoriesSettings.Part> change){ConfigManager.accessories=ConfigManager.accessories.with(slot,change.apply(ConfigManager.accessories.part(slot)));changed();}
     private void changed(){CosmeticsScreen.childInteraction();ConfigManager.requestSave();}
     private void colorField(int x,int y,int w,String title,boolean accent){
@@ -62,14 +62,14 @@ public final class WardrobeScreen extends ThemedScreen {
         widgets.add(addWidget(new PinkUi.Slider(x,y,w,title,value,min,max,step,setter)));
     }
     @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float dt){
-        outline(g,x,y,w,h,11,BORDER,PANEL);uiText(g,font,"Wardrobe",x+16,y+16,PINK,contentX-x-32);if(contentW>300)text(g,font,AccessoryCatalog.count(collection)+" styles",contentX+220,y+18,MUTED,contentW-220);
+        outline(g,x,y,w,h,11,BORDER,PANEL);uiText(g,font,"Wardrobe",x+16,y+16,PINK,contentX-x-32);if(contentW>300)uiText(g,font,AccessoryCatalog.count(collection)+" styles",contentX+220,y+18,MUTED,contentW-220);
         if(previewH>0){rounded(g,contentX,y+43,contentW,previewH+5,6,CARD);
             int half=contentW/2;CapePreview.drawAccessories(g,contentX,y+44,half,previewH-12,true,camera);CapePreview.drawAccessories(g,contentX+half,y+44,half,previewH-12,false,camera);uiText(g,font,"Drag to rotate · Scroll to zoom",contentX+10,y+43+previewH-9,MUTED,contentW-20);}
         else{int side=contentX-x-20;rounded(g,x+10,y+122,side-8,h-161,6,CARD);CapePreview.drawAccessories(g,x+10,y+124,side-8,h-165,true,camera);}
-        text(g,font,AccessoryCatalog.slot(slot).label()+" · "+(page+1)+" / "+((AccessoryCatalog.styles(slot,collection).size()+perPage-1)/perPage),contentX+40,styleFooterY+5,PINK,contentW-80);
+        text(g,font,UiText.slotLabel(slot,AccessoryCatalog.slot(slot).label())+" · "+(page+1)+" / "+((AccessoryCatalog.styles(slot,collection).size()+perPage-1)/perPage),contentX+40,styleFooterY+5,PINK,contentW-80);
         if(MiniMePet.selected(AccessoryCatalog.style(slot,ConfigManager.accessories.part(slot).style())))uiText(g,font,"Uses the wearer's skin, including outer layers.",contentX,colorsY+9,MUTED,contentW);
         else{uiText(g,font,"Color",contentX,colorsY+9,TEXT,52);uiText(g,font,"Accent",contentX+(contentW-12)/2+12,colorsY+9,TEXT,52);}
-        String status=AccessoryPlacement.covered(slot,ConfigManager.accessories)?"Covered by your Head accessory. Selection is kept.":ConfigManager.offlineMode?"Offline · Only you can see this outfit.":"Online · Shared on your normal sync interval.";
+        String status=AccessoryPlacement.covered(slot,ConfigManager.accessories)?"Covered by your Head accessory. Selection is kept.":"";
         uiText(g,font,status,contentX,y+h-25,MUTED,Math.max(0,contentW-224));
         for(var widget:widgets)widget.extractRenderState(g,mx,my,dt);
     }

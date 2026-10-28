@@ -77,11 +77,11 @@ public final class MapPresetScreen extends ThemedScreen {
         outline(g,x,y,w,h,10,BORDER,PANEL);text(g,font,getTitle().getString(),x+12,y+13,PINK,w-24);
         uiText(g,font,"Preset name",right,y+37,MUTED,detailWidth);
         var info=selectedInfo;
-        text(g,font,info==null?"Select a preset or save a new one.":info.room(),right,y+81,TEXT,detailWidth);
+        text(g,font,info==null?UiText.tr("Select a preset or save a new one."):info.room(),right,y+81,TEXT,detailWidth);
         text(g,font,selectedCount,right,y+94,MUTED,detailWidth);
         if(h>=290){uiText(g,font,"Here: "+MapEditor.roomLabel(),right,y+117,MUTED,detailWidth);uiText(g,font,"Position and facing align automatically.",right,y+131,MUTED,detailWidth);}
-        if(filtered.isEmpty())text(g,font,entries.isEmpty()?"No saved presets yet":"No matching presets",x+16,y+70,MUTED,left-8);
-        text(g,font,status.isEmpty()?"Scroll the list to browse · "+entries.size()+" presets":status,x+12,y+h-38,status.isEmpty()?MUTED:PINK,w-24);
+        if(filtered.isEmpty())uiText(g,font,entries.isEmpty()?"No saved presets yet":"No matching presets",x+16,y+70,MUTED,left-8);
+        uiText(g,font,status.isEmpty()?"Scroll the list to browse · "+entries.size()+" presets":status,x+12,y+h-38,status.isEmpty()?MUTED:PINK,w-24);
         super.extractRenderState(g,mx,my,dt);
     }
     @Override public boolean isPauseScreen(){return false;}

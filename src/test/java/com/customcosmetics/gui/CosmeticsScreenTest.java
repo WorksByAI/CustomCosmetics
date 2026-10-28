@@ -75,7 +75,7 @@ class CosmeticsScreenTest {
         assertTrue(strings.indexOf("Markers & names")<strings.indexOf("Max Display Distance (blocks)"));
         assertTrue(strings.indexOf("Location sharing")<strings.indexOf("Share My Position"));
         var titles=code(read(SCREEN),"pageTitle").stream().filter(ConstantInstruction.class::isInstance).map(ConstantInstruction.class::cast).map(ConstantInstruction::constantValue).toList();
-        assertTrue(titles.containsAll(List.of("Sharing","Equipments (Beta)")));assertFalse(titles.contains("Party"));assertFalse(titles.contains("Accessories"));
+        assertTrue(titles.containsAll(List.of("Sharing","Equipments")));assertFalse(titles.contains("Party"));assertFalse(titles.contains("Accessories"));
     }
     @Test void playerSizeEditsStayLocalAndNeverChangeGameplayDimensions() throws Exception {
         var screen=read(SCREEN);
@@ -129,7 +129,7 @@ class CosmeticsScreenTest {
             .noneMatch(field -> field.owner().name().stringValue().equals("com/customcosmetics/config/ConfigManager")
                 && Set.of("syncServerIp", "syncServerPort", "syncServerHttps").contains(field.name().stringValue())));
     }
-    @Test void nicknameOptionsUseCapitalizedLabelsAndBothFeaturesHaveCredit() throws Exception {
+    @Test void nicknameOptionsUseCapitalizedLabelsAndDamageKeepsCredit() throws Exception {
         var screen = read(SCREEN);
         for (String method : List.of("nickname","colors","chroma")) {
             var labels = code(screen,method).stream().filter(ConstantInstruction.class::isInstance).map(ConstantInstruction.class::cast)

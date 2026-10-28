@@ -48,7 +48,7 @@ public final class SettingsCatalog {
         add(entries, "Damage Splash", "DAMAGE", "Requires Gradient: select the Gradient color mode first.", "Gradient Start|Gradient End");
         add(entries, "Item Customization", "ITEMS", "Custom item names and models resource packs", "Enabled|Customize Items");
         add(entries, "Item Customization", "ITEMS", "SkyBlock accessory bag collected upgrade tooltip tier", "Accessory Helper Tooltip|Clear This Profile's Bag Scan");
-        add(entries, "Equipments (Beta)", "ACCESSORIES", "Accessories outfit wardrobe style colors size shoulder", "Blocked Equipments|Open Wardrobe|Clear Outfit");
+        add(entries, "Equipments", "ACCESSORIES", "Accessories outfit wardrobe style colors size shoulder", "Blocked Equipments|Open Wardrobe|Clear Outfit");
         add(entries, "Cape", "CAPE", "Cape visibility local import texture upload approval",
             "Show Custom Capes|Choose Image & Crop|Choose Cape + Elytra|Submit for Review");
         add(entries, "Sharing", "PARTY", "Party teammates markers locations",

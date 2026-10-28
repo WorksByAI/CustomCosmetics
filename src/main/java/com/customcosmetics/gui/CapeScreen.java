@@ -50,7 +50,7 @@ public final class CapeScreen extends ThemedScreen {
         if(texture!=null){int side=Math.min(90,previewHeight-33),ph=Math.max(1,side);g.blit(texture,x+30,y+69,x+30+Math.max(1,ph*10/16),y+69+ph,1f/64,11f/64,1f/32,17f/32);}
         if(minecraft.player!=null)CapePreview.draw(g,x+w/4,y+58,w*3/4-20,Math.max(1,previewHeight-25));
         else uiText(g,font,"Enter a world for the player preview.",x+24,y+75,MUTED,w-48);
-        text(g,font,RemoteAccess.online()?"Online: approved capes are shared. Local edits stay private.":"Offline: local cape only. Nothing is uploaded.",x+14,y+h-130,MUTED,w-28);
+        uiText(g,font,RemoteAccess.online()?"Online: approved capes are shared. Local edits stay private.":"Offline: local cape only. Nothing is uploaded.",x+14,y+h-130,MUTED,w-28);
         submit.active=!choosing&&CapeSync.canSubmit();removeButton.active=!choosing;
         cropButton.active=atlasButton.active=!choosing&&!com.customcosmetics.compatibility.NativeFileDialogs.busy();
         String state=CapeSync.status();long cooldown=CapeSync.cooldownSeconds();if(cooldown>0)state+=" · Next submission in "+(cooldown/3600)+"h "+(cooldown%3600/60)+"m";

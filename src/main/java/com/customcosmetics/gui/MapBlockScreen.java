@@ -52,7 +52,7 @@ public final class MapBlockScreen extends ThemedScreen {
         selectedId=selected.get();for(var cell:cells)if(cell.visible)cell.extractRenderState(g,mx,my,dt);
         for(var cell:cells)if(cell.visible)cell.extractIcon(g);
         String hint="Left: select · Right: favorite · "+filtered.size()+" blocks";for(var cell:cells)if(cell.visible&&cell.isMouseOver(mx,my))hint=cell.value.label+" · "+cell.value.id;
-        text(g,font,hint,x+12,y+h-44,MUTED,w-24);if(filtered.isEmpty())uiText(g,font,"No matching blocks",x+15,top+12,MUTED,w-30);
+        uiText(g,font,hint,x+12,y+h-44,MUTED,w-24);if(filtered.isEmpty())uiText(g,font,"No matching blocks",x+15,top+12,MUTED,w-30);
         int total=(filtered.size()+columns-1)/columns;if(total>rows){var bar=ScrollBarLayout.of(top,rows*26,rows,total,total-rows);rounded(g,x+w-12,top,3,rows*26,1,BORDER);rounded(g,x+w-12,bar.thumbStart(offset),3,bar.thumbLength(),1,PINK);}
     }
     @Override public boolean isPauseScreen(){return false;}

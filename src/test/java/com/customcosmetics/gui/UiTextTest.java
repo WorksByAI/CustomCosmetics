@@ -20,6 +20,10 @@ class UiTextTest {
         assertEquals("minecraft:leather",UiText.tr("minecraft:leather"));
         assertEquals("/warp home",UiText.tr("/warp home"));
         assertEquals("模式：深色",UiText.tr("Mode: Dark"));
+        assertEquals("背部",UiText.slotLabel("back","Back"));
+        assertEquals("返回",UiText.tr("Back"));
+        assertEquals("3 个结果",UiText.tr("3 results"));
+        assertEquals("格挡样式：默认  ▾",UiText.tr("Blocking Style: Default  ▾"));
         assertEquals("✓ 绵羊",UiText.tr("✓ Sheep"));
         assertEquals("快速切换视角 · 设置",UiText.tr("Snaplook · Settings"));
     }
@@ -40,5 +44,20 @@ class UiTextTest {
             assertTrue(SettingsCatalog.find("Snaplook").stream().anyMatch(e->e.title().equals("Snaplook")));
         }
     }
+    @Test void actualBuiltInOptionLabelsHaveTranslations(){
+        UiText.configure("zh_cn","en_us");
+        for(var color:com.customcosmetics.features.nickname.RankSettings.PlusColor.values()) translated(color.label);
+        for(var collection:com.customcosmetics.features.accessories.AccessoryCatalog.Collection.values()) translated(collection.label);
+        for(var slot:com.customcosmetics.features.accessories.AccessoryCatalog.slots()){
+            assertNotEquals(slot.label(),UiText.slotLabel(slot.id(),slot.label()));for(var style:slot.styles())translated(style.label());
+        }
+        for(var mode:com.customcosmetics.features.blocking.BlockingRules.Mode.values())translated(mode.label);
+        for(var style:com.customcosmetics.features.blocking.BlockingStyle.values())translated(style.label);
+        for(String style:com.customcosmetics.features.damage.DamageAnimation.STYLES){String label=Character.toUpperCase(style.charAt(0))+style.substring(1);translated(label);assertFalse(UiText.tr("Animation: "+label).endsWith(label));}
+        for(String separator:new String[]{"None","Comma","Space","Underscore"})assertFalse(UiText.tr("Separator: "+separator).endsWith(separator));
+        for(String name:new String[]{"Simple","Vanilla"})assertFalse(UiText.tr("Nametag Style: "+name).endsWith(name));
+        for(var feature:com.customcosmetics.config.FeatureModules.Feature.values())translated(feature.label);
+    }
+    private static void translated(String source){assertNotEquals(source,UiText.tr(source),"Missing option translation: "+source);}
     private static JsonObject read(String name)throws Exception{try(var in=UiTextTest.class.getResourceAsStream("/assets/customcosmetics/lang/"+name+".json")){return JsonParser.parseReader(new InputStreamReader(in,StandardCharsets.UTF_8)).getAsJsonObject();}}
 }

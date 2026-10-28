@@ -38,7 +38,7 @@ public final class CapeFileScreen extends ThemedScreen {
     private void position(){for(int i=0;i<files.size();i++){var file=files.get(i);file.setY(top+i*28-scroll);file.visible=file.getBottom()>top&&file.getY()<bottom;}}
     @Override public boolean mouseScrolled(double mx,double my,double horizontal,double vertical){if(mx>=x&&mx<x+w&&my>=top&&my<bottom){scroll=Math.clamp(scroll-(int)(vertical*28),0,maxScroll());position();return true;}return super.mouseScrolled(mx,my,horizontal,vertical);}
     @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float dt){
-        outline(g,x,y,w,h,10,BORDER,PANEL);text(g,font,atlas?"Choose Cape + Elytra":"Choose Image to Crop",x+14,y+15,PINK,w-28);position();
+        outline(g,x,y,w,h,10,BORDER,PANEL);uiText(g,font,atlas?"Choose Cape + Elytra":"Choose Image to Crop",x+14,y+15,PINK,w-28);position();
         g.enableScissor(x+10,top,x+w-10,bottom);for(var file:files)if(file.visible)file.extractRenderState(g,mx,my,dt);g.disableScissor();
         uiText(g,font,notice,x+14,y+h-50,MUTED,w-28);super.extractRenderState(g,mx,my,dt);
     }

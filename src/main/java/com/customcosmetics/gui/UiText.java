@@ -14,7 +14,7 @@ public final class UiText {
     private static final List<Map.Entry<String,String>> PREFIXES=CHINESE.entrySet().stream()
         .filter(e->e.getKey().endsWith(": ")||e.getKey().endsWith(" · ")||e.getKey().endsWith(" (")||e.getKey().endsWith(" #"))
         .sorted(Comparator.comparingInt((Map.Entry<String,String> e)->e.getKey().length()).reversed()).toList();
-    private static final Set<String> ENUM_PREFIXES=Set.of("Mode: ","Style: ","Animation: ","Color Mode: ","Gradient Style: ","Editing: ","Skin Model: ","Snaplook View: ","Proxy Source: ","ESP Style: ","Nametag Style: ","Nametag Scaling: ","Audience: ","Names: ","Distance Text: ","Blocking List: ","Blocking Style: ","Allow Skipping: ","Allow Going Backwards: ","Go Backwards: ","Render Line: ");
+    private static final Set<String> ENUM_PREFIXES=Set.of("Mode: ","Style: ","Animation: ","Color Mode: ","Gradient Style: ","Editing: ","Skin Model: ","Snaplook View: ","Proxy Source: ","ESP Style: ","Nametag Style: ","Nametag Scaling: ","Audience: ","Names: ","Distance Text: ","Blocking List: ","Blocking Style: ","Allow Skipping: ","Allow Going Backwards: ","Go Backwards: ","Render Line: ","Separator: ");
     private static final ConcurrentHashMap<String,String> DYNAMIC=new ConcurrentHashMap<>();
     private static volatile String preference="auto",gameLanguage="en_us",effective="en_us";
     private static volatile int revision;
@@ -23,11 +23,11 @@ public final class UiText {
         try(var stream=UiText.class.getResourceAsStream("/assets/customcosmetics/lang/"+language+".json")){
             if(stream==null)throw new IllegalStateException("Missing mod language catalogue: "+language);
             var root=JsonParser.parseReader(new InputStreamReader(stream,StandardCharsets.UTF_8)).getAsJsonObject();var map=new HashMap<String,String>();
-            for(var entry:root.entrySet())if(entry.getKey().startsWith("customcosmetics.ui."))map.put(entry.getKey(),entry.getValue().getAsString());
+            for(var entry:root.entrySet())if(entry.getKey().startsWith("customcosmetics.ui.")||entry.getKey().startsWith("customcosmetics.slot."))map.put(entry.getKey(),entry.getValue().getAsString());
             return Map.copyOf(map);
         }catch(IOException e){throw new ExceptionInInitializerError(e);}
     }
-    private static Map<String,String> chinese(){var result=new HashMap<String,String>();for(var e:EN.entrySet())result.put(e.getValue(),ZH.getOrDefault(e.getKey(),e.getValue()));return Map.copyOf(result);}
+    private static Map<String,String> chinese(){var result=new HashMap<String,String>();for(var e:EN.entrySet())if(e.getKey().startsWith("customcosmetics.ui."))result.put(e.getValue(),ZH.getOrDefault(e.getKey(),e.getValue()));return Map.copyOf(result);}
     public static String normalize(String choice){return "en_us".equals(choice)||"zh_cn".equals(choice)?choice:"auto";}
     public static void configure(String choice,String game){
         preference=normalize(choice);gameLanguage=game==null?"en_us":game;
@@ -37,7 +37,8 @@ public final class UiText {
     public static int revision(){return revision;}
     public static String language(){return effective;}
     public static String name(String choice){return switch(normalize(choice)){case "zh_cn"->"简体中文";case "en_us"->"English";default->tr("Follow Game");};}
-    public static net.minecraft.network.chat.MutableComponent component(String source){return net.minecraft.network.chat.Component.literal(tr(source));}
+    public static net.minecraft.network.chat.MutableComponent component(String source){var text=net.minecraft.network.chat.Component.literal(tr(source));return effective.equals("zh_cn")?text.withStyle(style->style.withFont(UiFonts.CHINESE)):text;}
+    public static String slotLabel(String id,String source){return effective.equals("zh_cn")?ZH.getOrDefault("customcosmetics.slot."+id,zh(source)):source;}
     public static String display(String source,boolean raw){return raw?source:tr(source);}
     public static String tr(String source){return effective.equals("zh_cn")?zh(source):source;}
     /** Search uses this independently of the selected interface language. */
@@ -47,10 +48,15 @@ public final class UiText {
         String cached=DYNAMIC.get(source);if(cached!=null)return cached;
         String result=source;
         int http=source.indexOf(" (HTTP ");if(http>0){String reason=CHINESE.get(source.substring(0,http));if(reason!=null)return reason+source.substring(http);}
-        if(source.startsWith("✓ "))result="✓ "+zh(source.substring(2));
+        if(source.endsWith("  ▾"))result=zh(source.substring(0,source.length()-3))+"  ▾";
+        else if(source.startsWith("✓ "))result="✓ "+zh(source.substring(2));
         else for(var prefix:PREFIXES)if(source.startsWith(prefix.getKey())){
             String value=source.substring(prefix.getKey().length());
             result=prefix.getValue()+(ENUM_PREFIXES.contains(prefix.getKey())?CHINESE.getOrDefault(value,value):value);break;
+        }
+        if(result.equals(source)&&Character.isDigit(source.charAt(0))){
+            int digits=1;while(digits<source.length()&&Character.isDigit(source.charAt(digits)))digits++;
+            String suffix=CHINESE.get(source.substring(digits));if(suffix!=null)result=source.substring(0,digits)+suffix;
         }
         if(result.equals(source)){
             int dot=source.indexOf(" · ");if(dot>0){String left=CHINESE.get(source.substring(0,dot)),right=CHINESE.get(source.substring(dot+3));if(left!=null&&right!=null)result=left+" · "+right;}

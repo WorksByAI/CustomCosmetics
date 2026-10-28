@@ -27,7 +27,7 @@ public final class AccessoryAdjustmentScreen extends ThemedScreen {
     }
     private void update(UnaryOperator<AccessoryOffset> change){var part=ConfigManager.accessories.part(slot);ConfigManager.accessories=ConfigManager.accessories.with(slot,part.offset(change.apply(part.offset())));ConfigManager.requestSave();CosmeticsScreen.childInteraction();}
     @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float dt){
-        outline(g,x,y,w,h,10,BORDER,PANEL);text(g,font,AccessoryCatalog.slot(slot).label()+" · Position",x+12,y+14,PINK,w-24);
+        outline(g,x,y,w,h,10,BORDER,PANEL);text(g,font,UiText.slotLabel(slot,AccessoryCatalog.slot(slot).label())+" · "+UiText.tr("Position"),x+12,y+14,PINK,w-24);
         int half=(w-24)/2;CapePreview.drawAccessories(g,x+12,y+37,half,preview,true,WardrobeCamera.DEFAULT);CapePreview.drawAccessories(g,x+12+half,y+37,half,preview,false,WardrobeCamera.DEFAULT);
         uiText(g,font,"16 pixels = 1 block · Shared with your outfit.",x+12,y+h-48,MUTED,w-24);super.extractRenderState(g,mx,my,dt);
     }

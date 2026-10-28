@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.0.0-dev.5
+
+- Restore the original pink default accent and simplify interface copy.
+- Remove the nickname settings thank-you footer and equipment beta label.
+
+- Translate rank colors and built-in equipment choices into Simplified Chinese.
+- Use installed Microsoft YaHei for Chinese UI text, with Minecraft Unifont fallback.
+
 ## 2.0.0-dev.4
 
 - Add Simplified Chinese and per-mod language selection with bilingual settings search.

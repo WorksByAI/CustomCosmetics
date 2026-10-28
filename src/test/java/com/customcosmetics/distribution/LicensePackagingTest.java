@@ -94,6 +94,14 @@ class LicensePackagingTest {
             assertEquals("tory@toryhi.com",metadata.getAsJsonObject("contact").get("email").getAsString());
         }
     }
+    @Test void chineseUiUsesNativeFallbackWithoutBundlingSystemFonts()throws Exception{
+        try(var zip=new ZipFile(System.getProperty("customcosmetics.binaryJar"))){
+            assertTrue(zip.stream().noneMatch(e->e.getName().matches("(?i).*\\.(ttf|ttc|otf)$")));
+            var entry=zip.getEntry("assets/customcosmetics/font/gui_chinese.json");assertNotNull(entry);
+            String definition=new String(zip.getInputStream(entry).readAllBytes(),StandardCharsets.UTF_8);
+            assertTrue(definition.contains("minecraft:uniform"));assertTrue(definition.contains("system/yahei.ttc"));
+        }
+    }
     private static final Path ROOT = Path.of(System.getProperty("customcosmetics.projectDir"));
     private static final String SPDX = "AGPL-3.0-or-later";
 

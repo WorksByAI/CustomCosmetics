@@ -153,7 +153,7 @@ final class WaypointEditScreen extends ThemedScreen {
     @Override public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
         outline(g, x, y, w, h, 10, BORDER, PANEL);
         boolean headerMessage = compact() && original != null && original.ordered() && !groupMode && !message.isEmpty();
-        text(g, font, headerMessage ? message : (existing ? "Edit " : "New ") + getTitle().getString(), x + 12, y + 13, PINK,
+        text(g, font, headerMessage ? message : UiText.tr(existing ? "Edit " : "New ") + getTitle().getString(), x + 12, y + 13, PINK,
                 existing ? w - 140 : w - 24);
         uiText(g, font, "Name", x + 12, y + (compact() ? 27 : 32), MUTED, w - 24);
         if (groupMode) {
@@ -170,7 +170,7 @@ final class WaypointEditScreen extends ThemedScreen {
             uiText(g, font, "Y", x + 18 + third, y + (compact() ? 64 : 78), MUTED, third);
             uiText(g, font, "Z", x + 24 + third * 2, y + (compact() ? 64 : 78), MUTED, third);
             uiText(g, font, "Color · AARRGGBB (or RRGGBB)", x + 12, y + (compact() ? 100 : 125), MUTED, w - 24);
-            if (!compact()) text(g, font, original.ordered() ? "Route position: " + (orderIndex + 1) : "Group: " + original.name(),
+            if (!compact()) uiText(g, font, original.ordered() ? "Route position: " + (orderIndex + 1) : "Group: " + original.name(),
                     x + 12, y + 236, MUTED, w - 24);
         }
         if (!(compact() && original != null && original.ordered() && !groupMode))

@@ -146,7 +146,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             case MODULES -> modules();
             case SEARCH -> searchResults();
         }
-        if (page == Page.NICK || page == Page.COLOR || page == Page.CHROMA || page == Page.RANK || page == Page.PRESETS || page == Page.DAMAGE) credit();
+        if (page == Page.DAMAGE) credit();
         contentBottom = rowY + 5;
         scroll = Math.clamp(scroll, 0, maxScroll());
         positionControls();
@@ -163,7 +163,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             case ITEMS -> "Item Customization";
             case MAP -> "Map Editor";
             case SKINS -> "Skins";
-            case ACCESSORIES, BLOCKED_ACCESSORIES -> "Equipments (Beta)";
+            case ACCESSORIES, BLOCKED_ACCESSORIES -> "Equipments";
             case PARTY, POSITION_RECIPIENTS -> "Sharing";
             case SYNC -> "Settings";
             case MODULES -> "Module Manager";
@@ -197,7 +197,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         navItem("Overview", Page.MAIN);
         navSection("APPEARANCE");
         navItem("NickTweaks", Page.NICK); navItem("Player Size", Page.SIZE);
-        navItem("Skins", Page.SKINS); navItem("Equipments (Beta)", Page.ACCESSORIES);
+        navItem("Skins", Page.SKINS); navItem("Equipments", Page.ACCESSORIES);
         navAction("Cape", () -> ClientUiAccess.setScreen(minecraft, new CapeScreen(this)), () -> page == Page.BLOCKED_CAPES);
         navSection("SKYBLOCK");
         navItem("Animations", Page.ANIMATIONS); navItem("Damage Splash", Page.DAMAGE);
@@ -239,7 +239,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         fullButton("NickTweaks",()->open(Page.NICK),false);
         fullButton("Player Size",()->open(Page.SIZE),false);
         fullButton("Skins",()->open(Page.SKINS),false);
-        fullButton("Equipments (Beta)",()->open(Page.ACCESSORIES),false);
+        fullButton("Equipments",()->open(Page.ACCESSORIES),false);
         fullButton("Cape",()->ClientUiAccess.setScreen(minecraft,new CapeScreen(this)),false);
         section("Preferences", "");
         fullButton("Interface",()->open(Page.THEME),false);
@@ -254,7 +254,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             UiTheme.mode("light".equals(ConfigManager.uiThemeMode)?"dark":"light");rebuildWidgets();
         },false);
         String[] names={"Sage","Ocean","Amber","Rose","Violet","Slate"};
-        int[] colors={0x6DB29A,0x729FD4,0xD4A765,0xCB8F9F,0xAA98D1,0xA6B0BA};
+        int[] colors={0x6DB29A,0x729FD4,0xD4A765,0xFFA8CA,0xAA98D1,0xA6B0BA};
         int columns=contentWidth>=350?3:2,gap=7,w=(contentWidth-(columns-1)*gap)/columns;
         for(int i=0;i<names.length;i++){
             int rgb=colors[i];int x=contentX+i%columns*(w+gap);
@@ -275,7 +275,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         section("Motion & background", "");
         toggleRow("Interface Animations","Short transitions; no background animation tasks.",()->ConfigManager.uiAnimationsEnabled,v->ConfigManager.uiAnimationsEnabled=v);
         toggleRow("Background Blur","Optional GPU blur while a menu is open.",()->ConfigManager.uiBackgroundBlur,v->ConfigManager.uiBackgroundBlur=v);
-        fullButton("Reset Theme",()->{ConfigManager.uiAnimationsEnabled=true;ConfigManager.uiBackgroundBlur=false;UiTheme.mode("dark");UiTheme.accent(0x6DB29A);rebuildWidgets();},false);
+        fullButton("Reset Theme",()->{ConfigManager.uiAnimationsEnabled=true;ConfigManager.uiBackgroundBlur=false;UiTheme.mode("dark");UiTheme.accent(0xFFA8CA);rebuildWidgets();},false);
     }
 
     private void section(String title, String description) {
@@ -555,8 +555,6 @@ public final class CosmeticsScreen extends ThemedScreen {
     private void accessoryControls(){
         fullButton("Blocked Equipments",()->open(Page.BLOCKED_ACCESSORIES),false);
         fullButton("Open Wardrobe",()->com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,new WardrobeScreen(this)),false);
-        label("Choose styles for each part, then adjust colors and size.",contentX,rowY,MUTED,contentWidth);rowY+=16;
-        label("Online outfits follow your normal sync interval.",contentX,rowY,MUTED,contentWidth);rowY+=16;
         fullButton("Clear Outfit",()->{ConfigManager.accessories=com.customcosmetics.features.accessories.AccessoriesSettings.NONE;changed();rebuildWidgets();},false);
     }
 
@@ -577,8 +575,6 @@ public final class CosmeticsScreen extends ThemedScreen {
             value -> com.customcosmetics.features.items.ItemCosmetics.store().enabled(value));
         fullButton("Customize Items", () -> com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,
             new ItemAppearanceScreen(this)), false);
-        label("Select a specific SkyBlock item from your inventory.", contentX, rowY, MUTED, contentWidth);rowY += 16;
-        label("Models include vanilla and your enabled resource packs.", contentX, rowY, MUTED, contentWidth);rowY += 16;
     }
 
     private void animations() {
@@ -662,8 +658,6 @@ public final class CosmeticsScreen extends ThemedScreen {
         rowY+=((colors.length+columns-1)/columns)*29+8;
         var prefix=new com.customcosmetics.features.nickname.RankSettings(true,ConfigManager.nickTweaksRankPlusColor,ConfigManager.nickTweaksRankType,ConfigManager.nickTweaksRankTagColor).prefix();
         label(prefix+" "+(minecraft.player==null?"Player":minecraft.getUser().getName()),contentX,rowY+5,TEXT,contentWidth);rowY+=28;
-        label("Both + signs use the selected color in [MVP++].",contentX,rowY+4,MUTED,contentWidth);rowY+=22;
-        label("Visible to mod users. Admin rank overrides take priority.",contentX,rowY+4,MUTED,contentWidth);rowY+=25;
     }
 
     private void nickname() {
@@ -864,7 +858,6 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
 
     private void modules(){
-        paragraph("Disabled modules skip their main work. Detailed preferences are kept for the next time you enable them.", MUTED);
         fullButton("Enable All Modules",()->{int before=ConfigManager.disabledModules;com.customcosmetics.config.FeatureModules.all(true);moduleChanged(before);},false);
         fullButton("Disable All Modules",()->{int before=ConfigManager.disabledModules;com.customcosmetics.config.FeatureModules.all(false);moduleChanged(before);},false);
         for(var feature:com.customcosmetics.config.FeatureModules.Feature.values())
@@ -944,7 +937,7 @@ public final class CosmeticsScreen extends ThemedScreen {
 
     private PinkUi.Action fullButton(String title,Runnable action){return fullButton(title,action,false);}
     private void skins(){
-        fullButton("Import Local Skin",()->com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,new SkinImportScreen(this)));
+        fullButton("Import Local Skin",()->com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,new SkinImportScreen(this)),false,"PNG up to 10 MiB. Upload limit: 8 Mbps.");
         if(minecraft.player!=null&&com.customcosmetics.features.skins.LocalSkins.hasLocal()){int height=panelHeight<300?76:142;int y=card(height),half=contentWidth/2;art.add(g->{CapePreview.drawAccessories(g,contentX,y+4,half,height-8,true,WardrobeCamera.DEFAULT);CapePreview.drawAccessories(g,contentX+half,y+4,half,height-8,false,WardrobeCamera.DEFAULT);});}
         toggleRow("Show My Local Skin","Your local import works without a server connection.",()->ConfigManager.localSkinEnabled,v->ConfigManager.localSkinEnabled=v);
         fullButton("Remove Local Skin",()->{try{com.customcosmetics.features.skins.LocalSkins.clear();}catch(java.io.IOException error){com.customcosmetics.features.cape.CapeCosmetics.notice(error.getMessage());}});
@@ -952,7 +945,6 @@ public final class CosmeticsScreen extends ThemedScreen {
         toggleRow("Share Skin via P2P","Only established Sharing direct connections. No relay or server upload.",()->ConfigManager.skinP2pSharing,v->ConfigManager.skinP2pSharing=v);
         toggleRow("Receive P2P Skins","Restore the original skin when the direct connection ends.",()->ConfigManager.skinP2pReceiving,v->ConfigManager.skinP2pReceiving=v);
         label("Established P2P peers: "+com.customcosmetics.features.skins.LocalSkins.directCount(),contentX,rowY+5,MUTED,contentWidth);rowY+=24;
-        for(var line:font.split(UiText.component("PNG up to 10 MiB. Model pixels are preserved. Skin transfers share an 8 Mbps upload limit, with missing-chunk retries."),contentWidth-16)){int y=rowY;art.add(g->g.text(font,line,contentX+8,y,MUTED,false));rowY+=12;}
     }
     private void mapEditor(){
         toggleRow("Freecam","WASD / Jump / Sneak: fly. Sprint: faster. Bind a key in Controls.",com.customcosmetics.features.map.Freecam::active,v->com.customcosmetics.features.map.MapCommands.run(()->com.customcosmetics.features.map.Freecam.setEnabled(v)));

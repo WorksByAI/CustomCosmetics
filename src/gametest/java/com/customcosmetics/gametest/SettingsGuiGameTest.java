@@ -64,13 +64,13 @@ final class SettingsGuiGameTest {
                 throw new AssertionError("Nickname input is not capped at 40 raw characters including format codes");
         });
         System.out.println("NICKNAME_GUI_FORTY_RAW_CHARACTERS_OK");
-        bottom(context); context.takeScreenshot("nick-credit-capitalized");
+        bottom(context); context.takeScreenshot("nick-options-capitalized");
         click(context,"Chroma",PinkUi.Action.class);
         context.runOnClient(client -> {
             for (var child : ClientUiAccess.screen(client).children()) if (child instanceof PinkUi.Slider slider)
                 if (!Character.isUpperCase(slider.getMessage().getString().charAt(0))) throw new AssertionError("Lowercase NickTweaks option");
         });
-        bottom(context); context.takeScreenshot("chroma-credit-capitalized");
+        bottom(context); context.takeScreenshot("chroma-options-capitalized");
         click(context,"Animations",PinkUi.Action.class);
         context.runOnClient(client -> ConfigManager.swordBlockingListsApplyToOthers = false);
         click(context,"Apply Lists to Other Players",PinkUi.Toggle.class);
@@ -169,6 +169,24 @@ final class SettingsGuiGameTest {
         context.runOnClient(client->{ConfigManager.nickTweaksNickChanger="Settings";ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.NICK));});context.waitTicks(3);
         context.runOnClient(client->{if(!((PinkUi.Field)widget(client,"Nick Changer",PinkUi.Field.class)).getValue().equals("Settings"))throw new AssertionError("Localization changed user text");});
         context.takeScreenshot("interface-chinese-nickname");
+        click(context,"Rank",PinkUi.Action.class);context.waitTicks(4);
+        context.runOnClient(client->{
+            for(var color:com.customcosmetics.features.nickname.RankSettings.PlusColor.values()){
+                var button=widget(client,color.label,PinkUi.Action.class);
+                if(!UiText.tr(color.label).equals(read(button,"cachedLabel")))throw new AssertionError("Rank color still English: "+color.label);
+            }
+            if(SystemUiFont.loaded()!=SystemUiFont.source().isPresent())throw new AssertionError("System font load state does not match availability");
+            var own=UiFonts.get(client.font);
+            String sample="微软雅黑中文护符设置";
+            int actual=own.width(sample);
+            var styled=net.minecraft.network.chat.Component.literal(sample).withStyle(style->style.withFont(UiFonts.CHINESE));
+            if(actual<=0||actual!=client.font.width(styled))throw new AssertionError("GUI font provider differs from mod-owned styled text");
+            System.out.println("CHINESE_FONT_NATIVE_OK systemYaHei="+SystemUiFont.loaded()+" width="+actual);
+        });context.takeScreenshot("interface-chinese-rank-font");
+        context.runOnClient(client->ClientUiAccess.setScreen(client,new WardrobeScreen(null,"back")));context.waitTicks(4);
+        context.runOnClient(client->{if(ClientUiAccess.screen(client).children().stream().filter(PinkUi.Action.class::isInstance).map(PinkUi.Action.class::cast).noneMatch(w->w.getMessage().getString().equals("背部")))throw new AssertionError("Body slot was translated as navigation Back");});
+        context.takeScreenshot("interface-chinese-wardrobe");
+        context.runOnClient(client->ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.RANK)));context.waitTicks(4);
         click(context,"Settings",PinkUi.Action.class);click(context,"Language:",PinkUi.Action.class);context.waitTicks(4);
         context.runOnClient(client->{if(!ConfigManager.uiLanguage.equals("en_us")||!UiText.tr("Settings").equals("Settings"))throw new AssertionError("Explicit English selection failed");ConfigManager.nickTweaksNickChanger="";ClientUiAccess.setScreen(client,null);});
         ConfigManager.awaitPendingSaves();var settings=JsonParser.parseString(Files.readString(CosmeticsConfigDir.getCosmeticsConfigDir().resolve("config.json"))).getAsJsonObject().getAsJsonObject("settings");
@@ -261,7 +279,7 @@ final class SettingsGuiGameTest {
             throw new AssertionError("Closing the theme menu failed to persist preferences");
         context.runOnClient(client->ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.THEME)));
         click(context,"Reset Theme",PinkUi.Action.class);
-        context.runOnClient(client->{if(!ConfigManager.uiAnimationsEnabled||ConfigManager.uiBackgroundBlur||!ConfigManager.uiThemeMode.equals("dark")||ConfigManager.uiAccentColor!=0x6DB29A)throw new AssertionError("Theme reset failed");});
+        context.runOnClient(client->{if(!ConfigManager.uiAnimationsEnabled||ConfigManager.uiBackgroundBlur||!ConfigManager.uiThemeMode.equals("dark")||ConfigManager.uiAccentColor!=0xFFA8CA)throw new AssertionError("Theme reset failed");});
         click(context,"Overview",PinkUi.Action.class);context.getInput().setCursorPos(1595,995);context.waitTicks(5);context.takeScreenshot("interface-home");
         click(context,"Animations",PinkUi.Action.class);context.getInput().setCursorPos(1595,995);context.waitTicks(5);context.takeScreenshot("interface-settings");
         context.runOnClient(client->ClientUiAccess.setScreen(client,null));context.waitTicks(5);

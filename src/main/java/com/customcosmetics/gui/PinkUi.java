@@ -22,7 +22,7 @@ import java.util.function.IntConsumer;
 public final class PinkUi {
     // Legacy public names retained for every existing dialog; palette changes update all of them.
     public static int PANEL=0xFF1A1E23,SIDEBAR=0xFF14181C,CARD=0xFF22272D,BORDER=0xFF333A42;
-    public static int PINK=0xFF6DB29A,PINK_DARK=0x246DB29A,TEXT=0xFFE8ECF0,MUTED=0xFFA2ACB6,DIM=0xFF798592,INK=0xFF101619,HOVER=0xFF303840;
+    public static int PINK=0xFFFFA8CA,PINK_DARK=0x24FFA8CA,TEXT=0xFFE8ECF0,MUTED=0xFFA2ACB6,DIM=0xFF798592,INK=0xFF101619,HOVER=0xFF303840;
     private static final int[][] CORNERS=corners();
     private static int[][] corners(){var result=new int[17][];for(int r=0;r<result.length;r++){result[r]=new int[r];for(int row=0;row<r;row++){double dy=r-row-.5;result[r][row]=(int)Math.ceil(r-Math.sqrt(r*r-dy*dy));}}return result;}
 
@@ -161,7 +161,7 @@ public final class PinkUi {
                     int center=Math.clamp(mx,bx+5+highlight/2,bx+bw-5-highlight/2);
                     g.fill(center-highlight/2,by,center+(highlight+1)/2,by+1,alpha(PINK,Math.round(150*Math.clamp(visual,0,1))));
                 }
-                Font font = Minecraft.getInstance().font;
+                Font font = UiFonts.get(Minecraft.getInstance().font);
                 if (cachedMessage != getMessage() || cachedWidth != width || cachedLanguage!=UiText.revision()) {
                     cachedMessage = getMessage(); cachedWidth = width;cachedLanguage=UiText.revision();
                     String original = UiText.display(getMessage().getString(),rawLabel);
@@ -260,7 +260,7 @@ public final class PinkUi {
         }
         @Override protected void applyValue() { setter.accept(actual()); }
         @Override public void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
-            Font font = Minecraft.getInstance().font;
+            Font font = UiFonts.get(Minecraft.getInstance().font);
             text(g, font, displayLabel, getX(), getY(), TEXT, width - labelSpace);
             int trackY = getY() + 21;
             rounded(g, getX(), trackY, width, 3, 1, BORDER);
@@ -308,7 +308,7 @@ public final class PinkUi {
             }
             if (!secret) super.extractWidgetRenderState(g, mx, my, dt);
             else {
-                Font font = Minecraft.getInstance().font;
+                Font font = UiFonts.get(Minecraft.getInstance().font);
                 int visible = Math.max(1,width / Math.max(1,font.width("*"))), cursor = getCursorPosition();
                 int start = Math.max(0,cursor - visible + 1);
                 String masked = "*".repeat(Math.min(visible,Math.max(0,getValue().length() - start)));
