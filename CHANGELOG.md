@@ -2,7 +2,7 @@
 
 ## 2.0.0
 
-- Redesign settings with themes, animations, search, Chinese and font options.
+- Redesign settings with themes, animations, search, Chinese and fonts; move Clear Results to the header.
 - Add startup updates, skin overrides and missing-accessory lists.
 - Separate party/location settings and prefer P2P appearance sync with relay fallback.
 - Improve previews, stability and UI/map performance; substantial gains are not guaranteed.

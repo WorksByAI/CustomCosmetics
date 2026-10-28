@@ -55,16 +55,14 @@ public final class BlockingItemsScreen extends ThemedScreen {
         button(x + 16 + 3 * (part + 6), y + 114, part, "Selected", () -> {
             selectedOnly = !selectedOnly; offset = 0; refreshRows();
         }).selected(() -> selectedOnly);
-        boolean compact = h < 280;
-        listTop = y + 145; listBottom = y + h - (compact ? 40 : 80);
+        listTop = y + 145; listBottom = y + h - 40;
         int count = Math.max(1, (listBottom - listTop) / 36);
         for (int i = 0; i < count; i++) rows.add(addWidget(new WeaponChoice(x + 16, listTop + i * 36, w - 42)));
-        if (!compact) {
-            button(x + 24 + half, y + h - 69, half, "Clear Results", () -> {
-                for (Entry entry : filtered) selected().remove(entry.id());
-                saveSelections(); refreshRows();
-            });
-        }
+        var clear = addWidget(new PinkUi.Action(x + w - 116, y + 12, 100, 20, "Clear Results", false, () -> {
+            for (Entry entry : filtered) selected().remove(entry.id());
+            saveSelections(); refreshRows();
+        }));
+        fixed.add(clear);
         button(x + 16, y + h - 35, half, "Add Held Item", this::addHeldItem).active = minecraft.player != null;
         button(x + 24 + half, y + h - 35, half, "Done", this::onClose);
         refreshRows();
@@ -123,7 +121,7 @@ public final class BlockingItemsScreen extends ThemedScreen {
     }
     @Override public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
         outline(g, x, y, w, h, 11, BORDER, PANEL);
-        uiText(g, font, "Blocking Lists · " + selected().size() + " selected", x + 16, y + 17, PINK, w - 32);
+        uiText(g, font, "Blocking Lists · " + selected().size() + " selected", x + 16, y + 17, PINK, w - 148);
         for (AbstractWidget widget : fixed) widget.extractRenderState(g, mx, my, dt);
         g.enableScissor(x + 15, listTop, x + w - 15, listBottom);
         for (WeaponChoice row : rows) if (row.visible) row.extractRenderState(g, mx, my, dt);
