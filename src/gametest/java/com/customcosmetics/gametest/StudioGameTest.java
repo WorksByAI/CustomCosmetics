@@ -17,6 +17,7 @@ import java.nio.file.*;
 
 public final class StudioGameTest implements FabricClientGameTest {
     @Override public void runTest(ClientGameTestContext context) {
+        if(Boolean.getBoolean("customcosmetics.fontPreviewOnly")){fontPreview(context);return;}
         if(Boolean.getBoolean("customcosmetics.updateRestartProbe")){try{UpdateRestartGameTest.run(context);}catch(Exception error){throw new AssertionError(error);}return;}
         try{SettingsGuiGameTest.checkUpdateOffer(context);}catch(Exception error){throw new AssertionError(error);}
         context.runOnClient(client->{ConfigManager.syncEnabled=false;ConfigManager.swordBlockingSyncEnabled=false;ConfigManager.offlineMode=false;FeatureModules.all(true);});
@@ -27,6 +28,7 @@ public final class StudioGameTest implements FabricClientGameTest {
             SettingsGuiGameTest.checkPreviewGameFont(context);
             SettingsGuiGameTest.checkAccessoryEquipment(context);
             SettingsGuiGameTest.checkFontChoiceAndTooltip(context);
+            checkShortChineseTooltip(context);
             checkBlurAtZeroVanillaStrength(context,world);
             context.getInput().resizeWindow(1600,1000);
             context.runOnClient(client->{
@@ -56,6 +58,32 @@ public final class StudioGameTest implements FabricClientGameTest {
             SettingsGuiGameTest.check(context);
             System.out.println("BLOCKING_ADJUSTMENT_NATIVE_PREVIEW_AND_OFFLINE_BUTTON_OK");
         }catch(Exception error){throw new AssertionError(error);}
+    }
+    private static void checkShortChineseTooltip(ClientGameTestContext context){
+        context.runOnClient(client->{ConfigManager.uiLanguage="zh_cn";ConfigManager.uiFont="modern";ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SKINS));});context.waitTicks(4);
+        var pointer=context.computeOnClient(client->{
+            var widget=ClientUiAccess.screen(client).children().stream().filter(child->child instanceof PinkUi.Toggle toggle&&toggle.getMessage().getString().startsWith("Share Skin via P2P")).map(child->(AbstractWidget)child).findFirst().orElseThrow();
+            var lines=net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent("Skin sharing only supports P2P. Turning this option off stops sharing.")).toCharSequence(client);if(lines.size()!=1)throw new AssertionError("Short Chinese P2P tooltip still splits into "+lines.size()+" lines");
+            double scale=client.getWindow().getGuiScale();return new double[]{(widget.getX()+widget.getWidth()/2d)*scale,(widget.getY()+widget.getHeight()/2d)*scale};
+        });context.getInput().setCursorPos(pointer[0],pointer[1]);context.waitTicks(8);context.takeScreenshot("chinese-p2p-tooltip-one-line");
+        context.runOnClient(client->{ConfigManager.uiLanguage="en_us";ClientUiAccess.setScreen(client,null);});
+        System.out.println("SHORT_CHINESE_TOOLTIP_NATIVE_ONE_LINE_OK");
+    }
+    private static void fontPreview(ClientGameTestContext context){
+        context.runOnClient(client->{ConfigManager.offlineMode=true;ConfigManager.syncEnabled=false;ConfigManager.uiLanguage="zh_cn";ConfigManager.uiFont="modern";ConfigManager.uiThemeMode="dark";ConfigManager.uiBackgroundBlur=false;ConfigManager.uiAnimationsEnabled=false;});
+        try(var world=context.worldBuilder().create()){
+            context.getInput().resizeWindow(1600,1000);context.waitTicks(5);
+            context.runOnClient(client->{client.options.guiScale().set(2);ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SKINS));});context.getInput().setCursorPos(1595,995);context.waitTicks(5);context.takeScreenshot("font-standard-9-skins");
+            context.runOnClient(client->ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.RANK)));context.waitTicks(5);context.takeScreenshot("font-standard-9-rank");
+            world.getServer().runCommand("item replace entity @a armor.chest with minecraft:diamond_chestplate");
+            world.getServer().runCommand("item replace entity @a armor.legs with minecraft:diamond_leggings");
+            world.getServer().runCommand("item replace entity @a armor.feet with minecraft:diamond_boots");context.waitTicks(5);
+            context.runOnClient(client->{ConfigManager.smolpeopleMode=false;ConfigManager.playerSizeEnabled=true;ConfigManager.playerSizeX=ConfigManager.playerSizeY=ConfigManager.playerSizeZ=1;ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SIZE));});context.waitTicks(5);context.takeScreenshot("portrait-player-size-normal");
+            context.runOnClient(client->{ConfigManager.smolpeopleMode=true;ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SIZE));});context.waitTicks(5);context.takeScreenshot("portrait-player-size-smol");
+            checkShortChineseTooltip(context);
+            context.runOnClient(client->ClientUiAccess.setScreen(client,null));
+        }
+        System.out.println("STANDARD_FONT_NINE_POINT_NATIVE_PREVIEW_OK");
     }
     private static final class BlurProbe extends ThemedScreen {
         BlurProbe(){super(net.minecraft.network.chat.Component.literal("Blur test"));}

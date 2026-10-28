@@ -82,7 +82,7 @@ class CosmeticsScreenTest {
     }
     @Test void playerSizeEditsStayLocalAndNeverChangeGameplayDimensions() throws Exception {
         var screen=read(SCREEN);
-        assertTrue(pageReferences(code(screen,"init")).contains("SIZE"));
+        assertTrue(pageReferences(code(screen,"buildNavigation")).contains("SIZE"));
         for(var method:screen.methods()) {
             if(!method.methodName().stringValue().contains("playerSize"))continue;
             assertTrue(instructions(method).stream().filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast)
@@ -150,7 +150,7 @@ class CosmeticsScreenTest {
     void friendsHasNoPageControlConfigurationOrDistributedClasses() throws Exception {
         var screen = read(SCREEN);
         assertFalse(pageReferences(code(screen, "init")).contains("FRIENDS"));
-        assertTrue(pageReferences(code(screen, "init")).containsAll(Set.of("SIZE", "NICK")));
+        assertTrue(pageReferences(code(screen, "buildNavigation")).containsAll(Set.of("SIZE", "NICK")));
         assertTrue(screen.methods().stream().anyMatch(method->pageReferences(instructions(method)).contains("SYNC")));
         assertFalse(pageReferences(code(screen,"init")).contains("SMOL"));
         assertTrue(code(screen, "smol").stream().filter(ConstantInstruction.class::isInstance)

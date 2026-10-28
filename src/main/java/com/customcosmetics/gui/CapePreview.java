@@ -51,17 +51,40 @@ public final class CapePreview {
             if(entity==null)entity=java.util.Arrays.stream(graphics.getClass().getMethods()).filter(m->m.getName().equals("entity")&&m.getParameterCount()==9).findFirst().orElseThrow();
             double framing=3.1;
             if(style==PreviewStyle.EQUIPMENT){var settings=((com.customcosmetics.features.accessories.AccessoryRenderState)state).customcosmetics$accessories();double size=1;for(var slot:com.customcosmetics.features.accessories.AccessoryCatalog.slots()){var part=settings.part(slot.id());if(part.enabled())size=Math.max(size,part.scale());}var proportions=com.customcosmetics.features.playersize.PlayerSize.settings(((AvatarRenderState)state).id);framing=3.8*size*Math.max(1,Math.max(proportions.x(),Math.max(proportions.y(),proportions.z())));}
-            if(style==PreviewStyle.MODEL){var model=com.customcosmetics.features.creature.CreatureModels.previewEntity(client.player);framing=Math.max(3.8,model.getBbHeight()*1.6);}
-            var rotation=new Quaternionf().rotationZ((float)Math.PI).rotateY((front?(float)Math.PI:0)+(capeOnly?0:(float)Math.toRadians(camera.yaw())));
-            if(!capeOnly)rotation.rotateX((float)Math.toRadians(camera.pitch()));
+            var rotation=new Quaternionf().rotationZ((float)Math.PI).rotateY((front?(float)Math.PI:0)+(capeOnly||style==PreviewStyle.MODEL?0:(float)Math.toRadians(camera.yaw())));
+            if(!capeOnly&&style!=PreviewStyle.MODEL)rotation.rotateX((float)Math.toRadians(camera.pitch()));
             double scale=Math.max(style==PreviewStyle.MODEL?1:capeOnly?12:6,height/framing);
-            if(style==PreviewStyle.MODEL){var model=com.customcosmetics.features.creature.CreatureModels.previewEntity(client.player);scale=Math.min(scale,width/Math.max(1,model.getBbWidth()*1.4));}
-            entity.invoke(graphics,state,(float)scale*(capeOnly?1:camera.zoom()),new Vector3f(0,capeOnly?1:1.15f,0),rotation,null,x,y,x+width,y+height);
+            if(style==PreviewStyle.MODEL){
+                var model=com.customcosmetics.features.creature.CreatureModels.previewEntity(client.player);
+                double visualWidth=model.getBbWidth(),visualHeight=model.getBbHeight();
+                if(state instanceof AvatarRenderState avatar){
+                    var proportions=com.customcosmetics.features.playersize.PlayerSize.settings(avatar.id);
+                    boolean smol=com.customcosmetics.features.smolpeople.SmolPlayers.shouldApplySmolTo(avatar.id);
+                    visualWidth=(smol?.6:1.05)*proportions.x();
+                    visualHeight=(smol?1.15:model.getBbHeight())*proportions.y();
+                }
+                // Native name components use the active game font at a readable screen size.
+                // They must not force the body to shrink, or render a duplicate 3-D nametag.
+                var name=state.nameTag;var score=state.scoreText;state.nameTag=null;state.scoreText=null;state.nameTagAttachment=null;
+                boolean hasScore=score!=null&&!score.getString().isEmpty();
+                int nameRows=(name==null?0:1)+(hasScore?1:0),nameHeight=nameRows*12+6;
+                if(name!=null)modelName(graphics,client.font,name,x,y+3,width);
+                if(hasScore)modelName(graphics,client.font,score,x,y+3+(name==null?0:12),width);
+                int bodyY=y+nameHeight,bodyHeight=Math.max(1,height-nameHeight);
+                scale=PreviewModelFit.scale(width,bodyHeight,visualWidth,visualHeight);
+                entity.invoke(graphics,state,(float)scale,new Vector3f(0,(float)(visualHeight/2),0),rotation,null,x,bodyY,x+width,bodyY+bodyHeight);
+            }else entity.invoke(graphics,state,(float)scale*(capeOnly?1:camera.zoom()),new Vector3f(0,capeOnly?1:1.15f,0),rotation,null,x,y,x+width,y+height);
         }catch(ReflectiveOperationException|RuntimeException|LinkageError|AssertionError error){
             Throwable cause=error instanceof java.lang.reflect.InvocationTargetException wrapped&&wrapped.getCause()!=null?wrapped.getCause():error;
             com.customcosmetics.client.ModErrors.report(com.customcosmetics.client.ModErrors.Key.PREVIEW,cause);unavailable(graphics,x,y,width);
         }
         finally{CapeCosmetics.endPreview();}
+    }
+    private static void modelName(GuiGraphicsExtractor g,net.minecraft.client.gui.Font font,net.minecraft.network.chat.Component name,int x,int y,int width){
+        int textWidth=font.width(name);float scale=Math.min(1,Math.max(1,width-8)/(float)Math.max(1,textWidth));
+        g.pose().pushMatrix();
+        try{g.pose().translate(x+width/2f,y);g.pose().scale(scale,scale);g.fill(-textWidth/2-2,-1,(textWidth+1)/2+2,10,0x50000000);g.text(font,name,-textWidth/2,0,0xFFFFFFFF,false);}
+        finally{g.pose().popMatrix();}
     }
     private static void unavailable(GuiGraphicsExtractor g,int x,int y,int width){PinkUi.uiText(g,UiFonts.get(Minecraft.getInstance().font),"Player preview unavailable",x+6,y+12,PinkUi.MUTED,Math.max(1,width-12));}
     /** Neutral preview only; never clear equipment on the actual player. */

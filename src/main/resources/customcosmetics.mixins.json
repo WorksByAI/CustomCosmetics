@@ -6,9 +6,7 @@
   "client": [
     "AccessoryBagScreenMixin",
     "UiBlurMixin",
-    "UiFontWeightMixin$Definition",
-    "UiFontWeightMixin$Provider",
-    "UiFontWeightMixin$Bitmap",
+    "UiTooltipMixin$Wrap",
     "UiTooltipMixin$Legacy",
     "UiTooltipMixin$Modern",
     "UiFontAccessor",

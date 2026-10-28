@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.0-dev.10
+
+- Use smaller regular Modern text and improve tooltip wrapping.
+- Enlarge the player model in a portrait preview beside its controls.
+
 ## 2.0.0-dev.9
 
 - Improve Modern font readability, headings and text wrapping.

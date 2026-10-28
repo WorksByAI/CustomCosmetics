@@ -16,6 +16,14 @@ import java.util.List;
 /** Only mod-owned screens opt in; world, inventory and chat tooltips are unchanged. */
 public final class UiTooltipMixin {
     private UiTooltipMixin(){}
+    @Mixin(net.minecraft.client.gui.components.Tooltip.class)
+    public abstract static class Wrap {
+        @WrapMethod(method="splitTooltip")
+        private static List<net.minecraft.util.FormattedCharSequence> customcosmetics$wrap(Minecraft client,net.minecraft.network.chat.Component message,Operation<List<net.minecraft.util.FormattedCharSequence>> original){
+            if(!(ClientUiAccess.screen(client) instanceof ThemedScreen))return original.call(client,message);
+            return com.customcosmetics.gui.UiTooltips.split(client,message);
+        }
+    }
     @Mixin(GuiGraphicsExtractor.class)
     public abstract static class Legacy {
         @WrapMethod(method="tooltip(Lnet/minecraft/client/gui/Font;Ljava/util/List;IILnet/minecraft/client/gui/screens/inventory/tooltip/ClientTooltipPositioner;Lnet/minecraft/resources/Identifier;)V")

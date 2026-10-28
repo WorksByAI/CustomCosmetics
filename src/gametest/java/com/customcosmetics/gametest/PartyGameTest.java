@@ -356,15 +356,18 @@ public final class PartyGameTest implements FabricClientGameTest{
                         if(a.getX()<b.getRight()&&a.getRight()>b.getX()&&a.getY()<b.getBottom()&&a.getBottom()>b.getY())throw new AssertionError("Slider controls overlap: "+page+" / "+a.getMessage().getString()+" / "+b.getMessage().getString());
                     }
                     if(page==CosmeticsScreen.Page.SIZE){
-                        int cell=(width-16)/3,axisY=Integer.MIN_VALUE;
+                        var panel=(com.customcosmetics.gui.PreviewLayout.PlayerPanel)uiField(screen,"playerPanel");
+                        int controlsX=panel.controlsX(),controlsWidth=panel.controlsWidth(),cell=(controlsWidth-16)/3,axisY=Integer.MIN_VALUE;
+                        if(panel.previewHeight()<=panel.previewWidth()||panel.previewX()<x||panel.previewX()+panel.previewWidth()>x+width)throw new AssertionError("Player preview lost its portrait bounds");
+                        if(panel.sideBySide()?controlsX<panel.previewX()+panel.previewWidth()+16:panel.controlsY()<panel.previewY()+panel.previewHeight()+14)throw new AssertionError("Portrait and size controls overlap");
                         for(int axis=0;axis<3;axis++){
                             String prefix=List.of("X","Y","Z").get(axis)+": ";
                             var slider=sliders.stream().filter(value->value.getMessage().getString().startsWith(prefix)).findFirst().orElseThrow(()->new AssertionError("Missing player-size axis: "+prefix));
                             if(axis==0)axisY=slider.getY();
-                            if(slider.getWidth()!=cell||slider.getX()!=x+axis*(cell+8)||slider.getY()!=axisY)throw new AssertionError("Player-size axes lost their shared three-column row: "+prefix);
+                            if(slider.getWidth()!=cell||slider.getX()!=controlsX+axis*(cell+8)||slider.getY()!=axisY)throw new AssertionError("Player-size axes lost their shared three-column controls row: "+prefix);
                         }
                         var limb=sliders.stream().filter(value->value.getMessage().getString().startsWith("Limb Swing Speed: ")).findFirst().orElseThrow();
-                        if(limb.getX()!=x||limb.getWidth()!=width-114||limb.getY()<axisY+30)throw new AssertionError("Standalone limb speed lost its reserved reset space or next row");
+                        if(limb.getX()!=controlsX||limb.getWidth()!=controlsWidth-114||limb.getY()<axisY+30)throw new AssertionError("Standalone limb speed lost its reserved reset space or next row");
                         if(screen.children().stream().anyMatch(child->child instanceof com.customcosmetics.gui.PinkUi.Action&&!(child instanceof com.customcosmetics.gui.PinkUi.Toggle)&&((net.minecraft.client.gui.components.AbstractWidget)child).getMessage().getString().equals("SmolPeople")))throw new AssertionError("SmolPeople still has a navigation entry");
                         if(screen.children().stream().noneMatch(child->child instanceof com.customcosmetics.gui.PinkUi.Toggle toggle&&toggle.getMessage().getString().startsWith("SmolPeople")))throw new AssertionError("Combined Player Size page lost the SmolPeople switch");
                     }

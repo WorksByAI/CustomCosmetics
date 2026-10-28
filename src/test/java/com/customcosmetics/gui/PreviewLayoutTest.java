@@ -24,14 +24,21 @@ class PreviewLayoutTest {
         assertEquals(1.35f, PreviewLayout.nameScale(96, 580));
         assertTrue(Float.isFinite(PreviewLayout.nameScale(0, 0)));
     }
-    @Test void compactPreviewFitsItsViewportWhileThePinnedModelKeepsItsScale() {
-        assertEquals(184, PreviewLayout.playerCardHeight(180, true));
-        assertEquals(52, PreviewLayout.playerModelScale(184));
-        for (int viewport : new int[]{120, 150, 184, 200, 400}) {
-            int height = PreviewLayout.playerCardHeight(viewport, false);
-            assertTrue(height + 8 <= viewport);
-            float expected = 52f * (height - 57) / 127;
-            assertEquals(expected, PreviewLayout.playerModelScale(height), .5f);
+    @Test void widePortraitSharesOneViewportWithCompactControls() {
+        for(int width:new int[]{430,520,634})for(int viewport:new int[]{180,300,420}){
+            var panel=PreviewLayout.playerPanel(100,88,width,viewport);
+            assertTrue(panel.sideBySide());assertEquals(100,panel.previewX());assertEquals(88,panel.previewY());
+            assertTrue(panel.previewWidth()>0&&panel.previewWidth()<=190);assertTrue(panel.previewHeight()<=360);assertTrue(panel.previewHeight()+16<=viewport);
+            assertTrue(panel.previewHeight()>panel.previewWidth());assertEquals(panel.previewX()+panel.previewWidth()+16,panel.controlsX());
+            assertEquals(panel.previewY(),panel.controlsY());assertEquals(100+width,panel.controlsX()+panel.controlsWidth());assertTrue(panel.controlsWidth()>=254);
+        }
+    }
+    @Test void narrowPortraitStaysCenteredAndScrollsWithTheControlsBelow() {
+        for(int width:new int[]{180,267,400})for(int viewport:new int[]{116,240,400}){
+            var panel=PreviewLayout.playerPanel(30,88,width,viewport);
+            assertFalse(panel.sideBySide());assertTrue(panel.previewWidth()<=180);assertTrue(panel.previewHeight()>panel.previewWidth());assertTrue(panel.previewHeight()+16<=viewport);
+            assertEquals(30+(width-panel.previewWidth())/2,panel.previewX());assertEquals(30,panel.controlsX());assertEquals(width,panel.controlsWidth());
+            assertEquals(panel.previewY()+panel.previewHeight()+14,panel.controlsY());
         }
     }
 }

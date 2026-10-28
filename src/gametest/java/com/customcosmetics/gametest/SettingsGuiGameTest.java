@@ -118,11 +118,12 @@ final class SettingsGuiGameTest {
         context.runOnClient(client -> {
             var screen = ClientUiAccess.screen(client);
             int previewHeight = (Integer) read(screen, "playerPreviewHeight");
-            int viewportHeight = (Integer) read(screen, "viewBottom") - (Integer) read(screen, "viewTop");
-            if ((Boolean) read(screen, "pinnedSize") || previewHeight > viewportHeight)
-                throw new AssertionError("Compact player preview does not fit its scrolling viewport");
-            if (PreviewLayout.playerModelScale(previewHeight) >= 52)
-                throw new AssertionError("Compact preview did not scale the actual rendered entity");
+            var panel=(PreviewLayout.PlayerPanel)read(screen,"playerPanel");
+            int contentX=(Integer)read(screen,"contentX"),contentWidth=(Integer)read(screen,"contentWidth");
+            if(panel.sideBySide()||previewHeight!=panel.previewHeight()||previewHeight<=panel.previewWidth()||panel.previewWidth()>180)
+                throw new AssertionError("Compact player preview is not a centered portrait");
+            if(panel.previewX()!=contentX+(contentWidth-panel.previewWidth())/2||panel.controlsY()<panel.previewY()+panel.previewHeight()+14)
+                throw new AssertionError("Compact portrait overlaps its controls or is not centered");
         });
         context.takeScreenshot("smol-preview-narrow-full-name");
         context.getInput().resizeWindow(1600,1000); context.waitTicks(3);

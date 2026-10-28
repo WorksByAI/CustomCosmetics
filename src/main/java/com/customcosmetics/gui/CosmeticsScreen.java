@@ -40,6 +40,7 @@ public final class CosmeticsScreen extends ThemedScreen {
     private int panelX, panelY, panelWidth, panelHeight, sideWidth;
     private int contentX, contentWidth, viewTop, viewBottom, rowY, contentBottom;
     private int playerPreviewHeight;
+    private PreviewLayout.PlayerPanel playerPanel;
     private int navTop, navBottom, navContentBottom, navRowY, navScroll, scrollGrabOffset;
     private boolean draggingNavigation;
     private String connectionSummary = "";
@@ -64,7 +65,7 @@ public final class CosmeticsScreen extends ThemedScreen {
     private String blockedPlayerSearch = "";
     private int pendingToggleY=Integer.MIN_VALUE,pendingToggleBottom;
     private boolean pendingToggleRight;
-    private boolean pinnedNickname, pinnedSize, draggingScroll,wardrobeRequested;
+    private boolean pinnedNickname, draggingScroll,wardrobeRequested;
     private final List<SettingsSearch.Entry> searchOptions=new ArrayList<>();
     private String searchQuery="";
     private PinkUi.Field searchField;
@@ -115,13 +116,6 @@ public final class CosmeticsScreen extends ThemedScreen {
         });
         navigation.add(addWidget(searchField));
         pinnedNickname = panelHeight >= 390 && (page == Page.NICK || page == Page.COLOR || page == Page.CHROMA || page == Page.RANK || page == Page.PRESETS);
-        pinnedSize = panelHeight >= 430 && page == Page.SIZE;
-        if (pinnedSize) {
-            playerPreview();
-            pinnedArt.addAll(art);
-            art.clear();
-            viewTop = rowY;
-        }
         if (pinnedNickname) {
             previewCard(); tabs();
             pinnedArt.addAll(art);
@@ -526,19 +520,25 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
 
     private void playerSize(){
-        if(!pinnedSize)playerPreview();
-        int half=(contentWidth-12)/2;
-        compactToggle("Enabled",contentX,rowY,half,()->ConfigManager.playerSizeEnabled,v->ConfigManager.playerSizeEnabled=v);
-        compactToggle("SmolPeople",contentX+half+12,rowY,half,()->ConfigManager.smolpeopleMode,v->ConfigManager.smolpeopleMode=v);rowY+=32;
+        playerPanel=PreviewLayout.playerPanel(contentX,rowY,contentWidth,viewBottom-viewTop);
+        playerPreview(playerPanel);
+        int controlsX=playerPanel.controlsX(),controlsWidth=playerPanel.controlsWidth(),controlsY=playerPanel.controlsY();
+        int half=(controlsWidth-12)/2;
+        compactToggle("Enabled",controlsX,controlsY,half,()->ConfigManager.playerSizeEnabled,v->ConfigManager.playerSizeEnabled=v);
+        compactToggle("SmolPeople",controlsX+half+12,controlsY,half,()->ConfigManager.smolpeopleMode,v->ConfigManager.smolpeopleMode=v);controlsY+=32;
         var axes=List.of(new NumericSetting("X",()->ConfigManager.playerSizeX,.1,3,.05,1,v->ConfigManager.playerSizeX=v),
             new NumericSetting("Y",()->ConfigManager.playerSizeY,.1,3,.05,1,v->ConfigManager.playerSizeY=v),
             new NumericSetting("Z",()->ConfigManager.playerSizeZ,.1,3,.05,1,v->ConfigManager.playerSizeZ=v));
-        int cell=(contentWidth-16)/3;
-        for(int i=0;i<3;i++)compactNumber(axes.get(i),contentX+i*(cell+8),rowY,cell);rowY+=40;
-        compactNumber(new NumericSetting("Limb Swing Speed",()->ConfigManager.smolLimbSwingSpeed,.5,5,.1,2.5,v->ConfigManager.smolLimbSwingSpeed=v),contentX,rowY,contentWidth-114);
-        indexOption("Reset Player Size","",rowY);
-        add(new PinkUi.Action(contentX+contentWidth-106,rowY,106,24,"Reset Player Size",false,()->{ConfigManager.playerSizeX=ConfigManager.playerSizeY=ConfigManager.playerSizeZ=1;changed();rebuildWidgets();}));rowY+=40;
-        fullButton("Creature Model: "+com.customcosmetics.features.creature.CreatureModels.parse(ConfigManager.creatureModel).label,()->ClientUiAccess.setScreen(minecraft,new CreatureModelScreen(this)),false);
+        int cell=(controlsWidth-16)/3;
+        for(int i=0;i<3;i++)compactNumber(axes.get(i),controlsX+i*(cell+8),controlsY,cell);controlsY+=40;
+        compactNumber(new NumericSetting("Limb Swing Speed",()->ConfigManager.smolLimbSwingSpeed,.5,5,.1,2.5,v->ConfigManager.smolLimbSwingSpeed=v),controlsX,controlsY,controlsWidth-114);
+        indexOption("Reset Player Size","",controlsY);
+        add(new PinkUi.Action(controlsX+controlsWidth-106,controlsY,106,24,"Reset Player Size",false,()->{ConfigManager.playerSizeX=ConfigManager.playerSizeY=ConfigManager.playerSizeZ=1;changed();rebuildWidgets();}));controlsY+=40;
+        String title="Creature Model: "+com.customcosmetics.features.creature.CreatureModels.parse(ConfigManager.creatureModel).label;
+        indexOption(title,"",controlsY);
+        var model=add(new PinkUi.Action(controlsX,controlsY,controlsWidth,24,title,false,()->ClientUiAccess.setScreen(minecraft,new CreatureModelScreen(this))).leftAligned());
+        model.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent(title)));
+        rowY=Math.max(playerPanel.previewY()+playerPanel.previewHeight(),controlsY+24)+8;
     }
     private void compactToggle(String title,int x,int y,int width,BooleanSupplier getter,Consumer<Boolean> setter){
         indexOption(title,"",y);label(title,x,y+8,TEXT,width-42);
@@ -551,26 +551,26 @@ public final class CosmeticsScreen extends ThemedScreen {
         number.setResponder(value->{if(!number.isFocused())return;try{double parsed=Double.parseDouble(value);boolean valid=Double.isFinite(parsed)&&parsed>=setting.min()&&parsed<=setting.max();number.invalid(!valid);if(valid)slider.setActual(parsed);}catch(NumberFormatException bad){number.invalid(true);}});
     }
 
-    private void playerPreview() {
-        int height = Math.min(140,PreviewLayout.playerCardHeight(viewBottom - viewTop, pinnedSize));
+    private void playerPreview(PreviewLayout.PlayerPanel panel) {
+        int x=panel.previewX(),y=panel.previewY(),width=panel.previewWidth(),height=panel.previewHeight();
         playerPreviewHeight = height;
-        int y = card(height);
-        label("Preview", contentX + 12, y + 12, PINK, contentWidth - 24);
-        art.add(g -> {
+        art.add(bounded(y,y+height,g->outline(g,x,y,width,height,4,BORDER,CARD)));
+        label("Preview",x+12,y+12,PINK,width-24);
+        art.add(bounded(y,y+height,g -> {
             if (minecraft.player == null) {
-                uiText(g, font, "Player preview unavailable", contentX + 12, y + 59, MUTED, contentWidth - 24);
-                uiText(g, font, "Requires an active world", contentX + 12, y + 77, DIM, contentWidth - 24);
+                uiText(g, font, "Player preview unavailable",x+12,y+59,MUTED,width-24);
+                uiText(g, font, "Requires an active world",x+12,y+77,DIM,width-24);
                 return;
             }
             // The inventory preview uses the same selected creature as world rendering.
             // Entity bounds are screen coordinates; draw outside the scrolling pose.
-            int previewScroll = pinnedSize ? 0 : (int) Math.round(scroll);
+            int previewScroll = (int) Math.round(scroll);
             int top = y - previewScroll;
             g.pose().pushMatrix();
             g.pose().translate(0, (float) previewScroll);
-            CapePreview.drawModel(g,contentX+4,top+30,contentWidth-8,height-36);
+            CapePreview.drawModel(g,x+4,top+30,width-8,height-36);
             g.pose().popMatrix();
-        });
+        }));
     }
 
 
