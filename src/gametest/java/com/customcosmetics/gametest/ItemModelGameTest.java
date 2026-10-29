@@ -14,7 +14,8 @@ public final class ItemModelGameTest implements FabricClientGameTest {
             world.getServer().runCommand("time set noon");
             world.getServer().runCommand("weather clear");
             context.waitTicks(15);
-            ItemAppearanceGameTest.check(context, world);
+            if(Boolean.getBoolean("customcosmetics.catharsisArmorTest"))CatharsisArmorGameTest.check(context,world);
+            else ItemAppearanceGameTest.check(context, world);
             context.waitTicks(5);
         }
     }

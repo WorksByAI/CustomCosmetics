@@ -22,6 +22,23 @@ import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 /** Records the resolved ID submitted to the real renderer, after production overrides. */
 @Mixin(ItemModelResolver.class)
 public class ItemAppearanceProbeMixin {
+    @Mixin(value=net.minecraft.client.renderer.entity.player.AvatarRenderer.class,priority=400)
+    public static class CatharsisState {
+        @Inject(method="extractRenderState(Lnet/minecraft/world/entity/Avatar;Lnet/minecraft/client/renderer/entity/state/AvatarRenderState;F)V",at=@At("RETURN"))
+        private void addRealCatharsisTexture(net.minecraft.world.entity.Avatar entity,net.minecraft.client.renderer.entity.state.AvatarRenderState state,float tick,CallbackInfo ci){
+            if(com.customcosmetics.gametest.CatharsisArmorGameTest.track&&ItemCosmetics.uuid(entity.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST)).equals(com.customcosmetics.gametest.CatharsisArmorGameTest.UUID))
+                com.customcosmetics.gametest.CatharsisArmorGameTest.injectTexture(state);
+        }
+    }
+    @Mixin(net.minecraft.client.renderer.SubmitNodeCollection.class)
+    public static class CatharsisSubmissions {
+        @Inject(method="submitModel(Lnet/minecraft/client/model/Model;Ljava/lang/Object;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/rendertype/RenderType;IIILnet/minecraft/client/renderer/texture/TextureAtlasSprite;ILnet/minecraft/client/renderer/feature/ModelFeatureRenderer$CrumblingOverlay;)V",at=@At("HEAD"),require=0,order=2000)
+        private void recordRealDraw(net.minecraft.client.model.Model<?> model,Object state,com.mojang.blaze3d.vertex.PoseStack pose,net.minecraft.client.renderer.rendertype.RenderType type,int light,int overlay,int color,@org.spongepowered.asm.mixin.injection.Coerce Object sprite,int outline,@org.spongepowered.asm.mixin.injection.Coerce Object crumbling,CallbackInfo ci){
+            if(com.customcosmetics.gametest.CatharsisArmorGameTest.track&&state instanceof net.minecraft.client.renderer.entity.state.HumanoidRenderState humanoid
+                    &&ItemCosmetics.uuid(humanoid.chestEquipment).equals(com.customcosmetics.gametest.CatharsisArmorGameTest.UUID)&&type.toString().contains("armor"))
+                com.customcosmetics.gametest.CatharsisArmorGameTest.record(state,color);
+        }
+    }
     @Mixin(net.minecraft.world.item.component.DyedItemColor.class)
     public static class AnimatedDye {
         @ModifyReturnValue(method="getOrDefault",at=@At("RETURN"),order=1500)

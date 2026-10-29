@@ -249,7 +249,7 @@ tasks.named('processGametestResources') {
 }
 
 if (providers.gradleProperty('appearance_game_only').getOrElse('false').toBoolean()) {
-    sourceSets.gametest.java.include '**/ItemModelGameTest.java', '**/ItemAppearanceGameTest.java', '**/RenderAssertions.java',
+    sourceSets.gametest.java.include '**/ItemModelGameTest.java', '**/ItemAppearanceGameTest.java', '**/CatharsisArmorGameTest.java', '**/RenderAssertions.java',
         '**/mixin/ItemAppearanceProbeMixin.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
     tasks.named('processGametestResources') {
         inputs.property 'appearance_game_only', true
@@ -257,7 +257,7 @@ if (providers.gradleProperty('appearance_game_only').getOrElse('false').toBoolea
             filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.ItemModelGameTest') }
         }
         filesMatching('customcosmetics-test.mixins.json') {
-            filter { line -> line.contains('"client":') ? '  "client": ["ItemAppearanceProbeMixin", "ItemAppearanceProbeMixin$AnimatedDye", "ItemAppearanceProbeMixin$ArmorTint", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line }
+            filter { line -> line.contains('"client":') ? '  "client": ["ItemAppearanceProbeMixin", "ItemAppearanceProbeMixin$AnimatedDye", "ItemAppearanceProbeMixin$ArmorTint", "ItemAppearanceProbeMixin$CatharsisState", "ItemAppearanceProbeMixin$CatharsisSubmissions", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line }
         }
     }
 }
