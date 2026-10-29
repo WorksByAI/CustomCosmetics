@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ArmorIdentitySlotsTest {
-    private static final String A="320324d5-5cbd-4ecb-ba5e-5abf8566755a",B="ce493518-1bd8-4c4c-8310-ce8a1f2fcce8";
+    private static final String A="12345678-1234-1234-1234-123456789abc",B="12345678-1234-1234-1234-123456789abd";
     private static CompoundTag data(String uuid){var data=new CompoundTag();data.putString("id","WISE_WITHER_CHESTPLATE");data.putString("dye_item","DYE_OCEAN");if(!uuid.isEmpty())data.putString("uuid",uuid);return data;}
     @Test void remembersOnlyAnObservedPhysicalItemInTheSameLocalSlot(){
         var cache=new ArmorIdentitySlots();var player=new Object();var item=new Object();var slot=EquipmentSlot.CHEST;
