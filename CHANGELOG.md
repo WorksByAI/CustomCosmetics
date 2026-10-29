@@ -1,11 +1,11 @@
 # Changelog
 
-## Unreleased
+## 2.0.1
 
-- Refresh head skins from NEU and Hypixel at startup; support animated head skins.
-- Add per-item enchantment glint removal.
-- Keep saved armor appearances and inventory icons during animated dye updates; add opt-in diagnostics.
-- Add administrator announcements in chat or titles.
+- Add animated SkyBlock head skins and per-item glint removal; fix animated-dye armor and inventory icons.
+- Add targeted/all-online administrator announcements in chat or titles.
+- Add 2D Drop and a rotatable player preview with visible depth scaling.
+- Offer bundled-font and nofont builds with flavor-preserving updates.
 
 ## 2.0.0
 

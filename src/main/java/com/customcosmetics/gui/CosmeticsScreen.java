@@ -25,7 +25,7 @@ import static com.customcosmetics.gui.PinkUi.*;
 
 /** Compact settings workspace with local themes and finite, screen-owned motion. */
 public final class CosmeticsScreen extends ThemedScreen {
-    public enum Page { MAIN, SIZE, NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, BLOCKED_SKINS, POSITION_RECIPIENTS, ANIMATIONS, DAMAGE, ITEMS, ACCESSORIES, MAP, PARTY, LOCATION_SHARING, SKINS, SYNC, THEME, MODULES, SEARCH }
+    public enum Page { MAIN, SIZE, NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, BLOCKED_SKINS, POSITION_RECIPIENTS, ANIMATIONS, DAMAGE, ITEMS, ACCESSORIES, MAP, PARTY, LOCATION_SHARING, SKINS, SYNC, THEME, MODULES, SEARCH, DROP_2D }
     private static final net.minecraft.resources.Identifier MOD_LOGO=net.minecraft.resources.Identifier.fromNamespaceAndPath("customcosmetics","textures/gui/mod-logo.png");
     private static final String DISPLAY_VERSION="v"+net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("customcosmetics").orElseThrow().getMetadata().getVersion().getFriendlyString().split("[+-]",2)[0];
     private static final ScreenSession SESSION = new ScreenSession();
@@ -41,6 +41,8 @@ public final class CosmeticsScreen extends ThemedScreen {
     private int contentX, contentWidth, viewTop, viewBottom, rowY, contentBottom;
     private int playerPreviewHeight;
     private PreviewLayout.PlayerPanel playerPanel;
+    private WardrobeCamera playerCamera=WardrobeCamera.DEFAULT;
+    private boolean turningPlayer;
     private int navTop, navBottom, navContentBottom, navRowY, navScroll, scrollGrabOffset;
     private boolean draggingNavigation;
     private String connectionSummary = "";
@@ -135,6 +137,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             case BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, BLOCKED_SKINS -> blockedPlayers();
             case ANIMATIONS -> animations();
             case DAMAGE -> damageSplash();
+            case DROP_2D -> {toggleRow("2D Drop","Render dropped items as flat sprites facing the camera.",()->ConfigManager.droppedItems2dEnabled,v->ConfigManager.droppedItems2dEnabled=v);}
             case ITEMS -> itemCosmetics();
             case MAP -> mapEditor();
             case SKINS -> skins();
@@ -160,6 +163,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             case NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS -> "NickTweaks";
             case ANIMATIONS -> "Animations";
             case DAMAGE -> "Damage Splash";
+            case DROP_2D -> "2D Drop";
             case ITEMS -> "Item Customization";
             case MAP -> "Map Editor";
             case SKINS, BLOCKED_SKINS -> "Skins";
@@ -180,6 +184,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             case NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS -> "Names, colors and animated gradients.";
             case ANIMATIONS -> "Hand poses, item placement and swing timing.";
             case DAMAGE -> "Style your local damage numbers.";
+            case DROP_2D -> "Camera-facing dropped items.";
             case ITEMS -> "Custom names and models for your items.";
             case MAP -> "Visual layouts, room presets and editing tools.";
             case SKINS, BLOCKED_SKINS -> "Local imports and direct P2P sharing.";
@@ -204,6 +209,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         navSection("SKYBLOCK");
         navItem("Animations", Page.ANIMATIONS); navItem("Damage Splash", Page.DAMAGE);
         navItem("Item Customization", Page.ITEMS); navItem("Map Editor", Page.MAP);
+        navItem("2D Drop",Page.DROP_2D);
         navSection("CONNECTIONS");
         navItem("Party Sharing", Page.PARTY);navItem("Location Sharing",Page.LOCATION_SHARING);
         navContentBottom = navRowY;
@@ -568,7 +574,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             int top = y - previewScroll;
             g.pose().pushMatrix();
             g.pose().translate(0, (float) previewScroll);
-            CapePreview.drawModel(g,x+4,top+30,width-8,height-36);
+            CapePreview.drawModel(g,x+4,top+30,width-8,height-36,playerCamera);
             g.pose().popMatrix();
         }));
     }
@@ -892,7 +898,9 @@ public final class CosmeticsScreen extends ThemedScreen {
     private void sync() {
         fullButton("Language: "+UiText.name(ConfigManager.uiLanguage),()->{UiLocale.cycle();rebuildWidgets();},false,"Language preference applies only to this mod.");
         indexOption("Font","Vanilla Modern",rowY);
-        var fontChoice=add(new OptionDropdown(contentX,rowY,contentWidth,"Font",java.util.List.of(new OptionDropdown.Option("vanilla","Vanilla"),new OptionDropdown.Option("modern","Modern")),()->ConfigManager.uiFont,value->{ConfigManager.uiFont=value;changed();rebuildWidgets();}).rawOptions());
+        boolean bundledFont=com.customcosmetics.update.ClientFlavor.BUNDLED_FONT;
+        var fontOptions=bundledFont?java.util.List.of(new OptionDropdown.Option("vanilla","Vanilla"),new OptionDropdown.Option("modern","Modern")):java.util.List.of(new OptionDropdown.Option("vanilla","Vanilla"));
+        var fontChoice=add(new OptionDropdown(contentX,rowY,contentWidth,"Font",fontOptions,()->bundledFont?ConfigManager.uiFont:"vanilla",value->{ConfigManager.uiFont=value;changed();rebuildWidgets();}).rawOptions());
         choiceMenus.add(fontChoice);rowY+=30;
         fullButton("Interface",()->open(Page.THEME),false,"Theme colors and animations");
         section("General", "Preferences and feature availability.");
@@ -1166,6 +1174,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         mx=UiEntrance.pointer(mx,panelX+panelWidth/2d,entranceScale);
         my=UiEntrance.pointer(my,panelY+panelHeight/2d,entranceScale);
         activity();
+        if(insidePlayerPreview(mx,my)){playerCamera=playerCamera.zoom(vertical);return true;}
         for(var dropdown:choiceMenus)if(dropdown.menuScroll(mx,my,vertical))return true;
         if (blockingMode != null) blockingMode.closeMenu();
         if (blockingStyle != null) blockingStyle.closeMenu();
@@ -1183,6 +1192,7 @@ public final class CosmeticsScreen extends ThemedScreen {
 
     @Override public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
         event=entranceEvent(event);
+        if(event.button()==ClientInput.MOUSE_LEFT&&insidePlayerPreview(event.x(),event.y())){activity();turningPlayer=true;if(doubleClick)playerCamera=WardrobeCamera.DEFAULT;return true;}
         for(var dropdown:choiceMenus)if(dropdown.menuClick(event)){activity();return true;}
         if (blockingStyle != null && blockingStyle.menuClick(event)) { activity(); return true; }
         if (blockingMode != null && blockingMode.menuClick(event)) { activity(); return true; }
@@ -1240,6 +1250,7 @@ public final class CosmeticsScreen extends ThemedScreen {
     @Override public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
         event=entranceEvent(event);dx/=entranceScale;dy/=entranceScale;
         activity();
+        if(turningPlayer){playerCamera=playerCamera.drag(dx,dy);return true;}
         if (draggingNavigation) {
             navScroll = navigationScrollbar().offsetAtPointer(event.y(), scrollGrabOffset); positionNavigation(); return true;
         }
@@ -1249,8 +1260,13 @@ public final class CosmeticsScreen extends ThemedScreen {
 
     @Override public boolean mouseReleased(MouseButtonEvent event) {
         event=entranceEvent(event);
+        if(turningPlayer){turningPlayer=false;return true;}
         if (draggingScroll || draggingNavigation) { draggingScroll = false; draggingNavigation = false; return true; }
         return super.mouseReleased(event);
+    }
+
+    private boolean insidePlayerPreview(double x,double y){
+        return page==Page.SIZE&&playerPanel!=null&&y>=viewTop&&y<viewBottom&&x>=playerPanel.previewX()&&x<playerPanel.previewX()+playerPanel.previewWidth()&&y>=playerPanel.previewY()-scroll&&y<playerPanel.previewY()-scroll+playerPanel.previewHeight();
     }
 
     @Override public boolean keyPressed(KeyEvent event) {

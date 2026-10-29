@@ -12,7 +12,7 @@ public final class UiFonts {
     private static final FontDescription.Resource TITLE=new FontDescription.Resource(Identifier.fromNamespaceAndPath("customcosmetics","gui_title"));
     private static Font base,view,title;
     private UiFonts(){}
-    public static boolean modern(){return "modern".equals(com.customcosmetics.config.ConfigManager.uiFont);}
+    public static boolean modern(){return com.customcosmetics.update.ClientFlavor.BUNDLED_FONT&&"modern".equals(com.customcosmetics.config.ConfigManager.uiFont);}
     public static Font get(Font original){
         if(base!=original){view=create(original,false);title=create(original,true);base=original;}
         return view;

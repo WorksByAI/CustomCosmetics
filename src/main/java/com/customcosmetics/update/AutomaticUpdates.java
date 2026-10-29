@@ -21,6 +21,9 @@ public final class AutomaticUpdates {
     private static final long LIMIT=64L*1024*1024;
     private AutomaticUpdates(){}
     public static Asset asset(String json,String installed,String minecraft)throws IOException{
+        return asset(json,installed,minecraft,false);
+    }
+    public static Asset asset(String json,String installed,String minecraft,boolean noFont)throws IOException{
         try{
             String version=GitHubUpdateCheck.newerRelease(json,installed).orElseThrow();var release=JsonParser.parseString(json).getAsJsonObject();
             var assets=new ArrayList<Asset>();
@@ -28,6 +31,7 @@ public final class AutomaticUpdates {
                 var a=raw.getAsJsonObject();String name=a.get("name").getAsString(),lower=name.toLowerCase(Locale.ROOT),digest=a.has("digest")&&!a.get("digest").isJsonNull()?a.get("digest").getAsString():"";
                 long size=a.get("size").getAsLong();URI url=URI.create(a.get("browser_download_url").getAsString());
                 if(!lower.startsWith("customcosmetics-")||!lower.endsWith(".jar")||lower.contains("sources")||lower.contains("javadoc")||size<=0||size>LIMIT||!digest.matches("sha256:[0-9a-f]{64}"))continue;
+                if(lower.contains("-nofont")!=noFont)continue;
                 if(!"https".equals(url.getScheme())||!"github.com".equalsIgnoreCase(url.getHost())||url.getUserInfo()!=null||!url.getPath().startsWith("/WorksByAI/CustomCosmetics/releases/download/"))continue;
                 assets.add(new Asset(version,name,url,size,digest.substring(7)));
             }
@@ -46,7 +50,7 @@ public final class AutomaticUpdates {
             Path current=paths.getFirst().toRealPath();if(!Files.isWritable(current)||!Files.isWritable(current.getParent()))throw new IOException("Installation is read-only");String oldHash=UpdateInstaller.digest(current),json;
             var connection=connect(GitHubUpdateCheck.API);connection.setRequestProperty("Accept","application/vnd.github+json");
             try{if(connection.getResponseCode()!=200)throw new IOException("Release unavailable");try(var in=connection.getInputStream()){byte[] bytes=in.readNBytes(262145);if(bytes.length>262144)throw new IOException("Release metadata too large");json=new String(bytes,StandardCharsets.UTF_8);}}finally{connection.disconnect();}
-            var asset=asset(json,installed,loader.getModContainer("minecraft").orElseThrow().getMetadata().getVersion().getFriendlyString());
+            var asset=asset(json,installed,loader.getModContainer("minecraft").orElseThrow().getMetadata().getVersion().getFriendlyString(),!ClientFlavor.BUNDLED_FONT);
             Path directory=CosmeticsConfigDir.getCosmeticsConfigDir().resolve("updates").resolve(asset.version());Files.createDirectories(directory);Path jar=directory.resolve("verified-update.jar"),partial=directory.resolve("download.part");
             URI uri=asset.url();boolean done=false;
             try{
@@ -59,11 +63,15 @@ public final class AutomaticUpdates {
                 }
                 if(!done||!UpdateInstaller.digest(partial).equals(asset.sha256()))throw new IOException("Download checksum mismatch");
                 validate(partial,asset.version(),id->loader.getModContainer(id).map(m->m.getMetadata().getVersion().getFriendlyString()).orElse(null));
+                validateFlavor(partial,!ClientFlavor.BUNDLED_FONT);
                 Files.move(partial,jar,StandardCopyOption.REPLACE_EXISTING);return new Prepared(jar,current,directory,oldHash,asset.sha256());
             }finally{Files.deleteIfExists(partial);}
         }catch(Exception failure){throw new CompletionException(new IOException("Automatic update could not be prepared. The installed mod is unchanged."));}
     });}
     public static boolean trustedDownload(URI uri){return "https".equals(uri.getScheme())&&(uri.getPort()==-1||uri.getPort()==443)&&uri.getUserInfo()==null&&Set.of("github.com","release-assets.githubusercontent.com","objects.githubusercontent.com").contains(uri.getHost());}
+    static void validateFlavor(Path jar,boolean noFont)throws IOException{
+        try(var zip=new ZipFile(jar.toFile())){if((zip.getEntry(ClientFlavor.FONT)==null)!=noFont)throw new IOException("Wrong update flavor");}
+    }
     public static void validate(Path jar,String expected,java.util.function.Function<String,String> installed)throws IOException{
         try(var zip=new ZipFile(jar.toFile())){
             var entry=zip.getEntry("fabric.mod.json");if(entry==null)throw new IOException("Not a Fabric mod");byte[] bytes;try(var in=zip.getInputStream(entry)){bytes=in.readNBytes(65537);}if(bytes.length>65536)throw new IOException("Invalid metadata");

@@ -8,6 +8,17 @@ import java.util.*;
 import java.util.zip.*;
 import static org.junit.jupiter.api.Assertions.*;
 class AutomaticUpdatesTest {
+    @Test void updatesPreserveFontFlavorAndTreatItAsTheSameVersion()throws Exception{
+        String url="https://github.com/WorksByAI/CustomCosmetics/releases/download/v2.1.0/test.jar",hash="sha256:"+"a".repeat(64);
+        String normal=asset(url,hash),noFont=normal.replace("2.1.0+mc","2.1.0-nofont+mc");
+        String both=release(noFont+","+normal);
+        assertFalse(AutomaticUpdates.asset(both,"2.0.1","26.3",false).name().contains("nofont"));
+        assertTrue(AutomaticUpdates.asset(both,"2.0.1-nofont","26.3",true).name().contains("nofont"));
+        assertThrows(IOException.class,()->AutomaticUpdates.asset(release(normal),"2.0.1","26.3",true));
+        assertTrue(GitHubUpdateCheck.newerRelease(release(normal).replace("v2.1.0","v2.0.1"),"2.0.1-nofont+mc26.1-26.3").isEmpty());
+        assertTrue(GitHubUpdateCheck.newerRelease(release(normal).replace("v2.1.0","v2.0.1-nofont"),"2.0.1").isEmpty());
+        var empty=jar("{}");AutomaticUpdates.validateFlavor(empty,true);assertThrows(IOException.class,()->AutomaticUpdates.validateFlavor(empty,false));
+    }
     @TempDir Path directory;
     private static String release(String asset){return "{\"draft\":false,\"prerelease\":false,\"tag_name\":\"v2.1.0\",\"assets\":["+asset+"]}";}
     private static String asset(String url,String digest){return "{\"name\":\"CustomCosmetics-2.1.0+mc26.1-26.3.jar\",\"size\":2048,\"browser_download_url\":\""+url+"\",\"digest\":\""+digest+"\"}";}

@@ -34,12 +34,13 @@ dependencies {
 tasks.named('test', Test) {
     useJUnitPlatform()
     systemProperty 'customcosmetics.sodiumTestRequired', providers.gradleProperty('sodium_test_jar').isPresent()
-    dependsOn tasks.named('jar'), tasks.named('sourcesJar'), 'fullSourceZip'
+    dependsOn tasks.named('jar'), tasks.named('sourcesJar'), 'noFontJar', 'fullSourceZip'
     inputs.files(tasks.named('jar'), tasks.named('sourcesJar'), tasks.named('fullSourceZip'))
     inputs.files('LICENSE', 'NOTICE', 'README.md', 'LICENSES', 'gradle/wrapper')
     systemProperty 'customcosmetics.projectDir', projectDir.absolutePath
     systemProperty 'customcosmetics.version', project.version.toString()
     systemProperty 'customcosmetics.binaryJar', tasks.named('jar', Jar).get().archiveFile.get().asFile.absolutePath
+    systemProperty 'customcosmetics.noFontJar', tasks.named('noFontJar', Jar).get().archiveFile.get().asFile.absolutePath
     systemProperty 'customcosmetics.sourcesJar', tasks.named('sourcesJar', Jar).get().archiveFile.get().asFile.absolutePath
     systemProperty 'customcosmetics.fullSourceZip', layout.buildDirectory.file("distributions/CustomCosmetics-${version}-full-source.zip").get().asFile.absolutePath
 }
@@ -535,5 +536,37 @@ if (providers.gradleProperty('map_exit_game_only').getOrElse('false').toBoolean(
         inputs.file('build.gradle')
         filesMatching('fabric.mod.json') { filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest','com.customcosmetics.gametest.MapExitRegressionGameTest') } }
         filesMatching('customcosmetics-test.mixins.json') { filter { line -> line.contains('"client":') ? '  "client": ["MapAdventureScopeMixin", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line } }
+    }
+}
+
+
+// Both binaries keep the same Fabric version. Flavor changes only assets, never gameplay classes.
+tasks.register('noFontJar', Jar) {
+    dependsOn tasks.named('jar')
+    archiveBaseName = base.archivesName
+    archiveVersion = project.version.toString()
+    archiveClassifier = 'nofont'
+    from({ zipTree(tasks.named('jar', Jar).get().archiveFile.get().asFile) }) {
+        exclude '**/*.ttf', '**/*.ttc', '**/*.otf'
+        exclude 'assets/customcosmetics/font/gui_chinese.json', 'assets/customcosmetics/font/gui_title.json'
+    }
+    def fallback = layout.buildDirectory.dir('generated/nofont')
+    doFirst {
+        def directory = fallback.get().dir('assets/customcosmetics/font').asFile
+        directory.mkdirs()
+        ['gui_chinese.json', 'gui_title.json'].each { name ->
+            new File(directory, name).text = '{"providers":[{"type":"reference","id":"minecraft:default"}]}'
+        }
+    }
+    from(fallback)
+}
+tasks.named('assemble') { dependsOn 'noFontJar' }
+
+if (providers.gradleProperty('release201_game_only').getOrElse('false').toBoolean()) {
+    sourceSets.gametest.java.include '**/Release201GameTest.java', '**/mixin/Drop201ProbeMixin.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
+    tasks.named('processGametestResources') {
+        inputs.property 'release201_game_only', true
+        filesMatching('fabric.mod.json') { filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.Release201GameTest') } }
+        filesMatching('customcosmetics-test.mixins.json') { filter { line -> line.contains('"client":') ? '  "client": ["Drop201ProbeMixin", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line } }
     }
 }

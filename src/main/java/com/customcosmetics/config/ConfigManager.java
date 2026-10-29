@@ -35,6 +35,7 @@ public final class ConfigManager {
     public static String uiThemeMode="dark";
     public static String uiLanguage="auto";
     public static String uiFont="vanilla";
+    public static boolean droppedItems2dEnabled=false;
     public static int uiAccentColor=0xFFA8CA;
     public static boolean uiAnimationsEnabled=true;
     public static boolean uiBackgroundBlur=false;

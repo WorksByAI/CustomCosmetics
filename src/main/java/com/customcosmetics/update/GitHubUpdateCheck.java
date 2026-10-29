@@ -88,6 +88,7 @@ public final class GitHubUpdateCheck {
         if (version == null || version.length() > 64) return null;
         String value = version.trim();
         if (value.startsWith("v") || value.startsWith("V")) value = value.substring(1);
+        value=value.replaceFirst("-nofont(?=\\+|$)","");
         return value.matches("[0-9]+\\.[0-9]+\\.[0-9]+(?:\\.[0-9]+)?(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?") ? value : null;
     }
 }

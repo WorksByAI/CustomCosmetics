@@ -1182,5 +1182,8 @@
   "customcosmetics.ui.location_far_description": "Show distant players whose positions you receive.",
   "customcosmetics.ui.sharing_nametag_style_description": "Simple or Vanilla: Vanilla preserves the original name, level, colors and icons. Local data only; unavailable names fall back to the account ID.",
   "customcosmetics.ui.animated_head_label": "Animated",
-  "customcosmetics.ui.enchantment_glint": "Enchantment Glint"
+  "customcosmetics.ui.enchantment_glint": "Enchantment Glint",
+  "customcosmetics.ui.drop_2d": "2D Drop",
+  "customcosmetics.ui.drop_2d_description": "Render dropped items as flat sprites facing the camera.",
+  "customcosmetics.ui.drop_2d_page": "Camera-facing dropped items."
 }

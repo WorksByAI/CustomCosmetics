@@ -1,6 +1,6 @@
 # CustomCosmetics
 
-最新正式版 v2.0.0。Fabric 客户端外观模组，支持 26.1～26.3，部分功能可在玩家间同步。界面语言可在设置中选择简体中文、English 或跟随游戏。设置中可独立选择语言与字体：Vanilla 跟随游戏字体；Modern 使用内置霞鹜文楷，支持中英文。聊天和外观预览始终跟随游戏字体。
+最新正式版 v2.0.1。Fabric 客户端外观模组，支持 26.1～26.3，部分功能可在玩家间同步。界面语言可在设置中选择简体中文、English 或跟随游戏。设置中可独立选择语言与字体：Vanilla 跟随游戏字体；Modern 使用内置霞鹜文楷，支持中英文。聊天和外观预览始终跟随游戏字体。另提供不内置字体的 nofont 版，更新时保留所选版本。
 
 目前模组所有功能（[√] 表示其他安装本模组的玩家可见）：
 
@@ -25,7 +25,7 @@
 
 ## English
 
-Latest stable release: v2.0.0. Choose English, Simplified Chinese or follow the game language in Settings. Choose language and font independently: Vanilla follows the game font; Modern uses bundled LXGW WenKai for English and Chinese. Chat and cosmetic previews always follow the game font.
+Latest stable release: v2.0.1. Choose English, Simplified Chinese or follow the game language in Settings. Choose language and font independently: Vanilla follows the game font; Modern uses bundled LXGW WenKai for English and Chinese. Chat and cosmetic previews always follow the game font. A smaller nofont build omits the bundled font; updates preserve your installed flavor.
 
 Fabric cosmetics for Minecraft 26.1–26.3, with optional player sync.
 

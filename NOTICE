@@ -13,6 +13,14 @@ Minecraft or other third-party software are granted by this project.
 Baity
 -----
 
+The 2D dropped-item renderer is adapted from Baity commit
+131c7a4413a82ab016bc90def8df305bc7e58769, file DroppedItem2DMixin.java.
+This newer upstream code is licensed under LGPL-3.0-only, unlike the older
+Baity sources described below. Its original license is preserved in
+LICENSES/Baity-LGPL-3.0.txt together with LICENSES/GPL-3.0.txt.
+CustomCosmetics modifications remove per-item rarity scans, reuse the camera
+render state, add module/config switches and guarantee pose restoration.
+
 This project incorporates portions of Baity, a Minecraft utility and
 visual mod, by 11YearCookieBuff (also known as shyeuar / raueyhs).
 

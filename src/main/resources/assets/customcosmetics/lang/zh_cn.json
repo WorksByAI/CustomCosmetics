@@ -1182,5 +1182,8 @@
   "customcosmetics.ui.location_far_description": "显示远处的位置共享玩家。",
   "customcosmetics.ui.sharing_nametag_style_description": "可选简洁或原版。原版保留实际名字、等级、颜色和图标；无法读取时显示账号名。",
   "customcosmetics.ui.animated_head_label": "动态",
-  "customcosmetics.ui.enchantment_glint": "附魔光效"
+  "customcosmetics.ui.enchantment_glint": "附魔光效",
+  "customcosmetics.ui.drop_2d": "2D 掉落物",
+  "customcosmetics.ui.drop_2d_description": "将掉落物显示为始终朝向镜头的平面图标。",
+  "customcosmetics.ui.drop_2d_page": "始终朝向镜头的掉落物。"
 }
