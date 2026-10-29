@@ -194,7 +194,7 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
         }
         return source;
     }
-    @Override public void onOpen(WebSocket ws){synchronized(this){socket=ws;if(closed){ws.abort();return;}var m=new JsonObject();m.addProperty("type","hello");m.addProperty("client",clientId);m.addProperty("token",token);send(m);token=null;}ws.request(1);}
+    @Override public void onOpen(WebSocket ws){synchronized(this){socket=ws;if(closed){ws.abort();return;}var m=new JsonObject();m.addProperty("type","hello");m.addProperty("client",clientId);m.addProperty("token",token);m.addProperty("announcements",1);send(m);token=null;}ws.request(1);}
     @Override public CompletionStage<?> onText(WebSocket ws,CharSequence part,boolean last){
         if(closed)return null;if(fragments.length()+part.length()>262144){close();return null;}fragments.append(part);
         if(last){String message=fragments.toString();fragments.setLength(0);try{worker.execute(()->{try{receive(JsonParser.parseString(message).getAsJsonObject(),false);}catch(Exception invalid){close();}});}catch(RejectedExecutionException ignored){}}
@@ -204,6 +204,7 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
         if(closed)return;String type=m.get("type").getAsString();long now=clock();if(!datagram)lastWs=now;
         if(type.equals("hello")&&!datagram){if(ready||m.get("version").getAsInt()!=1)throw new IllegalArgumentException();expires=m.get("expiresAt").getAsLong();epoch=m.get("epoch").getAsLong();ready=true;return;}
         if(!ready)return;
+        if(type.equals("announcement")&&!datagram){ServerAnnouncements.accept(m);return;}
         if(type.equals("view")&&!datagram){acknowledged=m.get("scope").getAsLong();nextUdpProbe=0;return;}
         if(type.equals("pong")&&!datagram){route.wss(now-m.get("ping").getAsLong());if(m.has("positionIntervalMs"))wssPositionInterval=positionInterval(false,m.get("positionIntervalMs").getAsInt());return;}
         if(type.equals("probe")&&datagram){udpReplies++;lastUdpReply=now;route.udp(now,now-m.get("ping").getAsLong(),m.get("healthy").getAsBoolean());if(m.has("positionIntervalMs"))udpPositionInterval=positionInterval(true,m.get("positionIntervalMs").getAsInt());

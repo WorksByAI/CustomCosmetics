@@ -4,8 +4,8 @@
 
 - Refresh head skins from NEU and Hypixel at startup; support animated head skins.
 - Add per-item enchantment glint removal.
-- Keep saved armor appearances when animated dye updates omit item UUIDs.
-- Add opt-in armor rendering diagnostics.
+- Keep saved armor appearances and inventory icons during animated dye updates; add opt-in diagnostics.
+- Add administrator announcements in chat or titles.
 
 ## 2.0.0
 

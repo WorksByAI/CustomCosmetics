@@ -74,7 +74,7 @@ public final class ArmorAppearance {
     public static ResourceKey<EquipmentAsset> model(ItemStack stack, ResourceKey<EquipmentAsset> original, EquipmentClientInfo.LayerType layer) {
         ItemAppearanceStore store = activeStore();
         if (store == null || !store.hasArmorModels()) return original;
-        String id = store.getCanonical(ItemCosmetics.uuid(stack)).armorModel();
+        String id = store.getCanonical(ItemCosmetics.appearanceKey(stack)).armorModel();
         if (id.isEmpty()) return original;
         var key = assetKey(id);
         return available(key, layer) ? key : original;
@@ -82,7 +82,7 @@ public final class ArmorAppearance {
     public static int color(ItemStack stack, int original) {
         ItemAppearanceStore store = activeStore();
         if (store == null || !store.hasArmorColors()) return original;
-        Integer selected = store.getCanonical(ItemCosmetics.uuid(stack)).armorColor();
+        Integer selected = store.getCanonical(ItemCosmetics.appearanceKey(stack)).armorColor();
         return selected == null ? original : 0xFF000000 | selected;
     }
     /** A render-state copy for player-head helmets; the inventory stack is never changed. */
@@ -90,7 +90,7 @@ public final class ArmorAppearance {
         if (slot == EquipmentSlot.HEAD && HeadSkins.hasOverride(original)) return ItemStack.EMPTY;
         ItemAppearanceStore store = activeStore();
         if (slot != EquipmentSlot.HEAD || store == null || !store.hasArmorModels() || !original.is(Items.PLAYER_HEAD)) return original;
-        var appearance = store.getCanonical(ItemCosmetics.uuid(original));
+        var appearance = store.getCanonical(ItemCosmetics.appearanceKey(original));
         if (!available(appearance.armorModel(), EquipmentSlot.HEAD)) return original;
         var data = original.get(DataComponents.CUSTOM_DATA);
         boolean foil = original.hasFoil();

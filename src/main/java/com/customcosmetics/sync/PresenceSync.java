@@ -598,8 +598,10 @@ public final class PresenceSync {
                 connection.setRequestProperty("Accept", "application/json");
                 var account = Minecraft.getInstance().getUser();
                 var identity = SESSIONS.current(serviceBaseUrl(), account.getProfileId(), account.getName());
-                if (identity != null && identity.validFor(serviceBaseUrl(), account.getProfileId(), account.getName()))
+                if (identity != null && identity.validFor(serviceBaseUrl(), account.getProfileId(), account.getName())) {
                     connection.setRequestProperty("Authorization", "Bearer " + identity.token());
+                    connection.setRequestProperty("X-CustomCosmetics-Announcements", "1");
+                }
                 LocalPlayer player = Minecraft.getInstance().player;
                 if (player != null) {
                     connection.setRequestProperty("x-customcosmetics-uuid", player.getUUID().toString());
@@ -629,6 +631,7 @@ public final class PresenceSync {
                             publishSnapshot(decoded);
                             String base = serviceBaseUrl();
                             CapeSync.acceptSnapshot(capes, base);
+                            if(identity!=null&&payload.has("announcements")&&payload.get("announcements").isJsonArray())ServerAnnouncements.accept(payload.getAsJsonArray("announcements"));
                             cacheLater(endpointVersion, () -> saveCacheToDisk(json, base));
                         }).join();
                         LOGGER.info("[PresenceSync] fetch ok, code={}, bytes={}, attempt={}", code, json.length(), attempt + 1);

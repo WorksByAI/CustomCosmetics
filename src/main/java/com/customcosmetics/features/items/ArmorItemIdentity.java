@@ -15,6 +15,7 @@ public final class ArmorItemIdentity {
     private static final EquipmentSlot[] SLOTS={EquipmentSlot.HEAD,EquipmentSlot.CHEST,EquipmentSlot.LEGS,EquipmentSlot.FEET};
     private static final ArmorIdentitySlots IDENTITIES=new ArmorIdentitySlots();
     private static final EnumMap<EquipmentSlot,Observed> OBSERVED=new EnumMap<>(EquipmentSlot.class);
+    private static final java.util.IdentityHashMap<ItemStack,Observed> LOCAL_ITEMS=new java.util.IdentityHashMap<>();
     private static Object owner;
     private static final class Observed {
         ItemStack source;CustomData data,renderData;String uuid;
@@ -26,7 +27,7 @@ public final class ArmorItemIdentity {
         return FeatureModules.enabled(FeatureModules.Feature.ITEMS)&&store!=null&&store.enabled()
             &&(store.hasArmorColors()||store.hasArmorModels()||store.hasHiddenGlints());
     }
-    private static void clear(){owner=null;OBSERVED.clear();IDENTITIES.clear();}
+    private static void clear(){owner=null;OBSERVED.clear();LOCAL_ITEMS.clear();IDENTITIES.clear();}
     public static void tick(){
         if(!enabled()){if(owner!=null)clear();return;}
         var client=Minecraft.getInstance();
@@ -38,8 +39,19 @@ public final class ArmorItemIdentity {
     private static Observed observe(Object player,EquipmentSlot slot,ItemStack source){
         var data=source.get(DataComponents.CUSTOM_DATA);var last=OBSERVED.get(slot);
         if(last!=null&&last.source==source&&last.data==data)return last;
+        if(last!=null)LOCAL_ITEMS.remove(last.source);
         String uuid=IDENTITIES.observe(player,slot,source.getItem(),data==null?null:data.copyTag());
-        var observed=new Observed(source,data,uuid);OBSERVED.put(slot,observed);return observed;
+        var observed=new Observed(source,data,uuid);OBSERVED.put(slot,observed);
+        if(!uuid.isEmpty())LOCAL_ITEMS.put(source,observed);
+        return observed;
+    }
+    /** GUI icons use the actual local stack, rather than the humanoid renderer's decorated copy. */
+    public static String localAppearanceKey(ItemStack stack){
+        if(LOCAL_ITEMS.isEmpty()||!enabled())return "";
+        var client=Minecraft.getInstance();
+        if(!client.isSameThread()||client.player==null||owner!=client.player)return "";
+        var known=LOCAL_ITEMS.get(stack);
+        return known!=null&&known.data==stack.get(DataComponents.CUSTOM_DATA)?known.uuid:"";
     }
     public static void equipment(int entityId){
         if(!enabled())return;

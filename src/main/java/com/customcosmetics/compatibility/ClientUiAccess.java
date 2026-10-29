@@ -49,4 +49,18 @@ public final class ClientUiAccess {
         catch (ReflectiveOperationException e) { throw new IllegalStateException("Cannot access Minecraft chat", e); }
     }
 
+    /** Optional title access is linked only when a title announcement actually arrives. */
+    private static final class Titles {
+        static final Method[] METHODS=link();
+        private static Method[] link(){
+            try{var type=HUD==null?Gui.class:HUD.getType();return new Method[]{type.getMethod("setTimes",int.class,int.class,int.class),type.getMethod("setSubtitle",net.minecraft.network.chat.Component.class),type.getMethod("setTitle",net.minecraft.network.chat.Component.class)};}
+            catch(ReflectiveOperationException unavailable){return null;}
+        }
+    }
+    public static boolean title(Minecraft client,net.minecraft.network.chat.Component title,net.minecraft.network.chat.Component subtitle){
+        var methods=Titles.METHODS;if(methods==null)return false;
+        try{var hud=HUD==null?client.gui:HUD.get(client.gui);methods[0].invoke(hud,10,80,10);methods[1].invoke(hud,subtitle);methods[2].invoke(hud,title);return true;}
+        catch(ReflectiveOperationException unavailable){return false;}
+    }
+
 }

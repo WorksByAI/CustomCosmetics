@@ -22,6 +22,11 @@ import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 /** Records the resolved ID submitted to the real renderer, after production overrides. */
 @Mixin(ItemModelResolver.class)
 public class ItemAppearanceProbeMixin {
+    @Inject(method="updateForTopItem",at=@At("RETURN"))
+    private void customcosmetics$observeArmorIcon(ItemStackRenderState state,ItemStack stack,ItemDisplayContext display,Level level,ItemOwner owner,int seed,CallbackInfo ci){
+        if(com.customcosmetics.gametest.ArmorInventoryGameTest.tracking&&display==ItemDisplayContext.GUI)
+            com.customcosmetics.gametest.ArmorInventoryGameTest.record(state,stack);
+    }
     @Mixin(value=net.minecraft.client.renderer.entity.player.AvatarRenderer.class,priority=400)
     public static class CatharsisState {
         @Inject(method="extractRenderState(Lnet/minecraft/world/entity/Avatar;Lnet/minecraft/client/renderer/entity/state/AvatarRenderState;F)V",at=@At("RETURN"))

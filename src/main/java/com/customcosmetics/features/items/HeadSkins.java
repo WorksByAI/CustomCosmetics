@@ -103,7 +103,7 @@ public final class HeadSkins {
         var store = ItemCosmetics.store();
         if (store == null || !store.enabled() || !store.hasHeadTextures() || stack.isEmpty()
                 || !FeatureModules.enabled(FeatureModules.Feature.ITEMS)) return "";
-        return store.getCanonical(ItemCosmetics.uuid(stack)).headTexture();
+        return store.getCanonical(ItemCosmetics.appearanceKey(stack)).headTexture();
     }
     public static boolean hasOverride(ItemStack stack) { return !selected(stack).isEmpty(); }
     public static ItemStack renderProxy(ItemStack source) {

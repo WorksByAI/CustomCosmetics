@@ -44,7 +44,7 @@ public final class ItemCosmetics {
         if(!modelsActive())return false;
         if(PREVIEWS.containsKey(stack))return true;
         if(store==null||!store.enabled())return false;
-        var appearance=store.getCanonical(uuid(stack));
+        var appearance=store.getCanonical(appearanceKey(stack));
         return !appearance.model().isEmpty()||!appearance.headTexture().isEmpty();
     }
     public static String uuid(CompoundTag data) {
@@ -60,6 +60,11 @@ public final class ItemCosmetics {
             if (IDENTITIES.size() >= 1024) IDENTITIES.clear();
             return IDENTITIES.computeIfAbsent(data, value -> uuid(value.copyTag()));
         }
+    }
+    /** Resolve display settings without presenting a recovered UUID as real server metadata. */
+    public static String appearanceKey(ItemStack stack){
+        String uuid=uuid(stack);
+        return uuid.isEmpty()?ArmorItemIdentity.localAppearanceKey(stack):uuid;
     }
     public static List<Identifier> models() {
         return modelChoices(new ItemStack(Items.PAPER)).stream().map(ModelChoice::id).toList();
@@ -147,7 +152,7 @@ public final class ItemCosmetics {
         var preview = PREVIEWS.get(stack);
         if (preview != null) return preview;
         if (store == null || !store.enabled()) return original;
-        var appearance = store.getCanonical(uuid(stack));
+        var appearance = store.getCanonical(appearanceKey(stack));
         if (!appearance.headTexture().isEmpty()) return HeadSkins.MODEL;
         String raw = appearance.model();
         Identifier selected = modelId(raw);
@@ -158,7 +163,7 @@ public final class ItemCosmetics {
         if(store==null||!store.hasNames())return original;
         // The integrated server shares ItemStack classes but must retain its original names.
         if (store == null || !store.enabled() || !Minecraft.getInstance().isSameThread()) return original;
-        String raw = store.getCanonical(uuid(stack)).name();
+        String raw = store.getCanonical(appearanceKey(stack)).name();
         return raw.isEmpty() ? original : ItemNameText.cached(raw);
     }
     /** Render-side visibility only; keep real enchantments and component data intact. */
@@ -166,7 +171,7 @@ public final class ItemCosmetics {
         if (!original || !com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ITEMS)
                 || store == null || !store.enabled() || !store.hasHiddenGlints()) return original;
         if (!Minecraft.getInstance().isSameThread()) return original;
-        return !store.getCanonical(uuid(stack)).hideGlint();
+        return !store.getCanonical(appearanceKey(stack)).hideGlint();
     }
     public static void tick() {
         ArmorTrace.tick(Minecraft.getInstance());

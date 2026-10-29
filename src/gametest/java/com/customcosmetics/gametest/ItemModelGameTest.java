@@ -14,9 +14,11 @@ public final class ItemModelGameTest implements FabricClientGameTest {
             world.getServer().runCommand("time set noon");
             world.getServer().runCommand("weather clear");
             context.waitTicks(15);
-            if(Boolean.getBoolean("customcosmetics.armorTraceTest"))ArmorTraceGameTest.check(context,world);
+            if(Boolean.getBoolean("customcosmetics.armorInventoryTest"))ArmorInventoryGameTest.check(context,world);
+            else if(Boolean.getBoolean("customcosmetics.armorTraceTest"))ArmorTraceGameTest.check(context,world);
             else if(Boolean.getBoolean("customcosmetics.catharsisArmorTest"))CatharsisArmorGameTest.check(context,world);
             else ItemAppearanceGameTest.check(context, world);
+            if(Boolean.getBoolean("customcosmetics.announcementTest"))ServerAnnouncementGameTest.check(context);
             context.waitTicks(5);
         }
     }
