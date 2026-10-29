@@ -16,10 +16,39 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
+import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 
 /** Records the resolved ID submitted to the real renderer, after production overrides. */
 @Mixin(ItemModelResolver.class)
 public class ItemAppearanceProbeMixin {
+    @Mixin(net.minecraft.world.item.component.DyedItemColor.class)
+    public static class AnimatedDye {
+        @ModifyReturnValue(method="getOrDefault",at=@At("RETURN"),order=1500)
+        private static int simulateAnimatedDye(int original,ItemStack stack,int fallback){
+            return RenderAssertions.forceAnimatedArmorDye&&ItemCosmetics.uuid(stack).equals("12345678-1234-1234-1234-123456789abe")
+                ?RenderAssertions.animatedArmorColor:original;
+        }
+    }
+    @Mixin(net.minecraft.client.renderer.entity.layers.EquipmentLayerRenderer.class)
+    public static class ArmorTint {
+        @org.spongepowered.asm.mixin.injection.Group(name="armor_tint_probe",min=1)
+        @ModifyArg(method="renderLayers(Lnet/minecraft/client/resources/model/EquipmentClientInfo$LayerType;Lnet/minecraft/resources/ResourceKey;Lnet/minecraft/client/model/Model;Ljava/lang/Object;Lnet/minecraft/world/item/ItemStack;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;ILnet/minecraft/resources/Identifier;II)V",
+            at=@At(value="INVOKE",target="Lnet/minecraft/client/renderer/OrderedSubmitNodeCollector;submitModel(Lnet/minecraft/client/model/Model;Ljava/lang/Object;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/rendertype/RenderType;IIILnet/minecraft/client/renderer/texture/TextureAtlasSprite;ILnet/minecraft/client/renderer/feature/ModelFeatureRenderer$CrumblingOverlay;)V"),index=6,require=0)
+        private int observeFinalTint(int color,@Local(argsOnly=true) ItemStack stack,@Local net.minecraft.client.resources.model.EquipmentClientInfo.Layer layer){
+            if(RenderAssertions.forceAnimatedArmorDye&&layer.dyeable().isPresent()&&ItemCosmetics.uuid(stack).equals("12345678-1234-1234-1234-123456789abe"))
+                RenderAssertions.observedArmorTints.add(color);
+            return color;
+        }
+        @org.spongepowered.asm.mixin.injection.Group(name="armor_tint_probe",min=1)
+        @ModifyArg(method="renderLayers(Lnet/minecraft/client/resources/model/EquipmentClientInfo$LayerType;Lnet/minecraft/resources/ResourceKey;Lnet/minecraft/client/model/Model;Ljava/lang/Object;Lnet/minecraft/world/item/ItemStack;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;ILnet/minecraft/resources/Identifier;II)V",
+            at=@At(value="INVOKE",target="Lnet/minecraft/client/renderer/OrderedSubmitNodeCollector;submitModel(Lnet/minecraft/client/model/Model;Ljava/lang/Object;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/rendertype/RenderType;IIILnet/minecraft/client/renderer/texture/UvMapping;I)V"),index=6,require=0)
+        private int observeModernFinalTint(int color,@Local(argsOnly=true) ItemStack stack,@Local net.minecraft.client.resources.model.EquipmentClientInfo.Layer layer){
+            if(RenderAssertions.forceAnimatedArmorDye&&layer.dyeable().isPresent()&&ItemCosmetics.uuid(stack).equals("12345678-1234-1234-1234-123456789abe"))
+                RenderAssertions.observedArmorTints.add(color);
+            return color;
+        }
+    }
     @Inject(method="appendItemLayers",at=@At(value="INVOKE",target="Lnet/minecraft/client/renderer/item/ItemModelResolver;getItemModel(Lnet/minecraft/resources/Identifier;)Lnet/minecraft/client/renderer/item/ItemModel;"))
     private void customcosmetics$observeItemModel(ItemStackRenderState state,ItemStack item,ItemDisplayContext context,
         Level level,ItemOwner owner,int seed,CallbackInfo ci,@Local Identifier model){

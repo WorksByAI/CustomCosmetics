@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Refresh head skins from NEU and Hypixel at startup; support animated head skins.
+- Add per-item glint removal and keep custom armor colors over animated dye effects.
 
 ## 2.0.0
 

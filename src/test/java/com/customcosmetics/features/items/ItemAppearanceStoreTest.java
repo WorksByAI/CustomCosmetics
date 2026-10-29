@@ -7,6 +7,17 @@ import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ItemAppearanceStoreTest {
+    @Test void glintOnlyOverrideSurvivesSaveAndLegacyFilesDefaultToOriginalGlint()throws Exception{
+        var path=directory.resolve("glint.json");var store=new ItemAppearanceStore(path);
+        store.put(A,new ItemAppearanceStore.Appearance("","","",null,"",true));
+        store.put(B,new ItemAppearanceStore.Appearance("Legacy",""));
+        assertFalse(store.get(A).empty());assertTrue(store.hasHiddenGlints());store.save();
+        var loaded=new ItemAppearanceStore(path);loaded.load();
+        assertTrue(loaded.get(A).hideGlint());assertFalse(loaded.get(B).hideGlint());assertTrue(loaded.hasHiddenGlints());
+        loaded.enabled(false);assertTrue(loaded.get(A).hideGlint());loaded.enabled(true);
+        loaded.put(A,new ItemAppearanceStore.Appearance("",""));
+        assertFalse(loaded.hasHiddenGlints());assertTrue(loaded.get(A).empty());assertEquals("Legacy",loaded.get(B).name());
+    }
     @Test void backgroundSavesCoalesceAndOnlyWriteImmutableRequestedSnapshots()throws Exception{
         var tasks=new java.util.ArrayDeque<Runnable>();var path=directory.resolve("async.json");
         var store=new ItemAppearanceStore(path,tasks::add);

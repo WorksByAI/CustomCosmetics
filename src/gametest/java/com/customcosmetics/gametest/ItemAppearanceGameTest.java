@@ -26,7 +26,7 @@ final class ItemAppearanceGameTest {
         var original=new AtomicReference<ItemStack>();var beforeName=new AtomicReference<String>();
         context.runOnClient(client->{
             ConfigManager.resetAnimations();ConfigManager.smolpeopleMode=false;ItemCosmetics.store().enabled(true);
-            ItemCosmetics.store().put(A,new ItemAppearanceStore.Appearance("",""));ItemCosmetics.store().put(B,new ItemAppearanceStore.Appearance("",""));
+            ItemCosmetics.store().put(A,new ItemAppearanceStore.Appearance("",""));ItemCosmetics.store().put(B,new ItemAppearanceStore.Appearance("",""));ItemCosmetics.store().put(C,new ItemAppearanceStore.Appearance("",""));
             original.set(client.player.getMainHandItem().copy());beforeName.set(original.get().getHoverName().getString());
             if(!ItemCosmetics.models().contains(Identifier.parse("customcosmetics:appearance_test")))throw new AssertionError("Active resource-pack models were not listed");
             var held = client.player.getMainHandItem();
@@ -217,10 +217,57 @@ final class ItemAppearanceGameTest {
         context.runOnClient(client->{client.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);ItemCosmetics.store().put(C,new ItemAppearanceStore.Appearance("",""));ItemCosmetics.save();});
         checkHeadSkins(context);
         checkAnimatedHeadSkins(context);
+        checkGlintAndAnimatedArmorDye(context,world);
         checkAccessoryTooltips(context);
         checkMissingBagPanel(context);
         world.getServer().runCommand("item replace entity @a armor.head with minecraft:air");
         System.out.println("ITEM_APPEARANCE_GAME_TEST_OK");
+    }
+    private static void checkGlintAndAnimatedArmorDye(ClientGameTestContext context,TestSingleplayerContext world){
+        world.getServer().runCommand("item replace entity @a weapon.mainhand with minecraft:blaze_rod[minecraft:enchantment_glint_override=true,minecraft:custom_data={uuid:\""+A+"\"}]");
+        world.getServer().runCommand("item replace entity @a weapon.offhand with minecraft:blaze_rod[minecraft:enchantment_glint_override=true,minecraft:custom_data={uuid:\""+B+"\"}]");
+        world.getServer().runCommand("item replace entity @a armor.head with minecraft:leather_helmet[minecraft:enchantment_glint_override=true,minecraft:dyed_color=414145,minecraft:custom_data={uuid:\""+C+"\"}]");
+        context.waitFor(client->Boolean.TRUE.equals(client.player.getMainHandItem().get(DataComponents.ENCHANTMENT_GLINT_OVERRIDE))&&client.player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).is(net.minecraft.world.item.Items.LEATHER_HELMET));
+        context.runOnClient(client->{ItemCosmetics.store().put(A,new ItemAppearanceStore.Appearance("",""));ItemCosmetics.store().put(B,new ItemAppearanceStore.Appearance("",""));ClientUiAccess.setScreen(client,new ItemAppearanceScreen(null));});
+        context.getInput().resizeWindow(1600,1000);context.waitTicks(2);scrollTo(context,"Enchantment Glint");click(context,"Enchantment Glint: On");
+        context.runOnClient(client->{
+            if(ItemCosmetics.store().get(A).hideGlint())throw new AssertionError("Glint draft saved before Apply/Done");
+            try{var preview=ItemAppearanceScreen.class.getDeclaredMethod("preview");preview.setAccessible(true);if(((ItemStack)preview.invoke(ClientUiAccess.screen(client))).hasFoil())throw new AssertionError("Glint draft did not reach the preview");}catch(ReflectiveOperationException error){throw new AssertionError(error);}
+        });
+        context.takeScreenshot("item-customization-glint-off");click(context,"Done");
+        context.runOnClient(client->{
+            var held=client.player.getMainHandItem();var other=client.player.getOffhandItem();
+            if(held.hasFoil()||!other.hasFoil())throw new AssertionError("Glint removal was not scoped to the selected physical item");
+            if(!Boolean.TRUE.equals(held.get(DataComponents.ENCHANTMENT_GLINT_OVERRIDE)))throw new AssertionError("Glint removal mutated real component data");
+            if(!ItemCosmetics.flush())throw new AssertionError("Glint save failed");
+            var loaded=new ItemAppearanceStore(com.customcosmetics.config.CosmeticsConfigDir.getCosmeticsConfigDir().resolve("item-appearances.json"));
+            try{loaded.load();}catch(java.io.IOException error){throw new AssertionError(error);}
+            if(!loaded.get(A).hideGlint())throw new AssertionError("Glint setting did not persist");
+            com.customcosmetics.config.FeatureModules.set(com.customcosmetics.config.FeatureModules.Feature.ITEMS,false);if(!held.hasFoil())throw new AssertionError("Disabled item module still removed glint");com.customcosmetics.config.FeatureModules.set(com.customcosmetics.config.FeatureModules.Feature.ITEMS,true);
+            ItemCosmetics.store().enabled(false);if(!held.hasFoil())throw new AssertionError("Disabled appearances still removed glint");ItemCosmetics.store().enabled(true);
+        });
+        world.getServer().runOnServer(server->{var player=server.getPlayerList().getPlayers().getFirst();if(!player.getMainHandItem().hasFoil())throw new AssertionError("Integrated-server enchantment visuals were changed");});
+        context.runOnClient(client->{
+            var head=client.player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD);
+            ItemCosmetics.store().put(C,new ItemAppearanceStore.Appearance("","","",0,"",true));
+            if(head.hasFoil())throw new AssertionError("Worn armor glint was not removed");
+            RenderAssertions.forceAnimatedArmorDye=true;RenderAssertions.observedArmorTints.clear();
+            if(net.minecraft.world.item.component.DyedItemColor.getOrDefault(head,0)!=0xFF0554C9)throw new AssertionError("Animated-dye conflict fixture did not override the earlier lookup");
+            client.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_FRONT);
+            ClientUiAccess.setScreen(client,null);
+        });
+        for(int i=0;i<8;i++){
+            final int step=i;context.runOnClient(client->{RenderAssertions.animatedArmorColor=step%2==0?0xFF064DC3:0xFF0554C9;client.player.setPos(client.player.getX()+.08,client.player.getY(),client.player.getZ());client.player.setYRot(step*20);});context.waitTicks(2);
+        }
+        context.runOnClient(client->{
+            if(!RenderAssertions.observedArmorTints.equals(java.util.Set.of(0xFF000000)))throw new AssertionError("Animated dye replaced black while moving: "+RenderAssertions.observedArmorTints);
+            ItemCosmetics.store().put(C,new ItemAppearanceStore.Appearance("",""));RenderAssertions.observedArmorTints.clear();RenderAssertions.animatedArmorColor=0xFF0554C9;
+        });context.waitTicks(3);
+        context.runOnClient(client->{
+            if(!RenderAssertions.observedArmorTints.equals(java.util.Set.of(0xFF0554C9)))throw new AssertionError("Clearing custom armor color did not restore the animated dye");
+            RenderAssertions.forceAnimatedArmorDye=false;client.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);ItemCosmetics.store().put(A,new ItemAppearanceStore.Appearance("",""));ItemCosmetics.save();
+        });
+        System.out.println("PER_ITEM_GLINT_PREVIEW_DONE_SAVE_SERVER_UNCHANGED_AND_MOVING_ANIMATED_DYE_BLACK_PRIORITY_OK");
     }
     private static void installHeads(HeadSkinCatalog.Data data) {
         try { var method=HeadSkins.class.getDeclaredMethod("install",HeadSkinCatalog.Data.class);method.setAccessible(true);method.invoke(null,data); }

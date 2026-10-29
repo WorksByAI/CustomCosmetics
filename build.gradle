@@ -257,7 +257,7 @@ if (providers.gradleProperty('appearance_game_only').getOrElse('false').toBoolea
             filter { line -> line.replace('com.customcosmetics.gametest.BlockingGameTest', 'com.customcosmetics.gametest.ItemModelGameTest') }
         }
         filesMatching('customcosmetics-test.mixins.json') {
-            filter { line -> line.contains('"client":') ? '  "client": ["ItemAppearanceProbeMixin", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line }
+            filter { line -> line.contains('"client":') ? '  "client": ["ItemAppearanceProbeMixin", "ItemAppearanceProbeMixin$AnimatedDye", "ItemAppearanceProbeMixin$ArmorTint", "UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line }
         }
     }
 }

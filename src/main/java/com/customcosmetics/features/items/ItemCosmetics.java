@@ -161,6 +161,13 @@ public final class ItemCosmetics {
         String raw = store.getCanonical(uuid(stack)).name();
         return raw.isEmpty() ? original : ItemNameText.cached(raw);
     }
+    /** Render-side visibility only; keep real enchantments and component data intact. */
+    public static boolean foil(ItemStack stack, boolean original) {
+        if (!original || !com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ITEMS)
+                || store == null || !store.enabled() || !store.hasHiddenGlints()) return original;
+        if (!Minecraft.getInstance().isSameThread()) return original;
+        return !store.getCanonical(uuid(stack)).hideGlint();
+    }
     public static void tick() {
         if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ITEMS))return;
         HeadSkins.tick();

@@ -1181,5 +1181,6 @@
   "customcosmetics.ui.location_names_description": "Show names and distances for received positions.",
   "customcosmetics.ui.location_far_description": "Show distant players whose positions you receive.",
   "customcosmetics.ui.sharing_nametag_style_description": "Simple or Vanilla: Vanilla preserves the original name, level, colors and icons. Local data only; unavailable names fall back to the account ID.",
-  "customcosmetics.ui.animated_head_label": "Animated"
+  "customcosmetics.ui.animated_head_label": "Animated",
+  "customcosmetics.ui.enchantment_glint": "Enchantment Glint"
 }

@@ -32,6 +32,10 @@ public final class ItemAppearanceMixin {
         private Component customcosmetics$itemName(Component original) {
             return ItemCosmetics.name((ItemStack) (Object) this, original);
         }
+        @ModifyReturnValue(method = "hasFoil", at = @At("RETURN"))
+        private boolean customcosmetics$itemGlint(boolean original) {
+            return ItemCosmetics.foil((ItemStack) (Object) this, original);
+        }
     }
     @Mixin(ItemModelResolver.class)
     public static class Models {

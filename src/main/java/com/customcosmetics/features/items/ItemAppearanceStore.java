@@ -23,9 +23,10 @@ public final class ItemAppearanceStore {
     private static final Executor WRITER = Executors.newSingleThreadExecutor(task -> {
         var thread = new Thread(task,"CustomCosmetics-item-save");thread.setDaemon(true);return thread;
     });
-    public record Appearance(String name, String model, String armorModel, Integer armorColor, String headTexture) {
+    public record Appearance(String name, String model, String armorModel, Integer armorColor, String headTexture, boolean hideGlint) {
         public Appearance(String name, String model) { this(name, model, "", null, ""); }
         public Appearance(String name, String model, String armorModel, Integer armorColor) { this(name, model, armorModel, armorColor, ""); }
+        public Appearance(String name, String model, String armorModel, Integer armorColor, String headTexture) { this(name, model, armorModel, armorColor, headTexture, false); }
         public Appearance {
             name = name == null ? "" : name;
             model = canonicalIdentifier(model);
@@ -39,7 +40,7 @@ public final class ItemAppearanceStore {
             if (armorColor != null && (armorColor < 0 || armorColor > 0xFFFFFF))
                 throw new IllegalArgumentException("Armor color must be #RRGGBB.");
         }
-        public boolean empty() { return name.isEmpty() && model.isEmpty() && armorModel.isEmpty() && armorColor == null && headTexture.isEmpty(); }
+        public boolean empty() { return name.isEmpty() && model.isEmpty() && armorModel.isEmpty() && armorColor == null && headTexture.isEmpty() && !hideGlint; }
     }
     private static String canonicalIdentifier(String raw) {
         String id = raw == null ? "" : raw.strip();
@@ -62,12 +63,13 @@ public final class ItemAppearanceStore {
     private Snapshot pending;
     private boolean writing;
     private CompletableFuture<Void> completion = CompletableFuture.completedFuture(null);
-    private int models,names,armorModels,armorColors,headTextures;
+    private int models,names,armorModels,armorColors,headTextures,hiddenGlints;
     public boolean hasModels(){return models!=0;}
     public boolean hasNames(){return names!=0;}
     public boolean hasArmorModels(){return armorModels!=0;}
     public boolean hasArmorColors(){return armorColors!=0;}
     public boolean hasHeadTextures(){return headTextures!=0;}
+    public boolean hasHiddenGlints(){return hiddenGlints!=0;}
     private void count(Appearance value,int change){
         if(value==null)return;
         if(!value.model().isEmpty())models+=change;
@@ -75,6 +77,7 @@ public final class ItemAppearanceStore {
         if(!value.armorModel().isEmpty())armorModels+=change;
         if(value.armorColor()!=null)armorColors+=change;
         if(!value.headTexture().isEmpty())headTextures+=change;
+        if(value.hideGlint())hiddenGlints+=change;
     }
     public ItemAppearanceStore(Path path) { this(path,WRITER); }
     ItemAppearanceStore(Path path,Executor writer) { this.path=path;this.writer=writer; }
@@ -124,12 +127,13 @@ public final class ItemAppearanceStore {
                         data.has("model") ? data.get("model").getAsString() : "",
                         data.has("armorModel") ? data.get("armorModel").getAsString() : "",
                         data.has("armorColor") ? data.get("armorColor").getAsInt() : null,
-                        data.has("headTexture") ? data.get("headTexture").getAsString() : "");
+                        data.has("headTexture") ? data.get("headTexture").getAsString() : "",
+                        data.has("hideGlint") && data.get("hideGlint").getAsBoolean());
                     if (!appearance.empty()) loaded.put(key, appearance);
                 } catch (RuntimeException malformedEntry) { /* An invalid override must not break other items. */ }
             }
             boolean newEnabled = !root.has("enabled") || root.get("enabled").getAsBoolean();
-            entries.clear(); entries.putAll(loaded);models=names=armorModels=armorColors=headTextures=0;for(var value:loaded.values())count(value,1); enabled = newEnabled; dirty = false;revision++;
+            entries.clear(); entries.putAll(loaded);models=names=armorModels=armorColors=headTextures=hiddenGlints=0;for(var value:loaded.values())count(value,1); enabled = newEnabled; dirty = false;revision++;
         } catch (RuntimeException malformed) { throw new IOException("Invalid item appearance format.", malformed); }
     }
     public void save() throws IOException {
@@ -174,6 +178,7 @@ public final class ItemAppearanceStore {
             if (!entry.getValue().armorModel().isEmpty()) value.addProperty("armorModel", entry.getValue().armorModel());
             if (entry.getValue().armorColor() != null) value.addProperty("armorColor", entry.getValue().armorColor());
             if (!entry.getValue().headTexture().isEmpty()) value.addProperty("headTexture", entry.getValue().headTexture());
+            if (entry.getValue().hideGlint()) value.addProperty("hideGlint", true);
             items.add(entry.getKey(), value);
         }
         root.add("items", items);

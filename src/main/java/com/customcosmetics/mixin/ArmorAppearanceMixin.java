@@ -64,6 +64,14 @@ public final class ArmorAppearanceMixin {
 
     @Mixin(EquipmentLayerRenderer.class)
     public static class Model {
+        // Reapply at the actual layer tint: animation mods may replace the global dye lookup result.
+        // Non-dyeable detail layers must keep their original colors.
+        @ModifyExpressionValue(method = "renderLayers(Lnet/minecraft/client/resources/model/EquipmentClientInfo$LayerType;Lnet/minecraft/resources/ResourceKey;Lnet/minecraft/client/model/Model;Ljava/lang/Object;Lnet/minecraft/world/item/ItemStack;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;ILnet/minecraft/resources/Identifier;II)V",
+                at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/entity/layers/EquipmentLayerRenderer;getColorForLayer(Lnet/minecraft/client/resources/model/EquipmentClientInfo$Layer;I)I"))
+        private int customcosmetics$finalArmorColor(int original, @Local(argsOnly = true) ItemStack stack,
+                @Local EquipmentClientInfo.Layer layer) {
+            return layer.dyeable().isPresent() ? ArmorAppearance.color(stack, original) : original;
+        }
         @ModifyVariable(method = "renderLayers(Lnet/minecraft/client/resources/model/EquipmentClientInfo$LayerType;Lnet/minecraft/resources/ResourceKey;Lnet/minecraft/client/model/Model;Ljava/lang/Object;Lnet/minecraft/world/item/ItemStack;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;ILnet/minecraft/resources/Identifier;II)V",
                 at = @At("HEAD"), argsOnly = true)
         private ResourceKey<EquipmentAsset> customcosmetics$armorAsset(ResourceKey<EquipmentAsset> original,
