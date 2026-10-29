@@ -68,6 +68,10 @@ public final class ItemAppearanceStore {
     public boolean hasNames(){return names!=0;}
     public boolean hasArmorModels(){return armorModels!=0;}
     public boolean hasArmorColors(){return armorColors!=0;}
+    /** Explicit diagnostics only; ordinary rendering reads one canonical UUID at a time. */
+    public Map<String,Integer> armorColorSnapshot(){
+        var result=new TreeMap<String,Integer>();for(var entry:entries.entrySet())if(entry.getValue().armorColor()!=null)result.put(entry.getKey(),entry.getValue().armorColor());return Map.copyOf(result);
+    }
     public boolean hasHeadTextures(){return headTextures!=0;}
     public boolean hasHiddenGlints(){return hiddenGlints!=0;}
     private void count(Appearance value,int change){

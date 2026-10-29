@@ -29,6 +29,14 @@ public final class ArmorSubmissionTint {
         previous.state=state;previous.color=color;previous.textureOverride=CatharsisArmorAccess.usesTexture(state,stack);active=true;
     }
     public static int color(Model<?> model,Object state,RenderType type,int original){
+        int selected=resolveColor(model,state,type,original);
+        if(ArmorTrace.active()){
+            var binding=BINDINGS.get(model);
+            ArmorTrace.submit(model,state,type,original,selected,binding!=null,binding!=null&&binding.state==state,binding!=null&&binding.textureOverride,binding==null?0:binding.color);
+        }
+        return selected;
+    }
+    private static int resolveColor(Model<?> model,Object state,RenderType type,int original){
         if(!active||!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ITEMS))return original;
         var store=ItemCosmetics.store();
         if(store==null||!store.enabled()||!store.hasArmorColors())return original;

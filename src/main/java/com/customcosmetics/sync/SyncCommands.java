@@ -57,6 +57,7 @@ public final class SyncCommands {
             .then(ClientCommands.literal("off").executes(context->SyncDebug.setEnabled(false)))
             .then(ClientCommands.literal("status").executes(context->SyncDebug.status())));
         root.then(PlayerBlockCommands.command());
+        root.then(ClientCommands.literal("armortrace").executes(context->com.customcosmetics.features.items.ArmorTrace.start()));
         root.then(com.customcosmetics.features.map.MapCommands.command());
         var waypoint = ClientCommands.literal("waypoint").executes(context -> {
             com.customcosmetics.client.CustomCosmeticsClient.requestScreen(()->new com.customcosmetics.gui.WaypointScreen(null));

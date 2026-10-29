@@ -44,6 +44,10 @@ public final class ArmorAppearanceMixin {
 
     @Mixin(HumanoidMobRenderer.class)
     public static class HeadEquipment {
+        @ModifyReturnValue(method="getEquipmentIfRenderable",at=@At("RETURN"))
+        private static ItemStack customcosmetics$knownArmorIdentity(ItemStack rendered,net.minecraft.world.entity.LivingEntity entity,EquipmentSlot slot){
+            return com.customcosmetics.features.items.ArmorItemIdentity.render(entity,slot,rendered);
+        }
         @ModifyExpressionValue(method = "getEquipmentIfRenderable", at = @At(value = "INVOKE",
                 target = "Lnet/minecraft/world/entity/LivingEntity;getItemBySlot(Lnet/minecraft/world/entity/EquipmentSlot;)Lnet/minecraft/world/item/ItemStack;"))
         private static ItemStack customcosmetics$headArmorProxy(ItemStack original, @Local(argsOnly = true) EquipmentSlot slot) {
@@ -69,8 +73,10 @@ public final class ArmorAppearanceMixin {
         @ModifyExpressionValue(method = "renderLayers(Lnet/minecraft/client/resources/model/EquipmentClientInfo$LayerType;Lnet/minecraft/resources/ResourceKey;Lnet/minecraft/client/model/Model;Ljava/lang/Object;Lnet/minecraft/world/item/ItemStack;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;ILnet/minecraft/resources/Identifier;II)V",
                 at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/entity/layers/EquipmentLayerRenderer;getColorForLayer(Lnet/minecraft/client/resources/model/EquipmentClientInfo$Layer;I)I"))
         private int customcosmetics$finalArmorColor(int original, @Local(argsOnly = true) ItemStack stack,
-                @Local EquipmentClientInfo.Layer layer) {
-            return layer.dyeable().isPresent() ? ArmorAppearance.color(stack, original) : original;
+                @Local EquipmentClientInfo.Layer layer,@Local(argsOnly=true)Object state) {
+            int selected=layer.dyeable().isPresent() ? ArmorAppearance.color(stack, original) : original;
+            if(com.customcosmetics.features.items.ArmorTrace.active())com.customcosmetics.features.items.ArmorTrace.layer(state,stack,original,selected,layer.dyeable().isPresent());
+            return selected;
         }
         @ModifyVariable(method = "renderLayers(Lnet/minecraft/client/resources/model/EquipmentClientInfo$LayerType;Lnet/minecraft/resources/ResourceKey;Lnet/minecraft/client/model/Model;Ljava/lang/Object;Lnet/minecraft/world/item/ItemStack;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;ILnet/minecraft/resources/Identifier;II)V",
                 at = @At("HEAD"), argsOnly = true)

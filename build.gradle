@@ -249,7 +249,7 @@ tasks.named('processGametestResources') {
 }
 
 if (providers.gradleProperty('appearance_game_only').getOrElse('false').toBoolean()) {
-    sourceSets.gametest.java.include '**/ItemModelGameTest.java', '**/ItemAppearanceGameTest.java', '**/CatharsisArmorGameTest.java', '**/RenderAssertions.java',
+    sourceSets.gametest.java.include '**/ItemModelGameTest.java', '**/ItemAppearanceGameTest.java', '**/CatharsisArmorGameTest.java', '**/ArmorTraceGameTest.java', '**/RenderAssertions.java',
         '**/mixin/ItemAppearanceProbeMixin.java', '**/mixin/UpdateCheckOfflineMixin.java', '**/mixin/OfflineStartupMixin.java'
     tasks.named('processGametestResources') {
         inputs.property 'appearance_game_only', true

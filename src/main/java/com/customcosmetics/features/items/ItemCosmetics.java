@@ -169,6 +169,8 @@ public final class ItemCosmetics {
         return !store.getCanonical(uuid(stack)).hideGlint();
     }
     public static void tick() {
+        ArmorTrace.tick(Minecraft.getInstance());
+        ArmorItemIdentity.tick();
         if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ITEMS))return;
         HeadSkins.tick();
         if (store != null && store.dirty() && System.currentTimeMillis() - lastSave > 750) save();

@@ -3,7 +3,9 @@
 ## Unreleased
 
 - Refresh head skins from NEU and Hypixel at startup; support animated head skins.
-- Add per-item glint removal and stabilize custom armor colors, including Catharsis direct draws.
+- Add per-item enchantment glint removal.
+- Keep saved armor appearances when animated dye updates omit item UUIDs.
+- Add opt-in armor rendering diagnostics.
 
 ## 2.0.0
 
