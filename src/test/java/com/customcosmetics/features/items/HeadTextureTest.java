@@ -14,6 +14,10 @@ class HeadTextureTest {
         assertEquals(HASH,HeadTexture.normalize(" "+HASH.toUpperCase(Locale.ROOT)+" "));
         assertEquals(HASH,HeadTexture.normalize("http://textures.minecraft.net/texture/"+HASH));
         assertEquals(HASH,HeadTexture.normalize(HeadTexture.property(HASH)));
+        String unpadded=HeadTexture.property(HASH).replace("=","");
+        assertEquals(HASH,HeadTexture.normalize(unpadded));
+        assertEquals(HASH,HeadTexture.normalize(unpadded+"="));
+        assertEquals(HASH,HeadTexture.normalize(unpadded+"==="));
         for(String value:List.of("https://example.test/texture/"+HASH,"https://textures.minecraft.net.evil.test/texture/"+HASH,
                 "file:///skin.png","https://textures.minecraft.net/texture/../file","not a skin","a".repeat(8193)))
             assertThrows(IllegalArgumentException.class,()->HeadTexture.normalize(value));

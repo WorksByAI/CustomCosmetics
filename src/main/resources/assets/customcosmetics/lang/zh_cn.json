@@ -1180,5 +1180,6 @@
   "customcosmetics.ui.location_esp_description": "高亮显示你接收位置共享的玩家。",
   "customcosmetics.ui.location_names_description": "显示位置共享玩家的名字和距离。",
   "customcosmetics.ui.location_far_description": "显示远处的位置共享玩家。",
-  "customcosmetics.ui.sharing_nametag_style_description": "可选简洁或原版。原版保留实际名字、等级、颜色和图标；无法读取时显示账号名。"
+  "customcosmetics.ui.sharing_nametag_style_description": "可选简洁或原版。原版保留实际名字、等级、颜色和图标；无法读取时显示账号名。",
+  "customcosmetics.ui.animated_head_label": "动态"
 }

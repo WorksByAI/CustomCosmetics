@@ -36,6 +36,7 @@ public final class ItemCosmetics {
         store = new ItemAppearanceStore(CosmeticsConfigDir.getCosmeticsConfigDir().resolve("item-appearances.json"));
         try { store.load(); }
         catch (java.io.IOException error) { CustomCosmeticsClient.LOGGER.warn("Could not load local item appearances: {}", error.getMessage()); }
+        HeadSkins.requestCatalog();
     }
     public static ItemAppearanceStore store() { return store; }
     public static boolean modelsActive(){return com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ITEMS)&&(!PREVIEWS.isEmpty()||store!=null&&store.enabled()&&(store.hasModels()||store.hasHeadTextures()));}
@@ -162,6 +163,7 @@ public final class ItemCosmetics {
     }
     public static void tick() {
         if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ITEMS))return;
+        HeadSkins.tick();
         if (store != null && store.dirty() && System.currentTimeMillis() - lastSave > 750) save();
     }
     public static boolean save() {

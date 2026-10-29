@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Refresh head skins from NEU and Hypixel at startup; support animated head skins.
+
 ## 2.0.0
 
 - Redesign settings with themes, animations, search, Chinese and fonts; move Clear Results to the header.

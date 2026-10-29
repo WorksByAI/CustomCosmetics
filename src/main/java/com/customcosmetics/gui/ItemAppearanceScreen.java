@@ -122,7 +122,7 @@ public final class ItemAppearanceScreen extends ThemedScreen {
     private List<ItemChoiceScreen.Choice> headChoices(){
         var current=HeadSkins.entries();
         if(current!=headEntries){headEntries=current;headChoices=current.stream()
-            .map(entry->new ItemChoiceScreen.Choice(entry.name(),entry.id(),()->HeadSkins.icon(entry.texture()))).toList();}
+            .map(entry->new ItemChoiceScreen.Choice(entry.name()+(entry.id().startsWith("animated:")?" ("+UiText.tr("Animated")+")":""),entry.id(),()->HeadSkins.icon(entry.texture()))).toList();}
         return headChoices;
     }
     private void chooseHeadSkin(){

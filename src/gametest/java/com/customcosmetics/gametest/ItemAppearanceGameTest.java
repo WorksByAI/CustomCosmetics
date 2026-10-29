@@ -216,11 +216,81 @@ final class ItemAppearanceGameTest {
         context.waitTicks(5);context.takeScreenshot("item-cosmetics-warden-head-leather-armor");
         context.runOnClient(client->{client.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);ItemCosmetics.store().put(C,new ItemAppearanceStore.Appearance("",""));ItemCosmetics.save();});
         checkHeadSkins(context);
+        checkAnimatedHeadSkins(context);
         checkAccessoryTooltips(context);
         checkMissingBagPanel(context);
         world.getServer().runCommand("item replace entity @a armor.head with minecraft:air");
         System.out.println("ITEM_APPEARANCE_GAME_TEST_OK");
     }
+    private static void installHeads(HeadSkinCatalog.Data data) {
+        try { var method=HeadSkins.class.getDeclaredMethod("install",HeadSkinCatalog.Data.class);method.setAccessible(true);method.invoke(null,data); }
+        catch(ReflectiveOperationException error){throw new AssertionError(error);}
+    }
+    private static void checkAnimatedHeadSkins(ClientGameTestContext context) {
+        var original=new AtomicReference<ItemStack>();
+        var first=new AtomicReference<net.minecraft.world.item.component.ResolvableProfile>();
+        var proxy=new AtomicReference<ItemStack>();
+        var visited=java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<net.minecraft.world.item.component.ResolvableProfile,Boolean>());
+        String selection;
+        try(var input=ItemAppearanceGameTest.class.getResourceAsStream("/animated-heads-fixture.json")) {
+            var definitions=HeadSkinCatalog.parseAnimations(new String(java.util.Objects.requireNonNull(input).readAllBytes(),java.nio.charset.StandardCharsets.UTF_8));
+            var frames=definitions.get("GOLDOR_CELESTIAL");
+            if(frames.frames().size()!=24||frames.ticks()!=3)throw new AssertionError("Celestial Goldor fixture lost its real cadence");
+            selection="animated:GOLDOR_CELESTIAL:"+frames.frames().getFirst();
+            String chosen=selection;
+            context.runOnClient(client->{
+                var previous=HeadSkins.entries().stream().filter(e->!e.id().startsWith("animated:")).toList();
+                installHeads(HeadSkinCatalog.combine(new HeadSkinCatalog.Data(previous,definitions),java.util.List.of()));
+                original.set(client.player.getMainHandItem().copy());
+                ItemCosmetics.store().put(A,new ItemAppearanceStore.Appearance("","","",null,chosen));
+                ItemCosmetics.store().put(C,new ItemAppearanceStore.Appearance("","","",null,chosen));
+                var ticks=longField(HeadSkins.class,"ticks");setLong(ticks,0);
+                first.set(HeadSkins.profile(chosen));proxy.set(HeadSkins.renderProxy(client.player.getMainHandItem()));
+                var preview=HeadSkins.preview(original.get(),chosen);
+                net.minecraft.world.item.component.ResolvableProfile previousFrame=null;
+                for(int i=0;i<144;i++){
+                    setLong(ticks,i);var current=HeadSkins.profile(chosen);visited.add(current);
+                    if(i%3!=0&&current!=previousFrame)throw new AssertionError("Animation advanced before its three-tick interval");
+                    previousFrame=current;
+                    if(HeadSkins.renderProxy(client.player.getMainHandItem())!=proxy.get())throw new AssertionError("Animation allocated a new inventory stack per frame");
+                    HeadSkins.renderProxy(preview);
+                    if(preview.get(DataComponents.PROFILE)!=current||proxy.get().get(DataComponents.PROFILE)!=current||HeadSkins.icon(chosen).get(DataComponents.PROFILE)!=current)
+                        throw new AssertionError("Animated preview, inventory and picker do not share their current frame");
+                    var state=new net.minecraft.client.renderer.entity.state.LivingEntityRenderState();HeadSkins.worn(client.player,state);
+                    if(state.wornHeadProfile!=current)throw new AssertionError("Worn head did not animate");
+                }
+                if(visited.size()!=24||HeadSkins.profile(chosen)==null)throw new AssertionError("Animation did not cache all 24 frames");
+                setLong(ticks,72);if(HeadSkins.profile(chosen)!=first.get())throw new AssertionError("Animation did not loop or reused profiles incorrectly");
+                for(int i=0;i<10000;i++)if(HeadSkins.profile(chosen)!=first.get()||HeadSkins.renderProxy(client.player.getMainHandItem())!=proxy.get())throw new AssertionError("Warm animation path allocated replacement render objects");
+                if(!ItemStack.isSameItemSameComponents(original.get(),client.player.getMainHandItem()))throw new AssertionError("Animation mutated real item data");
+                ClientUiAccess.setScreen(client,new ItemAppearanceScreen(null));
+            });
+        }catch(java.io.IOException error){throw new AssertionError(error);}
+        context.waitTicks(2);scrollTo(context,"Select Head Skin");click(context,"Select Head Skin");
+        context.runOnClient(client->field(client,"Search").setValue("Celestial"));context.waitTicks(3);
+        context.takeScreenshot("animated-celestial-goldor-picker");
+        click(context,"Goldor Celestial (Animated)");click(context,"Done");
+        final String chosen=selection;
+        context.runOnClient(client->{
+            if(!ItemCosmetics.store().get(A).headTexture().equals(chosen))throw new AssertionError("Animated selection was not saved by Done");
+            if(!ItemCosmetics.flush())throw new AssertionError("Animated appearance failed to save");
+            var loaded=new ItemAppearanceStore(com.customcosmetics.config.CosmeticsConfigDir.getCosmeticsConfigDir().resolve("item-appearances.json"));
+            try{loaded.load();}catch(java.io.IOException error){throw new AssertionError(error);}
+            if(!loaded.get(A).headTexture().equals(chosen))throw new AssertionError("Animated appearance lost its reference on disk");
+            client.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_FRONT);
+        });
+        context.waitTicks(20);context.takeScreenshot("animated-celestial-goldor-worn");
+        context.runOnClient(client->{
+            com.customcosmetics.config.FeatureModules.set(com.customcosmetics.config.FeatureModules.Feature.ITEMS,false);
+            if(HeadSkins.renderProxy(client.player.getMainHandItem())!=client.player.getMainHandItem())throw new AssertionError("Disabled module still animated items");
+            com.customcosmetics.config.FeatureModules.set(com.customcosmetics.config.FeatureModules.Feature.ITEMS,true);
+            client.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);
+            ItemCosmetics.store().put(A,new ItemAppearanceStore.Appearance("",""));ItemCosmetics.store().put(C,new ItemAppearanceStore.Appearance("",""));ItemCosmetics.save();
+        });
+        System.out.println("ANIMATED_GOLDOR_24_FRAMES_PREVIEW_PICKER_HELD_WORN_SAVE_DISABLE_CACHE_OK");
+    }
+    private static java.lang.reflect.Field longField(Class<?> type,String name){try{var field=type.getDeclaredField(name);field.setAccessible(true);return field;}catch(ReflectiveOperationException error){throw new AssertionError(error);}}
+    private static void setLong(java.lang.reflect.Field field,long value){try{field.setLong(null,value);}catch(ReflectiveOperationException error){throw new AssertionError(error);}}
     private static void checkMissingBagPanel(ClientGameTestContext context){
         var saved=new java.util.HashMap<java.lang.reflect.Field,Object>();var oldEnabled=ConfigManager.accessoryHelperTooltipEnabled;var oldOffline=ConfigManager.offlineMode;
         var panel=new AtomicReference<Object>();var bag=new AtomicReference<net.minecraft.client.gui.screens.inventory.ContainerScreen>();
@@ -328,10 +398,8 @@ final class ItemAppearanceGameTest {
         var originalHead=new AtomicReference<ItemStack>();
         context.runOnClient(client->{
             try(var input=ItemAppearanceGameTest.class.getResourceAsStream("/head-skins-fixture.json")){
-                var cache=com.customcosmetics.config.CosmeticsConfigDir.getCosmeticsConfigDir().resolve("head-skins.json");
-                var build=java.nio.file.Path.of(System.getProperty("customcosmetics.testProjectDir")).toAbsolutePath().resolve("build");
-                if(!cache.toAbsolutePath().startsWith(build))throw new AssertionError("Head fixture would modify a real game instance");
-                java.nio.file.Files.copy(java.util.Objects.requireNonNull(input),cache,java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                var values=HeadSkinCatalog.parse(new String(java.util.Objects.requireNonNull(input).readAllBytes(),java.nio.charset.StandardCharsets.UTF_8));
+                installHeads(new HeadSkinCatalog.Data(values, java.util.Map.of()));
             }catch(java.io.IOException error){throw new AssertionError(error);}
             originalHead.set(client.player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).copy());
             ClientUiAccess.setScreen(client,new ItemAppearanceScreen(null));
