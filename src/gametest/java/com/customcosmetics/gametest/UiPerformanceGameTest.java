@@ -113,10 +113,27 @@ public final class UiPerformanceGameTest implements FabricClientGameTest {
                 }
                 context.runOnClient(client->ClientUiAccess.setScreen(client,null));
             }
-            var root=new JsonObject();root.addProperty("scope","isolated fixed world, actual frame intervals; not Hypixel gameplay");root.addProperty("sampleSeconds",SECONDS);root.addProperty("font",System.getProperty("customcosmetics.uiFont","vanilla"));root.addProperty("language",System.getProperty("customcosmetics.uiLanguage","en_us"));root.add("scenes",rows);root.addProperty("backend",com.mojang.blaze3d.systems.RenderSystem.getDevice().getDeviceInfo().backendName());
+            var root = new JsonObject();
+            root.addProperty("scope", "isolated fixed world, actual frame intervals; not Hypixel gameplay");
+            root.addProperty("sampleSeconds", SECONDS);
+            String fontFile = System.getenv("CCOS_TEST_FONT");
+            root.addProperty("font", fontFile == null ? System.getProperty("customcosmetics.uiFont", "vanilla") : Path.of(fontFile).getFileName().toString());
+            root.addProperty("language", System.getProperty("customcosmetics.uiLanguage", "en_us"));
+            root.addProperty("backend", backendName());
+            root.add("scenes", rows);
             var output=FabricLoader.getInstance().getGameDir().resolve("ui-performance");Files.createDirectories(output);Files.writeString(output.resolve("frames.json"),new GsonBuilder().setPrettyPrinting().create().toJson(root));if(recording!=null){recording.stop();recording.dump(output.resolve("ui.jfr"));}
             System.out.println("UI_ACTUAL_FRAME_INTERVALS_EXTRACTION_AND_CLOSED_BASELINES_OK "+output);
         }catch(Exception error){throw new AssertionError(error);}finally{sample=null;if(recording!=null)recording.close();}
+    }
+
+    private static String backendName() throws ReflectiveOperationException {
+        Object device = com.mojang.blaze3d.systems.RenderSystem.getDevice();
+        try {
+            Object info = device.getClass().getMethod("getDeviceInfo").invoke(device);
+            return (String) info.getClass().getMethod("backendName").invoke(info);
+        } catch (NoSuchMethodException legacyDevice) {
+            return (String) device.getClass().getMethod("getBackendName").invoke(device);
+        }
     }
 
     private static void assertFontSampling(Minecraft client) {
