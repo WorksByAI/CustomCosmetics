@@ -57,6 +57,8 @@ public final class ConfigManager {
     public static boolean hideHypixelSkyBlockPack = false;
     public static boolean hypixelPackTextColors = false;
     public static boolean hypixelPackTooltipBackground = false;
+    public static boolean customTextColorsEnabled = false;
+    public static java.util.Map<String, String> customTextColors = java.util.Map.of();
     public static java.util.Set<String> hypixelPackWhitelist = java.util.Set.of();
     public static java.util.Map<String, String> hypixelPackReplacements = java.util.Map.of();
     public static java.util.Map<String, Boolean> hypixelPackGlints = java.util.Map.of();

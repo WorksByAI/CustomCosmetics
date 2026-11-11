@@ -39,6 +39,7 @@ public final class HypixelPackDisabler {
     private static boolean reloading;
     private static boolean reloadQueued;
     private static boolean forceQueued;
+    private static boolean notifyQueued;
     private static Object downloadInProgress;
 
     public interface DownloadedPacks {
@@ -104,7 +105,7 @@ public final class HypixelPackDisabler {
     }
 
     public static void refresh(Minecraft client) {
-        refresh(client, false);
+        refresh(client, TextColorOverrides.update(), false);
     }
 
     public static void checkDownloadAndReload(Minecraft client) {
@@ -121,7 +122,7 @@ public final class HypixelPackDisabler {
         });
         MessageUtils.sendMessage("Reloading the Hypixel SkyBlock pack.");
         if (downloads.isEmpty()) {
-            refresh(client, true);
+            refresh(client, true, true);
             return;
         }
         var manager = ((DownloadedPacks) client.getDownloadedPackSource()).customcosmetics$packManager();
@@ -137,15 +138,16 @@ public final class HypixelPackDisabler {
                 MessageUtils.sendMessage("Could not verify or download the Hypixel pack.");
                 return;
             }
-            refresh(client, true);
+            refresh(client, true, true);
         }));
     }
 
-    private static void refresh(Minecraft client, boolean force) {
-        if (SKYBLOCK_PACKS.isEmpty()) return;
+    private static void refresh(Minecraft client, boolean force, boolean notify) {
+        if (!force && SKYBLOCK_PACKS.isEmpty()) return;
         if (reloading) {
             reloadQueued = true;
             forceQueued |= force;
+            notifyQueued |= notify;
             return;
         }
         boolean enable = enabled();
@@ -155,16 +157,18 @@ public final class HypixelPackDisabler {
         client.reloadResourcePacks().whenComplete((ignored, error) -> client.execute(() -> {
             reloading = false;
             if (error != null) {
-                CustomCosmeticsClient.LOGGER.warn("Could not reload the SkyBlock resource pack", error);
+                CustomCosmeticsClient.LOGGER.warn("Could not reload resources after a visual setting changed", error);
             }
-            if (force && usingFallback()) {
+            if (notify && usingFallback()) {
                 MessageUtils.sendMessage(error == null ? "Hypixel SkyBlock pack reloaded." : "Could not reload the Hypixel pack.");
             }
             if (reloadQueued) {
                 reloadQueued = false;
                 boolean nextForce = forceQueued;
+                boolean nextNotify = notifyQueued;
                 forceQueued = false;
-                refresh(client, nextForce);
+                notifyQueued = false;
+                refresh(client, nextForce, nextNotify);
             }
         }));
     }

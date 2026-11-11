@@ -482,8 +482,12 @@ public final class PresenceSync {
         if (!result.success() && result.failure() != null && result.failure().rateLimited()) return;
         Minecraft.getInstance().execute(() -> {
             if (endpointVersion == ENDPOINT_VERSION.get())
-                MessageUtils.sendSyncResult(result.success(), false, result.failure());
+                MessageUtils.sendManualSyncResult(result.success(), result.failure());
         });
+    }
+
+    static List<String> manualDiagnostics() {
+        return MANUAL_RESULT.diagnostics(ENDPOINT_VERSION.get());
     }
 
     private static void completeNetworkResult(long endpointVersion, StartupSyncNotice.Ticket ticket,

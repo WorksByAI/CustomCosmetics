@@ -3,7 +3,7 @@
 ## Unreleased
 
 - Add administrator-gated experimental display, camera, inventory, font, and resource pack tools.
-- Add inventory dimming, a hit color palette, and legacy Hypixel visuals with optional text colors and tooltip backgrounds.
+- Add global text color rules, inventory dimming, a hit color palette, and optional Hypixel text colors and tooltips.
 - Fix iron bar connections in visual map edits and improve sync connection diagnostics.
 - Add searchable system fonts and game-wide font controls without bundling fonts.
 

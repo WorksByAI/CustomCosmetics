@@ -72,6 +72,7 @@ public final class SettingsCatalog {
         add(entries, "Pack Disabler", "PACK_DISABLER", "Official server resource pack", "Hide Hypixel SkyBlock Pack");
         add(entries, "Pack Disabler", "PACK_DISABLER", "Official server resource pack", "Hypixel Text Colors");
         add(entries, "Pack Disabler", "PACK_DISABLER", "Official server resource pack", "Hypixel Tooltip Background");
+        add(entries, "Customize Text Colors", "TEXT_COLORS", "Replace exact text colors", "Source Color");
         add(entries, "Pack Disabler", "PACK_DISABLER", "Official server resource pack", "Reload Hypixel Pack");
         add(entries, "Hit Color", "HIT_COLOR", "Hurt color palette hex", "Hit Color|Hurt Flash Color|Opacity");
         add(entries, "Fonts", "FONTS", "Game text and system fonts",

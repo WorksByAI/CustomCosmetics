@@ -34,6 +34,10 @@ class ManualSyncResultTest {
         result.begin(1);
         assertNull(result.complete(1, READ, true, null));
         assertEquals(new ManualSyncResult.Result(false, failure), result.complete(1, WRITE, false, failure));
+        assertEquals(java.util.List.of("Manual sync download: OK",
+            "Manual sync upload: Mojang session join: invalid Minecraft session; sign in again [INVALID_MINECRAFT_SESSION]"),
+            result.diagnostics(1));
+        assertTrue(result.diagnostics(2).isEmpty());
     }
 
     @Test

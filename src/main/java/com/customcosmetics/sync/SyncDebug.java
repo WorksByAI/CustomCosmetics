@@ -39,6 +39,8 @@ public final class SyncDebug {
         if(roster.empty())lines.add("P2P requires a detected party for party position sharing.");
         if(!PartyFeatures.sharingPositions())lines.add("P2P requires Party ESP or Tracers to share positions.");
         lines.add("HTTP proxy mode: "+ConfigManager.syncProxySource);
+        lines.add("Service SNI: "+(ConfigManager.syncServerSni?"enabled":"disabled"));
+        lines.addAll(PresenceSync.manualDiagnostics());
         lines.addAll(RealtimeSync.diagnostics());
         lines.add("Probe loss is an estimate for control probes, not a measurement of all game data.");
         return List.copyOf(lines);

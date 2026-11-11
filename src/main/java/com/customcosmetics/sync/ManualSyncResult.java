@@ -1,6 +1,7 @@
 package com.customcosmetics.sync;
 
 import java.util.EnumMap;
+import java.util.List;
 
 /** A manual result waits for both download and upload, including already running requests. */
 public final class ManualSyncResult {
@@ -26,5 +27,16 @@ public final class ManualSyncResult {
         for (var part : results.values()) if (!part.success() && (part.failure() == null || !part.failure().rateLimited())) return part;
         for (var part : results.values()) if (!part.success()) return part;
         return new Result(true, null);
+    }
+
+    synchronized List<String> diagnostics(long version) {
+        if (version != endpointVersion || results.isEmpty()) return List.of();
+        return results.entrySet().stream().map(entry -> {
+            var result = entry.getValue();
+            String operation = entry.getKey() == StartupSyncNotice.Operation.READ ? "download" : "upload";
+            String detail = result.success() ? "OK" : result.failure() == null ? "unknown error"
+                : result.failure().diagnostic() + " [" + result.failure().reason().name() + "]";
+            return "Manual sync " + operation + ": " + detail;
+        }).toList();
     }
 }

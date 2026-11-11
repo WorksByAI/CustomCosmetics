@@ -5,6 +5,7 @@ import com.customcosmetics.compatibility.ClientUiAccess;
 import com.customcosmetics.config.ConfigManager;
 import com.customcosmetics.features.hud.HudLayout;
 import com.customcosmetics.features.pack.HypixelPackDisabler;
+import com.customcosmetics.features.pack.TextColorOverrides;
 import com.customcosmetics.config.PlayerBlocklist;
 import com.customcosmetics.sync.PresenceSync;
 import com.customcosmetics.sync.ExperimentalAccess;
@@ -30,7 +31,7 @@ import static com.customcosmetics.gui.PinkUi.*;
 public final class CosmeticsScreen extends ThemedScreen {
     public enum Page {
         MAIN, SIZE, NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, BLOCKED_SKINS, POSITION_RECIPIENTS, ANIMATIONS, DAMAGE, ITEMS, ACCESSORIES, MAP, PARTY, LOCATION_SHARING, SKINS, SYNC, THEME, MODULES, SEARCH, DROP_2D, EXPERIMENTAL,
-        HUD_LAYOUT, SKYBOX, FONTS, FREECAM, WINDOW, HIT_COLOR, FAST_PING, PACK_DISABLER, INVENTORY_BLUR;
+        HUD_LAYOUT, SKYBOX, FONTS, FREECAM, WINDOW, HIT_COLOR, FAST_PING, PACK_DISABLER, INVENTORY_BLUR, TEXT_COLORS;
 
         boolean experimentalOption() { return ordinal() > EXPERIMENTAL.ordinal(); }
     }
@@ -76,6 +77,7 @@ public final class CosmeticsScreen extends ThemedScreen {
     private String presetName = "";
     private String blockedPlayerName = "";
     private String blockedPlayerSearch = "";
+    private String textColorFrom = "", textColorTo = "";
     private int pendingToggleY=Integer.MIN_VALUE,pendingToggleBottom;
     private boolean pendingToggleRight;
     private boolean pinnedNickname, draggingScroll,wardrobeRequested;
@@ -155,6 +157,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             case DAMAGE -> damageSplash();
             case EXPERIMENTAL -> experimental();
             case PACK_DISABLER -> packDisabler();
+            case TEXT_COLORS -> textColors();
             case INVENTORY_BLUR -> inventoryBlur();
             case HUD_LAYOUT -> hudLayout();
             case SKYBOX -> customSky();
@@ -191,6 +194,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             case DAMAGE -> "Damage Splash";
             case EXPERIMENTAL -> "Experimental Features";
             case PACK_DISABLER -> "Pack Disabler";
+            case TEXT_COLORS -> "Customize Text Colors";
             case INVENTORY_BLUR -> "Inventory Blur";
             case HUD_LAYOUT -> "HUD Layout";
             case SKYBOX -> "Custom Sky";
@@ -222,6 +226,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             case DAMAGE -> "Style your local damage numbers.";
             case EXPERIMENTAL -> "Access is granted by a server administrator.";
             case PACK_DISABLER -> "Hide the official Hypixel SkyBlock textures.";
+            case TEXT_COLORS -> "Replace exact text colors.";
             case INVENTORY_BLUR -> "Blur the world behind inventories and containers.";
             case HUD_LAYOUT -> "Move, resize or hide HUD elements.";
             case SKYBOX -> "OptiFine and MCPatcher skies.";
@@ -308,6 +313,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         fullButton("Window Mode", () -> open(Page.WINDOW), false);
         fullButton("Hit Color", () -> open(Page.HIT_COLOR), false);
         fullButton("Pack Disabler", () -> open(Page.PACK_DISABLER), false);
+        fullButton("Customize Text Colors", () -> open(Page.TEXT_COLORS), false);
         fullButton("Inventory Blur", () -> open(Page.INVENTORY_BLUR), false);
         fullButton("Fonts", () -> open(Page.FONTS), false);
     }
@@ -359,6 +365,64 @@ public final class CosmeticsScreen extends ThemedScreen {
             art.add(bounded(y, y + 22, g -> g.text(font, sample, sampleX, y + 6, color, true)));
             x += sampleWidth + 12;
         }
+    }
+
+    private void textColors() {
+        toggleRow("Customize Text Colors", "", () -> ConfigManager.customTextColorsEnabled, value -> {
+            ConfigManager.customTextColorsEnabled = value;
+            HypixelPackDisabler.refresh(minecraft);
+        }).setTooltip(null);
+        String hint = "Minecraft color name, legacy code, or #RRGGBB";
+        var from = fieldRow("Source Color", "e.g. gold or #FFAA00", textColorFrom, 24, hint, 185, value -> {});
+        var to = fieldRow("Replacement Color", "e.g. #FF66AA", textColorTo, 24, hint, 185, value -> {});
+        var save = fullButton("Save Color Rule", () -> {
+            Integer source = TextColorOverrides.parse(from.getValue()), target = TextColorOverrides.parse(to.getValue());
+            if (source == null || target == null || source.equals(target)) return;
+            saveTextColorRule(TextColorOverrides.hex(source), TextColorOverrides.hex(target));
+        }, true, "Saving an existing source color updates its replacement.");
+        Runnable validate = () -> {
+            Integer source = TextColorOverrides.parse(textColorFrom), target = TextColorOverrides.parse(textColorTo);
+            from.invalid(!textColorFrom.isBlank() && source == null);
+            to.invalid(!textColorTo.isBlank() && target == null);
+            save.active = source != null && target != null && !source.equals(target);
+        };
+        from.setResponder(value -> { activity(); textColorFrom = value; validate.run(); });
+        to.setResponder(value -> { activity(); textColorTo = value; validate.run(); });
+        validate.run();
+
+        ConfigManager.customTextColors.entrySet().stream().sorted(java.util.Map.Entry.comparingByKey()).forEach(entry -> {
+            Integer source = TextColorOverrides.parse(entry.getKey()), target = TextColorOverrides.parse(entry.getValue());
+            if (source == null || target == null) return;
+            int y = row(25), x = contentX + 6;
+            String sourceHex = TextColorOverrides.hex(source), targetHex = TextColorOverrides.hex(target);
+            int second = x + 26 + font.width(sourceHex);
+            art.add(bounded(y, y + 25, g -> {
+                g.fill(x, y + 7, x + 10, y + 17, 0xFF000000 | source);
+                g.fill(second, y + 7, second + 10, y + 17, 0xFF000000 | target);
+            }));
+            rawLabel(sourceHex + " →", x + 14, y + 8, TEXT, second - x - 15);
+            rawLabel(targetHex, second + 14, y + 8, TEXT, Math.max(0, contentX + contentWidth - second - 122));
+            int right = contentX + contentWidth;
+            add(new PinkUi.Action(right - 102, y + 2, 42, 20, "Edit", false, () -> {
+                from.setValue(sourceHex);
+                to.setValue(targetHex);
+                setFocused(to);
+            }));
+            add(new PinkUi.Action(right - 56, y + 2, 56, 20, "Remove", false,
+                () -> saveTextColorRule(entry.getKey(), null)));
+        });
+    }
+
+    private void saveTextColorRule(String source, String replacement) {
+        var rules = new java.util.TreeMap<>(ConfigManager.customTextColors);
+        Integer sourceColor = TextColorOverrides.parse(source);
+        rules.keySet().removeIf(key -> sourceColor.equals(TextColorOverrides.parse(key)));
+        if (replacement != null) rules.put(source, replacement);
+        ConfigManager.customTextColors = java.util.Collections.unmodifiableMap(rules);
+        changed();
+        HypixelPackDisabler.refresh(minecraft);
+        setFocused(null);
+        rebuildWidgets();
     }
 
     private void hudLayout(){

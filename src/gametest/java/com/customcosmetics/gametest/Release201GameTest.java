@@ -4,6 +4,7 @@ import com.customcosmetics.compatibility.ClientUiAccess;
 import com.customcosmetics.config.*;
 import com.customcosmetics.features.pack.HypixelPackDisabler;
 import com.customcosmetics.features.pack.LegacyPackItems;
+import com.customcosmetics.features.pack.TextColorOverrides;
 import com.customcosmetics.gui.*;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
@@ -321,6 +322,12 @@ public final class Release201GameTest implements FabricClientGameTest {
 
     private static void checkHypixelTextAndTooltip(ClientGameTestContext context) throws Exception {
         var colors = new int[]{0xFFAA00, 0x5555FF, 0x55FF55};
+        if (!Integer.valueOf(0xFFAA00).equals(TextColorOverrides.parse("gold"))
+            || !Integer.valueOf(0x5555FF).equals(TextColorOverrides.parse("&9"))
+            || !Integer.valueOf(0xABCDEF).equals(TextColorOverrides.parse("#ABCDEF"))
+            || TextColorOverrides.parse("#AB") != null || TextColorOverrides.parse("&l") != null) {
+            throw new AssertionError("Color rules accepted an invalid color or rejected a vanilla color");
+        }
         var tooltipStyle = Identifier.fromNamespaceAndPath("hypixel_skyblock", "epic");
         int tooltipX = 80, tooltipY = 260, tooltipWidth = 160, tooltipHeight = 40;
         context.runOnClient(client -> ClientUiAccess.setScreen(client, new net.minecraft.client.gui.screens.Screen(
@@ -339,15 +346,20 @@ public final class Release201GameTest implements FabricClientGameTest {
                 graphics.text(font, "Magma Urchin", tooltipX + 4, tooltipY + 4, 0xFFAA00AA, false);
             }
         }));
-        int[][] actual = new int[3][];
-        int[][] tooltipPixels = new int[3][];
+        int[][] actual = new int[5][];
+        int[][] tooltipPixels = new int[5][];
         for (int step = 0; step < actual.length; step++) {
-            boolean enabled = step == 1;
+            boolean hypixel = step == 1 || step == 2;
+            boolean custom = step == 2 || step == 3;
             if (step != 0) {
                 var models = context.computeOnClient(client -> com.customcosmetics.features.items.ItemCosmetics.catalogIdentity());
                 context.runOnClient(client -> {
-                    ConfigManager.hypixelPackTextColors = enabled;
-                    ConfigManager.hypixelPackTooltipBackground = enabled;
+                    ConfigManager.hypixelPackTextColors = hypixel;
+                    ConfigManager.hypixelPackTooltipBackground = hypixel;
+                    ConfigManager.customTextColors = custom
+                        ? java.util.Map.of("gold", "#AA0000", hypixel ? "#459BFF" : "#5555FF", "#ABCDEF", "dark_red", "#112233")
+                        : java.util.Map.of();
+                    ConfigManager.customTextColorsEnabled = custom;
                     HypixelPackDisabler.refresh(client);
                 });
                 context.waitFor(client -> models != com.customcosmetics.features.items.ItemCosmetics.catalogIdentity(), 240);
@@ -378,15 +390,20 @@ public final class Release201GameTest implements FabricClientGameTest {
         System.out.println("HYPIXEL_TEXT_COLORS_PIXELS " + java.util.Arrays.deepToString(actual));
         if (!java.util.Arrays.equals(actual[0], colors)
             || !java.util.Arrays.equals(actual[1], new int[]{0xFF9000, 0x459BFF, 0x55FF55})
-            || !java.util.Arrays.equals(actual[2], colors)) {
+            || !java.util.Arrays.equals(actual[4], colors)) {
             throw new AssertionError("The Hypixel text color toggle did not change the rendered palette");
         }
+        var customColors = new int[]{0xAA0000, 0xABCDEF, 0x55FF55};
+        if (!java.util.Arrays.equals(actual[2], customColors) || !java.util.Arrays.equals(actual[3], customColors)) {
+            throw new AssertionError("Custom color rules changed with Hypixel text colors or were applied more than once");
+        }
         if (java.util.Arrays.equals(tooltipPixels[0], tooltipPixels[1])
-            || !java.util.Arrays.equals(tooltipPixels[0], tooltipPixels[2])
+            || !java.util.Arrays.equals(tooltipPixels[0], tooltipPixels[4])
             || java.util.Arrays.stream(tooltipPixels[1]).anyMatch(rgb -> (rgb & 0xFFFFFF) == 0xF800F8)) {
             throw new AssertionError("The Hypixel tooltip background did not switch cleanly");
         }
         System.out.println("HYPIXEL_TOOLTIP_BACKGROUND_PIXELS_OK");
+        System.out.println("CUSTOM_TEXT_COLOR_EXACT_MATCH_AND_HYPIXEL_PRECEDENCE_PIXELS_OK");
     }
 
     private static boolean overlayClosed(net.minecraft.client.Minecraft client) {

@@ -43,6 +43,7 @@
     "HypixelPackDisablerMixin$Repository",
     "HypixelPackDisablerMixin$Resources",
     "HypixelPackDisablerMixin$Tooltips",
+    "TextColorOverridesMixin",
     "HypixelPackDisablerMixin$ItemData",
     "HypixelPackDisablerMixin$Heads",
     "HypixelPackDisablerMixin$InventoryKeys",

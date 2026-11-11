@@ -92,6 +92,13 @@ public class MessageUtils {
         sendCustomMessage(createSyncResult(success, isNotification, failure));
     }
 
+    public static void sendManualSyncResult(boolean success, SyncFailure failure) {
+        com.customcosmetics.gui.UiLocale.refresh();
+        var message = createSyncResult(success, false, failure);
+        if (!success && failure != null) message.append(" (" + com.customcosmetics.gui.UiText.tr(failure.stageDescription()) + ")");
+        sendCustomMessage(message);
+    }
+
     public static MutableComponent createSyncResult(boolean success, boolean isNotification) {
         return createSyncResult(success, isNotification, null);
     }

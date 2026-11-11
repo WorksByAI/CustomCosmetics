@@ -52,6 +52,10 @@ public record SyncFailure(Reason reason, Stage stage, int httpStatus) {
     }
 
     public String diagnostic() {
+        return stageDescription() + ": " + description();
+    }
+
+    public String stageDescription() {
         return switch(stage){
             case DOWNLOAD -> "cosmetics download";
             case UPLOAD -> "cosmetics upload";
@@ -60,7 +64,7 @@ public record SyncFailure(Reason reason, Stage stage, int httpStatus) {
             case AUTH_VERIFY -> "cosmetics proof verification";
             case MINECRAFT_AUTH -> "Mojang session join";
             case OTHER -> "connection setup";
-        }+": "+description();
+        };
     }
 
     public static SyncFailure fromResponse(HttpURLConnection connection, Stage stage, int status) {
