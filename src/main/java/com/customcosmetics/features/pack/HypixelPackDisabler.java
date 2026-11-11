@@ -174,7 +174,7 @@ public final class HypixelPackDisabler {
     }
 
     public static Identifier tooltipStyle(Identifier style) {
-        return officialAsset(style) && usingFallback() ? null : style;
+        return officialAsset(style) && !ConfigManager.hypixelPackTooltipBackground && usingFallback() ? null : style;
     }
 
     public static Map<Identifier, Resource> textShaders(Map<Identifier, Resource> selected,

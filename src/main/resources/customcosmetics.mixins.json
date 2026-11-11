@@ -42,6 +42,7 @@
     "HypixelPackDisablerMixin$Manager",
     "HypixelPackDisablerMixin$Repository",
     "HypixelPackDisablerMixin$Resources",
+    "HypixelPackDisablerMixin$Tooltips",
     "HypixelPackDisablerMixin$ItemData",
     "HypixelPackDisablerMixin$Heads",
     "HypixelPackDisablerMixin$InventoryKeys",

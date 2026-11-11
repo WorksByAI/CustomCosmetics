@@ -309,6 +309,7 @@ public final class Release201GameTest implements FabricClientGameTest {
         context.runOnClient(HypixelPackDisabler::checkDownloadAndReload);
         context.waitFor(client -> bakedModels != com.customcosmetics.features.items.ItemCosmetics.catalogIdentity()
             && packIsFallback(client, texture), 240);
+        checkHypixelTextAndTooltip(context);
         context.runOnClient(client -> {
             ConfigManager.hideHypixelSkyBlockPack = false;
             client.getDownloadedPackSource().popPack(official);
@@ -316,6 +317,85 @@ public final class Release201GameTest implements FabricClientGameTest {
         });
         context.waitFor(client -> client.getResourceManager().getResource(texture).isEmpty(), 240);
         System.out.println("CACHED_HYPIXEL_PACK_MAGMA_URCHIN_LEGACY_AND_OFFICIAL_MODELS_OK");
+    }
+
+    private static void checkHypixelTextAndTooltip(ClientGameTestContext context) throws Exception {
+        var colors = new int[]{0xFFAA00, 0x5555FF, 0x55FF55};
+        var tooltipStyle = Identifier.fromNamespaceAndPath("hypixel_skyblock", "epic");
+        int tooltipX = 80, tooltipY = 260, tooltipWidth = 160, tooltipHeight = 40;
+        context.runOnClient(client -> ClientUiAccess.setScreen(client, new net.minecraft.client.gui.screens.Screen(
+            net.minecraft.network.chat.Component.literal("Hypixel text colors")) {
+            @Override public boolean isPauseScreen() { return false; }
+            @Override public void extractRenderState(net.minecraft.client.gui.GuiGraphicsExtractor graphics, int x, int y, float delta) {
+                graphics.fill(0, 0, width, height, 0xFF101010);
+                graphics.pose().pushMatrix();
+                graphics.pose().scale(4, 4);
+                for (int i = 0; i < colors.length; i++) {
+                    graphics.text(font, "MMMMMMMM", 10, 12 + i * 15, 0xFF000000 | colors[i], false);
+                }
+                graphics.pose().popMatrix();
+                net.minecraft.client.gui.screens.inventory.tooltip.TooltipRenderUtil.extractTooltipBackground(
+                    graphics, tooltipX, tooltipY, tooltipWidth, tooltipHeight, tooltipStyle);
+                graphics.text(font, "Magma Urchin", tooltipX + 4, tooltipY + 4, 0xFFAA00AA, false);
+            }
+        }));
+        int[][] actual = new int[3][];
+        int[][] tooltipPixels = new int[3][];
+        for (int step = 0; step < actual.length; step++) {
+            boolean enabled = step == 1;
+            if (step != 0) {
+                var models = context.computeOnClient(client -> com.customcosmetics.features.items.ItemCosmetics.catalogIdentity());
+                context.runOnClient(client -> {
+                    ConfigManager.hypixelPackTextColors = enabled;
+                    ConfigManager.hypixelPackTooltipBackground = enabled;
+                    HypixelPackDisabler.refresh(client);
+                });
+                context.waitFor(client -> models != com.customcosmetics.features.items.ItemCosmetics.catalogIdentity(), 240);
+            }
+            context.waitFor(Release201GameTest::overlayClosed, 240);
+            context.waitTicks(2);
+            var screenshot = context.takeScreenshot("hypixel-pack-visuals-" + step);
+            var image = javax.imageio.ImageIO.read(screenshot.toFile());
+            int guiScale = context.computeOnClient(client -> (int) client.getWindow().getGuiScale());
+            int scale = guiScale * 4;
+            int regionWidth = tooltipWidth * guiScale;
+            tooltipPixels[step] = image.getRGB(tooltipX * guiScale, (tooltipY + 15) * guiScale, regionWidth,
+                (tooltipHeight - 15) * guiScale, null, 0, regionWidth);
+            actual[step] = new int[colors.length];
+            for (int row = 0; row < colors.length; row++) {
+                var counts = new java.util.HashMap<Integer, Integer>();
+                for (int y = (12 + row * 15) * scale; y < (22 + row * 15) * scale; y++) {
+                    for (int x = 10 * scale; x < 60 * scale; x++) {
+                        int rgb = image.getRGB(x, y) & 0xFFFFFF;
+                        if (rgb != 0x101010) counts.merge(rgb, 1, Integer::sum);
+                    }
+                }
+                actual[step][row] = counts.entrySet().stream().max(java.util.Map.Entry.comparingByValue())
+                    .orElseThrow(() -> new AssertionError("The text sample did not render")).getKey();
+            }
+        }
+        context.runOnClient(client -> ClientUiAccess.setScreen(client, null));
+        System.out.println("HYPIXEL_TEXT_COLORS_PIXELS " + java.util.Arrays.deepToString(actual));
+        if (!java.util.Arrays.equals(actual[0], colors)
+            || !java.util.Arrays.equals(actual[1], new int[]{0xFF9000, 0x459BFF, 0x55FF55})
+            || !java.util.Arrays.equals(actual[2], colors)) {
+            throw new AssertionError("The Hypixel text color toggle did not change the rendered palette");
+        }
+        if (java.util.Arrays.equals(tooltipPixels[0], tooltipPixels[1])
+            || !java.util.Arrays.equals(tooltipPixels[0], tooltipPixels[2])
+            || java.util.Arrays.stream(tooltipPixels[1]).anyMatch(rgb -> (rgb & 0xFFFFFF) == 0xF800F8)) {
+            throw new AssertionError("The Hypixel tooltip background did not switch cleanly");
+        }
+        System.out.println("HYPIXEL_TOOLTIP_BACKGROUND_PIXELS_OK");
+    }
+
+    private static boolean overlayClosed(net.minecraft.client.Minecraft client) {
+        try {
+            try { return client.gui.getClass().getMethod("overlay").invoke(client.gui) == null; }
+            catch (NoSuchMethodException legacy) { return client.getClass().getMethod("getOverlay").invoke(client) == null; }
+        } catch (ReflectiveOperationException error) {
+            throw new AssertionError(error);
+        }
     }
 
     private static void checkDevonianReloadGuard(net.minecraft.client.Minecraft client) throws ReflectiveOperationException {

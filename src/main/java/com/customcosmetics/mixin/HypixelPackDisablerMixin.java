@@ -8,6 +8,7 @@ import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.tooltip.TooltipRenderUtil;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.renderer.special.PlayerHeadSpecialRenderer;
 import net.minecraft.client.resources.server.DownloadedPackSource;
@@ -28,6 +29,7 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.gen.Accessor;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
@@ -77,6 +79,14 @@ public final class HypixelPackDisablerMixin {
             var selected = callback.getReturnValue();
             var result = HypixelPackDisabler.textShaders(selected, this::getResourceStack);
             if (selected != result) callback.setReturnValue(result);
+        }
+    }
+
+    @Mixin(TooltipRenderUtil.class)
+    public static class Tooltips {
+        @ModifyVariable(method = "extractTooltipBackground", at = @At("HEAD"), argsOnly = true)
+        private static Identifier ccos$selectTooltipBackground(Identifier style) {
+            return HypixelPackDisabler.tooltipStyle(style);
         }
     }
 

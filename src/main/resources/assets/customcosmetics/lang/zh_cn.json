@@ -1237,6 +1237,8 @@
   "customcosmetics.ui.pack_reload": "在 SkyBlock 中切换时会重新加载材质。",
   "customcosmetics.ui.pack_external": "当前由单独安装的 PackDisabler 接管。",
   "customcosmetics.ui.pack_text_colors": "Hypixel 文字颜色",
+  "customcosmetics.ui.pack_text_colors_tip": "将金色、蓝色等部分原版文字颜色替换为 Hypixel 配色。",
+  "customcosmetics.ui.pack_tooltip_background": "Hypixel 提示框背景",
   "customcosmetics.ui.pack_reload_button": "重新加载 Hypixel 资源包",
   "customcosmetics.ui.pack_whitelist_tip": "将鼠标悬停在背包物品上，按白名单快捷键切换该物品的官方模型。",
   "key.category.customcosmetics.pack_disabler": "资源包屏蔽",

@@ -1237,6 +1237,8 @@
   "customcosmetics.ui.pack_reload": "Reloads textures when changed in SkyBlock.",
   "customcosmetics.ui.pack_external": "The installed PackDisabler mod handles this feature.",
   "customcosmetics.ui.pack_text_colors": "Hypixel Text Colors",
+  "customcosmetics.ui.pack_text_colors_tip": "Uses Hypixel’s palette for standard colors such as gold and blue.",
+  "customcosmetics.ui.pack_tooltip_background": "Hypixel Tooltip Background",
   "customcosmetics.ui.pack_reload_button": "Reload Hypixel Pack",
   "customcosmetics.ui.pack_whitelist_tip": "Hover an inventory item and press the Pack Disabler whitelist key to toggle its model.",
   "key.category.customcosmetics.pack_disabler": "Pack Disabler",

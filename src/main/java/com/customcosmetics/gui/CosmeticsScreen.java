@@ -334,13 +334,31 @@ public final class CosmeticsScreen extends ThemedScreen {
                 ConfigManager.hideHypixelSkyBlockPack = value;
                 HypixelPackDisabler.refresh(minecraft);
             });
-        toggleRow("Hypixel Text Colors", "", () -> ConfigManager.hypixelPackTextColors, value -> {
+        toggleRow("Hypixel Text Colors", "Uses Hypixel’s palette for standard colors such as gold and blue.", () -> ConfigManager.hypixelPackTextColors, value -> {
             ConfigManager.hypixelPackTextColors = value;
             HypixelPackDisabler.refresh(minecraft);
-        }).setTooltip(null);
+        });
+        toggleRow("Hypixel Tooltip Background", "", () -> ConfigManager.hypixelPackTooltipBackground,
+            value -> ConfigManager.hypixelPackTooltipBackground = value).setTooltip(null);
+        packColorPreview();
         fullButton("Reload Hypixel Pack", com.customcosmetics.features.pack.PackDisablerCommands::reload, false);
         paragraph("Hover an inventory item and press the Pack Disabler whitelist key to toggle its model.", MUTED);
         paragraph("/ccos pack help", MUTED);
+    }
+
+    private void packColorPreview() {
+        int y = row(22);
+        String[] labels = {"Gold", "Blue", "Dark Red", "Dark Purple", "Yellow"};
+        int[] colors = {0xFFFFAA00, 0xFF5555FF, 0xFFAA0000, 0xFFAA00AA, 0xFFFFFF55};
+        int x = contentX + 6;
+        for (int i = 0; i < labels.length; i++) {
+            String sample = UiText.tr(labels[i]);
+            int sampleX = x, color = colors[i];
+            int sampleWidth = font.width(sample);
+            if (sampleX + sampleWidth > contentX + contentWidth - 6) break;
+            art.add(bounded(y, y + 22, g -> g.text(font, sample, sampleX, y + 6, color, true)));
+            x += sampleWidth + 12;
+        }
     }
 
     private void hudLayout(){

@@ -2,7 +2,6 @@
 package com.customcosmetics.mixin;
 
 import com.customcosmetics.compatibility.ClientUiAccess;
-import com.customcosmetics.features.pack.HypixelPackDisabler;
 import com.customcosmetics.gui.ThemedScreen;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
@@ -29,7 +28,6 @@ public final class UiTooltipMixin {
     public abstract static class Legacy {
         @WrapMethod(method="tooltip(Lnet/minecraft/client/gui/Font;Ljava/util/List;IILnet/minecraft/client/gui/screens/inventory/tooltip/ClientTooltipPositioner;Lnet/minecraft/resources/Identifier;)V")
         private void smooth(Font font,List<ClientTooltipComponent> lines,int x,int y,ClientTooltipPositioner positioner,Identifier style,Operation<Void> original){
-            style = HypixelPackDisabler.tooltipStyle(style);
             if(!(ClientUiAccess.screen(Minecraft.getInstance()) instanceof ThemedScreen screen)){original.call(font,lines,x,y,positioner,style);return;}
             var graphics=(GuiGraphicsExtractor)(Object)this;graphics.pose().pushMatrix();
             try{original.call(font,lines,x,y,screen.beginTooltip(graphics,positioner),style);}
@@ -40,7 +38,6 @@ public final class UiTooltipMixin {
     public abstract static class Modern {
         @WrapMethod(method="tooltip(Lnet/minecraft/client/gui/Font;Ljava/util/List;IILnet/minecraft/client/gui/screens/inventory/tooltip/ClientTooltipPositioner;Lnet/minecraft/resources/Identifier;Z)V")
         private void smooth(Font font,List<ClientTooltipComponent> lines,int x,int y,ClientTooltipPositioner positioner,Identifier style,boolean flag,Operation<Void> original){
-            style = HypixelPackDisabler.tooltipStyle(style);
             if(!(ClientUiAccess.screen(Minecraft.getInstance()) instanceof ThemedScreen screen)){original.call(font,lines,x,y,positioner,style,flag);return;}
             var graphics=(GuiGraphicsExtractor)(Object)this;graphics.pose().pushMatrix();
             try{original.call(font,lines,x,y,screen.beginTooltip(graphics,positioner),style,flag);}
