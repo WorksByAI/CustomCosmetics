@@ -18,6 +18,7 @@ import net.minecraft.client.gui.font.glyphs.BakedGlyph;
 import net.minecraft.client.gui.font.glyphs.EffectGlyph;
 import net.minecraft.client.gui.font.glyphs.EmptyGlyph;
 import net.minecraft.client.gui.font.providers.TrueTypeGlyphProviderDefinition;
+import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.network.chat.FontDescription;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.PackResources;
@@ -33,6 +34,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.IntFunction;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 /** Uses Minecraft's FreeType provider and glyph atlas for local fonts. */
@@ -51,10 +53,19 @@ public final class UiFonts {
 
     private UiFonts() {}
 
-    public static boolean hasLocalAtlas() { return loaded != null; }
+    // The GPU may discard texture labels. Use the actual view to identify local text.
+    public static boolean registerLocalAtlas(Supplier<String> name, AbstractTexture texture, Object view) {
+        var active = loaded;
+        if (active == null || name == null) return false;
+        String label = name.get();
+        if (label == null || !label.startsWith("customcosmetics:" + ATLAS_PATH)) return false;
+        active.atlasViews.put(view, texture);
+        return true;
+    }
 
-    public static boolean isLocalAtlas(String label) {
-        return label != null && label.startsWith("customcosmetics:" + ATLAS_PATH);
+    public static AbstractTexture localAtlas(Object view) {
+        var active = loaded;
+        return active == null ? null : active.atlasViews.get(view);
     }
 
     public static void init() {
@@ -189,6 +200,7 @@ public final class UiFonts {
         private final Int2ObjectOpenHashMap<BakedGlyph> glyphs = new Int2ObjectOpenHashMap<>();
         private final IntFunction<BakedGlyph> bake = this::bake;
         private final IdentityHashMap<GlyphSource, GlyphSource> sources = new IdentityHashMap<>();
+        private final IdentityHashMap<Object, AbstractTexture> atlasViews = new IdentityHashMap<>();
         private boolean reportedBadGlyph;
 
         private Loaded(GlyphProvider provider, GlyphStitcher atlas, Style style) {

@@ -19,7 +19,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.state.gui.GlyphRenderState;
 import net.minecraft.network.chat.FontDescription;
 import net.minecraft.network.chat.Style;
-import net.minecraft.resources.Identifier;
 import org.joml.Matrix3x2f;
 
 /** Actual render-call intervals plus separately labelled GUI extraction CPU/allocation. Not Hypixel FPS. */
@@ -140,10 +139,9 @@ public final class UiPerformanceGameTest implements FabricClientGameTest {
         var fallback = ((UiFontAccess) (Object) client.font).customcosmetics$provider().glyphs(FontDescription.DEFAULT);
         var local = UiFonts.gameSource(FontDescription.DEFAULT, fallback);
         var glyph = local.getGlyph('W').createGlyph(0, 0, 0xFFFFFFFF, 0, Style.EMPTY, 0, 0);
-        var label = glyph.textureView().texture().getLabel();
-        var worldSampler = client.getTextureManager().getTexture(Identifier.parse(label)).getSampler();
+        var worldAtlas = UiFonts.localAtlas(glyph.textureView());
         var guiSampler = new GlyphRenderState(new Matrix3x2f(), glyph, null).textureSetup().sampler0();
-        if (!UiFonts.isLocalAtlas(label) || !worldSampler.getMinFilter().name().equals("LINEAR")
+        if (worldAtlas == null || !worldAtlas.getSampler().getMinFilter().name().equals("LINEAR")
                 || !guiSampler.getMinFilter().name().equals("LINEAR")) {
             throw new AssertionError("Local font atlas must use linear sampling in the GUI and world");
         }

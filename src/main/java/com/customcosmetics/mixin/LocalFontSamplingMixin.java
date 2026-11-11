@@ -3,24 +3,30 @@ package com.customcosmetics.mixin;
 
 import com.customcosmetics.gui.UiFonts;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.FilterMode;
+import net.minecraft.client.gui.font.GlyphRenderTypes;
 import net.minecraft.client.gui.font.FontTexture;
 import net.minecraft.client.gui.font.TextRenderable;
 import net.minecraft.client.renderer.state.gui.GlyphRenderState;
+import net.minecraft.client.renderer.texture.AbstractTexture;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.function.Supplier;
 
 public final class LocalFontSamplingMixin {
     @Mixin(FontTexture.class)
-    public static class World {
-        @ModifyExpressionValue(method = "<init>", at = @At(value = "FIELD",
-            target = "Lcom/mojang/blaze3d/textures/FilterMode;NEAREST:Lcom/mojang/blaze3d/textures/FilterMode;"))
-        private FilterMode customcosmetics$filter(FilterMode original, Supplier<String> name) {
-            return UiFonts.isLocalAtlas(name.get()) ? FilterMode.LINEAR : original;
+    public static abstract class World extends AbstractTexture {
+        @Inject(method = "<init>", at = @At("TAIL"))
+        private void customcosmetics$filter(Supplier<String> name, GlyphRenderTypes types, boolean colored, CallbackInfo ci) {
+            if (UiFonts.registerLocalAtlas(name, this, getTextureView())) {
+                sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR);
+            }
         }
     }
 
@@ -32,9 +38,7 @@ public final class LocalFontSamplingMixin {
         @ModifyExpressionValue(method = "textureSetup", at = @At(value = "FIELD",
             target = "Lcom/mojang/blaze3d/textures/FilterMode;NEAREST:Lcom/mojang/blaze3d/textures/FilterMode;"))
         private FilterMode customcosmetics$filter(FilterMode original) {
-            if (!UiFonts.hasLocalAtlas()) return original;
-            var texture = renderable.textureView();
-            return texture != null && UiFonts.isLocalAtlas(texture.texture().getLabel()) ? FilterMode.LINEAR : original;
+            return UiFonts.localAtlas(renderable.textureView()) == null ? original : FilterMode.LINEAR;
         }
     }
 }
