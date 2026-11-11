@@ -18,11 +18,13 @@ final class SettingsGuiGameTest {
         access.setAccessible(true);
         var previous = access.get(null);
         boolean offline = ConfigManager.offlineMode, checkAccess = ConfigManager.checkExperimentalAccess;
+        boolean gameFont = ConfigManager.useFontInGame;
         try {
         var result = new java.util.concurrent.CompletableFuture<Boolean>();
         context.runOnClient(client -> {
             ConfigManager.checkExperimentalAccess = false;
             ConfigManager.offlineMode = false;
+            ConfigManager.useFontInGame = false;
             try { access.set(null, com.customcosmetics.sync.ExperimentalAccess.Status.GRANTED); }
             catch (IllegalAccessException error) { throw new AssertionError(error); }
             ConfigManager.uiLanguage = "en_us";
@@ -35,6 +37,11 @@ final class SettingsGuiGameTest {
             if (!result.getNow(false) || UiFonts.get(client.font) == client.font
                 || UiFonts.get(client.font).width("CustomCosmetics") <= client.font.width("CustomCosmetics"))
                 throw new AssertionError("Local font or metrics did not apply");
+            int vanillaWidth = client.font.width("CustomCosmetics");
+            ConfigManager.useFontInGame = true;
+            if (client.font.width("CustomCosmetics") <= vanillaWidth)
+                throw new AssertionError("Game font scope did not change Minecraft's own font metrics");
+            System.out.println("SYSTEM_FONT_GAME_SCOPE_OK");
             ClientUiAccess.setScreen(client, new CosmeticsScreen(null, CosmeticsScreen.Page.FONTS));
         });
         context.waitTicks(4);
@@ -43,6 +50,50 @@ final class SettingsGuiGameTest {
         context.runOnClient(client -> {
             if (UiFonts.get(client.font) != client.font) throw new AssertionError("Game font not restored");
         });
+        click(context, "Find System Fonts", PinkUi.Action.class);
+        context.waitFor(client -> ClientUiAccess.screen(client).children().stream()
+            .anyMatch(child -> child instanceof PinkUi.Action action && action.getMessage().getString().equals("Choose System Font")), 200);
+        click(context, "Choose System Font", PinkUi.Action.class);
+        context.runOnClient(client -> {
+            var chooser = ClientUiAccess.screen(client);
+            if (!(chooser instanceof ItemChoiceScreen)) throw new AssertionError("System fonts did not open the searchable list");
+            int x = (int) read(chooser, "x"), w = (int) read(chooser, "w"), top = (int) read(chooser, "top"), bottom = (int) read(chooser, "bottom");
+            if (((java.util.List<?>) read(chooser, "filtered")).size() > ((java.util.List<?>) read(chooser, "rows")).size()) {
+                double barX = x + w - 20;
+                chooser.mouseClicked(mouse(barX, top + 3), false);
+                chooser.mouseDragged(mouse(barX, bottom - 2), 0, bottom - top - 5);
+                chooser.mouseReleased(mouse(barX, bottom - 2));
+                if ((int) read(chooser, "offset") == 0) throw new AssertionError("Dragging the font scrollbar did not scroll");
+            }
+            var search = (PinkUi.Field) widget(client, "Search", PinkUi.Field.class);
+            String fileName = testFont().getFileName().toString();
+            search.setValue(fileName);
+            var matches = (java.util.List<?>) read(chooser, "filtered");
+            if (matches.isEmpty() || matches.stream().anyMatch(row -> !((ItemChoiceScreen.Choice) row).label().equalsIgnoreCase(fileName))
+                || (int) read(chooser, "offset") != 0)
+                throw new AssertionError("System font filtering failed: " + matches);
+        });
+        context.takeScreenshot("font-search");
+        context.runOnClient(client -> ClientUiAccess.screen(client).onClose());
+        context.runOnClient(client -> ClientUiAccess.setScreen(client, new CosmeticsScreen(null, CosmeticsScreen.Page.HIT_COLOR)));
+        context.waitTicks(3);
+        context.runOnClient(client -> {
+            var screen = ClientUiAccess.screen(client);
+            var hex = (PinkUi.Field) widget(client, "Color", PinkUi.Field.class);
+            var picker = screen.children().stream().filter(PinkUi.ColorPicker.class::isInstance)
+                .map(PinkUi.ColorPicker.class::cast).findFirst().orElseThrow();
+            int previousColor = ConfigManager.hitColor;
+            var event = mouse(picker.getX() + picker.getWidth() / 2.0, picker.getY() + 5);
+            if (!screen.mouseClicked(event, false)) throw new AssertionError("Hit color palette was not clickable");
+            screen.mouseReleased(event);
+            if (ConfigManager.hitColor == previousColor
+                || !hex.getValue().equals(String.format(java.util.Locale.ROOT, "#%06X", ConfigManager.hitColor)))
+                throw new AssertionError("Palette and hex entry did not stay in sync");
+            hex.setValue("#123ABC");
+            if (ConfigManager.hitColor != 0x123ABC) throw new AssertionError("Hex entry did not update the palette color");
+        });
+        context.takeScreenshot("hit-color-palette");
+        System.out.println("FONT_LIST_SEARCH_AND_DRAG_AND_HIT_PALETTE_OK");
         context.runOnClient(client->{ConfigManager.uiLanguage="en_us";ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SYNC));});context.waitTicks(5);
         var pointer=context.computeOnClient(client->{var w=widget(client,"Snaplook Keybind",PinkUi.Action.class);double scale=client.getWindow().getGuiScale();return new double[]{(w.getX()+20)*scale,(w.getY()+w.getHeight()/2d)*scale};});
         context.getInput().setCursorPos(pointer[0],pointer[1]);context.waitTicks(8);context.takeScreenshot("tooltip-motion-start");
@@ -55,12 +106,16 @@ final class SettingsGuiGameTest {
         } finally {
             context.runOnClient(client -> {
                 UiFonts.clear();
+                ConfigManager.useFontInGame = gameFont;
                 ConfigManager.offlineMode = offline;
                 ConfigManager.checkExperimentalAccess = checkAccess;
                 try { access.set(null, previous); }
                 catch (IllegalAccessException error) { throw new AssertionError(error); }
             });
         }
+    }
+    private static net.minecraft.client.input.MouseButtonEvent mouse(double x, double y) {
+        return new net.minecraft.client.input.MouseButtonEvent(x, y, new net.minecraft.client.input.MouseButtonInfo(ClientInput.MOUSE_LEFT, 0));
     }
     private static Path testFont() {
         var windows = System.getenv("WINDIR");
@@ -328,11 +383,13 @@ final class SettingsGuiGameTest {
         access.setAccessible(true);
         var previous = access.get(null);
         boolean offline = ConfigManager.offlineMode, checkAccess = ConfigManager.checkExperimentalAccess;
+        boolean gameFont = ConfigManager.useFontInGame;
         var loaded = new java.util.concurrent.CompletableFuture<Boolean>();
         try {
             context.runOnClient(client -> {
                 ConfigManager.checkExperimentalAccess = false;
                 ConfigManager.offlineMode = false;
+                ConfigManager.useFontInGame = false;
                 access.set(null, com.customcosmetics.sync.ExperimentalAccess.Status.GRANTED);
                 UiFonts.load(client, testFont(), 11, 1, loaded::complete);
             });
@@ -376,6 +433,7 @@ final class SettingsGuiGameTest {
         } finally {
             context.runOnClient(client -> {
                 UiFonts.clear();
+                ConfigManager.useFontInGame = gameFont;
                 ConfigManager.offlineMode = offline;
                 ConfigManager.checkExperimentalAccess = checkAccess;
                 access.set(null, previous);

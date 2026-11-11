@@ -2,6 +2,9 @@
 package com.customcosmetics.mixin;
 
 import com.customcosmetics.gui.UiBlurPolicy;
+import com.customcosmetics.config.ConfigManager;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.state.gui.GuiRenderState;
@@ -20,6 +23,19 @@ abstract class InventoryBlurMixin {
     private void ccos$blurContainer(GuiGraphicsExtractor graphics, CallbackInfo ci) {
         if (!UiBlurPolicy.inventory((Screen) (Object) this)) return;
         if (((UiBlurPolicy.Graphics) graphics).ccos$canBlur()) extractBlurredBackground(graphics);
+    }
+
+    @WrapOperation(method = "extractTransparentBackground",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;fillGradient(IIIIII)V"))
+    private void ccos$inventoryDarkness(GuiGraphicsExtractor graphics, int left, int top, int right, int bottom,
+                                         int first, int last, Operation<Void> original) {
+        int darkness = ConfigManager.inventoryDimPercent;
+        if (darkness != 80 && UiBlurPolicy.inventorySettings((Screen) (Object) this)) {
+            if (darkness == 0) return;
+            first = UiBlurPolicy.inventoryDimColor(first, darkness);
+            last = UiBlurPolicy.inventoryDimColor(last, darkness);
+        }
+        original.call(graphics, left, top, right, bottom, first, last);
     }
 
     @Mixin(GuiGraphicsExtractor.class)

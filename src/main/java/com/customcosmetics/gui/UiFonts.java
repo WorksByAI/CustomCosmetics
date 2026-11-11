@@ -33,12 +33,15 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
-/** Uses Minecraft's FreeType provider and glyph atlas for mod text only. */
+/** Uses Minecraft's FreeType provider and glyph atlas for local fonts. */
 public final class UiFonts {
     private static final Identifier FILE = Identifier.fromNamespaceAndPath("customcosmetics", "local.ttf");
     private static final long MAX_BYTES = 128L * 1024 * 1024;
     private static final FontDescription.Resource LOCAL = new FontDescription.Resource(
         Identifier.fromNamespaceAndPath("customcosmetics", "local"));
+    private static final FontDescription.Resource UNIFORM = new FontDescription.Resource(
+        Identifier.withDefaultNamespace("uniform"));
+    public record Style(float size, float spacing, int oversample, float baseline, float shadow) {}
     private static long request;
     private static Font base, view;
     private static Loaded loaded;
@@ -61,6 +64,7 @@ public final class UiFonts {
 
     public static Font get(Font original) {
         if (loaded == null || !com.customcosmetics.sync.ExperimentalAccess.allowed()) return original;
+        if (ConfigManager.useFontInGame) return original;
         if (base != original || view == null) {
             base = original;
             var vanilla = ((UiFontAccess) (Object) original).customcosmetics$provider();
@@ -80,6 +84,13 @@ public final class UiFonts {
         return view;
     }
 
+    public static GlyphSource gameSource(FontDescription description, GlyphSource vanilla) {
+        var active = loaded;
+        if (active == null || !ConfigManager.useFontInGame || !com.customcosmetics.sync.ExperimentalAccess.allowed()) return vanilla;
+        if (!description.equals(FontDescription.DEFAULT) && !description.equals(UNIFORM)) return vanilla;
+        return active.source(vanilla);
+    }
+
     public static void clear() {
         request++;
         swap(null);
@@ -93,9 +104,14 @@ public final class UiFonts {
     }
 
     public static void load(Minecraft client, Path path, float size, float spacing, Consumer<Boolean> done) {
+        load(client, path, new Style(size, spacing, ConfigManager.uiFontOversample, ConfigManager.uiFontBaseline,
+            ConfigManager.uiFontShadow), done);
+    }
+
+    public static void load(Minecraft client, Path path, Style style, Consumer<Boolean> done) {
         if (!com.customcosmetics.sync.ExperimentalAccess.allowed()) { done.accept(false); return; }
         long id = ++request;
-        CompletableFuture.supplyAsync(() -> read(path, size)).thenAccept(provider -> client.execute(() -> {
+        CompletableFuture.supplyAsync(() -> read(path, style)).thenAccept(provider -> client.execute(() -> {
             if (request != id || !com.customcosmetics.sync.ExperimentalAccess.allowed()) {
                 if (provider != null) provider.close();
                 return;
@@ -112,16 +128,16 @@ public final class UiFonts {
                 done.accept(false);
                 return;
             }
-            swap(new Loaded(provider, set, spacing));
+            swap(new Loaded(provider, set, style));
             done.accept(true);
         }));
     }
 
-    private static GlyphProvider read(Path path, float size) {
+    private static GlyphProvider read(Path path, Style style) {
         try {
             if (!isFont(path) || !Files.isRegularFile(path) || Files.size(path) > MAX_BYTES) return null;
-            var definition = new TrueTypeGlyphProviderDefinition(FILE, size, 2,
-                TrueTypeGlyphProviderDefinition.Shift.NONE, "");
+            var definition = new TrueTypeGlyphProviderDefinition(FILE, style.size(), style.oversample(),
+                new TrueTypeGlyphProviderDefinition.Shift(0, style.baseline()), "");
             return definition.unpack().left().orElseThrow().load(new FontFile(path));
         } catch (IOException | RuntimeException | LinkageError error) {
             CustomCosmeticsClient.LOGGER.debug("Could not load the selected interface font", error);
@@ -168,41 +184,47 @@ public final class UiFonts {
     private static final class Loaded implements AutoCloseable {
         private final GlyphProvider provider;
         private final FontSet set;
-        private final float spacing;
-        private GlyphSource cachedFallback, cachedSource;
+        private final Style style;
+        private final IdentityHashMap<GlyphSource, GlyphSource> sources = new IdentityHashMap<>();
 
-        private Loaded(GlyphProvider provider, FontSet set, float spacing) {
+        private Loaded(GlyphProvider provider, FontSet set, Style style) {
             this.provider = provider;
             this.set = set;
-            this.spacing = spacing;
+            this.style = style;
         }
 
         GlyphSource source(GlyphSource fallback) {
-            if (cachedSource != null && cachedFallback == fallback) return cachedSource;
-            cachedFallback = fallback;
+            var cached = sources.get(fallback);
+            if (cached != null) return cached;
+            if (sources.size() >= 4) sources.clear();
             var local = set.source(false);
             var supported = provider.getSupportedGlyphs();
             var cache = new Int2ObjectOpenHashMap<BakedGlyph>();
-            return cachedSource = new GlyphSource() {
+            GlyphSource source = new GlyphSource() {
                 @Override public BakedGlyph getGlyph(int codepoint) {
                     return cache.computeIfAbsent(codepoint, (int cp) -> {
-                        var glyph = supported.contains(cp) ? local.getGlyph(cp) : fallback.getGlyph(cp);
-                        return spacing == 0 ? glyph : new SpacedGlyph(glyph, spacing);
+                        // SkyBlock icons and Devonian's symbol replacements use private-use glyphs.
+                        if (Character.getType(cp) == Character.PRIVATE_USE || !supported.contains(cp)) return fallback.getGlyph(cp);
+                        var glyph = local.getGlyph(cp);
+                        return style.spacing() == 0 && style.shadow() == 1 ? glyph
+                            : new StyledGlyph(glyph, style.spacing(), style.shadow());
                     });
                 }
                 @Override public BakedGlyph getRandomGlyph(RandomSource random, int codepoint) {
                     return fallback.getRandomGlyph(random, codepoint);
                 }
             };
+            sources.put(fallback, source);
+            return source;
         }
         @Override public void close() { set.close(); provider.close(); }
     }
 
-    private record SpacedGlyph(BakedGlyph base, float spacing) implements BakedGlyph, GlyphInfo {
+    private record StyledGlyph(BakedGlyph base, float spacing, float shadow) implements BakedGlyph, GlyphInfo {
         @Override public GlyphInfo info() { return this; }
         @Override public float getAdvance() { return Math.max(0, base.info().getAdvance() + spacing); }
         @Override public float getBoldOffset() { return base.info().getBoldOffset(); }
-        @Override public float getShadowOffset() { return base.info().getShadowOffset(); }
+        @Override public float getShadowOffset() { return base.info().getShadowOffset() * shadow; }
         @Override public net.minecraft.client.gui.font.TextRenderable.Styled createGlyph(
             float x, float y, int color, int shadow, net.minecraft.network.chat.Style style, float bold, float italic) {
             return base.createGlyph(x, y, color, shadow, style, bold, italic);

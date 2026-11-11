@@ -12,10 +12,9 @@ import static com.customcosmetics.gui.PinkUi.*;
 final class OptionDropdown extends PinkUi.Action {
     record Option(String value,String label){}
     private final String title;private final List<Option> options;private final Supplier<String> value;private final Consumer<String> choose;
-    private String displayed;private boolean open,rawOptions;private int highlighted,first,menuTop,visibleRows;
+    private String displayed;private boolean open;private int highlighted,first,menuTop,visibleRows;
     OptionDropdown(int x,int y,int w,String title,List<Option> options,Supplier<String> value,Consumer<String> choose){super(x,y,w,24,title,false,()->{});this.title=title;this.options=List.copyOf(options);this.value=value;this.choose=choose;refresh();}
-    OptionDropdown rawOptions(){rawOptions=true;displayed=null;refresh();return this;}
-    private void refresh(){String current=value.get();if(!Objects.equals(current,displayed)){displayed=current;var option=options.stream().filter(o->o.value.equals(current)).findFirst().orElse(options.getFirst());setMessage(Component.literal(title+": "+option.label+"  ▾"));if(rawOptions)displayAs(UiText.tr(title)+": "+option.label+"  ▾");}}
+    private void refresh(){String current=value.get();if(!Objects.equals(current,displayed)){displayed=current;var option=options.stream().filter(o->o.value.equals(current)).findFirst().orElse(options.getFirst());setMessage(Component.literal(title+": "+option.label+"  ▾"));}}
     @Override protected void extractWidgetRenderState(GuiGraphicsExtractor g,int mx,int my,float dt){refresh();super.extractWidgetRenderState(g,mx,my,dt);}
     @Override public void onClick(MouseButtonEvent e,boolean twice){open=!open;highlighted=0;for(int i=0;i<options.size();i++)if(options.get(i).value.equals(value.get()))highlighted=i;first=0;}
     private void apply(String value){if(!com.customcosmetics.client.ModErrors.action(choose,value))active=false;}
@@ -25,7 +24,7 @@ final class OptionDropdown extends PinkUi.Action {
         g.nextStratum();outline(g,getX(),menuTop,width,height,4,PINK,PANEL);
         for(int row=0;row<visibleRows;row++){int i=first+row,y=menuTop+4+row*22;boolean hot=mx>=getX()&&mx<getRight()&&my>=y&&my<y+22;
             if(hot||i==highlighted)rounded(g,getX()+3,y,width-6,22,3,PINK_DARK);
-            text(g,UiFonts.get(Minecraft.getInstance().font),rawOptions?options.get(i).label:UiText.tr(options.get(i).label),getX()+9,y+6,options.get(i).value.equals(value.get())?PINK:TEXT,width-18);
+            text(g,UiFonts.get(Minecraft.getInstance().font),UiText.tr(options.get(i).label),getX()+9,y+6,options.get(i).value.equals(value.get())?PINK:TEXT,width-18);
         }
     }
     boolean menuClick(MouseButtonEvent e){if(!open)return false;if(e.button()==ClientInput.MOUSE_LEFT&&e.x()>=getX()&&e.x()<getRight()&&e.y()>=menuTop+4&&e.y()<menuTop+4+visibleRows*22){int index=first+(int)(e.y()-menuTop-4)/22;open=false;apply(options.get(index).value);}else open=false;return true;}

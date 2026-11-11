@@ -75,22 +75,23 @@ public final class Release201GameTest implements FabricClientGameTest {
             context.waitTicks(3);
             if (inventoryBlurPasses != 0) throw new AssertionError("Disabled inventory blur rendered");
             System.out.println("EXPERIMENTAL_INVENTORY_BLUR_AUTHORIZED_ONLY_OK");
+            context.runOnClient(client -> ConfigManager.inventoryDimPercent = 0);
+            context.waitTicks(3);
+            int undimmed = backgroundLight(context.takeScreenshot("inventory-dim-zero"));
+            context.runOnClient(client -> ConfigManager.inventoryDimPercent = 50);
+            context.waitTicks(3);
+            int medium = backgroundLight(context.takeScreenshot("inventory-dim-half"));
+            context.runOnClient(client -> ConfigManager.inventoryDimPercent = 100);
+            context.waitTicks(3);
+            int dark = backgroundLight(context.takeScreenshot("inventory-dim-full"));
+            if (!(undimmed > medium && medium > dark && dark < 3))
+                throw new AssertionError("Inventory overlay did not render the requested darkness: " + undimmed + "/" + medium + "/" + dark);
+            System.out.println("INVENTORY_DIM_PIXEL_LEVELS_OK " + undimmed + "/" + medium + "/" + dark);
+            checkPackToggle(context);
+            checkGlobalFont(context);
             context.runOnClient(client -> {
                 ClientUiAccess.setScreen(client, null);
-                ConfigManager.catharsisItemModels = true;
-                var env = net.minecraft.world.attribute.EnvironmentAttributes.SKY_FOG_END_DISTANCE;
-                float skyFog = client.level.environmentAttributes().getValue(env, client.player.position(), null);
-                if (skyFog != 1234f) throw new AssertionError("Resource pack did not override sky fog: " + skyFog);
-                var apple = new ItemStack(Items.APPLE);
-                var tooltip = com.customcosmetics.features.pack.CatharsisPackSupport.tooltip(apple);
-                if (!net.minecraft.resources.Identifier.fromNamespaceAndPath("customcosmetics", "test_tooltip").equals(tooltip))
-                    throw new AssertionError("Resource pack did not select an apple tooltip: " + tooltip);
-                if (com.customcosmetics.features.pack.CatharsisPackSupport.tooltip(new ItemStack(Items.STICK)) != null)
-                    throw new AssertionError("Tooltip applied to a different item");
-                ConfigManager.catharsisItemModels = false;
-                if (client.level.environmentAttributes().getValue(env, client.player.position(), null) == 1234f
-                    || com.customcosmetics.features.pack.CatharsisPackSupport.tooltip(apple) != null)
-                    throw new AssertionError("Resource pack overrides persisted after disabling");
+                ConfigManager.inventoryDimPercent = 80;
                 var layer = com.customcosmetics.features.sky.skybox.impl.SkyLayer.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,
                     com.google.gson.JsonParser.parseString("""
                     {"properties":"customcosmetics:test_sky","texture":"minecraft:textures/block/magenta_wool.png","rotate":false,"blend":"replace"}
@@ -104,7 +105,6 @@ public final class Release201GameTest implements FabricClientGameTest {
             context.takeScreenshot("experimental-custom-sky");
             if (!com.customcosmetics.features.sky.Skyboxify.enabled()) throw new AssertionError("Custom sky renderer fell back to vanilla");
             System.out.println("EXPERIMENTAL_CUSTOM_SKY_RENDERER_OK");
-            System.out.println("EXPERIMENTAL_CATHARSIS_ENVIRONMENT_AND_TOOLTIP_OK");
             command.accept("gamemode creative @a");
             long start = System.nanoTime();
             command.accept("execute as @a at @s run fill ~-2 ~ ~-2 ~2 ~3 ~2 minecraft:water");
@@ -121,6 +121,7 @@ public final class Release201GameTest implements FabricClientGameTest {
             context.runOnClient(client -> {
                 trackInventoryBlur = false;
                 ConfigManager.inventoryBlurEnabled = false;
+                ConfigManager.inventoryDimPercent = 80;
                 ConfigManager.offlineMode = true;
                 ConfigManager.customSkyEnabled = false;
                 com.customcosmetics.features.sky.Skyboxify.replace(java.util.List.of());
@@ -129,6 +130,121 @@ public final class Release201GameTest implements FabricClientGameTest {
                 ClientUiAccess.setScreen(client, null);
             });
         }
+    }
+    private static void checkPackToggle(ClientGameTestContext context) throws Exception {
+        var official = java.util.UUID.randomUUID();
+        var other = java.util.UUID.randomUUID();
+        var officialResource = net.minecraft.resources.Identifier.fromNamespaceAndPath("customcosmetics", "official-probe.txt");
+        var otherResource = net.minecraft.resources.Identifier.fromNamespaceAndPath("customcosmetics", "other-probe.txt");
+        var officialPack = testPack(officialResource.getPath());
+        var otherPack = testPack(otherResource.getPath());
+        context.runOnClient(client -> {
+            ClientUiAccess.setScreen(client, null);
+            ConfigManager.hideHypixelSkyBlockPack = false;
+            com.customcosmetics.features.pack.HypixelPackDisabler.remember(official,
+                java.net.URI.create("https://assets.hypixel.net/SkyBlock.zip").toURL());
+            com.customcosmetics.features.pack.HypixelPackDisabler.remember(other,
+                java.net.URI.create("https://example.org/SkyBlock.zip").toURL());
+            var downloads = client.getDownloadedPackSource();
+            downloads.allowServerPacks();
+            downloads.pushLocalPack(official, officialPack);
+            downloads.pushLocalPack(other, otherPack);
+        });
+        context.waitFor(client -> client.getResourceManager().getResource(officialResource).isPresent()
+            && client.getResourceManager().getResource(otherResource).isPresent(), 240);
+        context.runOnClient(client -> {
+            ConfigManager.hideHypixelSkyBlockPack = true;
+            com.customcosmetics.features.pack.HypixelPackDisabler.refresh(client);
+            checkDevonianReloadGuard(client);
+        });
+        context.waitFor(client -> client.getResourceManager().getResource(officialResource).isEmpty()
+            && client.getResourceManager().getResource(otherResource).isPresent(), 240);
+        context.runOnClient(client -> {
+            var stack = new ItemStack(Items.DIAMOND_SWORD);
+            var model = net.minecraft.resources.Identifier.fromNamespaceAndPath("hypixel_skyblock", "fixture");
+            var fallback = com.customcosmetics.features.pack.HypixelPackDisabler.fallbackModel(stack, model);
+            if (!net.minecraft.resources.Identifier.withDefaultNamespace("diamond_sword").equals(fallback))
+                throw new AssertionError("Official item model did not fall back to the underlying item");
+            ConfigManager.hideHypixelSkyBlockPack = false;
+            com.customcosmetics.features.pack.HypixelPackDisabler.refresh(client);
+        });
+        context.waitFor(client -> client.getResourceManager().getResource(officialResource).isPresent(), 240);
+        context.runOnClient(client -> {
+            client.getDownloadedPackSource().popPack(official);
+            client.getDownloadedPackSource().popPack(other);
+            com.customcosmetics.features.pack.HypixelPackDisabler.disconnect();
+        });
+        context.waitFor(client -> client.getResourceManager().getResource(officialResource).isEmpty(), 240);
+        java.nio.file.Files.deleteIfExists(officialPack);
+        java.nio.file.Files.deleteIfExists(otherPack);
+        System.out.println("SERVER_PACK_TOGGLE_HIDE_RESTORE_AND_PRESERVE_OTHER_PACK_OK");
+    }
+
+    private static void checkDevonianReloadGuard(net.minecraft.client.Minecraft client) throws ReflectiveOperationException {
+        if (!net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("devonian")) return;
+        var type = Class.forName("com.github.synnerz.devonian.features.misc.hiders.DisableWorldLoadingScreen");
+        var tracker = type.getDeclaredField("levelLoadingScreen");
+        tracker.setAccessible(true);
+        var gui = client.gui;
+        var overlay = gui.getClass().getMethod("overlay");
+        Object before = overlay.invoke(gui);
+        if (!(before instanceof net.minecraft.client.gui.screens.LoadingOverlay))
+            throw new AssertionError("The fixture needs a running resource reload");
+        Object saved = tracker.get(null);
+        try {
+            Class<?> accessor = tracker.getType();
+            tracker.set(null, java.lang.reflect.Proxy.newProxyInstance(accessor.getClassLoader(),
+                new Class<?>[]{accessor}, (proxy, method, arguments) -> null));
+            type.getMethod("onPlayerLoaded").invoke(type.getField("INSTANCE").get(null));
+            if (overlay.invoke(gui) != before) throw new AssertionError("Devonian interrupted the resource reload");
+        } finally {
+            tracker.set(null, saved);
+        }
+        System.out.println("DEVONIAN_RELOAD_OVERLAY_PRESERVED_OK");
+    }
+
+    private static void checkGlobalFont(ClientGameTestContext context) throws Exception {
+        var fonts = UiFonts.systemFonts();
+        if (fonts.isEmpty()) throw new AssertionError("Install a local TrueType font for the game font fixture");
+        Path path = fonts.stream().filter(font -> font.getFileName().toString().equalsIgnoreCase("arial.ttf"))
+            .findFirst().orElse(fonts.getFirst());
+        var loaded = new java.util.concurrent.CompletableFuture<Boolean>();
+        String sample = "CustomCosmetics WWW 0123456789";
+        int originalWidth = context.computeOnClient(client -> client.font.width(sample));
+        context.runOnClient(client -> {
+            ConfigManager.useFontInGame = true;
+            UiFonts.load(client, path, new UiFonts.Style(12, 2, 3, .5f, .5f), loaded::complete);
+        });
+        context.waitFor(client -> loaded.isDone(), 100);
+        context.runOnClient(client -> {
+            if (!loaded.join() || client.font.width(sample) == originalWidth)
+                throw new AssertionError("Local font did not change vanilla font measurements");
+            UiFonts.clear();
+            if (client.font.width(sample) != originalWidth)
+                throw new AssertionError("Vanilla font measurements were not restored");
+        });
+        System.out.println("NATIVE_GAME_FONT_LOAD_AND_RESTORE_OK");
+    }
+
+    private static Path testPack(String resource) throws java.io.IOException {
+        var format = net.minecraft.SharedConstants.getCurrentVersion().packVersion(net.minecraft.server.packs.PackType.CLIENT_RESOURCES);
+        var file = java.nio.file.Files.createTempFile("ccos-pack-probe", ".zip");
+        try (var zip = new java.util.zip.ZipOutputStream(java.nio.file.Files.newOutputStream(file))) {
+            zip.putNextEntry(new java.util.zip.ZipEntry("pack.mcmeta"));
+            var range = "[" + format.major() + "," + format.minor() + "]";
+            zip.write(("{\"pack\":{\"description\":\"Test pack\",\"min_format\":" + range + ",\"max_format\":" + range + "}}")
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            zip.closeEntry();
+            zip.putNextEntry(new java.util.zip.ZipEntry("assets/customcosmetics/" + resource));
+            zip.write(1);
+            zip.closeEntry();
+        }
+        return file;
+    }
+    private static int backgroundLight(Path path) throws java.io.IOException {
+        var image = javax.imageio.ImageIO.read(path.toFile());
+        int pixel = image.getRGB(image.getWidth() / 12, image.getHeight() / 8);
+        return ((pixel >> 16 & 255) + (pixel >> 8 & 255) + (pixel & 255)) / 3;
     }
     private static void assertDrop(boolean flat){if(dropDraws==0||!Float.isFinite(dropRatio)||(flat?dropRatio>.011f:dropRatio<.9f))throw new AssertionError("Drop submission differs, flat="+flat+" ratio="+dropRatio+" draws="+dropDraws);}
     private static void setDepth(ClientGameTestContext context,double value){context.runOnClient(c->{var screen=(CosmeticsScreen)ClientUiAccess.screen(c);var slider=screen.children().stream().filter(PinkUi.Slider.class::isInstance).map(PinkUi.Slider.class::cast).filter(s->s.getMessage().getString().startsWith("Z")).findFirst().orElseThrow();slider.setActual(value);if(Math.abs(ConfigManager.playerSizeZ-value)>.001)throw new AssertionError("Depth slider failed");});}

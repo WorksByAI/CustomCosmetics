@@ -5,6 +5,7 @@ import com.customcosmetics.compatibility.ClientUiAccess;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.nio.file.Path;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
@@ -24,6 +25,8 @@ public final class ItemChoiceScreen extends ThemedScreen {
     private List<Choice> choices;
     private Supplier<List<Choice>> source;
     private Supplier<String> emptyMessage = () -> "No matching items";
+    private String searchHint = "Search name or ID";
+    private boolean showIcons = true;
     private final Consumer<Choice> selected;
     private final List<Row> rows = new ArrayList<>();
     private final List<AbstractWidget> fixed = new ArrayList<>();
@@ -38,25 +41,38 @@ public final class ItemChoiceScreen extends ThemedScreen {
     public ItemChoiceScreen(Screen parent, String title, Supplier<List<Choice>> source, Consumer<Choice> selected, Supplier<String> emptyMessage) {
         this(parent, title, source.get(), selected); this.source=source; this.emptyMessage=emptyMessage;
     }
+    static ItemChoiceScreen fonts(Screen parent, List<Path> paths, Consumer<Path> selected) {
+        var choices = paths.stream()
+            .map(path -> new Choice(path.getFileName().toString(), path.toString(), ItemStack.EMPTY))
+            .toList();
+        var screen = new ItemChoiceScreen(parent, "Choose System Font", choices, choice -> selected.accept(Path.of(choice.id())));
+        screen.showIcons = false;
+        screen.searchHint = "Search fonts";
+        screen.emptyMessage = () -> "No matching fonts";
+        return screen;
+    }
     @Override public void tick() {
         super.tick();
-        if(source!=null){var next=source.get();if(next!=choices){choices=next;refresh();}}
+        if(source!=null){var next=source.get();if(next!=choices){choices=next;filter();}}
     }
     @Override protected void init() {
         fixed.clear(); rows.clear();
         w=Math.min(600,width-16);h=Math.min(436,height-16);x=(width-w)/2;y=(height-h)/2;
         var search=new PinkUi.Field(font,x+16,y+42,w-32,"Search");
-        search.setMaxLength(128);search.setValue(query);search.setHint(UiText.component("Search name or ID"));
-        search.setResponder(value -> { CosmeticsScreen.childInteraction();query=value;offset=0;refresh(); });
+        search.setMaxLength(128);search.setValue(query);search.setHint(UiText.component(searchHint));
+        search.setResponder(value -> { CosmeticsScreen.childInteraction();query=value;offset=0;filter(); });
         fixed.add(addWidget(search));
         fixed.add(addWidget(new PinkUi.Action(x+16,y+h-36,w-32,26,"Back",false,this::onClose)));
         top=y+82;bottom=y+h-45;
         for(int i=0;i<Math.max(1,(bottom-top)/34);i++)rows.add(addWidget(new Row(x+16,top+i*34,w-42)));
+        filter();
+    }
+    private void filter() {
+        String search=query.strip().toLowerCase(Locale.ROOT);
+        filtered=search.isEmpty() ? choices : choices.stream().filter(value -> value.matches(search)).toList();
         refresh();
     }
     private void refresh() {
-        String search=query.strip().toLowerCase(Locale.ROOT);
-        filtered=choices.stream().filter(value -> value.matches(search)).toList();
         offset=Math.clamp(offset,0,Math.max(0,filtered.size()-rows.size()));
         for(int i=0;i<rows.size();i++) {
             var row=rows.get(i);row.value=offset+i<filtered.size()?filtered.get(offset+i):null;row.visible=row.value!=null;
@@ -96,7 +112,7 @@ public final class ItemChoiceScreen extends ThemedScreen {
         for(var widget:fixed)widget.extractRenderState(g,mx,my,delta);
         g.enableScissor(x+15,top,x+w-15,bottom);
         for(var row:rows)if(row.visible)row.extractRenderState(g,mx,my,delta);
-        if(filtered.isEmpty())text(g,font,emptyMessage.get(),x+28,top+15,MUTED,w-56);
+        if(filtered.isEmpty())text(g,font,UiText.tr(emptyMessage.get()),x+28,top+15,MUTED,w-56);
         if(filtered.size()>rows.size()) {
             var bar=scrollbar();
             rounded(g,x+w-21,top,3,bottom-top,1,BORDER);
@@ -120,9 +136,10 @@ public final class ItemChoiceScreen extends ThemedScreen {
             boolean effect=beginHoverTransform(g,mx,my);
             try {
             outline(g,getX(),getY(),getWidth(),getHeight(),5,isFocused()?PINK:BORDER,isHoveredOrFocused()?0x27FFFFFF:CARD);
-            g.item(value.icon(),getX()+7,getY()+7);
-            text(g,font,value.label(),getX()+32,getY()+5,TEXT,getWidth()-42);
-            text(g,font,value.id(),getX()+32,getY()+17,MUTED,getWidth()-42);
+            int inset = showIcons ? 32 : 10;
+            if (showIcons) g.item(value.icon(),getX()+7,getY()+7);
+            text(g,font,value.label(),getX()+inset,getY()+5,TEXT,getWidth()-inset-10);
+            text(g,font,value.id(),getX()+inset,getY()+17,MUTED,getWidth()-inset-10);
             } finally {if(effect)g.pose().popMatrix();}
         }
     }

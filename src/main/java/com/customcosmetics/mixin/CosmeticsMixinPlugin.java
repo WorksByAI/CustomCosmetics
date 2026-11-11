@@ -22,7 +22,12 @@ public final class CosmeticsMixinPlugin implements IMixinConfigPlugin {
             return !loader.isModLoaded("cwb") && mixin.endsWith("Modern") == loader.getModContainer("minecraft").orElseThrow().getMetadata().getVersion().getFriendlyString().startsWith("26.3");
         }
         if(mixin.endsWith("FastIpPingMixin"))return !FabricLoader.getInstance().isModLoaded("fastipping");
-        if(mixin.endsWith("CatharsisItemPropertiesMixin")||mixin.contains(".CatharsisVisualMixin$"))return !FabricLoader.getInstance().isModLoaded("catharsis");
+        if(mixin.contains(".HypixelPackDisablerMixin$"))return !FabricLoader.getInstance().isModLoaded("packdisabler");
+        if (mixin.contains(".DevonianReloadMixin$")) {
+            var loader = FabricLoader.getInstance();
+            return loader.isModLoaded("devonian") && !loader.getModContainer("minecraft").orElseThrow()
+                .getMetadata().getVersion().getFriendlyString().startsWith("26.1");
+        }
         if(mixin.contains(".InventoryBlurMixin"))return !FabricLoader.getInstance().isModLoaded("eg_inventory_blur");
         if(mixin.endsWith("HudLayoutMixin$Hud")) {
             var version = FabricLoader.getInstance().getModContainer("minecraft").orElseThrow().getMetadata().getVersion().getFriendlyString();

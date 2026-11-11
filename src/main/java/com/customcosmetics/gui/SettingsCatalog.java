@@ -68,6 +68,11 @@ public final class SettingsCatalog {
         add(entries, "Settings", "SYNC", "General preferences",
             "Language|Fonts|Interface|Module Manager|Check for Updates|Fast IP Ping|Command Tooltips|Snaplook|Snaplook View|Snaplook Keybind…");
         add(entries, "Experimental Features", "EXPERIMENTAL", "Inventory and container background blur", "Inventory Blur");
+        add(entries, "Inventory Blur", "INVENTORY_BLUR", "Inventory and container background", "Background Darkness (%)");
+        add(entries, "Pack Disabler", "PACK_DISABLER", "Official server resource pack", "Hide Hypixel SkyBlock Pack");
+        add(entries, "Hit Color", "HIT_COLOR", "Hurt color palette hex", "Hit Color|Hurt Flash Color|Opacity");
+        add(entries, "Fonts", "FONTS", "Game text and system fonts",
+            "Find System Fonts|Choose System Font|Use Font Throughout the Game|Font Size|Letter Spacing|Font Sampling|Baseline Offset|Text Shadow Offset");
         add(entries,"Interface","THEME","Local theme colors and finite screen animations","Mode|Accent Color|Interface Animations|Background Blur|Reset Theme");
         add(entries, "Settings", "SYNC", "Connections automatic sync online offline",
             "Mode|Automatic Sync|Refresh Interval (seconds)|Notifications|Sync Now");

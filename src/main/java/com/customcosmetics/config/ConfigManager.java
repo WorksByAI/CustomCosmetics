@@ -53,7 +53,12 @@ public final class ConfigManager {
     public static boolean uiAnimationsEnabled=true;
     public static boolean uiBackgroundBlur=false;
     public static boolean inventoryBlurEnabled = false;
-    public static boolean catharsisItemModels = false;
+    public static int inventoryDimPercent = 80;
+    public static boolean hideHypixelSkyBlockPack = false;
+    public static boolean useFontInGame = true;
+    public static int uiFontOversample = 2;
+    public static float uiFontBaseline = 0;
+    public static float uiFontShadow = 1;
     public static boolean damageSplashEnabled=false, damageSplashBold=true, damageSplashCompact=false;
     public static boolean damageSplashStyleNormal=false, damageSplashShadow=true;
     public static String damageSplashStyle="default", damageSplashSymbol="✧", damageSplashSeparator="comma";
@@ -223,6 +228,10 @@ public final class ConfigManager {
             freecamVerticalSpeed = com.customcosmetics.features.map.Freecam.validSpeed(freecamVerticalSpeed);
             hitColor &= 0xFFFFFF;
             hitOpacity = Float.isFinite(hitOpacity) ? Math.clamp(hitOpacity, 0, 1) : 0.5f;
+            inventoryDimPercent = Math.clamp(inventoryDimPercent, 0, 100);
+            uiFontOversample = Math.clamp(uiFontOversample, 1, 4);
+            uiFontBaseline = Float.isFinite(uiFontBaseline) ? Math.clamp(uiFontBaseline, -2, 2) : 0;
+            uiFontShadow = Float.isFinite(uiFontShadow) ? Math.clamp(uiFontShadow, 0, 2) : 1;
             uiFontSize = Float.isFinite(uiFontSize) ? Math.clamp(uiFontSize, 7, 12) : 9;
             uiFontSpacing = Float.isFinite(uiFontSpacing) ? Math.clamp(uiFontSpacing, -1, 2) : 0;
             uiAccentColor&=0xFFFFFF;

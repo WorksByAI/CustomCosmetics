@@ -29,7 +29,6 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
         ConfigManager.loadConfig();
         com.customcosmetics.gui.UiFonts.init();
         com.customcosmetics.features.sky.Skyboxify.init();
-        com.customcosmetics.features.pack.CatharsisPackSupport.init();
         com.customcosmetics.gui.UiLocale.refresh();
         ModErrors.run(ModErrors.Key.CAPE, com.customcosmetics.features.cape.CapeCosmetics::init);
         ModErrors.run(ModErrors.Key.STARTUP, com.customcosmetics.features.nickname.NicknamePresets::init);

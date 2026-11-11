@@ -84,6 +84,8 @@ public final class ExperimentalAccess {
         status = next;
         if (previous == Status.GRANTED && next != previous) UiFonts.clear();
         if (next == Status.GRANTED && previous != next) UiFonts.restore(client);
+        if ((next == Status.GRANTED) != (previous == Status.GRANTED))
+            com.customcosmetics.features.pack.HypixelPackDisabler.refresh(client);
     }
 
     private static Status check(PresenceAuthClient.Session session) {

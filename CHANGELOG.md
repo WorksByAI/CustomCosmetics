@@ -3,9 +3,9 @@
 ## Unreleased
 
 - Add administrator-gated experimental display, camera, inventory, font, and resource pack tools.
-- Support Catharsis tooltip textures and visual environment overrides.
+- Add a hit color palette, inventory dimming, and a Hypixel pack toggle.
 - Fix iron bar connections in visual map edits and improve sync connection diagnostics.
-- Ship one client JAR without bundled fonts.
+- Add searchable system fonts and game-wide font controls without bundling fonts.
 
 ## 2.0.1
 

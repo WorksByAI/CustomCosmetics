@@ -1,7 +1,0 @@
-{
-  "type": "minecraft:select",
-  "property": "catharsis:item_model",
-  "cases": [
-    {"when": "minecraft:apple", "model": {"type": "catharsis:texture", "texture": "customcosmetics:test_tooltip"}}
-  ]
-}

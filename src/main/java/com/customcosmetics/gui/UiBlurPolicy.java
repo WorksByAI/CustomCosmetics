@@ -17,8 +17,20 @@ public final class UiBlurPolicy {
     private UiBlurPolicy(){}
     public static boolean inventoryAvailable(){return !EXTERNAL_INVENTORY_BLUR;}
     public static boolean inventory(Screen screen){
-        return inventoryAvailable() && ConfigManager.inventoryBlurEnabled && ExperimentalAccess.allowed()
-            && screen instanceof AbstractContainerScreen<?> && Minecraft.getInstance().level != null;
+        return inventoryAvailable() && ConfigManager.inventoryBlurEnabled && inventorySettings(screen);
+    }
+    public static boolean inventorySettings(Screen screen) {
+        return screen instanceof AbstractContainerScreen<?> && ExperimentalAccess.allowed()
+            && Minecraft.getInstance().level != null;
+    }
+    public static int inventoryDimColor(int vanilla, int percent) {
+        int alpha = vanilla >>> 24;
+        if (percent <= 80) return (alpha * percent / 80 << 24) | (vanilla & 0xFFFFFF);
+        int remaining = 100 - percent;
+        int red = (vanilla >> 16 & 255) * remaining / 20;
+        int green = (vanilla >> 8 & 255) * remaining / 20;
+        int blue = (vanilla & 255) * remaining / 20;
+        return (255 - (255 - alpha) * remaining / 20 << 24) | (red << 16) | (green << 8) | blue;
     }
     public static int effective(int vanilla,boolean enabled,boolean ownScreen,boolean inWorld){
         return enabled&&ownScreen&&inWorld?Math.max(5,vanilla):vanilla;

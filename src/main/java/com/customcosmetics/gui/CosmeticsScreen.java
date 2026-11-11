@@ -4,6 +4,7 @@ import com.customcosmetics.compatibility.ClientInput;
 import com.customcosmetics.compatibility.ClientUiAccess;
 import com.customcosmetics.config.ConfigManager;
 import com.customcosmetics.features.hud.HudLayout;
+import com.customcosmetics.features.pack.HypixelPackDisabler;
 import com.customcosmetics.config.PlayerBlocklist;
 import com.customcosmetics.sync.PresenceSync;
 import com.customcosmetics.sync.ExperimentalAccess;
@@ -29,7 +30,7 @@ import static com.customcosmetics.gui.PinkUi.*;
 public final class CosmeticsScreen extends ThemedScreen {
     public enum Page {
         MAIN, SIZE, NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, BLOCKED_SKINS, POSITION_RECIPIENTS, ANIMATIONS, DAMAGE, ITEMS, ACCESSORIES, MAP, PARTY, LOCATION_SHARING, SKINS, SYNC, THEME, MODULES, SEARCH, DROP_2D, EXPERIMENTAL,
-        HUD_LAYOUT, SKYBOX, FONTS, FREECAM, WINDOW, HIT_COLOR, FAST_PING, CATHARSIS, INVENTORY_BLUR;
+        HUD_LAYOUT, SKYBOX, FONTS, FREECAM, WINDOW, HIT_COLOR, FAST_PING, PACK_DISABLER, INVENTORY_BLUR;
 
         boolean experimentalOption() { return ordinal() > EXPERIMENTAL.ordinal(); }
     }
@@ -153,7 +154,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             case ANIMATIONS -> animations();
             case DAMAGE -> damageSplash();
             case EXPERIMENTAL -> experimental();
-            case CATHARSIS -> catharsis();
+            case PACK_DISABLER -> packDisabler();
             case INVENTORY_BLUR -> inventoryBlur();
             case HUD_LAYOUT -> hudLayout();
             case SKYBOX -> customSky();
@@ -189,7 +190,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             case ANIMATIONS -> "Animations";
             case DAMAGE -> "Damage Splash";
             case EXPERIMENTAL -> "Experimental Features";
-            case CATHARSIS -> "Catharsis Pack Support";
+            case PACK_DISABLER -> "Pack Disabler";
             case INVENTORY_BLUR -> "Inventory Blur";
             case HUD_LAYOUT -> "HUD Layout";
             case SKYBOX -> "Custom Sky";
@@ -220,7 +221,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             case ANIMATIONS -> "Hand poses, item placement and swing timing.";
             case DAMAGE -> "Style your local damage numbers.";
             case EXPERIMENTAL -> "Access is granted by a server administrator.";
-            case CATHARSIS -> "SkyBlock item model properties for resource packs.";
+            case PACK_DISABLER -> "Hide the official Hypixel SkyBlock textures.";
             case INVENTORY_BLUR -> "Blur the world behind inventories and containers.";
             case HUD_LAYOUT -> "Move, resize or hide HUD elements.";
             case SKYBOX -> "OptiFine and MCPatcher skies.";
@@ -306,7 +307,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         fullButton("Freecam", () -> open(Page.FREECAM), false);
         fullButton("Window Mode", () -> open(Page.WINDOW), false);
         fullButton("Hit Color", () -> open(Page.HIT_COLOR), false);
-        fullButton("Catharsis Pack Support", () -> open(Page.CATHARSIS), false);
+        fullButton("Pack Disabler", () -> open(Page.PACK_DISABLER), false);
         fullButton("Inventory Blur", () -> open(Page.INVENTORY_BLUR), false);
         fullButton("Fonts", () -> open(Page.FONTS), false);
     }
@@ -318,15 +319,21 @@ public final class CosmeticsScreen extends ThemedScreen {
         }
         toggleRow("Inventory Blur", "Uses Minecraft’s menu blur strength.",
             () -> ConfigManager.inventoryBlurEnabled, value -> ConfigManager.inventoryBlurEnabled = value);
+        sliderRow("Background Darkness (%)", "Adjust the dark overlay behind inventories and containers.",
+            () -> ConfigManager.inventoryDimPercent, 0, 100, 1, 80,
+            value -> ConfigManager.inventoryDimPercent = (int) value);
     }
 
-    private void catharsis() {
-        if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("catharsis")) {
-            paragraph("The installed Catharsis mod handles resource packs.", MUTED);
+    private void packDisabler() {
+        if (!HypixelPackDisabler.available()) {
+            paragraph("The installed PackDisabler mod handles this feature.", MUTED);
             return;
         }
-        toggleRow("Catharsis Pack Support", "Item selectors, tooltip textures and visual environment overrides.",
-            () -> ConfigManager.catharsisItemModels, value -> ConfigManager.catharsisItemModels = value);
+        toggleRow("Hide Hypixel SkyBlock Pack", "Reloads textures when changed in SkyBlock.",
+            () -> ConfigManager.hideHypixelSkyBlockPack, value -> {
+                ConfigManager.hideHypixelSkyBlockPack = value;
+                HypixelPackDisabler.refresh(minecraft);
+            });
     }
 
     private void hudLayout(){
@@ -1041,14 +1048,32 @@ public final class CosmeticsScreen extends ThemedScreen {
 
     private void hitColor() {
         toggleRow("Hit Color", "", () -> ConfigManager.hitColorEnabled, v -> ConfigManager.hitColorEnabled = v);
-        fieldRow("Hurt Flash Color", "Color", String.format(java.util.Locale.ROOT, "#%06X", ConfigManager.hitColor), 7, "#RRGGBB", 100, value -> {
-            try {
-                if (value.matches("#?[0-9a-fA-F]{6}")) { ConfigManager.hitColor = Integer.parseInt(value.replace("#", ""), 16); changed(); }
-            } catch (NumberFormatException ignored) { }
+        var hexField = fieldRow("Hurt Flash Color", "Color", hex(ConfigManager.hitColor), 7, "#RRGGBB", 100, value -> {});
+        int y = row(86);
+        var palette = add(new PinkUi.ColorPicker(contentX + 6, y + 4, Math.min(290, contentWidth - 12), 76,
+            ConfigManager.hitColor, color -> {
+                if (ConfigManager.hitColor != color) {
+                    ConfigManager.hitColor = color;
+                    ConfigManager.requestSave();
+                }
+                String value = hex(color);
+                if (!value.equals(hexField.getValue())) hexField.setValue(value);
+            }));
+        hexField.setResponder(value -> {
+            activity();
+            boolean valid = value.matches("#?[0-9a-fA-F]{6}");
+            hexField.invalid(!valid);
+            if (!valid) return;
+            int color = Integer.parseInt(value.startsWith("#") ? value.substring(1) : value, 16);
+            if (color != ConfigManager.hitColor) {
+                ConfigManager.hitColor = color;
+                palette.setColor(color);
+                ConfigManager.requestSave();
+            }
         });
         sliderRow("Opacity", "", () -> ConfigManager.hitOpacity, 0, 1, .05, .5, v -> ConfigManager.hitOpacity = (float) v);
-        int y = row(28);
-        art.add(g -> PinkUi.rounded(g, contentX + 6, y + 4, 64, 16, 3,
+        int previewY = row(28);
+        art.add(g -> PinkUi.rounded(g, contentX + 6, previewY + 4, 64, 16, 3,
             0xFF000000 | ConfigManager.hitColor));
     }
 
@@ -1061,6 +1086,9 @@ public final class CosmeticsScreen extends ThemedScreen {
     private boolean scanningFonts;
     private float pendingFontSize = ConfigManager.uiFontSize;
     private float pendingFontSpacing = ConfigManager.uiFontSpacing;
+    private int pendingFontOversample = ConfigManager.uiFontOversample;
+    private float pendingFontBaseline = ConfigManager.uiFontBaseline;
+    private float pendingFontShadow = ConfigManager.uiFontShadow;
 
     private void fonts() {
         var selected = ConfigManager.uiFontPath;
@@ -1088,18 +1116,23 @@ public final class CosmeticsScreen extends ThemedScreen {
         if (systemFonts == null) {
             fullButton(scanningFonts ? "Finding System Fonts…" : "Find System Fonts", this::findSystemFonts, false).active = !scanningFonts;
         } else if (!systemFonts.isEmpty()) {
-            var choices = new ArrayList<OptionDropdown.Option>();
-            choices.add(new OptionDropdown.Option("", UiText.tr("Choose")));
-            for (var path : systemFonts) choices.add(new OptionDropdown.Option(path.toString(), path.getFileName().toString()));
-            choiceMenus.add(add(new OptionDropdown(contentX, rowY, contentWidth, "System Font", choices,
-                () -> ConfigManager.uiFontPath, value -> { if (!value.isEmpty()) applyFont(java.nio.file.Path.of(value)); }).rawOptions()));
-            rowY += 30;
+            fullButton("Choose System Font", () -> ClientUiAccess.setScreen(minecraft,
+                ItemChoiceScreen.fonts(this, systemFonts, this::applyFont)), false);
         } else {
             label("No system fonts found", contentX + 6, row(20) + 4, DIM, contentWidth - 12);
         }
+        toggleRow("Use Font Throughout the Game", "Also applies to chat, HUD, tooltips and world text.",
+            () -> ConfigManager.useFontInGame, value -> {
+                ConfigManager.useFontInGame = value;
+                rebuildWidgets();
+            });
         sliderGrid(List.of(
             new NumericSetting("Font Size", () -> pendingFontSize, 7, 12, .25, 9, v -> pendingFontSize = (float) v, ""),
-            new NumericSetting("Letter Spacing", () -> pendingFontSpacing, -1, 2, .1, 0, v -> pendingFontSpacing = (float) v, "")));
+            new NumericSetting("Letter Spacing", () -> pendingFontSpacing, -1, 2, .1, 0, v -> pendingFontSpacing = (float) v, ""),
+            new NumericSetting("Font Sampling", () -> pendingFontOversample, 1, 4, 1, 2, v -> pendingFontOversample = (int) v,
+                "Higher sampling smooths small text and uses more texture memory."),
+            new NumericSetting("Baseline Offset", () -> pendingFontBaseline, -2, 2, .25, 0, v -> pendingFontBaseline = (float) v, ""),
+            new NumericSetting("Text Shadow Offset", () -> pendingFontShadow, 0, 2, .1, 1, v -> pendingFontShadow = (float) v, "")));
         fullButton("Apply Font Settings", () -> {
             if (!ConfigManager.uiFontPath.isBlank()) applyFont(java.nio.file.Path.of(ConfigManager.uiFontPath));
         }, false).active = !selected.isBlank();
@@ -1121,12 +1154,16 @@ public final class CosmeticsScreen extends ThemedScreen {
 
     private void applyFont(java.nio.file.Path path) {
         var client = minecraft;
-        float size = pendingFontSize, spacing = pendingFontSpacing;
-        UiFonts.load(client, path, size, spacing, applied -> {
+        var style = new UiFonts.Style(pendingFontSize, pendingFontSpacing, pendingFontOversample,
+            pendingFontBaseline, pendingFontShadow);
+        UiFonts.load(client, path, style, applied -> {
             if (applied) {
                 ConfigManager.uiFontPath = path.toString();
-                ConfigManager.uiFontSize = size;
-                ConfigManager.uiFontSpacing = spacing;
+                ConfigManager.uiFontSize = style.size();
+                ConfigManager.uiFontSpacing = style.spacing();
+                ConfigManager.uiFontOversample = style.oversample();
+                ConfigManager.uiFontBaseline = style.baseline();
+                ConfigManager.uiFontShadow = style.shadow();
                 ConfigManager.saveConfig();
             }
             if (ClientUiAccess.screen(client) == this) {

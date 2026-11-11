@@ -53,6 +53,7 @@ public final class ItemAppearanceMixin {
             target = "Lnet/minecraft/world/item/ItemStack;get(Lnet/minecraft/core/component/DataComponentType;)Ljava/lang/Object;"))
         private Object customcosmetics$itemModel(Object original, @Local(argsOnly = true) ItemStack stack,
             @Local(argsOnly = true) ItemStackRenderState state) {
+            original = com.customcosmetics.features.pack.HypixelPackDisabler.fallbackModel(stack, original);
             if(!ItemCosmetics.modelsActive())return original;
             var calls=customcosmetics$calls.get();
             if(calls.isEmpty()||calls.peek().stack()!=stack)return original;
