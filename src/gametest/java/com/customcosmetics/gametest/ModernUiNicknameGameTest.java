@@ -3,6 +3,8 @@ package com.customcosmetics.gametest;
 import com.customcosmetics.compatibility.*;
 import com.customcosmetics.config.*;
 import com.customcosmetics.features.nickname.*;
+import com.customcosmetics.features.text.TextReplacements;
+import com.customcosmetics.sync.ExperimentalAccess;
 import com.customcosmetics.sync.PresenceSync;
 import com.customcosmetics.utils.NickRenderUtils;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
@@ -31,6 +33,7 @@ public final class ModernUiNicknameGameTest implements FabricClientGameTest {
             context.runOnClient(client->{
                 client.options.guiScale().set(2);
                 if(!ModernUiNicknameText.active(client.font))throw new AssertionError("Modern UI text engine is not active");
+                checkTextReplacement(client);
                 ConfigManager.nickTweaksEnabled=true;ConfigManager.nickTweaksNickChanger=alias;ConfigManager.nickTweaksChromaEnabled=false;
                 ConfigManager.nickTweaksCustomNickColorEnabled=false;NickRenderUtils.invalidateLocalTargetsCache();
                 checkLayout(client,false);ClientUiAccess.setScreen(client,new Samples());
@@ -60,6 +63,35 @@ public final class ModernUiNicknameGameTest implements FabricClientGameTest {
             });
             System.out.println("MODERNUI_NATIVE_CUSTOM_FONT_ALIAS_CHROMA_GRADIENT_SHIMMER_SEGMENTS_PREVIEW_AND_DISABLE_OK");
         }catch(Exception problem){throw new AssertionError(problem);}
+    }
+
+    private static void checkTextReplacement(Minecraft client) {
+        try {
+            var status = ExperimentalAccess.class.getDeclaredField("status");
+            status.setAccessible(true);
+            var previous = status.get(null);
+            boolean offline = ConfigManager.offlineMode;
+            try {
+                status.set(null, ExperimentalAccess.Status.GRANTED);
+                ConfigManager.offlineMode = false;
+                ConfigManager.textReplacementsEnabled = true;
+                TextReplacements.setRules(Map.of("cc-modern-original", "Q", "Q", "Second pass"));
+                var input = ModernUiNicknameText.sequence("cc-modern-original");
+                var replaced = ModernUiNicknameText.prepare(input, client.font, -1, 0);
+                float width = client.font.getSplitter().stringWidth("cc-modern-original");
+                float expected = client.font.getSplitter().stringWidth(TextReplacements.resolved(ModernUiNicknameText.sequence("Q")));
+                if (!"Q".equals(RankText.component(replaced.clean()).getString()) || Math.abs(width - expected) > .01)
+                    throw new AssertionError("Modern UI did not measure and resolve the replacement exactly once");
+                System.out.println("MODERNUI_GLOBAL_TEXT_REPLACEMENT_OK");
+            } finally {
+                ConfigManager.offlineMode = offline;
+                ConfigManager.textReplacementsEnabled = false;
+                TextReplacements.setRules(ConfigManager.textReplacements);
+                status.set(null, previous);
+            }
+        } catch (ReflectiveOperationException failure) {
+            throw new AssertionError(failure);
+        }
     }
     // Capture the last completed frame. Forcing an extra render between Sodium terrain passes is invalid.
     private static void captureFrame(ClientGameTestContext context,String name){

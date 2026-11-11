@@ -8,6 +8,7 @@
 package com.customcosmetics.mixin;
 
 import com.customcosmetics.utils.NickRenderUtils;
+import com.customcosmetics.features.text.TextReplacements;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.gui.Font;
@@ -30,7 +31,7 @@ public class NickTweaksMixin {
     @Mixin(Minecraft.class)
     public static class Frame {
         @Inject(method="renderFrame",at=@At("HEAD"))
-        private void customcosmetics$frame(CallbackInfo ci){NickRenderUtils.beginFrame();if(com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.NICK))com.customcosmetics.features.nickname.AnimationClock.frame((Minecraft)(Object)this);}
+        private void customcosmetics$frame(CallbackInfo ci){NickRenderUtils.beginFrame();TextReplacements.beginFrame();if(com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.NICK))com.customcosmetics.features.nickname.AnimationClock.frame((Minecraft)(Object)this);}
     }
 
     @Environment(EnvType.CLIENT)
@@ -43,15 +44,17 @@ public class NickTweaksMixin {
             argsOnly = true
         )
         private String customcosmetics$chromaPrepareString(String text) {
-            return NickRenderUtils.hasSmoothGradient() ? text : NickRenderUtils.handleString(text);
+            return NickRenderUtils.hasSmoothGradient() ? text : NickRenderUtils.handleString(TextReplacements.apply(text));
         }
 
         @Inject(method="prepareText(Ljava/lang/String;FFIZI)Lnet/minecraft/client/gui/Font$PreparedText;",at=@At("HEAD"),cancellable=true)
         private void customcosmetics$prepareSmoothString(String text,float x,float y,int color,boolean shadow,int background,CallbackInfoReturnable<Font.PreparedText> result) {
             if (!NickRenderUtils.hasSmoothGradient()) return;
             Font font=(Font)(Object)this;
-            String shaped=font.isBidirectional()?font.bidirectionalShaping(text):text;
+            String replacement=TextReplacements.apply(text);
+            String shaped=font.isBidirectional()?font.bidirectionalShaping(replacement):replacement;
             FormattedCharSequence sequence=sink -> StringDecomposer.iterateFormatted(shaped,Style.EMPTY,sink);
+            if (replacement != text) sequence = TextReplacements.resolved(sequence);
             result.setReturnValue(font.prepareText(sequence,x,y,color,shadow,false,background));
         }
 
@@ -61,24 +64,28 @@ public class NickTweaksMixin {
             argsOnly = true
         )
         private FormattedCharSequence customcosmetics$chromaPrepareSequence(FormattedCharSequence text) {
-            return NickRenderUtils.measureGradient(NickRenderUtils.handleCharSequence(text),(Font)(Object)this);
+            return NickRenderUtils.measureGradient(NickRenderUtils.handleCharSequence(TextReplacements.apply(text)),(Font)(Object)this);
         }
 
         @ModifyVariable(method = "width(Ljava/lang/String;)I", at = @At("HEAD"), argsOnly = true)
         private String customcosmetics$chromaWidthString(String text) {
-            return com.customcosmetics.compatibility.ModernUiNicknameText.active((Font)(Object)this)?text:NickRenderUtils.handleString(text);
+            return com.customcosmetics.compatibility.ModernUiNicknameText.active((Font)(Object)this)?text:NickRenderUtils.handleString(TextReplacements.apply(text));
         }
 
         @Inject(method = "width(Lnet/minecraft/network/chat/FormattedText;)I", at = @At("HEAD"), cancellable = true)
         private void customcosmetics$chromaWidthFormattedText(FormattedText text, CallbackInfoReturnable<Integer> cir) {
-            if(!NickRenderUtils.hasActiveTargets())return;
-            FormattedCharSequence visualOrder = Language.getInstance().getVisualOrder(text);
+            var replacement = TextReplacements.apply(text);
+            if(replacement==text&&!NickRenderUtils.hasActiveTargets())return;
+            FormattedCharSequence visualOrder = Language.getInstance().getVisualOrder(replacement);
+            if (replacement != text) visualOrder = TextReplacements.resolved(visualOrder);
             cir.setReturnValue(((Font) (Object) this).width(visualOrder));
         }
 
         @ModifyVariable(method = "width(Lnet/minecraft/util/FormattedCharSequence;)I", at = @At("HEAD"), argsOnly = true)
         private FormattedCharSequence customcosmetics$chromaWidthSequence(FormattedCharSequence text) {
-            return NickRenderUtils.handleCharSequence(text);
+            var replacement = TextReplacements.apply(text);
+            var nickname = NickRenderUtils.handleCharSequence(replacement);
+            return replacement instanceof TextReplacements.Resolved ? TextReplacements.resolved(nickname) : nickname;
         }
     }
 

@@ -6,6 +6,7 @@ import com.customcosmetics.config.ConfigManager;
 import com.customcosmetics.features.hud.HudLayout;
 import com.customcosmetics.features.pack.HypixelPackDisabler;
 import com.customcosmetics.features.pack.TextColorOverrides;
+import com.customcosmetics.features.text.TextReplacements;
 import com.customcosmetics.config.PlayerBlocklist;
 import com.customcosmetics.sync.PresenceSync;
 import com.customcosmetics.sync.ExperimentalAccess;
@@ -31,7 +32,7 @@ import static com.customcosmetics.gui.PinkUi.*;
 public final class CosmeticsScreen extends ThemedScreen {
     public enum Page {
         MAIN, SIZE, NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, BLOCKED_SKINS, POSITION_RECIPIENTS, ANIMATIONS, DAMAGE, ITEMS, ACCESSORIES, MAP, PARTY, LOCATION_SHARING, SKINS, SYNC, THEME, MODULES, SEARCH, EXPERIMENTAL,
-        HUD_LAYOUT, SKYBOX, FONTS, FREECAM, WINDOW, HIT_COLOR, FAST_PING, PACK_DISABLER, INVENTORY_BLUR, TEXT_COLORS, DROP_2D;
+        HUD_LAYOUT, SKYBOX, FONTS, FREECAM, WINDOW, HIT_COLOR, FAST_PING, PACK_DISABLER, INVENTORY_BLUR, TEXT_COLORS, DROP_2D, TEXT_REPLACEMENTS;
 
         boolean experimentalOption() { return ordinal() > EXPERIMENTAL.ordinal(); }
     }
@@ -78,6 +79,9 @@ public final class CosmeticsScreen extends ThemedScreen {
     private String blockedPlayerName = "";
     private String blockedPlayerSearch = "";
     private String textColorFrom = "", textColorTo = "";
+    private java.util.TreeMap<String, String> textColorDraft;
+    private boolean textColorsDraftEnabled;
+    private String textRuleSource = "", textRuleReplacement = "", editingTextRule;
     private int pendingToggleY=Integer.MIN_VALUE,pendingToggleBottom;
     private boolean pendingToggleRight;
     private boolean pinnedNickname, draggingScroll,wardrobeRequested;
@@ -158,6 +162,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             case EXPERIMENTAL -> experimental();
             case PACK_DISABLER -> packDisabler();
             case TEXT_COLORS -> textColors();
+            case TEXT_REPLACEMENTS -> textReplacement();
             case INVENTORY_BLUR -> inventoryBlur();
             case HUD_LAYOUT -> hudLayout();
             case SKYBOX -> customSky();
@@ -195,6 +200,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             case EXPERIMENTAL -> "Experimental Features";
             case PACK_DISABLER -> "Pack Disabler";
             case TEXT_COLORS -> "Customize Text Colors";
+            case TEXT_REPLACEMENTS -> "Text Replacement";
             case INVENTORY_BLUR -> "Inventory Blur";
             case HUD_LAYOUT -> "HUD Layout";
             case SKYBOX -> "Custom Sky";
@@ -227,6 +233,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             case EXPERIMENTAL -> "Access is granted by a server administrator.";
             case PACK_DISABLER -> "Hide the official Hypixel SkyBlock textures.";
             case TEXT_COLORS -> "Replace exact text colors.";
+            case TEXT_REPLACEMENTS -> "Replace matching text on this client.";
             case INVENTORY_BLUR -> "Blur the world behind inventories and containers.";
             case HUD_LAYOUT -> "Move, resize or hide HUD elements.";
             case SKYBOX -> "OptiFine and MCPatcher skies.";
@@ -311,6 +318,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         fullButton("Hit Color", () -> open(Page.HIT_COLOR), false);
         fullButton("Pack Disabler", () -> open(Page.PACK_DISABLER), false);
         fullButton("Customize Text Colors", () -> open(Page.TEXT_COLORS), false);
+        fullButton("Text Replacement", () -> open(Page.TEXT_REPLACEMENTS), false);
         fullButton("Inventory Blur", () -> open(Page.INVENTORY_BLUR), false);
         fullButton("2D Drop", () -> open(Page.DROP_2D), false);
         fullButton("Fonts", () -> open(Page.FONTS), false);
@@ -366,10 +374,14 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
 
     private void textColors() {
-        toggleRow("Customize Text Colors", "", () -> ConfigManager.customTextColorsEnabled, value -> {
-            ConfigManager.customTextColorsEnabled = value;
-            HypixelPackDisabler.refresh(minecraft);
-        }).setTooltip(null);
+        if (textColorDraft == null) {
+            textColorDraft = new java.util.TreeMap<>(ConfigManager.customTextColors);
+            textColorsDraftEnabled = ConfigManager.customTextColorsEnabled;
+        }
+        toggleRow("Customize Text Colors", "", () -> textColorsDraftEnabled, value -> {
+            textColorsDraftEnabled = value;
+            rebuildWidgets();
+        }, false).setTooltip(null);
         boolean paired = contentWidth >= 300;
         int width = paired ? (contentWidth - 12) / 2 : contentWidth;
         int inputY = row(paired ? 106 : 212);
@@ -379,21 +391,23 @@ public final class CosmeticsScreen extends ThemedScreen {
             0xFF66AA, paired ? contentX + width + 12 : contentX, paired ? inputY : inputY + 106, width);
         var from = sourceInput.field();
         var to = targetInput.field();
-        var save = fullButton("Save Color Rule", () -> {
+        var updateRule = fullButton("Add or Update Color Rule", () -> {
             Integer source = TextColorOverrides.parse(from.getValue()), target = TextColorOverrides.parse(to.getValue());
             if (source == null || target == null || source.equals(target)) return;
-            saveTextColorRule(TextColorOverrides.hex(source), TextColorOverrides.hex(target));
+            editTextColorDraft(TextColorOverrides.hex(source), TextColorOverrides.hex(target));
         }, true, "Saving an existing source color updates its replacement.");
+        fullButton("Save", this::applyTextColorDraft, false).active =
+            textColorsDraftEnabled != ConfigManager.customTextColorsEnabled || !textColorDraft.equals(ConfigManager.customTextColors);
         Runnable validate = () -> {
             Integer source = sourceInput.syncPalette(), target = targetInput.syncPalette();
-            save.active = source != null && target != null && !source.equals(target);
+            updateRule.active = source != null && target != null && !source.equals(target);
         };
         from.setResponder(value -> { activity(); textColorFrom = value; validate.run(); });
         to.setResponder(value -> { activity(); textColorTo = value; validate.run(); });
         validate.run();
 
-        ConfigManager.customTextColors.entrySet().stream().sorted(java.util.Map.Entry.comparingByKey()).forEach(entry -> {
-            Integer source = TextColorOverrides.parse(entry.getKey()), target = TextColorOverrides.parse(entry.getValue());
+        textColorDraft.forEach((fromColor, toColor) -> {
+            Integer source = TextColorOverrides.parse(fromColor), target = TextColorOverrides.parse(toColor);
             if (source == null || target == null) return;
             int y = row(25), x = contentX + 6;
             String sourceHex = TextColorOverrides.hex(source), targetHex = TextColorOverrides.hex(target);
@@ -411,7 +425,7 @@ public final class CosmeticsScreen extends ThemedScreen {
                 setFocused(to);
             }));
             add(new PinkUi.Action(right - 56, y + 2, 56, 20, "Remove", false,
-                () -> saveTextColorRule(entry.getKey(), null)));
+                () -> editTextColorDraft(fromColor, null)));
         });
     }
 
@@ -438,14 +452,92 @@ public final class CosmeticsScreen extends ThemedScreen {
         }
     }
 
-    private void saveTextColorRule(String source, String replacement) {
-        var rules = new java.util.TreeMap<>(ConfigManager.customTextColors);
+    private void editTextColorDraft(String source, String replacement) {
         Integer sourceColor = TextColorOverrides.parse(source);
-        rules.keySet().removeIf(key -> sourceColor.equals(TextColorOverrides.parse(key)));
-        if (replacement != null) rules.put(source, replacement);
-        ConfigManager.customTextColors = java.util.Collections.unmodifiableMap(rules);
+        textColorDraft.keySet().removeIf(key -> sourceColor.equals(TextColorOverrides.parse(key)));
+        if (replacement != null) textColorDraft.put(source, replacement);
+        activity();
+        setFocused(null);
+        rebuildWidgets();
+    }
+
+    private void applyTextColorDraft() {
+        ConfigManager.customTextColorsEnabled = textColorsDraftEnabled;
+        ConfigManager.customTextColors = java.util.Collections.unmodifiableMap(new java.util.TreeMap<>(textColorDraft));
         changed();
         HypixelPackDisabler.refresh(minecraft);
+        setFocused(null);
+        rebuildWidgets();
+    }
+
+    private void textReplacement() {
+        toggleRow("Text Replacement", "", () -> ConfigManager.textReplacementsEnabled, enabled -> {
+            ConfigManager.textReplacementsEnabled = enabled;
+            TextReplacements.refreshChat(minecraft);
+        }).setTooltip(null);
+        var source = fieldRow("Source Text", "Source Text", textRuleSource, TextReplacements.MAX_SOURCE,
+            "Matches exact text, including capitalization.", 250, ignored -> {});
+        var replacement = fieldRow("Replacement Text", "Replacement Text", textRuleReplacement, TextReplacements.MAX_REPLACEMENT,
+            "Leave empty to hide matching text.", 250, ignored -> {});
+        source.setHint(UiText.guiComponent("Source Text"));
+        replacement.setHint(UiText.guiComponent("Leave empty to hide matching text."));
+        var save = fullButton("Save Text Rule", () -> {
+            if (!canSaveTextRule()) return;
+            var updated = new java.util.LinkedHashMap<>(ConfigManager.textReplacements);
+            if (editingTextRule != null) updated.remove(editingTextRule);
+            updated.put(textRuleSource, textRuleReplacement);
+            saveTextRules(updated);
+        }, true);
+        save.active = canSaveTextRule();
+        source.setResponder(value -> {
+            activity(); textRuleSource = value; save.active = canSaveTextRule();
+        });
+        replacement.setResponder(value -> {
+            activity(); textRuleReplacement = value; save.active = canSaveTextRule();
+        });
+        if (editingTextRule != null) fullButton("Cancel Edit", () -> {
+            resetTextRuleDraft();
+            rebuildWidgets();
+        }, false);
+
+        ConfigManager.textReplacements.forEach((from, to) -> {
+            int y = row(25), right = contentX + contentWidth, maxWidth = contentWidth - 114;
+            String text = from + " → " + (to.isEmpty() ? UiText.tr("(Hidden)") : to);
+            String fitted = TextReplacements.rawWidth(() -> font.width(text)) <= maxWidth ? text
+                : font.plainSubstrByWidth(text, Math.max(0, maxWidth - 8)) + "…";
+            var sequence = TextReplacements.resolved(net.minecraft.util.FormattedCharSequence.forward(fitted, net.minecraft.network.chat.Style.EMPTY));
+            art.add(bounded(y, y + 25, g -> g.text(font, sequence, contentX + 6, y + 8, TEXT, false)));
+            add(new PinkUi.Action(right - 102, y + 2, 42, 20, "Edit", false, () -> {
+                editingTextRule = from;
+                textRuleSource = from;
+                textRuleReplacement = to;
+                rebuildWidgets();
+            }));
+            add(new PinkUi.Action(right - 56, y + 2, 56, 20, "Remove", false, () -> {
+                var updated = new java.util.LinkedHashMap<>(ConfigManager.textReplacements);
+                updated.remove(from);
+                saveTextRules(updated);
+            }));
+        });
+    }
+
+    private boolean canSaveTextRule() {
+        return TextReplacements.valid(textRuleSource, textRuleReplacement)
+            && (editingTextRule != null || ConfigManager.textReplacements.containsKey(textRuleSource)
+                || ConfigManager.textReplacements.size() < TextReplacements.MAX_RULES);
+    }
+
+    private void resetTextRuleDraft() {
+        textRuleSource = textRuleReplacement = "";
+        editingTextRule = null;
+    }
+
+    private void saveTextRules(java.util.Map<String, String> updated) {
+        ConfigManager.textReplacements = TextReplacements.normalize(updated);
+        TextReplacements.setRules(ConfigManager.textReplacements);
+        TextReplacements.refreshChat(minecraft);
+        resetTextRuleDraft();
+        changed();
         setFocused(null);
         rebuildWidgets();
     }
@@ -1513,11 +1605,15 @@ public final class CosmeticsScreen extends ThemedScreen {
         art.add(bounded(y,y+11,g -> g.text(font, fitted, x, y, color, false)));
     }
     private PinkUi.Toggle toggleRow(String title,String description,BooleanSupplier getter,Consumer<Boolean> setter){
+        return toggleRow(title, description, getter, setter, true);
+    }
+
+    private PinkUi.Toggle toggleRow(String title,String description,BooleanSupplier getter,Consumer<Boolean> setter,boolean persist){
         boolean paired=contentWidth>=420,join=paired&&pendingToggleRight&&rowY==pendingToggleBottom;
         int w=paired?(contentWidth-12)/2:contentWidth,x=contentX+(join?w+12:0),y=join?pendingToggleY:rowY;
         indexOption(title,description,y);label(title,x+6,y+9,TEXT,w-50);
         art.add(bounded(y,y+30,g->g.fill(x,y+29,x+w,y+30,BORDER)));
-        var toggle=add(new PinkUi.Toggle(x+2,y+6,title,getter,()->{setter.accept(!getter.getAsBoolean());changed();}).rowWidth(w-6));
+        var toggle=add(new PinkUi.Toggle(x+2,y+6,title,getter,()->{setter.accept(!getter.getAsBoolean());if(persist)changed();else activity();}).rowWidth(w-6));
         toggle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent(description.isEmpty()?title:description)));
         if(join)pendingToggleRight=false;else{rowY+=32;pendingToggleY=y;pendingToggleBottom=rowY;pendingToggleRight=paired;}
         return toggle;

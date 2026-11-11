@@ -59,6 +59,8 @@ public final class ConfigManager {
     public static boolean hypixelPackTooltipBackground = false;
     public static boolean customTextColorsEnabled = false;
     public static java.util.Map<String, String> customTextColors = java.util.Map.of();
+    public static boolean textReplacementsEnabled = false;
+    public static java.util.Map<String, String> textReplacements = java.util.Map.of();
     public static java.util.Set<String> hypixelPackWhitelist = java.util.Set.of();
     public static java.util.Map<String, String> hypixelPackReplacements = java.util.Map.of();
     public static java.util.Map<String, Boolean> hypixelPackGlints = java.util.Map.of();
@@ -236,6 +238,8 @@ public final class ConfigManager {
             freecamVerticalSpeed = com.customcosmetics.features.map.Freecam.validSpeed(freecamVerticalSpeed);
             hitColor &= 0xFFFFFF;
             hitOpacity = Float.isFinite(hitOpacity) ? Math.clamp(hitOpacity, 0, 1) : 0.5f;
+            textReplacements = com.customcosmetics.features.text.TextReplacements.normalize(textReplacements);
+            com.customcosmetics.features.text.TextReplacements.setRules(textReplacements);
             inventoryDimPercent = Math.clamp(inventoryDimPercent, 0, 100);
             uiFontOversample = Math.clamp(uiFontOversample, 1, 4);
             uiFontBaseline = Float.isFinite(uiFontBaseline) ? Math.clamp(uiFontBaseline, -2, 2) : 0;

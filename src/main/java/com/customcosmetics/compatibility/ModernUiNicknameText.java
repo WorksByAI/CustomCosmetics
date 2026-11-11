@@ -2,6 +2,7 @@
 package com.customcosmetics.compatibility;
 
 import com.customcosmetics.features.nickname.*;
+import com.customcosmetics.features.text.TextReplacements;
 import com.customcosmetics.utils.NickRenderUtils;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.gui.Font;
@@ -22,7 +23,7 @@ public final class ModernUiNicknameText {
         void customcosmetics$palette(Palette value);
     }
     public record Prepared(FormattedCharSequence clean,FormattedCharSequence masked,Palette palette) {}
-    public record PaletteSequence(FormattedCharSequence clean,FormattedCharSequence delegate,Palette palette) implements NicknameText {
+    public record PaletteSequence(FormattedCharSequence clean,FormattedCharSequence delegate,Palette palette) implements NicknameText, TextReplacements.Resolved {
         @Override public boolean accept(FormattedCharSink sink){return delegate.accept(sink);}
     }
     private record Glyph(int codepoint,Style style) {}
@@ -46,12 +47,14 @@ public final class ModernUiNicknameText {
         return nativeEffects;
     }
     public static FormattedCharSequence sequence(String text){return sink->StringDecomposer.iterateFormatted(text,Style.EMPTY,sink);}
-    public static FormattedCharSequence sequence(FormattedText text){return Language.getInstance().getVisualOrder(text);}
+    public static FormattedCharSequence sequence(FormattedText text){return TextReplacements.visualOrder(Language.getInstance(),text);}
     public static Prepared prepare(FormattedCharSequence input,Font font,int color,int background){
         if(input instanceof PaletteSequence masked)return new Prepared(masked.clean(),masked,masked.palette());
-        var resolved=NickRenderUtils.handleCharSequence(input);
+        var replaced=TextReplacements.apply(input);
+        var resolved=NickRenderUtils.handleCharSequence(replaced);
         var measured=NickRenderUtils.measureGradient(resolved,font);
-        if(measured!=input&&!(measured instanceof NicknameText))measured=new ProcessedNicknameText(measured);
+        if(measured!=replaced&&!(measured instanceof NicknameText))measured=new ProcessedNicknameText(measured);
+        if(replaced instanceof TextReplacements.Resolved)measured=TextReplacements.resolved(measured);
         if(!nativeEffects())return new Prepared(measured,measured,Palette.EMPTY);
         return mask(measured,color,background);
     }

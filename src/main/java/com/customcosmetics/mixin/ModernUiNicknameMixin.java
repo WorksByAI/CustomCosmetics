@@ -2,6 +2,7 @@
 package com.customcosmetics.mixin;
 
 import com.customcosmetics.compatibility.ModernUiNicknameText;
+import com.customcosmetics.features.text.TextReplacements;
 import com.customcosmetics.utils.NickRenderUtils;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
@@ -104,7 +105,7 @@ public final class ModernUiNicknameMixin {
         @WrapMethod(method="drawText(Lnet/minecraft/network/chat/FormattedText;FFIZLorg/joml/Matrix4fc;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/client/gui/Font$DisplayMode;II)F",require=0)
         private float customcosmetics$component(FormattedText text,float x,float y,int color,boolean shadow,Matrix4fc pose,@Coerce Object source,Font.DisplayMode mode,int background,int light,Operation<Float> original){
             var sequence=ModernUiNicknameText.sequence(text);var prepared=ModernUiNicknameText.prepare(sequence,Minecraft.getInstance().font,color,background);
-            return prepared.masked()==sequence?original.call(text,x,y,color,shadow,pose,source,mode,background,light)
+            return prepared.masked()==sequence&&!(sequence instanceof TextReplacements.Resolved)?original.call(text,x,y,color,shadow,pose,source,mode,background,light)
                 :ModernUiNicknameText.drawSequence(this,prepared.masked(),x,y,color,shadow,pose,source,mode,background,light);
         }
         @WrapMethod(method="drawText(Lnet/minecraft/util/FormattedCharSequence;FFIZLorg/joml/Matrix4fc;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/client/gui/Font$DisplayMode;II)F",require=0)
@@ -122,15 +123,20 @@ public final class ModernUiNicknameMixin {
     public static class Width {
         @Inject(method="stringWidth(Ljava/lang/String;)F",at=@At("HEAD"),cancellable=true)
         private void customcosmetics$stringWidth(String text,CallbackInfoReturnable<Float> result){
-            if(text==null)return;var sequence=ModernUiNicknameText.sequence(text);var processed=NickRenderUtils.handleCharSequence(sequence);
+            if(text==null)return;var sequence=ModernUiNicknameText.sequence(text);var processed=customcosmetics$sequenceWidth(sequence);
             if(processed!=sequence)result.setReturnValue(((StringSplitter)(Object)this).stringWidth(processed));
         }
         @Inject(method="stringWidth(Lnet/minecraft/network/chat/FormattedText;)F",at=@At("HEAD"),cancellable=true)
         private void customcosmetics$componentWidth(FormattedText text,CallbackInfoReturnable<Float> result){
             var sequence=ModernUiNicknameText.sequence(text);var processed=NickRenderUtils.handleCharSequence(sequence);
-            if(processed!=sequence)result.setReturnValue(((StringSplitter)(Object)this).stringWidth(processed));
+            if(processed!=sequence||sequence instanceof TextReplacements.Resolved)
+                result.setReturnValue(((StringSplitter)(Object)this).stringWidth(TextReplacements.resolved(processed)));
         }
         @ModifyVariable(method="stringWidth(Lnet/minecraft/util/FormattedCharSequence;)F",at=@At("HEAD"),argsOnly=true)
-        private FormattedCharSequence customcosmetics$sequenceWidth(FormattedCharSequence text){return NickRenderUtils.handleCharSequence(text);}
+        private FormattedCharSequence customcosmetics$sequenceWidth(FormattedCharSequence text){
+            var replacement=TextReplacements.apply(text);
+            var nickname=NickRenderUtils.handleCharSequence(replacement);
+            return replacement instanceof TextReplacements.Resolved?TextReplacements.resolved(nickname):nickname;
+        }
     }
 }

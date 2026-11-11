@@ -136,6 +136,8 @@ public final class Release201GameTest implements FabricClientGameTest {
             });
             context.waitTicks(2);
             context.takeScreenshot("201-2d-drop-settings");
+            checkTextReplacement(context);
+            checkColorDraft(context);
         } finally {
             context.runOnClient(client -> {
                 trackInventoryBlur = false;
@@ -150,6 +152,80 @@ public final class Release201GameTest implements FabricClientGameTest {
             });
         }
     }
+
+    private static void checkTextReplacement(ClientGameTestContext context) {
+        context.runOnClient(client -> {
+            var original = net.minecraft.network.chat.Component.literal("cc-original-phrase");
+            var chat = ClientUiAccess.chat(client);
+            chat.addClientSystemMessage(original);
+            ClientUiAccess.setScreen(client, new CosmeticsScreen(null, CosmeticsScreen.Page.TEXT_REPLACEMENTS));
+            var screen = ClientUiAccess.screen(client);
+            widget(screen, "Text Replacement", PinkUi.Toggle.class).onClick(null, false);
+            widget(screen, "Source Text", PinkUi.Field.class).setValue(original.getString());
+            widget(screen, "Replacement Text", PinkUi.Field.class).setValue("OK");
+            widget(screen, "Save Text Rule", PinkUi.Action.class).onClick(null, false);
+
+            var resolved = original.getVisualOrderText();
+            var expected = client.font.width("OK");
+            if (!"OK".equals(com.customcosmetics.features.nickname.RankText.component(resolved).getString())
+                    || client.font.width(original) != expected || client.font.width(original.getString()) != expected) {
+                throw new AssertionError("The saved rule did not replace styled and plain text consistently");
+            }
+            var lines = (java.util.List<?>) read(chat, "trimmedMessages");
+            boolean chatChanged = lines.stream().map(net.minecraft.client.multiplayer.chat.GuiMessage.Line.class::cast)
+                .anyMatch(line -> line.parent().content().getString().equals(original.getString())
+                    && "OK".equals(com.customcosmetics.features.nickname.RankText.component(line.content()).getString()));
+            if (!chatChanged || !"cc-original-phrase".equals(original.getString()))
+                throw new AssertionError("Existing chat did not reflow from its preserved original");
+            widget(ClientUiAccess.screen(client), "Remove", PinkUi.Action.class).onClick(null, false);
+            if (!"cc-original-phrase".equals(com.customcosmetics.features.nickname.RankText.component(original.getVisualOrderText()).getString()))
+                throw new AssertionError("Removing the rule left a cached component replacement");
+            ConfigManager.textReplacementsEnabled = false;
+        });
+        System.out.println("TEXT_REPLACEMENT_UI_PLAIN_STYLED_AND_CHAT_OK");
+    }
+
+    private static void checkColorDraft(ClientGameTestContext context) throws Exception {
+        var before = context.computeOnClient(client -> com.customcosmetics.features.items.ItemCosmetics.catalogIdentity());
+        context.runOnClient(client -> {
+            ClientUiAccess.setScreen(client, new CosmeticsScreen(null, CosmeticsScreen.Page.TEXT_COLORS));
+            var screen = ClientUiAccess.screen(client);
+            widget(screen, "Customize Text Colors", PinkUi.Toggle.class).onClick(null, false);
+            widget(screen, "Source Color", PinkUi.Field.class).setValue("&6");
+            widget(screen, "Replacement Color", PinkUi.Field.class).setValue("#FF66AA");
+            widget(screen, "Add or Update Color Rule", PinkUi.Action.class).onClick(null, false);
+            widget(screen, "Source Color", PinkUi.Field.class).setValue("&9");
+            widget(screen, "Replacement Color", PinkUi.Field.class).setValue("#00FF00");
+            widget(screen, "Add or Update Color Rule", PinkUi.Action.class).onClick(null, false);
+            if (ConfigManager.customTextColorsEnabled || !ConfigManager.customTextColors.isEmpty())
+                throw new AssertionError("Color edits escaped the draft before Save");
+        });
+        context.waitTicks(4);
+        context.runOnClient(client -> {
+            if (before != com.customcosmetics.features.items.ItemCosmetics.catalogIdentity())
+                throw new AssertionError("Adding draft color rules caused a resource reload");
+            widget(ClientUiAccess.screen(client), "Save", PinkUi.Action.class).onClick(null, false);
+            if (!ConfigManager.customTextColorsEnabled || !ConfigManager.customTextColors.equals(
+                java.util.Map.of("#FFAA00", "#FF66AA", "#5555FF", "#00FF00")))
+                throw new AssertionError("Save did not apply both color rules");
+        });
+        context.waitFor(client -> before != com.customcosmetics.features.items.ItemCosmetics.catalogIdentity(), 240);
+        var applied = context.computeOnClient(client -> com.customcosmetics.features.items.ItemCosmetics.catalogIdentity());
+        context.runOnClient(client -> {
+            ConfigManager.customTextColorsEnabled = false;
+            ConfigManager.customTextColors = java.util.Map.of();
+            HypixelPackDisabler.refresh(client);
+        });
+        context.waitFor(client -> applied != com.customcosmetics.features.items.ItemCosmetics.catalogIdentity(), 240);
+        System.out.println("TEXT_COLOR_RULES_APPLY_ONLY_ON_SAVE_OK");
+    }
+
+    private static <T extends net.minecraft.client.gui.components.AbstractWidget> T widget(
+            net.minecraft.client.gui.screens.Screen screen, String label, Class<T> type) {
+        return screen.children().stream().filter(type::isInstance).map(type::cast)
+            .filter(widget -> widget.getMessage().getString().equals(label)).findFirst().orElseThrow();
+    }
+
     private static void checkPackToggle(ClientGameTestContext context) throws Exception {
         var official = java.util.UUID.randomUUID();
         var other = java.util.UUID.randomUUID();
