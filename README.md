@@ -4,7 +4,7 @@
 
 This is a private mod. Quality and stability are not guaranteed.
 
-最新正式版 v2.0.1。Fabric 客户端外观模组，支持 26.1～26.3，部分功能可在玩家间同步。设置可切换中英文。实验功能支持为整个游戏或模组菜单选择系统字体和本地字体。
+当前源码版本 v2.1.0，最新正式版 v2.0.1。Fabric 客户端外观模组，支持 26.1～26.3，部分功能可在玩家间同步。设置可切换中英文。实验功能支持为整个游戏或模组菜单选择系统字体和本地字体。
 
 新版不内置字体。从 v2.0.1 升级需手动替换一次 JAR。实验功能由后台授权。
 
@@ -31,7 +31,7 @@ This is a private mod. Quality and stability are not guaranteed.
 
 ## English
 
-Latest stable release: v2.0.1. Choose English or Simplified Chinese in Settings. Experimental font controls support system and local fonts for the whole game or just mod menus.
+Source version v2.1.0. Latest stable release v2.0.1. Choose English or Simplified Chinese in Settings. Experimental font controls support system and local fonts for the whole game or just mod menus.
 
 New builds omit bundled fonts. Replace the v2.0.1 JAR manually once. Experimental features require administrator approval.
 
