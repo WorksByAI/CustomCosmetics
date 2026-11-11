@@ -21,18 +21,18 @@ public final class SettingsCatalog {
             "Enabled|X|Y|Z|Reset Player Size|SmolPeople|Limb Swing Speed|Creature Model|" +
                 java.util.Arrays.stream(com.customcosmetics.features.creature.CreatureModels.Choice.values())
                     .map(choice -> choice.label).collect(java.util.stream.Collectors.joining("|")));
-        add(entries, "NickTweaks", "NICK", "Nickname name color codes",
-            "Enabled|Nick Changer|Bold Self Nick|Blocked Nicknames");
-        add(entries, "NickTweaks", "COLOR", "Nickname gradient start end color picker HEX",
+        add(entries, "Nick Changer", "NICK", "Nickname name color codes",
+            "Enabled|Custom Nickname|Bold Self Nick|Blocked Nicknames");
+        add(entries, "Nick Changer", "COLOR", "Nickname gradient start end color picker HEX",
             "Custom Nick Color|Gradient Style|Shimmer Preset|Editing|Gradient Colors");
-        add(entries, "NickTweaks", "COLOR", "Requires Segmented: select the Segmented gradient style first.",
+        add(entries, "Nick Changer", "COLOR", "Requires Segmented: select the Segmented gradient style first.",
             "Edit Gradient Segments");
-        add(entries, "NickTweaks", "COLOR", "Requires Shimmer: select the Shimmer gradient style first.",
+        add(entries, "Nick Changer", "COLOR", "Requires Shimmer: select the Shimmer gradient style first.",
             "Shimmer Size|Shimmer Speed|Shimmer Interval|Shimmer Colors");
-        add(entries, "NickTweaks", "CHROMA", "Rainbow nickname chroma color animation",
+        add(entries, "Nick Changer", "CHROMA", "Rainbow nickname chroma color animation",
             "Chroma|Lightness|Size|Speed");
-        add(entries, "NickTweaks", "RANK", "Hypixel MVP+ MVP++ rank plus color synchronized appearance", "Custom Rank|Rank Type|MVP++ Style|Plus Color");
-        add(entries, "NickTweaks", "PRESETS", "Saved nickname color presets",
+        add(entries, "Nick Changer", "RANK", "Hypixel MVP+ MVP++ rank plus color synchronized appearance", "Custom Rank|Rank Type|MVP++ Style|Plus Color");
+        add(entries, "Nick Changer", "PRESETS", "Saved nickname color presets",
             "Save Current Colors|Save / Update");
         add(entries, "Animations", "ANIMATIONS", "Sword blocking item whitelist blacklist pose",
             "Sword Blocking|Adjust Blocking|Blocking List Mode|Edit Blocking Lists|Apply Lists to Other Players|Share Blocking");
@@ -66,13 +66,14 @@ public final class SettingsCatalog {
         add(entries, "Map Editor", "MAP", "Local visual map dungeon Kuudra rooms",
             "Freecam|Freecam Speed (blocks/s)|Map Editor|Dungeon Only|Force Dungeon|Force Kuudra|Edit Mode|Import FME Config|Choose Block / Favorites|Replace Materials|Editor HUD|Reset This Room|Block Material|Undo|Clear Current Edits|Automatically Restore Rooms|Preset Manager");
         add(entries, "Settings", "SYNC", "General preferences",
-            "Language|Fonts|Interface|Module Manager|Check for Updates|Fast IP Ping|Command Tooltips|Snaplook|Snaplook View|Snaplook Keybind…");
+            "Language|Fonts|Interface|Experimental Features|Module Manager|Check for Updates|Fast IP Ping|Command Tooltips|Snaplook|Snaplook View|Snaplook Keybind…");
         add(entries, "Experimental Features", "EXPERIMENTAL", "Inventory and container background blur", "Inventory Blur");
+        add(entries, "Experimental Features", "DROP_2D", "Camera-facing dropped item sprites", "2D Drop");
         add(entries, "Inventory Blur", "INVENTORY_BLUR", "Inventory and container background", "Background Darkness (%)");
         add(entries, "Pack Disabler", "PACK_DISABLER", "Official server resource pack", "Hide Hypixel SkyBlock Pack");
         add(entries, "Pack Disabler", "PACK_DISABLER", "Official server resource pack", "Hypixel Text Colors");
         add(entries, "Pack Disabler", "PACK_DISABLER", "Official server resource pack", "Hypixel Tooltip Background");
-        add(entries, "Customize Text Colors", "TEXT_COLORS", "Replace exact text colors", "Source Color");
+        add(entries, "Customize Text Colors", "TEXT_COLORS", "Replace exact text colors with color pickers", "Source Color|Replacement Color");
         add(entries, "Pack Disabler", "PACK_DISABLER", "Official server resource pack", "Reload Hypixel Pack");
         add(entries, "Hit Color", "HIT_COLOR", "Hurt color palette hex", "Hit Color|Hurt Flash Color|Opacity");
         add(entries, "Fonts", "FONTS", "Game text and system fonts",

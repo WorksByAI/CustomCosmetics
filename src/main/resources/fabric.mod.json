@@ -4,7 +4,7 @@
   "version": "${version}",
   "name": "CustomCosmetics",
   "icon": "assets/customcosmetics/icon.png",
-  "description": "SmolPeople, NickTweaks, viewmodel animations and visual sword blocking with shared cosmetics.",
+  "description": "SmolPeople, Nick Changer, viewmodel animations and visual sword blocking with shared cosmetics.",
   "license": "AGPL-3.0-or-later",
   "authors": ["CustomCosmetics contributors"],
   "contact": {

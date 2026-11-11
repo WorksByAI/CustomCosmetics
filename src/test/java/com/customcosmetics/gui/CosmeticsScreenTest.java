@@ -109,7 +109,7 @@ class CosmeticsScreenTest {
         var navigation = code(screen, "buildNavigation").stream().filter(ConstantInstruction.class::isInstance)
             .map(ConstantInstruction.class::cast).map(ConstantInstruction::constantValue).toList();
         assertTrue(navigation.containsAll(List.of("Overview", "APPEARANCE", "SKYBLOCK", "CONNECTIONS")));
-        assertTrue(navigation.indexOf("APPEARANCE") < navigation.indexOf("NickTweaks"));
+        assertTrue(navigation.indexOf("APPEARANCE") < navigation.indexOf("Nick Changer"));
         assertTrue(navigation.indexOf("SKYBLOCK") < navigation.indexOf("Animations"));
         assertTrue(navigation.indexOf("CONNECTIONS") < navigation.indexOf("Party Sharing"));
         assertTrue(navigation.indexOf("Party Sharing") < navigation.indexOf("Location Sharing"));

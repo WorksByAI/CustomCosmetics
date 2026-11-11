@@ -22,7 +22,7 @@ class SettingsSearchTest {
         assertEquals(1,SettingsSearch.find(entries,"伤害 大小").size());assertEquals(1,SettingsSearch.find(entries,"挥动速度").size());
         assertEquals(2,SettingsSearch.find(entries,"location 追踪").size());assertEquals(1,SettingsSearch.find(entries,"Ｓｗｉｎｇ　Ｓｐｅｅｄ").size());
         assertTrue(SettingsSearch.find(entries,"...___").isEmpty());
-        var nested=List.of(new SettingsSearch.Entry("NickTweaks","Shimmer Size","Requires Shimmer","COLOR",0),new SettingsSearch.Entry("NickTweaks","Save Current Colors","Preset Name","PRESETS",0));
+        var nested=List.of(new SettingsSearch.Entry("Nick Changer","Shimmer Size","Requires Shimmer","COLOR",0),new SettingsSearch.Entry("Nick Changer","Save Current Colors","Preset Name","PRESETS",0));
         assertEquals("COLOR",SettingsSearch.find(nested,"鎏金大小").getFirst().page());assertEquals("PRESETS",SettingsSearch.find(nested,"预设").getFirst().page());
     }
     @Test void findsBatchReplacementThroughChineseSearch(){var map=List.of(new SettingsSearch.Entry("Map Editor","Replace Materials","","MAP",500));assertEquals("MAP",SettingsSearch.find(map,"地图替换材质").getFirst().page());assertEquals(1,SettingsSearch.find(map,"替换").size());}

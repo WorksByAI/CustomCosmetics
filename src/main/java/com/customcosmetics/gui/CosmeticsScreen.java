@@ -30,8 +30,8 @@ import static com.customcosmetics.gui.PinkUi.*;
 /** Compact settings workspace with local themes and finite, screen-owned motion. */
 public final class CosmeticsScreen extends ThemedScreen {
     public enum Page {
-        MAIN, SIZE, NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, BLOCKED_SKINS, POSITION_RECIPIENTS, ANIMATIONS, DAMAGE, ITEMS, ACCESSORIES, MAP, PARTY, LOCATION_SHARING, SKINS, SYNC, THEME, MODULES, SEARCH, DROP_2D, EXPERIMENTAL,
-        HUD_LAYOUT, SKYBOX, FONTS, FREECAM, WINDOW, HIT_COLOR, FAST_PING, PACK_DISABLER, INVENTORY_BLUR, TEXT_COLORS;
+        MAIN, SIZE, NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, BLOCKED_SKINS, POSITION_RECIPIENTS, ANIMATIONS, DAMAGE, ITEMS, ACCESSORIES, MAP, PARTY, LOCATION_SHARING, SKINS, SYNC, THEME, MODULES, SEARCH, EXPERIMENTAL,
+        HUD_LAYOUT, SKYBOX, FONTS, FREECAM, WINDOW, HIT_COLOR, FAST_PING, PACK_DISABLER, INVENTORY_BLUR, TEXT_COLORS, DROP_2D;
 
         boolean experimentalOption() { return ordinal() > EXPERIMENTAL.ordinal(); }
     }
@@ -189,7 +189,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             case MAIN -> "Home";
             case THEME -> "Interface";
             case SIZE -> "Player Size";
-            case NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS -> "NickTweaks";
+            case NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS -> "Nick Changer";
             case ANIMATIONS -> "Animations";
             case DAMAGE -> "Damage Splash";
             case EXPERIMENTAL -> "Experimental Features";
@@ -254,16 +254,14 @@ public final class CosmeticsScreen extends ThemedScreen {
         navRowY = navTop;
         navItem("Overview", Page.MAIN);
         navSection("APPEARANCE");
-        navItem("NickTweaks", Page.NICK); navItem("Player Size", Page.SIZE);
+        navItem("Nick Changer", Page.NICK); navItem("Player Size", Page.SIZE);
         navItem("Skins", Page.SKINS); navItem("Equipments", Page.ACCESSORIES);
         navAction("Cape", () -> ClientUiAccess.setScreen(minecraft, new CapeScreen(this)), () -> page == Page.BLOCKED_CAPES);
         navSection("SKYBLOCK");
         navItem("Animations", Page.ANIMATIONS); navItem("Damage Splash", Page.DAMAGE);
         navItem("Item Customization", Page.ITEMS); navItem("Map Editor", Page.MAP);
-        navItem("2D Drop",Page.DROP_2D);
         navSection("CONNECTIONS");
         navItem("Party Sharing", Page.PARTY);navItem("Location Sharing",Page.LOCATION_SHARING);
-        navItem("Experimental Features", Page.EXPERIMENTAL);
         navContentBottom = navRowY;
         navScroll = Math.clamp(navScroll, 0, maxNavScroll());
         positionNavigation();
@@ -276,7 +274,6 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
     private void navItem(String name, Page target) {
         navAction(name, () -> open(target), () -> target == page
-            || target == Page.EXPERIMENTAL && page.experimentalOption()
             || target == Page.ACCESSORIES && page == Page.BLOCKED_ACCESSORIES
             || target == Page.SKINS && page == Page.BLOCKED_SKINS
             || target == Page.LOCATION_SHARING && page == Page.POSITION_RECIPIENTS
@@ -315,6 +312,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         fullButton("Pack Disabler", () -> open(Page.PACK_DISABLER), false);
         fullButton("Customize Text Colors", () -> open(Page.TEXT_COLORS), false);
         fullButton("Inventory Blur", () -> open(Page.INVENTORY_BLUR), false);
+        fullButton("2D Drop", () -> open(Page.DROP_2D), false);
         fullButton("Fonts", () -> open(Page.FONTS), false);
     }
 
@@ -372,18 +370,22 @@ public final class CosmeticsScreen extends ThemedScreen {
             ConfigManager.customTextColorsEnabled = value;
             HypixelPackDisabler.refresh(minecraft);
         }).setTooltip(null);
-        String hint = "Minecraft color name, legacy code, or #RRGGBB";
-        var from = fieldRow("Source Color", "e.g. gold or #FFAA00", textColorFrom, 24, hint, 185, value -> {});
-        var to = fieldRow("Replacement Color", "e.g. #FF66AA", textColorTo, 24, hint, 185, value -> {});
+        boolean paired = contentWidth >= 300;
+        int width = paired ? (contentWidth - 12) / 2 : contentWidth;
+        int inputY = row(paired ? 106 : 212);
+        var sourceInput = textColorInput("Source Color", "&6 / gold / #FFAA00", textColorFrom,
+            0xFFAA00, contentX, inputY, width);
+        var targetInput = textColorInput("Replacement Color", "e.g. #FF66AA", textColorTo,
+            0xFF66AA, paired ? contentX + width + 12 : contentX, paired ? inputY : inputY + 106, width);
+        var from = sourceInput.field();
+        var to = targetInput.field();
         var save = fullButton("Save Color Rule", () -> {
             Integer source = TextColorOverrides.parse(from.getValue()), target = TextColorOverrides.parse(to.getValue());
             if (source == null || target == null || source.equals(target)) return;
             saveTextColorRule(TextColorOverrides.hex(source), TextColorOverrides.hex(target));
         }, true, "Saving an existing source color updates its replacement.");
         Runnable validate = () -> {
-            Integer source = TextColorOverrides.parse(textColorFrom), target = TextColorOverrides.parse(textColorTo);
-            from.invalid(!textColorFrom.isBlank() && source == null);
-            to.invalid(!textColorTo.isBlank() && target == null);
+            Integer source = sourceInput.syncPalette(), target = targetInput.syncPalette();
             save.active = source != null && target != null && !source.equals(target);
         };
         from.setResponder(value -> { activity(); textColorFrom = value; validate.run(); });
@@ -411,6 +413,29 @@ public final class CosmeticsScreen extends ThemedScreen {
             add(new PinkUi.Action(right - 56, y + 2, 56, 20, "Remove", false,
                 () -> saveTextColorRule(entry.getKey(), null)));
         });
+    }
+
+    private TextColorInput textColorInput(String title, String example, String value, int defaultColor,
+                                         int x, int y, int width) {
+        String hint = "Minecraft color name, color code like &6, or #RRGGBB";
+        indexOption(title, example + " " + hint, y);
+        label(title, x + 6, y + 4, TEXT, width - 12);
+        var field = input(x + 6, y + 17, width - 12, title, value, 24, ignored -> {});
+        field.setHint(UiText.guiComponent(example));
+        field.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent(hint)));
+        var picker = add(new PinkUi.ColorPicker(x + 7, y + 45, Math.min(290, width - 14), 54, defaultColor,
+            rgb -> field.setValue(TextColorOverrides.hex(rgb))));
+        return new TextColorInput(field, picker);
+    }
+
+    private record TextColorInput(PinkUi.Field field, PinkUi.ColorPicker picker) {
+        Integer syncPalette() {
+            String value = field.getValue();
+            Integer rgb = TextColorOverrides.parse(value);
+            field.invalid(!value.isBlank() && rgb == null);
+            if (rgb != null && rgb != picker.rgb()) picker.setColor(rgb);
+            return rgb;
+        }
     }
 
     private void saveTextColorRule(String source, String replacement) {
@@ -453,7 +478,7 @@ public final class CosmeticsScreen extends ThemedScreen {
 
     private void overview() {
         section("Appearance", "");
-        fullButton("NickTweaks",()->open(Page.NICK),false);
+        fullButton("Nick Changer",()->open(Page.NICK),false);
         fullButton("Player Size",()->open(Page.SIZE),false);
         fullButton("Skins",()->open(Page.SKINS),false);
         fullButton("Equipments",()->open(Page.ACCESSORIES),false);
@@ -461,7 +486,6 @@ public final class CosmeticsScreen extends ThemedScreen {
         section("Preferences", "");
         fullButton("Interface",()->open(Page.THEME),false);
         fullButton("Module Manager",()->open(Page.MODULES),false);
-        fullButton("Experimental Features",()->open(Page.EXPERIMENTAL),false);
         section("Command tools", "");
         paragraph("/ccos waypoint    /ccos shortcuts",MUTED);
     }
@@ -870,7 +894,8 @@ public final class CosmeticsScreen extends ThemedScreen {
 
     private void rank() {
         if (!pinnedNickname) { if(panelHeight>=300)previewCard(); tabs(); }
-        toggleRow("Custom Rank", "Independent of nickname colors and renaming.", () -> ConfigManager.nickTweaksRankEnabled, value -> ConfigManager.nickTweaksRankEnabled=value);
+        toggleRow("Custom Rank", "", () -> ConfigManager.nickTweaksRankEnabled, value -> ConfigManager.nickTweaksRankEnabled=value).setTooltip(null);
+        paragraph("Only works on Hypixel.", MUTED);
         fullButton("Rank Type: "+new com.customcosmetics.features.nickname.RankSettings(true,ConfigManager.nickTweaksRankPlusColor,ConfigManager.nickTweaksRankType,ConfigManager.nickTweaksRankTagColor).label(),()->{
             ConfigManager.nickTweaksRankType=ConfigManager.nickTweaksRankType.equals("mvp_plus_plus")?"mvp_plus":"mvp_plus_plus";changed();rebuildWidgets();
         },false);
@@ -897,7 +922,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         if (!pinnedNickname) { previewCard(); tabs(); }
         toggleRow("Enabled", "", () -> ConfigManager.nickTweaksEnabled, v -> ConfigManager.nickTweaksEnabled = v);
         ConfigManager.nickTweaksNickChanger = com.customcosmetics.config.NicknameLimit.limit(ConfigManager.nickTweaksNickChanger);
-        var nickname = fieldRow("Nick Changer","Nick Changer",ConfigManager.nickTweaksNickChanger,
+        var nickname = fieldRow("Custom Nickname","Custom Nickname",ConfigManager.nickTweaksNickChanger,
             com.customcosmetics.config.NicknameLimit.MAX_LENGTH,"Color codes: &0–&f, &r",220,value -> {});
         nickname.setHint(UiText.component("Nickname (30 characters max)"));
         nickname.setResponder(value -> {
@@ -914,39 +939,61 @@ public final class CosmeticsScreen extends ThemedScreen {
     private void blockList(List<PlayerBlocklist.Entry> entries){com.customcosmetics.sync.PlayerBlocks.set(blockKind(),entries);}
     private void blockedPlayers(){
         boolean accessories=page==Page.BLOCKED_ACCESSORIES,capes=page==Page.BLOCKED_CAPES,skins=page==Page.BLOCKED_SKINS;
-        fullButton(skins?"Back to Skins":capes?"Back to Cape":accessories?"Back to Equipments":"Back to NickTweaks",()->{if(capes||accessories&&parent instanceof WardrobeScreen)onClose();else open(skins?Page.SKINS:accessories?Page.ACCESSORIES:Page.NICK);},false);
+        fullButton(skins?"Back to Skins":capes?"Back to Cape":accessories?"Back to Equipments":"Back to Nick Changer",()->{if(capes||accessories&&parent instanceof WardrobeScreen)onClose();else open(skins?Page.SKINS:accessories?Page.ACCESSORIES:Page.NICK);},false);
         label(skins?"Blocked Skins":capes?"Blocked Capes":accessories?"Block Other Players' Equipments":"Blocked Nicknames",contentX,rowY+4,PINK,contentWidth);rowY+=22;
         for(var line:font.split(UiText.component(skins?"Use each player's original Mojang skin.":capes?"Hide these players' custom capes. Local only.":accessories?"Hide these players' accessories. Local only.":"Show these players' original account names. Local only."),contentWidth)){
             int y=rowY;art.add(g->g.text(font,line,contentX,y,MUTED,false));rowY+=12;
         }rowY+=10;
-        rowY+=8;label("Synced Players",contentX,rowY+4,PINK,contentWidth);rowY+=24;
         var search=fieldRow("Search Nickname or Account","Search Nickname or Account",blockedPlayerSearch,64,"",220,value->{});
-        search.setResponder(value->{activity();blockedPlayerSearch=value;rebuildWidgets();
-            var replacement=controls.stream().map(Placement::widget).filter(widget->widget instanceof PinkUi.Field&&widget.getMessage().getString().equals("Search Nickname or Account")).findFirst().orElseThrow();
-            setFocused(replacement);((PinkUi.Field)replacement).moveCursorToEnd(false);
-        });
-        String query=blockedPlayerSearch.strip().toLowerCase(Locale.ROOT);
-        var matches=PresenceSync.syncedPlayers().stream().filter(player->!player.uuid().equals(minecraft.getUser().getProfileId()))
-            .filter(player->player.name().toLowerCase(Locale.ROOT).contains(query)||player.nickname().toLowerCase(Locale.ROOT).contains(query))
+        search.setHint(UiText.guiComponent("Search Nickname or Account"));
+        var synced = PresenceSync.syncedPlayers();
+        var saved = blockList();
+        var savedKeys = saved.stream().map(CosmeticsScreen::blockedKey).collect(java.util.stream.Collectors.toUnmodifiableSet());
+        var self = minecraft.getUser().getProfileId();
+        var available = synced.stream()
+            .filter(player -> !player.uuid().equals(self) && !savedKeys.contains(player.uuid().toString())
+                && !savedKeys.contains(player.name().toLowerCase(Locale.ROOT)))
             .sorted(java.util.Comparator.comparing(PresenceSync.SyncedPlayer::name,String.CASE_INSENSITIVE_ORDER)).toList();
-        if(matches.isEmpty()){label("No matching synced players.",contentX+12,rowY+10,DIM,contentWidth-24);rowY+=30;}
-        for(var player:matches){
-            String alias=player.nickname();if(alias.isBlank())alias=player.name();
-            int row=card(50);label(alias,contentX+12,row+10,TEXT,contentWidth-116);rawLabel(player.name(),contentX+12,row+29,DIM,contentWidth-116);
-            boolean blocked=PlayerBlocklist.contains(blockList(),player.uuid(),player.name());
-            var action=add(new PinkUi.Action(contentX+contentWidth-92,row+12,80,26,blocked?"Blocked":"Block",false,()->{
-                var entries=new ArrayList<>(blockList());entries.add(new PlayerBlocklist.Entry(player.uuid(),player.name()));
-                blockList(entries);changed();rebuildWidgets();
-            }));action.active=!blocked;
+        var blockOptions = available.stream().map(player -> new OptionDropdown.Option(player.uuid().toString(),
+            playerChoice(player.name(), player.nickname()))).toList();
+        var aliases = new java.util.HashMap<String, String>();
+        for (var player : synced) {
+            aliases.put(player.uuid().toString(), player.nickname());
+            aliases.put(player.name().toLowerCase(Locale.ROOT), player.nickname());
         }
-        rowY+=8;label("Blocked Players",contentX,rowY+4,PINK,contentWidth);rowY+=24;
-        if(blockList().isEmpty()){label("No blocked players.",contentX+12,rowY+10,DIM,contentWidth-24);rowY+=30;}
-        for(var entry:blockList()){
-            int row=card(38);rawLabel(entry.account(),contentX+12,row+14,TEXT,contentWidth-116);
-            add(new PinkUi.Action(contentX+contentWidth-92,row+6,80,26,"Unblock",false,()->{
-                blockList(blockList().stream().filter(value->!value.equals(entry)).toList());changed();rebuildWidgets();
+        var unblockOptions = saved.stream().sorted(java.util.Comparator.comparing(PlayerBlocklist.Entry::account, String.CASE_INSENSITIVE_ORDER))
+            .map(entry -> new OptionDropdown.Option(blockedKey(entry),
+                playerChoice(entry.account(), aliases.getOrDefault(blockedKey(entry), "")))).toList();
+
+        boolean paired = contentWidth >= 300;
+        int width = paired ? (contentWidth - 12) / 2 : contentWidth;
+        int menuY = rowY;
+        var blockMenu = add(new OptionDropdown(contentX, menuY, width, "Block Synced Player", id -> {
+            var result = com.customcosmetics.sync.PlayerBlocks.edit(true, blockKind(), id, synced);
+            toast(result.message());
+            rebuildWidgets();
+        }));
+        var unblockMenu = add(new OptionDropdown(paired ? contentX + width + 12 : contentX,
+            paired ? menuY : menuY + 30, width, "Unblock Player", id -> {
+                blockList(blockList().stream().filter(entry -> !blockedKey(entry).equals(id)).toList());
+                activity();
+                rebuildWidgets();
             }));
-        }
+        choiceMenus.add(blockMenu);
+        choiceMenus.add(unblockMenu);
+        rowY += paired ? 32 : 62;
+        Consumer<String> filter = value -> {
+            String query = value.strip().toLowerCase(Locale.ROOT);
+            blockMenu.setOptions(blockOptions.stream().filter(option -> option.label().toLowerCase(Locale.ROOT).contains(query)).toList());
+            unblockMenu.setOptions(unblockOptions.stream().filter(option -> option.label().toLowerCase(Locale.ROOT).contains(query)).toList());
+        };
+        search.setResponder(value -> {
+            activity();
+            blockedPlayerSearch = value;
+            filter.accept(value);
+        });
+        filter.accept(blockedPlayerSearch);
+
         int y=card(68);label("Account Name",contentX+12,y+10,TEXT,contentWidth-24);
         var field=input(contentX+12,y+28,contentWidth-126,"Blocked Account Name",blockedPlayerName,16,value->{});
         field.setHint(UiText.component("Minecraft username"));
@@ -960,6 +1007,14 @@ public final class CosmeticsScreen extends ThemedScreen {
         field.setResponder(value->{activity();blockedPlayerName=value;
             boolean valid=com.customcosmetics.config.PlayerBlocklist.valid(value.strip());field.invalid(!value.isEmpty()&&!valid);block.active=valid;
         });
+    }
+
+    private static String blockedKey(PlayerBlocklist.Entry entry) {
+        return entry.uuid() == null ? entry.account().toLowerCase(Locale.ROOT) : entry.uuid().toString();
+    }
+
+    private static String playerChoice(String account, String nickname) {
+        return nickname.isBlank() || nickname.equalsIgnoreCase(account) ? account : account + " · " + nickname;
     }
 
     private void colors() {
@@ -1266,6 +1321,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         fullButton("Language: "+UiText.name(ConfigManager.uiLanguage),()->{UiLocale.cycle();rebuildWidgets();},false,"Language preference applies only to this mod.");
         fullButton("Fonts", () -> open(Page.FONTS), false);
         fullButton("Interface",()->open(Page.THEME),false,"Theme colors and animations");
+        fullButton("Experimental Features", () -> open(Page.EXPERIMENTAL), false);
         section("General", "Preferences and feature availability.");
         fullButton("Module Manager",()->open(Page.MODULES),false,"Enable or disable whole features without losing their settings.");
         toggleRow("Check for Updates","Check GitHub for new releases and show a chat notification. Enabled by default.",()->ConfigManager.updateCheckEnabled,v->ConfigManager.updateCheckEnabled=v);

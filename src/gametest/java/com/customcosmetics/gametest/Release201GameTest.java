@@ -42,7 +42,12 @@ public final class Release201GameTest implements FabricClientGameTest {
             context.waitTicks(5);assertDrop(false);
             context.runOnClient(c->{ConfigManager.droppedItems2dEnabled=true;dropDraws=0;});context.waitTicks(5);assertDrop(true);context.takeScreenshot("201-flat-dropped-items");
             context.runOnClient(c->{FeatureModules.set(FeatureModules.Feature.DROP_2D,false);dropDraws=0;});context.waitTicks(4);assertDrop(false);
-            context.runOnClient(c->{trackDrops=false;ClientUiAccess.setScreen(c,new CosmeticsScreen(null,CosmeticsScreen.Page.DROP_2D));});context.waitTicks(2);context.takeScreenshot("201-2d-drop-settings");
+            context.runOnClient(c->{
+                trackDrops=false;
+                var screen=new CosmeticsScreen(null,CosmeticsScreen.Page.DROP_2D);
+                ClientUiAccess.setScreen(c,screen);
+                if(read(screen,"page")!=CosmeticsScreen.Page.EXPERIMENTAL)throw new AssertionError("2D Drop settings bypassed experimental access");
+            });
             System.out.println("RELEASE_201_NATIVE_DEPTH_AND_DROP_OK thin="+thinWidth+" deep="+deepWidth);
             context.runOnClient(c->{ClientUiAccess.setScreen(c,null);c.level.removeEntity(-20101,net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);});
             checkInventoryBlur(context, world.getServer()::runCommand);
@@ -124,6 +129,13 @@ public final class Release201GameTest implements FabricClientGameTest {
             if (!com.customcosmetics.features.sky.Skyboxify.enabled()) throw new AssertionError("Custom sky fell back after crossing the water surface");
             System.out.printf("EXPERIMENTAL_SKY_WATER_TRANSITIONS_OK enter=%dms exit=%dms%n",
                 (submerged - start) / 1_000_000, (System.nanoTime() - submerged) / 1_000_000);
+            context.runOnClient(client -> {
+                var screen = new CosmeticsScreen(null, CosmeticsScreen.Page.DROP_2D);
+                ClientUiAccess.setScreen(client, screen);
+                if (read(screen, "page") != CosmeticsScreen.Page.DROP_2D) throw new AssertionError("Authorized 2D Drop settings were unavailable");
+            });
+            context.waitTicks(2);
+            context.takeScreenshot("201-2d-drop-settings");
         } finally {
             context.runOnClient(client -> {
                 trackInventoryBlur = false;
@@ -331,6 +343,7 @@ public final class Release201GameTest implements FabricClientGameTest {
     private static void checkHypixelTextAndTooltip(ClientGameTestContext context) throws Exception {
         var colors = new int[]{0xFFAA00, 0x5555FF, 0x55FF55};
         if (!Integer.valueOf(0xFFAA00).equals(TextColorOverrides.parse("gold"))
+            || !Integer.valueOf(0xFFAA00).equals(TextColorOverrides.parse("&6"))
             || !Integer.valueOf(0x5555FF).equals(TextColorOverrides.parse("&9"))
             || !Integer.valueOf(0xABCDEF).equals(TextColorOverrides.parse("#ABCDEF"))
             || TextColorOverrides.parse("#AB") != null || TextColorOverrides.parse("&l") != null) {

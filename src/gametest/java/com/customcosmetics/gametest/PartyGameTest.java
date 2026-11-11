@@ -331,7 +331,7 @@ public final class PartyGameTest implements FabricClientGameTest{
                 context.runOnClient(client->{try{
                     ClientUiAccess.setScreen(client,new CosmeticsScreen(null,page));var screen=(CosmeticsScreen)ClientUiAccess.screen(client);
                     int x=(Integer)uiField(screen,"contentX"),width=(Integer)uiField(screen,"contentWidth");
-                    var names=List.of("NickTweaks","Player Size","Skins","Equipments","Cape","Animations","Damage Splash","Item Customization","Map Editor","Party Sharing","Location Sharing");
+                    var names=List.of("Nick Changer","Player Size","Skins","Equipments","Cape","Animations","Damage Splash","Item Customization","Map Editor","Party Sharing","Location Sharing");
                     var navigation=screen.children().stream().filter(child->child instanceof com.customcosmetics.gui.PinkUi.Action widget&&names.contains(widget.getMessage().getString())).map(child->(net.minecraft.client.gui.components.AbstractWidget)child).sorted(Comparator.comparingInt(net.minecraft.client.gui.components.AbstractWidget::getY)).toList();
                     if(!navigation.stream().map(widget->widget.getMessage().getString()).toList().equals(names))throw new AssertionError("Sidebar lost its Appearance/SkyBlock/Connections navigation or separate sharing destinations");
                     for(var nav:navigation)if(nav.getWidth()<90||nav.getHeight()<20)throw new AssertionError("Sidebar control is too small: "+nav.getMessage().getString());

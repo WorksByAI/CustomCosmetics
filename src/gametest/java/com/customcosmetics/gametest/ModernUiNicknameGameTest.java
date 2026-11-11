@@ -127,15 +127,20 @@ public final class ModernUiNicknameGameTest implements FabricClientGameTest {
             var search=(com.customcosmetics.gui.PinkUi.Field)ClientUiAccess.screen(client).children().stream().filter(child->child instanceof com.customcosmetics.gui.PinkUi.Field field&&field.getMessage().getString().equals("Search Nickname or Account")).findFirst().orElseThrow();
             if(!search.visible||search.getY()+search.getHeight()>ClientUiAccess.screen(client).height-26)throw new AssertionError("Nickname search must be visible without scrolling");
             search.setValue("暮冬");
-            var block=(com.customcosmetics.gui.PinkUi.Action)ClientUiAccess.screen(client).children().stream().filter(child->child instanceof com.customcosmetics.gui.PinkUi.Action action&&action.getMessage().getString().equals("Block")&&action.getWidth()==80).findFirst().orElseThrow();
+            var block=(com.customcosmetics.gui.PinkUi.Action)ClientUiAccess.screen(client).children().stream().filter(child->child instanceof com.customcosmetics.gui.PinkUi.Action action&&action.getMessage().getString().startsWith("Block Synced Player")).findFirst().orElseThrow();
             if(!block.visible||block.getY()+block.getHeight()>ClientUiAccess.screen(client).height-26)throw new AssertionError("A nickname search result must be visible without scrolling");
+            if(!block.active)throw new AssertionError("The nickname search did not find the synced player");
             block.onClick(null,false);
+            ClientUiAccess.screen(client).keyPressed(new net.minecraft.client.input.KeyEvent(com.customcosmetics.compatibility.ClientInput.ENTER,0,0));
             if(!ConfigManager.nickTweaksBlockedPlayers.contains(new PlayerBlocklist.Entry(UUID.fromString("12345678-1234-4234-8234-123456789abc"),"Alice")))throw new AssertionError("Visible nickname search did not block the stable player identity");
             if(!NickRenderUtils.handleString("Alice").equals("Alice"))throw new AssertionError("Blocked remote nickname was still rendered");
         });context.waitTicks(3);captureFrame(context,"modernui-block-nickname-by-visible-alias");
         context.runOnClient(client->{
-            var unblock=(com.customcosmetics.gui.PinkUi.Action)ClientUiAccess.screen(client).children().stream().filter(child->child instanceof com.customcosmetics.gui.PinkUi.Action action&&action.getMessage().getString().equals("Unblock")).findFirst().orElseThrow();
-            unblock.onClick(null,false);ClientUiAccess.setScreen(client,null);
+            var unblock=(com.customcosmetics.gui.PinkUi.Action)ClientUiAccess.screen(client).children().stream().filter(child->child instanceof com.customcosmetics.gui.PinkUi.Action action&&action.getMessage().getString().startsWith("Unblock Player")).findFirst().orElseThrow();
+            if(!unblock.active)throw new AssertionError("The nickname search did not find the blocked player");
+            unblock.onClick(null,false);
+            ClientUiAccess.screen(client).keyPressed(new net.minecraft.client.input.KeyEvent(com.customcosmetics.compatibility.ClientInput.ENTER,0,0));
+            ClientUiAccess.setScreen(client,null);
             if(NickRenderUtils.handleString("Alice").equals("Alice"))throw new AssertionError("Unblocking did not invalidate the nickname cache");
         });context.waitTicks(3);captureFrame(context,"modernui-unblocked-remote-nickname-restored");
         System.out.println("NICKNAME_BLOCK_VISIBLE_ALIAS_SEARCH_STABLE_IDENTITY_LOCAL_GUI_AND_RESTORE_OK");

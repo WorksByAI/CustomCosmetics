@@ -5,7 +5,7 @@ package com.customcosmetics.config;
 public final class FeatureModules {
     public enum Feature {
         ANIMATIONS("Animations"),CAPE("Cape"),DAMAGE("Damage Splash"),EQUIPMENT("Equipments"),ITEMS("Item Customization"),
-        MAP("Map Editor"),NICK("NickTweaks"),PLAYER_SIZE("Player Size"),SMOL("SmolPeople"),SHARING("Sharing"),
+        MAP("Map Editor"),NICK("Nick Changer"),PLAYER_SIZE("Player Size"),SMOL("SmolPeople"),SHARING("Sharing"),
         SKINS("Skins"),SNAPLOOK("Snaplook"),COMMAND_TOOLTIPS("Command Tooltips"),CREATURE_MODEL("Creature Model"),DROP_2D("2D Drop"),HUD_LAYOUT("HUD Layout"),SKYBOX("Custom Sky");
         public final String label;
         Feature(String label){this.label=label;}

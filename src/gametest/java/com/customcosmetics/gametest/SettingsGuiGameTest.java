@@ -223,9 +223,9 @@ final class SettingsGuiGameTest {
             ConfigManager.nickTweaksNickChanger = oldNickname.get(); ConfigManager.nickTweaksEnabled = oldNickEnabled.get();
             ConfigManager.smolpeopleMode = false;
         });
-        click(context,"NickTweaks",PinkUi.Action.class);
+        click(context,"Nick Changer",PinkUi.Action.class);
         String longNickname = "&d" + "Cherry".repeat(10);
-        type(context,"Nick Changer",longNickname);
+        type(context,"Custom Nickname",longNickname);
         context.runOnClient(client -> {
             if (!ConfigManager.nickTweaksNickChanger.equals(longNickname.substring(0,30)))
                 throw new AssertionError("Nickname input is not capped at 30 raw characters including format codes");
@@ -235,7 +235,7 @@ final class SettingsGuiGameTest {
         click(context,"Chroma",PinkUi.Action.class);
         context.runOnClient(client -> {
             for (var child : ClientUiAccess.screen(client).children()) if (child instanceof PinkUi.Slider slider)
-                if (!Character.isUpperCase(slider.getMessage().getString().charAt(0))) throw new AssertionError("Lowercase NickTweaks option");
+                if (!Character.isUpperCase(slider.getMessage().getString().charAt(0))) throw new AssertionError("Lowercase Nick Changer option");
         });
         bottom(context); context.takeScreenshot("chroma-options-capitalized");
         click(context,"Animations",PinkUi.Action.class);
@@ -338,9 +338,9 @@ final class SettingsGuiGameTest {
         type(context,"Search Settings","护符");context.waitTicks(4);context.takeScreenshot("interface-chinese-search");
         click(context,"Accessory Helper",PinkUi.Action.class);
         context.runOnClient(client->{if(read(ClientUiAccess.screen(client),"page")!=CosmeticsScreen.Page.ITEMS)throw new AssertionError("Chinese search did not reach the setting");});
-        click(context,"NickTweaks",PinkUi.Action.class);
+        click(context,"Nick Changer",PinkUi.Action.class);
         context.runOnClient(client->{ConfigManager.nickTweaksNickChanger="Settings";ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.NICK));});context.waitTicks(3);
-        context.runOnClient(client->{if(!((PinkUi.Field)widget(client,"Nick Changer",PinkUi.Field.class)).getValue().equals("Settings"))throw new AssertionError("Localization changed user text");});
+        context.runOnClient(client->{if(!((PinkUi.Field)widget(client,"Custom Nickname",PinkUi.Field.class)).getValue().equals("Settings"))throw new AssertionError("Localization changed user text");});
         context.takeScreenshot("interface-chinese-nickname");
         click(context,"Rank",PinkUi.Action.class);context.waitTicks(4);
         context.runOnClient(client->{
@@ -519,13 +519,13 @@ final class SettingsGuiGameTest {
     private static void assertSidebarPixels(ClientGameTestContext context,String mode)throws Exception{
         var count=new java.util.concurrent.CompletableFuture<Integer>();
         context.runOnClient(client->{
-            var w=widget(client,"NickTweaks",PinkUi.Action.class);double scale=client.getWindow().getGuiScale();
+            var w=widget(client,"Nick Changer",PinkUi.Action.class);double scale=client.getWindow().getGuiScale();
             int expected=PinkUi.TEXT,left=(int)((w.getX()+11)*scale),top=(int)((w.getY()+(w.getHeight()-9)/2)*scale);
             java.lang.reflect.Method method;
             try{method=client.gameRenderer.getClass().getMethod("mainRenderTarget");}catch(NoSuchMethodException legacy){method=client.getClass().getMethod("getMainRenderTarget");}
             var target=method.invoke(method.getDeclaringClass().isInstance(client.gameRenderer)?client.gameRenderer:client);
             net.minecraft.client.Screenshot.takeScreenshot((com.mojang.blaze3d.pipeline.RenderTarget)target,image->{try(image){int found=0;
-                for(int y=top;y<top+(int)(9*scale);y++)for(int x=left;x<left+(int)(client.font.width("NickTweaks")*scale);x++){
+                for(int y=top;y<top+(int)(9*scale);y++)for(int x=left;x<left+(int)(client.font.width("Nick Changer")*scale);x++){
                     int c=image.getPixel(x,y);if(Math.abs((c>>16&255)-(expected>>16&255))<15&&Math.abs((c>>8&255)-(expected>>8&255))<15&&Math.abs((c&255)-(expected&255))<15)found++;
                 }count.complete(found);
             }catch(Throwable error){count.completeExceptionally(error);}});

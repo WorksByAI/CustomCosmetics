@@ -311,6 +311,10 @@ public final class PinkUi {
             hue = hsv[0]; saturation = hsv[1]; brightness = hsv[2];
         }
 
+        public int rgb() {
+            return Color.HSBtoRGB(hue, saturation, brightness) & 0xFFFFFF;
+        }
+
         @Override protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
             int mapWidth = width - 24;
             // Hue columns depend only on geometry; cache conversions until the picker resizes.
@@ -342,7 +346,7 @@ public final class PinkUi {
                 hue = (float) Math.clamp((mx - getX()) / (width - 25), 0, 1);
                 saturation = 1 - (float) Math.clamp((my - getY()) / (height - 1), 0, 1);
             }
-            setter.accept(Color.HSBtoRGB(hue, saturation, brightness) & 0xFFFFFF);
+            setter.accept(rgb());
         }
         @Override public void onClick(MouseButtonEvent event, boolean doubleClick) {
             draggingValue = event.x() >= getX() + width - 20;
@@ -358,7 +362,7 @@ public final class PinkUi {
             else if (key == ClientInput.PAGE_UP) brightness = Math.min(1, brightness + 0.02f);
             else if (key == ClientInput.PAGE_DOWN) brightness = Math.max(0, brightness - 0.02f);
             else return false;
-            setter.accept(Color.HSBtoRGB(hue, saturation, brightness) & 0xFFFFFF);
+            setter.accept(rgb());
             return true;
         }
         @Override protected net.minecraft.network.chat.MutableComponent createNarrationMessage(){return wrapDefaultNarrationMessage(UiText.component(getMessage().getString()));}

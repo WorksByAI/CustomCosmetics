@@ -21,7 +21,7 @@ class LicensePackagingTest {
         assertTrue(languages[0].contains("This is a private mod. Quality and stability are not guaranteed."));
         assertTrue(languages[0].contains("Fabric") && languages[1].contains("Fabric"));
         for(String section:languages){
-            for(String feature:new String[]{"Player Size","Creature Model","NickTweaks","Animation","Cape","Equipments","Sharing","Skins","Item Customization","Damage Splash","Map Editor","Offline Mode"})
+            for(String feature:new String[]{"Player Size","Creature Model","Nick Changer","Animation","Cape","Equipments","Sharing","Skins","Item Customization","Damage Splash","Map Editor","Offline Mode"})
                 assertTrue(section.contains(feature+"**"),feature);
             assertEquals(8,section.lines().filter(line->line.startsWith("- **[√] ")).count());
             for(String local:new String[]{"Item Customization","Damage Splash","Map Editor","Offline Mode"})

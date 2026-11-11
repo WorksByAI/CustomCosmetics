@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- Add experimental display tools and local-only capes in online play.
-- Add global text color rules, inventory dimming, a hit color palette, and optional Hypixel text colors and tooltips.
+- Move Experimental Features and 2D Drop into Settings. Add local-only capes and dropdowns for player blocking. Rename NickTweaks to Nick Changer.
+- Add global text color rules with two color pickers, inventory dimming, a hit color palette, and optional Hypixel text colors and tooltips.
 - Fix visual map iron bars, Hypixel pack recovery, and sync with connected peers.
 - Add searchable system fonts and game-wide font controls without bundling fonts.
 
