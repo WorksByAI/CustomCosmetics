@@ -2,10 +2,10 @@
 
 ## 2.1.0
 
-- Move Experimental Features and 2D Drop into Settings. Add local-only capes and dropdowns for player blocking. Rename NickTweaks to Nick Changer.
-- Add global text replacement and color rules, inventory dimming, a hit color palette, and optional Hypixel text colors and tooltips.
-- Fix visual map iron bars, Hypixel pack recovery, and sync with connected peers.
-- Add searchable system fonts and game-wide font controls without bundling fonts.
+- Open Experimental Features by default and move them under Settings.
+- Add local capes, player blocklist menus, text replacement, and batch color saves.
+- Add custom skies, HUD controls, freecam, inventory dimming, and game-wide font settings.
+- Fix Hypixel pack recovery, peer appearance sync, and visual iron bars.
 
 ## 2.0.1
 
