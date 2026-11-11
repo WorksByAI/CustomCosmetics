@@ -43,6 +43,7 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
         ModErrors.run(ModErrors.Key.UPDATES, com.customcosmetics.update.UpdateChecker::init);
         ModErrors.run(ModErrors.Key.WAYPOINTS, com.customcosmetics.features.waypoint.Waypoints::init);
         ModErrors.run(ModErrors.Key.SHORTCUTS, com.customcosmetics.features.shortcuts.Shortcuts::init);
+        ModErrors.run(ModErrors.Key.COMMANDS, com.customcosmetics.features.pack.PackDisablerCommands::init);
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) -> ModErrors.attempt(ModErrors.Key.COMMANDS,()->SyncCommands.register(dispatcher)));
         // Callback objects are built once; ordinary ticks do not allocate guard lambdas.
         TickStep[] steps={

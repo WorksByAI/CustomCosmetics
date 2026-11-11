@@ -4,6 +4,7 @@ package com.customcosmetics.mixin;
 import com.customcosmetics.features.items.ItemCosmetics;
 import com.customcosmetics.features.items.HeadSkins;
 import com.customcosmetics.features.items.ItemModelVisibility.RenderCall;
+import com.customcosmetics.features.pack.LegacyPackItems;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.sugar.Local;
@@ -34,7 +35,8 @@ public final class ItemAppearanceMixin {
         }
         @ModifyReturnValue(method = "hasFoil", at = @At("RETURN"))
         private boolean customcosmetics$itemGlint(boolean original) {
-            return ItemCosmetics.foil((ItemStack) (Object) this, original);
+            ItemStack stack = (ItemStack) (Object) this;
+            return ItemCosmetics.foil(stack, LegacyPackItems.foil(stack, original));
         }
     }
     @Mixin(ItemModelResolver.class)
@@ -53,7 +55,7 @@ public final class ItemAppearanceMixin {
             target = "Lnet/minecraft/world/item/ItemStack;get(Lnet/minecraft/core/component/DataComponentType;)Ljava/lang/Object;"))
         private Object customcosmetics$itemModel(Object original, @Local(argsOnly = true) ItemStack stack,
             @Local(argsOnly = true) ItemStackRenderState state) {
-            original = com.customcosmetics.features.pack.HypixelPackDisabler.fallbackModel(stack, original);
+            original = LegacyPackItems.model(stack, (Identifier) original);
             if(!ItemCosmetics.modelsActive())return original;
             var calls=customcosmetics$calls.get();
             if(calls.isEmpty()||calls.peek().stack()!=stack)return original;

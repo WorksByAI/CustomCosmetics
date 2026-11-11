@@ -1235,5 +1235,11 @@
   "customcosmetics.ui.pack_hide_desc": "隐藏 Hypixel SkyBlock 官方材质。",
   "customcosmetics.ui.pack_hide_toggle": "隐藏 Hypixel SkyBlock 官方资源包",
   "customcosmetics.ui.pack_reload": "在 SkyBlock 中切换时会重新加载材质。",
-  "customcosmetics.ui.pack_external": "当前由单独安装的 PackDisabler 接管。"
+  "customcosmetics.ui.pack_external": "当前由单独安装的 PackDisabler 接管。",
+  "customcosmetics.ui.pack_text_colors": "Hypixel 文字颜色",
+  "customcosmetics.ui.pack_reload_button": "重新加载 Hypixel 资源包",
+  "customcosmetics.ui.pack_whitelist_tip": "将鼠标悬停在背包物品上，按白名单快捷键切换该物品的官方模型。",
+  "key.category.customcosmetics.pack_disabler": "资源包屏蔽",
+  "key.customcosmetics.pack_whitelist": "切换物品的 Hypixel 模型",
+  "key.customcosmetics.pack_debug": "复制物品组件数据"
 }

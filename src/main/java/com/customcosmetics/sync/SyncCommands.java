@@ -76,6 +76,10 @@ public final class SyncCommands {
         waypoint.then(ordered);
         root.then(waypoint);
         root.then(ClientCommands.literal("shortcuts").executes(context -> com.customcosmetics.features.shortcuts.Shortcuts.openNextTick()));
+        if (com.customcosmetics.features.pack.HypixelPackDisabler.available()) {
+            root.then(com.customcosmetics.features.pack.PackDisablerCommands.command("pack"));
+            dispatcher.register(com.customcosmetics.features.pack.PackDisablerCommands.command("packdisabler"));
+        }
         var registered = dispatcher.register(root);
         dispatcher.register(ClientCommands.literal("ccos").executes(registered.getCommand()).redirect(registered));
     }

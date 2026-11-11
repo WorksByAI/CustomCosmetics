@@ -334,6 +334,13 @@ public final class CosmeticsScreen extends ThemedScreen {
                 ConfigManager.hideHypixelSkyBlockPack = value;
                 HypixelPackDisabler.refresh(minecraft);
             });
+        toggleRow("Hypixel Text Colors", "", () -> ConfigManager.hypixelPackTextColors, value -> {
+            ConfigManager.hypixelPackTextColors = value;
+            HypixelPackDisabler.refresh(minecraft);
+        }).setTooltip(null);
+        fullButton("Reload Hypixel Pack", com.customcosmetics.features.pack.PackDisablerCommands::reload, false);
+        paragraph("Hover an inventory item and press the Pack Disabler whitelist key to toggle its model.", MUTED);
+        paragraph("/ccos pack help", MUTED);
     }
 
     private void hudLayout(){

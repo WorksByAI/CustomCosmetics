@@ -1235,5 +1235,11 @@
   "customcosmetics.ui.pack_hide_desc": "Hide the official Hypixel SkyBlock textures.",
   "customcosmetics.ui.pack_hide_toggle": "Hide Hypixel SkyBlock Pack",
   "customcosmetics.ui.pack_reload": "Reloads textures when changed in SkyBlock.",
-  "customcosmetics.ui.pack_external": "The installed PackDisabler mod handles this feature."
+  "customcosmetics.ui.pack_external": "The installed PackDisabler mod handles this feature.",
+  "customcosmetics.ui.pack_text_colors": "Hypixel Text Colors",
+  "customcosmetics.ui.pack_reload_button": "Reload Hypixel Pack",
+  "customcosmetics.ui.pack_whitelist_tip": "Hover an inventory item and press the Pack Disabler whitelist key to toggle its model.",
+  "key.category.customcosmetics.pack_disabler": "Pack Disabler",
+  "key.customcosmetics.pack_whitelist": "Toggle Hypixel Item Model",
+  "key.customcosmetics.pack_debug": "Copy Item Component Data"
 }

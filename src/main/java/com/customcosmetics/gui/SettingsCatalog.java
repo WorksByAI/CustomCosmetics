@@ -70,6 +70,8 @@ public final class SettingsCatalog {
         add(entries, "Experimental Features", "EXPERIMENTAL", "Inventory and container background blur", "Inventory Blur");
         add(entries, "Inventory Blur", "INVENTORY_BLUR", "Inventory and container background", "Background Darkness (%)");
         add(entries, "Pack Disabler", "PACK_DISABLER", "Official server resource pack", "Hide Hypixel SkyBlock Pack");
+        add(entries, "Pack Disabler", "PACK_DISABLER", "Official server resource pack", "Hypixel Text Colors");
+        add(entries, "Pack Disabler", "PACK_DISABLER", "Official server resource pack", "Reload Hypixel Pack");
         add(entries, "Hit Color", "HIT_COLOR", "Hurt color palette hex", "Hit Color|Hurt Flash Color|Opacity");
         add(entries, "Fonts", "FONTS", "Game text and system fonts",
             "Find System Fonts|Choose System Font|Use Font Throughout the Game|Font Size|Letter Spacing|Font Sampling|Baseline Offset|Text Shadow Offset");

@@ -214,6 +214,11 @@ Runtime metadata comes from Hypixel's public item API and the NEU repository:
 https://github.com/NotEnoughUpdates/NotEnoughUpdates-REPO
 The small animation regression fixture records NEU texture identifiers and
 cadence; Minecraft/Hypixel artwork remains the property of its owners.
+The legacy model and head texture identifier catalog is derived from PackDisabler
+1.1.3, commit cbf53d76457be5346fa636191aa4e3cc65940b7e, and its NEU item data.
+PackDisabler is by Noamm9 and published under CC0-1.0; see LICENSES/NoammAddons-CC0.txt
+for the CC0 legal text. No Hypixel resource pack files are included.
+https://github.com/Noamm9/PackDisabler/tree/cbf53d76457be5346fa636191aa4e3cc65940b7e
 NEU repository metadata: MIT License, Copyright (c) 2020 Moulberry.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy

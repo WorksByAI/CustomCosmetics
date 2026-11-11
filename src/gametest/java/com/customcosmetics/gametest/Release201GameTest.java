@@ -2,12 +2,18 @@
 package com.customcosmetics.gametest;
 import com.customcosmetics.compatibility.ClientUiAccess;
 import com.customcosmetics.config.*;
+import com.customcosmetics.features.pack.HypixelPackDisabler;
+import com.customcosmetics.features.pack.LegacyPackItems;
 import com.customcosmetics.gui.*;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.*;
+import net.minecraft.world.item.component.CustomData;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -134,50 +140,182 @@ public final class Release201GameTest implements FabricClientGameTest {
     private static void checkPackToggle(ClientGameTestContext context) throws Exception {
         var official = java.util.UUID.randomUUID();
         var other = java.util.UUID.randomUUID();
-        var officialResource = net.minecraft.resources.Identifier.fromNamespaceAndPath("customcosmetics", "official-probe.txt");
-        var otherResource = net.minecraft.resources.Identifier.fromNamespaceAndPath("customcosmetics", "other-probe.txt");
-        var officialPack = testPack(officialResource.getPath());
-        var otherPack = testPack(otherResource.getPath());
+        var packProbe = Identifier.withDefaultNamespace("pack-priority-probe.txt");
+        var dependency = Identifier.fromNamespaceAndPath("hypixel_skyblock", "fallback-probe.txt");
+        var localShader = context.computeOnClient(client -> java.util.stream.Stream.of(
+                "shaders/core/text.vsh", "shaders/core/rendertype_text.vsh")
+            .map(Identifier::withDefaultNamespace).filter(id -> client.getResourceManager().getResource(id).isPresent())
+            .findFirst().orElseThrow());
+        var extraShader = Identifier.withDefaultNamespace("shaders/include/modify_vanilla_color.glsl");
+        byte[] textShader = context.computeOnClient(client -> {
+            try (var stream = client.getResourceManager().getResource(localShader).orElseThrow().open()) {
+                return stream.readAllBytes();
+            }
+        });
+        var officialPack = testPack(java.util.Map.of(
+            "assets/minecraft/" + packProbe.getPath(), new byte[]{2},
+            "assets/minecraft/" + localShader.getPath(), textShader,
+            "assets/minecraft/" + extraShader.getPath(), new byte[]{' '},
+            "assets/hypixel_skyblock/" + dependency.getPath(), new byte[]{1}));
+        var otherPack = testPack(java.util.Map.of("assets/minecraft/" + packProbe.getPath(), new byte[]{3}));
         context.runOnClient(client -> {
             ClientUiAccess.setScreen(client, null);
             ConfigManager.hideHypixelSkyBlockPack = false;
-            com.customcosmetics.features.pack.HypixelPackDisabler.remember(official,
-                java.net.URI.create("https://assets.hypixel.net/SkyBlock.zip").toURL());
-            com.customcosmetics.features.pack.HypixelPackDisabler.remember(other,
-                java.net.URI.create("https://example.org/SkyBlock.zip").toURL());
+            HypixelPackDisabler.remember(official,
+                java.net.URI.create("https://assets.hypixel.net/SkyBlock.zip").toURL(), "");
+            HypixelPackDisabler.remember(other,
+                java.net.URI.create("https://example.org/SkyBlock.zip").toURL(), "");
             var downloads = client.getDownloadedPackSource();
             downloads.allowServerPacks();
             downloads.pushLocalPack(official, officialPack);
             downloads.pushLocalPack(other, otherPack);
         });
-        context.waitFor(client -> client.getResourceManager().getResource(officialResource).isPresent()
-            && client.getResourceManager().getResource(otherResource).isPresent(), 240);
+        context.waitFor(client -> client.getResourceManager().getResource(dependency).isPresent()
+            && client.getResourceManager().getResourceStack(packProbe).size() == 2, 240);
         context.runOnClient(client -> {
             ConfigManager.hideHypixelSkyBlockPack = true;
-            com.customcosmetics.features.pack.HypixelPackDisabler.refresh(client);
+            HypixelPackDisabler.refresh(client);
             checkDevonianReloadGuard(client);
         });
-        context.waitFor(client -> client.getResourceManager().getResource(officialResource).isEmpty()
-            && client.getResourceManager().getResource(otherResource).isPresent(), 240);
+        context.waitFor(client -> packIsFallback(client, dependency) && LegacyPackItems.ids().contains("MAGMA_URCHIN"), 240);
         context.runOnClient(client -> {
-            var stack = new ItemStack(Items.DIAMOND_SWORD);
-            var model = net.minecraft.resources.Identifier.fromNamespaceAndPath("hypixel_skyblock", "fixture");
-            var fallback = com.customcosmetics.features.pack.HypixelPackDisabler.fallbackModel(stack, model);
-            if (!net.minecraft.resources.Identifier.withDefaultNamespace("diamond_sword").equals(fallback))
-                throw new AssertionError("Official item model did not fall back to the underlying item");
-            ConfigManager.hideHypixelSkyBlockPack = false;
-            com.customcosmetics.features.pack.HypixelPackDisabler.refresh(client);
+            var resources = client.getResourceManager();
+            var selectedPack = resources.getResource(packProbe).orElseThrow().sourcePackId();
+            if (!selectedPack.endsWith(other.toString())) throw new AssertionError("Non-Hypixel pack lost priority");
+            var shaders = resources.listResources("shaders", id -> true);
+            if (shaders.containsKey(extraShader) || shaders.get(localShader).sourcePackId().endsWith(official.toString())) {
+                throw new AssertionError("Hypixel text shaders are still selected");
+            }
+            checkLegacyItems();
+            ConfigManager.hypixelPackTextColors = true;
+            HypixelPackDisabler.refresh(client);
         });
-        context.waitFor(client -> client.getResourceManager().getResource(officialResource).isPresent(), 240);
+        context.waitFor(client -> {
+            var shaders = client.getResourceManager().listResources("shaders", id -> true);
+            return shaders.containsKey(extraShader) && shaders.get(localShader).sourcePackId().endsWith(official.toString());
+        }, 240);
+        context.runOnClient(client -> {
+            ConfigManager.hypixelPackTextColors = false;
+            ConfigManager.hideHypixelSkyBlockPack = false;
+            HypixelPackDisabler.refresh(client);
+        });
+        context.waitFor(client -> !packIsFallback(client, dependency)
+            && client.getResourceManager().getResource(dependency).isPresent(), 240);
         context.runOnClient(client -> {
             client.getDownloadedPackSource().popPack(official);
             client.getDownloadedPackSource().popPack(other);
-            com.customcosmetics.features.pack.HypixelPackDisabler.disconnect();
+            HypixelPackDisabler.disconnect();
         });
-        context.waitFor(client -> client.getResourceManager().getResource(officialResource).isEmpty(), 240);
+        context.waitFor(client -> client.getResourceManager().getResource(dependency).isEmpty(), 240);
         java.nio.file.Files.deleteIfExists(officialPack);
         java.nio.file.Files.deleteIfExists(otherPack);
-        System.out.println("SERVER_PACK_TOGGLE_HIDE_RESTORE_AND_PRESERVE_OTHER_PACK_OK");
+        System.out.println("SERVER_PACK_FALLBACK_PRIORITY_SHADERS_HEADS_GLINT_AND_DYNAMIC_MODELS_OK");
+        String officialFixture = System.getenv("CCOS_TEST_HYPIXEL_PACK");
+        if (officialFixture != null) checkCachedHypixelPack(context, Path.of(officialFixture));
+    }
+
+    private static boolean packIsFallback(net.minecraft.client.Minecraft client, Identifier probe) {
+        var manager = client.getResourceManager();
+        return manager.getResource(probe).map(resource -> manager.listPacks().findFirst()
+            .map(pack -> pack.packId().equals(resource.sourcePackId())).orElse(false)).orElse(false);
+    }
+
+    private static ItemStack skyBlockItem(String id, String path, java.util.function.Consumer<CompoundTag> extra) {
+        var stack = new ItemStack(Items.PAPER);
+        var tag = new CompoundTag();
+        tag.putString("id", id);
+        extra.accept(tag);
+        stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+        stack.set(DataComponents.ITEM_MODEL, Identifier.fromNamespaceAndPath("hypixel_skyblock", path));
+        return stack;
+    }
+
+    private static void checkLegacyItems() {
+        var magma = skyBlockItem("MAGMA_URCHIN", "item/power_stones/magma_urchin", tag -> {});
+        var original = magma.get(DataComponents.ITEM_MODEL);
+        var head = Identifier.withDefaultNamespace("player_head");
+        if (!head.equals(LegacyPackItems.model(magma, original)) || LegacyPackItems.headProfile(magma, null) == null) {
+            throw new AssertionError("Magma Urchin did not restore its legacy head and texture");
+        }
+        ConfigManager.hypixelPackWhitelist = java.util.Set.of("MAGMA_URCHIN");
+        if (!original.equals(LegacyPackItems.model(magma, original))) throw new AssertionError("Whitelist did not preserve official model");
+        ConfigManager.hypixelPackReplacements = java.util.Map.of("MAGMA_URCHIN", "minecraft:diamond");
+        if (!Identifier.withDefaultNamespace("diamond").equals(LegacyPackItems.model(magma, original))) {
+            throw new AssertionError("Replacement did not override whitelist");
+        }
+        ConfigManager.hypixelPackGlints = java.util.Map.of("MAGMA_URCHIN", true);
+        if (!magma.hasFoil() || magma.has(DataComponents.ENCHANTMENT_GLINT_OVERRIDE)) throw new AssertionError("Glint on changed item data or failed");
+        magma.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
+        ConfigManager.hypixelPackGlints = java.util.Map.of("MAGMA_URCHIN", false);
+        if (magma.hasFoil() || !Boolean.TRUE.equals(magma.get(DataComponents.ENCHANTMENT_GLINT_OVERRIDE))) {
+            throw new AssertionError("Glint off changed item data or failed");
+        }
+        ConfigManager.hypixelPackWhitelist = java.util.Set.of();
+        ConfigManager.hypixelPackReplacements = java.util.Map.of();
+        ConfigManager.hypixelPackGlints = java.util.Map.of();
+        assertLegacyModel(skyBlockItem("CARNIVAL_SHOVEL", "item/carnival_shovel_diamond", tag -> {}), "diamond_shovel");
+        assertLegacyModel(skyBlockItem("FIREDUST_DAGGER", "item/firedust_dagger", tag -> tag.putInt("td_attune_mode", 1)), "golden_sword");
+        assertLegacyModel(skyBlockItem("FUNGI_CUTTER", "item/fungi_cutter", tag -> tag.putString("fungi_cutter_mode", "RED")), "red_mushroom");
+        var katana = skyBlockItem("VOIDEDGE_KATANA", "item/voidedge_katana", tag -> {});
+        var cooldowns = net.minecraft.client.Minecraft.getInstance().player.getCooldowns();
+        cooldowns.addCooldown(katana, 5);
+        assertLegacyModel(katana, "golden_sword");
+        assertLegacyModel(skyBlockItem("OTHER", "item/quiver_arrow", tag -> tag.putBoolean("quiver_arrow", true)), "arrow");
+        assertLegacyModel(skyBlockItem("UNKNOWN_NEW_ID", "item/new", tag -> {}), "hypixel_skyblock:item/new");
+        if (HypixelPackDisabler.tooltipStyle(Identifier.fromNamespaceAndPath("hypixel_skyblock", "test")) != null
+            || HypixelPackDisabler.tooltipStyle(Identifier.withDefaultNamespace("test")) == null) {
+            throw new AssertionError("Tooltip styles were not filtered by namespace");
+        }
+    }
+
+    private static void assertLegacyModel(ItemStack stack, String expected) {
+        var result = LegacyPackItems.model(stack, stack.get(DataComponents.ITEM_MODEL));
+        if (!Identifier.parse(expected).equals(result)) throw new AssertionError("Wrong legacy model for " + LegacyPackItems.id(stack) + ": " + result);
+    }
+
+    private static void checkCachedHypixelPack(ClientGameTestContext context, Path path) throws Exception {
+        var official = java.util.UUID.randomUUID();
+        var texture = Identifier.fromNamespaceAndPath("hypixel_skyblock", "textures/item/power_stones/magma_urchin.png");
+        var hash = java.security.MessageDigest.getInstance("SHA-1");
+        try (var input = new java.security.DigestInputStream(java.nio.file.Files.newInputStream(path), hash)) {
+            input.transferTo(java.io.OutputStream.nullOutputStream());
+        }
+        String digest = java.util.HexFormat.of().formatHex(hash.digest());
+        var cache = context.computeOnClient(client -> client.gameDirectory.toPath().resolve("downloads").resolve(official.toString()).resolve(digest));
+        java.nio.file.Files.createDirectories(cache.getParent());
+        java.nio.file.Files.copy(path, cache);
+        context.runOnClient(client -> {
+            ConfigManager.hideHypixelSkyBlockPack = true;
+            HypixelPackDisabler.remember(official, java.net.URI.create("https://resourcepacks.hypixel.net/SkyBlock/test.zip").toURL(), digest);
+            client.getDownloadedPackSource().pushLocalPack(official, cache);
+        });
+        var model = Identifier.fromNamespaceAndPath("hypixel_skyblock", "item/power_stones/magma_urchin");
+        context.waitFor(client -> packIsFallback(client, texture)
+            && com.customcosmetics.features.items.ItemCosmetics.hasModel(model), 240);
+        context.runOnClient(client -> {
+            var magma = skyBlockItem("MAGMA_URCHIN", "item/power_stones/magma_urchin", tag -> {});
+            var state = new net.minecraft.client.renderer.item.ItemStackRenderState();
+            client.getItemModelResolver().updateForTopItem(state, magma, ItemDisplayContext.GUI, client.level, client.player, 0);
+            if (state.isEmpty()) throw new AssertionError("Magma Urchin did not submit a model with the real pack");
+            ConfigManager.hypixelPackWhitelist = java.util.Set.of("MAGMA_URCHIN");
+            client.getItemModelResolver().updateForTopItem(state, magma, ItemDisplayContext.GUI, client.level, client.player, 0);
+            var sprite = state.pickParticleMaterial(net.minecraft.util.RandomSource.create(0)).sprite();
+            if (!sprite.contents().name().getPath().endsWith("/magma_urchin")) {
+                throw new AssertionError("Official Magma Urchin texture was not available to the whitelist: " + sprite.contents().name());
+            }
+            ConfigManager.hypixelPackWhitelist = java.util.Set.of();
+        });
+        var bakedModels = context.computeOnClient(client -> com.customcosmetics.features.items.ItemCosmetics.catalogIdentity());
+        context.runOnClient(HypixelPackDisabler::checkDownloadAndReload);
+        context.waitFor(client -> bakedModels != com.customcosmetics.features.items.ItemCosmetics.catalogIdentity()
+            && packIsFallback(client, texture), 240);
+        context.runOnClient(client -> {
+            ConfigManager.hideHypixelSkyBlockPack = false;
+            client.getDownloadedPackSource().popPack(official);
+            HypixelPackDisabler.disconnect();
+        });
+        context.waitFor(client -> client.getResourceManager().getResource(texture).isEmpty(), 240);
+        System.out.println("CACHED_HYPIXEL_PACK_MAGMA_URCHIN_LEGACY_AND_OFFICIAL_MODELS_OK");
     }
 
     private static void checkDevonianReloadGuard(net.minecraft.client.Minecraft client) throws ReflectiveOperationException {
@@ -226,7 +364,7 @@ public final class Release201GameTest implements FabricClientGameTest {
         System.out.println("NATIVE_GAME_FONT_LOAD_AND_RESTORE_OK");
     }
 
-    private static Path testPack(String resource) throws java.io.IOException {
+    private static Path testPack(java.util.Map<String, byte[]> resources) throws java.io.IOException {
         var format = net.minecraft.SharedConstants.getCurrentVersion().packVersion(net.minecraft.server.packs.PackType.CLIENT_RESOURCES);
         var file = java.nio.file.Files.createTempFile("ccos-pack-probe", ".zip");
         try (var zip = new java.util.zip.ZipOutputStream(java.nio.file.Files.newOutputStream(file))) {
@@ -235,9 +373,11 @@ public final class Release201GameTest implements FabricClientGameTest {
             zip.write(("{\"pack\":{\"description\":\"Test pack\",\"min_format\":" + range + ",\"max_format\":" + range + "}}")
                 .getBytes(java.nio.charset.StandardCharsets.UTF_8));
             zip.closeEntry();
-            zip.putNextEntry(new java.util.zip.ZipEntry("assets/customcosmetics/" + resource));
-            zip.write(1);
-            zip.closeEntry();
+            for (var resource : resources.entrySet()) {
+                zip.putNextEntry(new java.util.zip.ZipEntry(resource.getKey()));
+                zip.write(resource.getValue());
+                zip.closeEntry();
+            }
         }
         return file;
     }
