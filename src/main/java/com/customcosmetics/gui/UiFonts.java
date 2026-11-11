@@ -5,17 +5,18 @@ import com.customcosmetics.client.CustomCosmeticsClient;
 import com.customcosmetics.compatibility.UiFontAccess;
 import com.customcosmetics.config.ConfigManager;
 import com.mojang.blaze3d.font.GlyphInfo;
+import com.mojang.blaze3d.font.GlyphBitmap;
 import com.mojang.blaze3d.font.GlyphProvider;
+import com.mojang.blaze3d.font.UnbakedGlyph;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GlyphSource;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.font.FontOption;
-import net.minecraft.client.gui.font.FontSet;
 import net.minecraft.client.gui.font.GlyphStitcher;
 import net.minecraft.client.gui.font.glyphs.BakedGlyph;
 import net.minecraft.client.gui.font.glyphs.EffectGlyph;
+import net.minecraft.client.gui.font.glyphs.EmptyGlyph;
 import net.minecraft.client.gui.font.providers.TrueTypeGlyphProviderDefinition;
 import net.minecraft.network.chat.FontDescription;
 import net.minecraft.resources.Identifier;
@@ -30,11 +31,13 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.function.IntFunction;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 /** Uses Minecraft's FreeType provider and glyph atlas for local fonts. */
 public final class UiFonts {
+    private static final String ATLAS_PATH = "local_font/";
     private static final Identifier FILE = Identifier.fromNamespaceAndPath("customcosmetics", "local.ttf");
     private static final long MAX_BYTES = 128L * 1024 * 1024;
     private static final FontDescription.Resource LOCAL = new FontDescription.Resource(
@@ -47,6 +50,12 @@ public final class UiFonts {
     private static Loaded loaded;
 
     private UiFonts() {}
+
+    public static boolean hasLocalAtlas() { return loaded != null; }
+
+    public static boolean isLocalAtlas(String label) {
+        return label != null && label.startsWith("customcosmetics:" + ATLAS_PATH);
+    }
 
     public static void init() {
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING.register(client -> clear());
@@ -117,18 +126,9 @@ public final class UiFonts {
                 return;
             }
             if (provider == null) { done.accept(false); return; }
-            var set = new FontSet(new GlyphStitcher(client.getTextureManager(),
-                Identifier.fromNamespaceAndPath("customcosmetics", "local_font/" + id)));
-            try {
-                set.reload(List.of(new GlyphProvider.Conditional(provider, FontOption.Filter.ALWAYS_PASS)), Set.of());
-            } catch (RuntimeException failure) {
-                set.close();
-                provider.close();
-                CustomCosmeticsClient.LOGGER.warn("Could not prepare the selected interface font", failure);
-                done.accept(false);
-                return;
-            }
-            swap(new Loaded(provider, set, style));
+            var atlas = new GlyphStitcher(client.getTextureManager(),
+                Identifier.fromNamespaceAndPath("customcosmetics", ATLAS_PATH + id));
+            swap(new Loaded(provider, atlas, style));
             done.accept(true);
         }));
     }
@@ -181,34 +181,52 @@ public final class UiFonts {
         g.pose().popMatrix();
     }
 
-    private static final class Loaded implements AutoCloseable {
+    private static final class Loaded implements AutoCloseable, UnbakedGlyph.Stitcher {
+        private static final BakedGlyph MISSING = new EmptyGlyph(0).bake(null);
         private final GlyphProvider provider;
-        private final FontSet set;
+        private final GlyphStitcher atlas;
         private final Style style;
+        private final Int2ObjectOpenHashMap<BakedGlyph> glyphs = new Int2ObjectOpenHashMap<>();
+        private final IntFunction<BakedGlyph> bake = this::bake;
         private final IdentityHashMap<GlyphSource, GlyphSource> sources = new IdentityHashMap<>();
+        private boolean reportedBadGlyph;
 
-        private Loaded(GlyphProvider provider, FontSet set, Style style) {
+        private Loaded(GlyphProvider provider, GlyphStitcher atlas, Style style) {
             this.provider = provider;
-            this.set = set;
+            this.atlas = atlas;
             this.style = style;
         }
+
+        private BakedGlyph bake(int codepoint) {
+            // SkyBlock icons and Devonian's symbol replacements use private-use glyphs.
+            if (Character.getType(codepoint) == Character.PRIVATE_USE) return MISSING;
+            try {
+                var unbaked = provider.getGlyph(codepoint);
+                if (unbaked == null) return MISSING;
+                var glyph = unbaked.bake(this);
+                if (glyph == null || glyph == MISSING) return MISSING;
+                return style.spacing() == 0 && style.shadow() == 1 ? glyph
+                    : new StyledGlyph(glyph, style.spacing(), style.shadow());
+            } catch (RuntimeException error) {
+                if (!reportedBadGlyph) {
+                    reportedBadGlyph = true;
+                    CustomCosmeticsClient.LOGGER.warn("Could not bake a local font glyph", error);
+                }
+                return MISSING;
+            }
+        }
+
+        @Override public BakedGlyph stitch(GlyphInfo info, GlyphBitmap bitmap) { return atlas.stitch(info, bitmap); }
+        @Override public BakedGlyph getMissing() { return MISSING; }
 
         GlyphSource source(GlyphSource fallback) {
             var cached = sources.get(fallback);
             if (cached != null) return cached;
             if (sources.size() >= 4) sources.clear();
-            var local = set.source(false);
-            var supported = provider.getSupportedGlyphs();
-            var cache = new Int2ObjectOpenHashMap<BakedGlyph>();
             GlyphSource source = new GlyphSource() {
                 @Override public BakedGlyph getGlyph(int codepoint) {
-                    return cache.computeIfAbsent(codepoint, (int cp) -> {
-                        // SkyBlock icons and Devonian's symbol replacements use private-use glyphs.
-                        if (Character.getType(cp) == Character.PRIVATE_USE || !supported.contains(cp)) return fallback.getGlyph(cp);
-                        var glyph = local.getGlyph(cp);
-                        return style.spacing() == 0 && style.shadow() == 1 ? glyph
-                            : new StyledGlyph(glyph, style.spacing(), style.shadow());
-                    });
+                    var glyph = glyphs.computeIfAbsent(codepoint, bake);
+                    return glyph == MISSING ? fallback.getGlyph(codepoint) : glyph;
                 }
                 @Override public BakedGlyph getRandomGlyph(RandomSource random, int codepoint) {
                     return fallback.getRandomGlyph(random, codepoint);
@@ -217,7 +235,7 @@ public final class UiFonts {
             sources.put(fallback, source);
             return source;
         }
-        @Override public void close() { set.close(); provider.close(); }
+        @Override public void close() { atlas.close(); provider.close(); }
     }
 
     private record StyledGlyph(BakedGlyph base, float spacing, float shadow) implements BakedGlyph, GlyphInfo {

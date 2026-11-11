@@ -34,6 +34,10 @@ public final class PinkUi {
     }
     public static void outline(GuiGraphicsExtractor g,int x,int y,int w,int h,int radius,int border,int fill){
         if(w<=0||h<=0)return;
+        if (border == fill && (fill >>> 24) == 255) {
+            rounded(g, x, y, w, h, radius, fill);
+            return;
+        }
         int r=Math.clamp(radius,0,Math.min(16,Math.min(w,h)/2));
         rounded(g,x+1,y+1,w-2,h-2,Math.max(0,r-1),fill);
         if((border>>>24)==0)return;
@@ -70,7 +74,7 @@ public final class PinkUi {
         private BooleanSupplier selected = () -> false;
         private boolean leftAligned,rawLabel;private String displayOverride;
         private int cachedLanguage=-1;
-        private String cachedLabel;
+        private Component cachedLabel;
         private int cachedWidth = -1, cachedLabelWidth;
         private Component cachedMessage;
         protected final UiMotion hover=new UiMotion(0,UiMotion.Curve.SPRING),press=new UiMotion(0,UiMotion.Curve.SPRING);
@@ -127,9 +131,10 @@ public final class PinkUi {
                     cachedMessage = getMessage(); cachedWidth = width;cachedLanguage=UiText.revision();
                     String original = displayOverride!=null?displayOverride:UiText.display(getMessage().getString(),rawLabel);
                     int available = Math.max(0, width - (leftAligned ? 22 : 12));
-                    cachedLabel = font.width(original) <= available ? original
+                    String label = font.width(original) <= available ? original
                         : font.plainSubstrByWidth(original, Math.max(0, available - font.width("…"))) + "…";
-                    cachedLabelWidth = font.width(cachedLabel);
+                    cachedLabel = Component.literal(label);
+                    cachedLabelWidth = font.width(label);
                 }
                 if(picked>.01f&&leftAligned)rounded(g,x+5,y+6,2,Math.max(1,Math.round((height-12)*picked)),1,PINK);
                 g.text(font,cachedLabel,x+(leftAligned?11:(width-cachedLabelWidth)/2),y+(height-9)/2,

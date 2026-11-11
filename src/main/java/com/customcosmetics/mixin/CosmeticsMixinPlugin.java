@@ -44,6 +44,10 @@ public final class CosmeticsMixinPlugin implements IMixinConfigPlugin {
             return mixin.endsWith("Bind")||mixin.endsWith(modern?"Modern":"Legacy");
         }
         if(mixin.endsWith("UiTooltipMixin$Legacy")||mixin.endsWith("UiTooltipMixin$Modern"))return mixin.endsWith("Modern")==FabricLoader.getInstance().getModContainer("minecraft").orElseThrow().getMetadata().getVersion().getFriendlyString().startsWith("26.3");
+        if (mixin.contains("LocalFontSampling")) {
+            var version = FabricLoader.getInstance().getModContainer("minecraft").orElseThrow().getMetadata().getVersion().getFriendlyString();
+            return mixin.contains("263Mixin") == version.startsWith("26.3");
+        }
         if (mixin.endsWith("CreaturePlayerEffectsMixin")) return FabricLoader.getInstance().getModContainer("minecraft").orElseThrow()
             .getMetadata().getVersion().getFriendlyString().startsWith("26.3");
         if(mixin.contains("MapEditorMixin$Sodium"))return FabricLoader.getInstance().isModLoaded("sodium");
