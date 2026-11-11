@@ -1,0 +1,57 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Compile only the classes that depend on different Minecraft renderer signatures.
+def variants = [
+    '261': ['26.1.2', '4e618f09a0c649dde3fdf829df443ce0b8831e65'],
+    '263': ['26.3', 'e877b6a07acd633fb3bb475002175cec036e7b87'],
+]
+
+variants.each { suffix, info ->
+    def (gameVersion, sha1) = info
+    def client = layout.buildDirectory.file("compat/${gameVersion}/minecraft-client.jar")
+    def prepare = tasks.register("prepareCompat${suffix}") {
+        inputs.property('sha1', sha1)
+        outputs.file(client)
+        doLast {
+            def hash = { File file ->
+                def digest = java.security.MessageDigest.getInstance('SHA-1')
+                file.withInputStream { stream ->
+                    byte[] buffer = new byte[65536]
+                    for (int n; (n = stream.read(buffer)) != -1;) digest.update(buffer, 0, n)
+                }
+                digest.digest().encodeHex().toString()
+            }
+            File target = client.get().asFile
+            File cached = new File(gradle.gradleUserHomeDir, "caches/fabric-loom/${gameVersion}/minecraft-client.jar")
+            target.parentFile.mkdirs()
+            File pending = new File(target.parentFile, target.name + '.tmp')
+            try {
+                if (cached.isFile() && hash(cached) == sha1) {
+                    java.nio.file.Files.copy(cached.toPath(), pending.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+                } else {
+                    def connection = URI.create("https://piston-data.mojang.com/v1/objects/${sha1}/client.jar").toURL().openConnection()
+                    connection.connectTimeout = 15000
+                    connection.readTimeout = 30000
+                    connection.inputStream.withCloseable { stream ->
+                        java.nio.file.Files.copy(stream, pending.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+                    }
+                }
+                if (hash(pending) != sha1) throw new GradleException("Invalid Minecraft ${gameVersion} client hash")
+                java.nio.file.Files.move(pending.toPath(), target.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            } finally {
+                java.nio.file.Files.deleteIfExists(pending.toPath())
+            }
+        }
+    }
+    def main = tasks.named('compileJava', JavaCompile)
+    def variantSources = fileTree("src/compat${suffix}/java") { include '**/*.java' }
+    def compile = tasks.register("compileCompat${suffix}", JavaCompile) {
+        dependsOn(prepare, main)
+        source(variantSources)
+        classpath = files(client, main.flatMap { it.destinationDirectory }) + configurations.compileClasspath
+        destinationDirectory = layout.buildDirectory.dir("classes/java/compat${suffix}")
+        javaCompiler = main.flatMap { it.javaCompiler }
+        options.compilerArgs.add('-proc:none')
+    }
+    sourceSets.main.output.dir([builtBy: compile], compile.flatMap { it.destinationDirectory })
+    tasks.named('sourcesJar') { from(variantSources) }
+}

@@ -59,6 +59,7 @@ public final class SyncCommands {
         root.then(PlayerBlockCommands.command());
         root.then(ClientCommands.literal("armortrace").executes(context->com.customcosmetics.features.items.ArmorTrace.start()));
         root.then(com.customcosmetics.features.map.MapCommands.command());
+        root.then(ClientCommands.literal("freecam").executes(context -> com.customcosmetics.features.map.MapCommands.run(com.customcosmetics.features.map.Freecam::toggleGeneral)));
         var waypoint = ClientCommands.literal("waypoint").executes(context -> {
             com.customcosmetics.client.CustomCosmeticsClient.requestScreen(()->new com.customcosmetics.gui.WaypointScreen(null));
             return 1;

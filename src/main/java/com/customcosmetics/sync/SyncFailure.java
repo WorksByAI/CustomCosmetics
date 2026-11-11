@@ -13,7 +13,7 @@ import javax.net.ssl.SSLException;
 
 /** Safe, specific failure descriptions; server bodies and credentials are never displayed. */
 public record SyncFailure(Reason reason, Stage stage, int httpStatus) {
-    public enum Stage { DOWNLOAD, UPLOAD, SERVER_AUTH, MINECRAFT_AUTH, OTHER }
+    public enum Stage { DOWNLOAD, UPLOAD, SERVER_AUTH, AUTH_CHALLENGE, AUTH_VERIFY, MINECRAFT_AUTH, OTHER }
     public enum Reason {
         INVALID_MINECRAFT_SESSION("invalid Minecraft session; sign in again"),
         INVALID_SYNC_TOKEN("invalid or expired sync token"),
@@ -49,6 +49,18 @@ public record SyncFailure(Reason reason, Stage stage, int httpStatus) {
     public boolean rateLimited() { return httpStatus == 429 || reason == Reason.RATE_LIMITED; }
     public String description() {
         return reason.text + (httpStatus > 0 ? " (HTTP " + httpStatus + ")" : "");
+    }
+
+    public String diagnostic() {
+        return switch(stage){
+            case DOWNLOAD -> "cosmetics download";
+            case UPLOAD -> "cosmetics upload";
+            case SERVER_AUTH -> "cosmetics authentication";
+            case AUTH_CHALLENGE -> "cosmetics challenge";
+            case AUTH_VERIFY -> "cosmetics proof verification";
+            case MINECRAFT_AUTH -> "Mojang session join";
+            case OTHER -> "connection setup";
+        }+": "+description();
     }
 
     public static SyncFailure fromResponse(HttpURLConnection connection, Stage stage, int status) {

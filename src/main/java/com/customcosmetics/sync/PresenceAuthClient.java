@@ -17,7 +17,7 @@ public final class PresenceAuthClient {
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final URI MOJANG_JOIN = URI.create("https://sessionserver.mojang.com/session/minecraft/join");
     private static final Set<String> REQUEST_PATHS = Set.of(
-        "/health", "/users.json", "/auth/challenge", "/register", "/report", "/auth/logout", "/actions", "/actions/udp-session", "/capes/status", "/capes/submit");
+        "/health", "/users.json", "/auth/challenge", "/auth/experimental", "/register", "/report", "/auth/logout", "/actions", "/actions/udp-session", "/capes/status", "/capes/submit");
 
     @FunctionalInterface public interface SessionJoin { void join(String serverId) throws Exception; }
     @FunctionalInterface public interface ConnectionFactory { HttpURLConnection open(String url) throws Exception; }
@@ -35,7 +35,7 @@ public final class PresenceAuthClient {
         if (name == null || !name.matches("[A-Za-z0-9_]{3,16}")) throw new SyncRequestException(SyncFailure.of(SyncFailure.Reason.INVALID_ACCOUNT_NAME, SyncFailure.Stage.SERVER_AUTH));
         JsonObject request = new JsonObject();
         request.addProperty("name", name);
-        JsonObject challenge = post(baseUrl + "/auth/challenge", request);
+        JsonObject challenge = post(baseUrl + "/auth/challenge", request, SyncFailure.Stage.AUTH_CHALLENGE);
         String id = requiredString(challenge, "challengeId");
         long expires = requiredLong(challenge, "expiresAt");
         if (!id.matches("[0-9a-f]{64}") || expires <= System.currentTimeMillis()
@@ -43,11 +43,12 @@ public final class PresenceAuthClient {
         byte[] entropy = new byte[32];
         RANDOM.nextBytes(entropy); // Fresh client entropy, never supplied or predicted by the service.
         String nonce = HexFormat.of().formatHex(entropy);
-        join.join(serverIdFor(id, nonce));
+        try { join.join(serverIdFor(id, nonce)); }
+        catch (Exception e) { throw new SyncRequestException(SyncFailure.fromException(e, SyncFailure.Stage.MINECRAFT_AUTH)); }
         JsonObject proof = new JsonObject();
         proof.addProperty("challengeId", id);
         proof.addProperty("clientNonce", nonce);
-        JsonObject response = post(baseUrl + "/register", proof);
+        JsonObject response = post(baseUrl + "/register", proof, SyncFailure.Stage.AUTH_VERIFY);
         String token = requiredString(response, "token");
         UUID verifiedUuid;
         try { verifiedUuid = UUID.fromString(requiredString(response, "uuid")); }
@@ -118,20 +119,22 @@ public final class PresenceAuthClient {
         } finally { connection.disconnect(); }
     }
 
-    private JsonObject post(String url, JsonObject body) throws Exception {
-        HttpURLConnection connection = connections.open(url);
+    private JsonObject post(String url, JsonObject body, SyncFailure.Stage stage) throws Exception {
+        HttpURLConnection connection = null;
         try {
+            connection = connections.open(url);
             configurePost(connection, body);
             int status = connection.getResponseCode();
-            if (status != 200) throw new SyncRequestException(SyncFailure.fromResponse(connection, SyncFailure.Stage.SERVER_AUTH, status));
+            if (status != 200) throw new SyncRequestException(SyncFailure.fromResponse(connection, stage, status));
             try (var stream = connection.getInputStream()) {
                 byte[] response = stream.readNBytes(8193);
-                if (response.length > 8192) throw new SyncRequestException(SyncFailure.of(SyncFailure.Reason.INVALID_RESPONSE, SyncFailure.Stage.SERVER_AUTH));
+                if (response.length > 8192) throw new SyncRequestException(SyncFailure.of(SyncFailure.Reason.INVALID_RESPONSE, stage));
                 var parsed = JsonParser.parseString(new String(response, StandardCharsets.UTF_8));
-                if (!parsed.isJsonObject()) throw new SyncRequestException(SyncFailure.of(SyncFailure.Reason.INVALID_RESPONSE, SyncFailure.Stage.SERVER_AUTH));
+                if (!parsed.isJsonObject()) throw new SyncRequestException(SyncFailure.of(SyncFailure.Reason.INVALID_RESPONSE, stage));
                 return parsed.getAsJsonObject();
             }
-        } finally { connection.disconnect(); }
+        } catch (Exception e) { throw new SyncRequestException(SyncFailure.fromException(e, stage)); }
+        finally { if(connection!=null)connection.disconnect(); }
     }
 
     private static String requiredString(JsonObject response, String key) throws SyncRequestException {

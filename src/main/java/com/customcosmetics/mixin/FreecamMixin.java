@@ -24,8 +24,8 @@ public final class FreecamMixin {
     public static class Body {
         // Keep the real entity in place. Server teleports still update it and receive their normal ACK.
         @Inject(method="aiStep",at=@At("HEAD"),cancellable=true)
-        private void body(CallbackInfo ci){if(Freecam.controls((Entity)(Object)this))ci.cancel();}
+        private void body(CallbackInfo ci){if(Freecam.freezesBody((Entity)(Object)this))ci.cancel();}
         @Inject(method="sendPosition",at=@At("HEAD"),cancellable=true)
-        private void movement(CallbackInfo ci){if(Freecam.controls((Entity)(Object)this))ci.cancel();}
+        private void movement(CallbackInfo ci){if(Freecam.freezesBody((Entity)(Object)this))ci.cancel();}
     }
 }

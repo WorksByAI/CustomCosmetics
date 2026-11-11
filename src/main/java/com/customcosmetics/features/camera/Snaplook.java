@@ -8,7 +8,6 @@ import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.client.*;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.resources.Identifier;
 
 /** Hold a key for a temporary vanilla perspective; never rotates or moves the player. */
 public final class Snaplook {
@@ -18,7 +17,7 @@ public final class Snaplook {
     private static Object level;
     private static boolean blocked;
     private Snaplook(){}
-    public static void init(){key=KeyMappingHelper.registerKeyMapping(new KeyMapping("key.customcosmetics.snaplook",InputConstants.UNKNOWN.getValue(),KeyMapping.Category.register(Identifier.fromNamespaceAndPath("customcosmetics","camera"))));}
+    public static void init(){key=KeyMappingHelper.registerKeyMapping(new KeyMapping("key.customcosmetics.snaplook",InputConstants.UNKNOWN.getValue(),CameraKeys.CATEGORY));}
     public static KeyMapping binding(){return key;}
     public static boolean active(){return previous!=null;}
     public static String normalize(String mode){return mode!=null&&java.util.Set.of("first","back","front").contains(mode)?mode:"back";}

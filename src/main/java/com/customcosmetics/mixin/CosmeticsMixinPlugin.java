@@ -11,6 +11,29 @@ public final class CosmeticsMixinPlugin implements IMixinConfigPlugin {
     @Override public void onLoad(String mixinPackage) {}
     @Override public String getRefMapperConfig() { return null; }
     @Override public boolean shouldApplyMixin(String target, String mixin) {
+        if(mixin.contains(".Sky")){
+            var loader=FabricLoader.getInstance();
+            if(loader.isModLoaded("skyboxify"))return false;
+            String version=loader.getModContainer("minecraft").orElseThrow().getMetadata().getVersion().getFriendlyString();
+            if(mixin.contains("SkyPass26_"))return version.startsWith("26."+mixin.charAt(mixin.indexOf("SkyPass26_")+10));
+        }
+        if(mixin.contains("BorderlessWindowMixin$")) {
+            var loader=FabricLoader.getInstance();
+            return !loader.isModLoaded("cwb") && mixin.endsWith("Modern") == loader.getModContainer("minecraft").orElseThrow().getMetadata().getVersion().getFriendlyString().startsWith("26.3");
+        }
+        if(mixin.endsWith("FastIpPingMixin"))return !FabricLoader.getInstance().isModLoaded("fastipping");
+        if(mixin.endsWith("CatharsisItemPropertiesMixin")||mixin.contains(".CatharsisVisualMixin$"))return !FabricLoader.getInstance().isModLoaded("catharsis");
+        if(mixin.contains(".InventoryBlurMixin"))return !FabricLoader.getInstance().isModLoaded("eg_inventory_blur");
+        if(mixin.endsWith("HudLayoutMixin$Hud")) {
+            var version = FabricLoader.getInstance().getModContainer("minecraft").orElseThrow().getMetadata().getVersion().getFriendlyString();
+            return target.endsWith(version.startsWith("26.1") ? ".Gui" : ".Hud");
+        }
+        if(mixin.contains("HudLayoutMixin$")&&(mixin.endsWith("Modern")||mixin.endsWith("Legacy")||mixin.endsWith("Blit261"))) {
+            var version=FabricLoader.getInstance().getModContainer("minecraft").orElseThrow().getMetadata().getVersion().getFriendlyString();
+            if(mixin.endsWith("Blit261"))return version.startsWith("26.1");
+            if(mixin.endsWith("$BlitLegacy"))return version.startsWith("26.2");
+            return mixin.endsWith("Modern")==version.startsWith("26.3");
+        }
         if(mixin.contains("ArmorSubmissionMixin$")){
             boolean modern=FabricLoader.getInstance().getModContainer("minecraft").orElseThrow().getMetadata().getVersion().getFriendlyString().startsWith("26.3");
             return mixin.endsWith("Bind")||mixin.endsWith(modern?"Modern":"Legacy");

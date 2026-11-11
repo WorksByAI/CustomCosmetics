@@ -25,19 +25,19 @@ public final class MapEditorMixin {
         @Inject(method="shouldCullFace",at=@At("HEAD"),cancellable=true)
         private void adjacent(net.minecraft.core.Direction face,CallbackInfoReturnable<Boolean> cir){if(!MapEditor.visible().isEmpty()&&face!=null&&MapEditor.revealsFace(pos.relative(face)))cir.setReturnValue(false);}
         @WrapMethod(method="tesselateBlock")
-        private void material(net.fabricmc.fabric.api.client.renderer.v1.mesh.QuadEmitter output,float x,float y,float z,BlockAndTintGetter world,BlockPos p,BlockState state,BlockStateModel model,long seed,Operation<Void> original){original.call(output,x,y,z,world,p,state,MapEditor.wrap(model,p),seed);}
+        private void material(net.fabricmc.fabric.api.client.renderer.v1.mesh.QuadEmitter output,float x,float y,float z,BlockAndTintGetter world,BlockPos p,BlockState state,BlockStateModel model,long seed,Operation<Void> original){var bars=MapEditor.ironBars(world,p);if(bars!=null){original.call(output,x,y,z,world,p,bars,MapEditor.model(bars),seed);return;}original.call(output,x,y,z,world,p,state,MapEditor.wrap(model,p),seed);}
     }
     @Mixin(ModelBlockRenderer.class)
     public static class Vanilla {
         @Inject(method="shouldRenderFace",at=@At("HEAD"),cancellable=true)
         private void adjacent(BlockAndTintGetter world,BlockState state,net.minecraft.core.Direction face,BlockPos neighbor,CallbackInfoReturnable<Boolean> cir){if(MapEditor.revealsFace(neighbor))cir.setReturnValue(true);}
         @WrapMethod(method="tesselateBlock")
-        private void material(BlockQuadOutput output,float x,float y,float z,BlockAndTintGetter world,BlockPos p,BlockState state,BlockStateModel model,long seed,Operation<Void> original){original.call(output,x,y,z,world,p,state,MapEditor.wrap(model,p),seed);}
+        private void material(BlockQuadOutput output,float x,float y,float z,BlockAndTintGetter world,BlockPos p,BlockState state,BlockStateModel model,long seed,Operation<Void> original){var bars=MapEditor.ironBars(world,p);if(bars!=null){original.call(output,x,y,z,world,p,bars,MapEditor.model(bars),seed);return;}original.call(output,x,y,z,world,p,state,MapEditor.wrap(model,p),seed);}
     }
     @Pseudo @Mixin(targets="net.caffeinemc.mods.sodium.client.render.chunk.compile.pipeline.BlockRenderer",remap=false)
     public static class Sodium {
         @WrapMethod(method="renderModel")
-        private void material(BlockStateModel model,BlockState state,BlockPos p,BlockPos origin,Operation<Void> original){original.call(MapEditor.wrap(model,p),state,p,origin);}
+        private void material(BlockStateModel model,BlockState state,BlockPos p,BlockPos origin,Operation<Void> original){var bars=MapEditor.ironBars(((com.customcosmetics.compatibility.SodiumWorld)(Object)this).customcosmetics$world(),p);if(bars!=null){original.call(MapEditor.model(bars),bars,p,origin);return;}original.call(MapEditor.wrap(model,p),state,p,origin);}
     }
     @Mixin(net.minecraft.client.renderer.chunk.VisGraph.class)
     public static class Visibility {
@@ -68,7 +68,9 @@ public final class MapEditorMixin {
         private void transparent(int x,int y,int z,CallbackInfoReturnable<Integer> cir){if(MapEditor.visible().isEmpty())return;var p=new BlockPos(x,y,z);if(MapEditor.revealsFace(p)){int light=MapEditor.visualLight(level,p);cir.setReturnValue(packBL(light>>4&15)|packSL(light>>20&15)|packAO(1f));}}
     }
     @Pseudo @Mixin(targets="net.caffeinemc.mods.sodium.client.render.model.AbstractBlockRenderContext",remap=false)
-    public static class SodiumFaces {
+    public static class SodiumFaces implements com.customcosmetics.compatibility.SodiumWorld {
+        @Shadow protected BlockAndTintGetter level;
+        @Override public BlockAndTintGetter customcosmetics$world(){return level;}
         @Shadow protected BlockPos pos;
         @Inject(method="shouldDrawSide",at=@At("HEAD"),cancellable=true)
         private void adjacent(net.minecraft.core.Direction face,CallbackInfoReturnable<Boolean> cir){if(!MapEditor.visible().isEmpty()&&MapEditor.revealsFace(pos.relative(face)))cir.setReturnValue(true);}

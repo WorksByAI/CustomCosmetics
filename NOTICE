@@ -201,12 +201,7 @@ CustomCosmetics adds modern block-name conversion, canonical room persistence,
 new-room fingerprint fallback, a block palette and visual-only editing.
 No code or assets from the unlicensed FunnyMapExtras decompiled mirror are included.
 
-LXGW WenKai Medium
-------------------
-Unmodified LXGW WenKai Medium 1.522 is bundled for mod interface text.
-Copyright 2021-2026 LXGW; Copyright 2020 The Klee Project Authors.
-Source: https://github.com/lxgw/LxgwWenKai
-License: SIL Open Font License 1.1; see LICENSES/LXGW-WenKai-OFL.txt.
+
 
 SkyBlock head skins
 -------------------
@@ -238,3 +233,19 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+Skyboxify and HUD Manager
+------------------------
+Custom sky parsing, layers and renderer behavior are adapted from Skyboxify
+3.3.1 (12a6e0a9b) and the 26.3 renderer (9c5ac6b), copyright 2025–2026
+lowercasebtw and contributors. Original code by AMereBagatelle is credited in
+LICENSES/Skyboxify-Original-MIT.txt. The GPL-3.0-or-later text and Minecraft
+linking exception are in LICENSES/Skyboxify-GPL-3.0.txt.
+https://github.com/Legacy-Visuals-Project/Skyboxify
+Modified for CustomCosmetics in November 2026: renamed packages, adapted the
+reload lifecycle, configuration and render hooks for Minecraft 26.1–26.3.
+
+HUD extraction and scoped styling are adapted from HUD Manager 4.1.1
+(590f5e77), copyright 2025 i5wear, MIT (LICENSES/HUD-Manager-MIT.txt).
+https://github.com/i5wear/HUD-Manager
+Modified in November 2026 for CustomCosmetics settings and selected item names.

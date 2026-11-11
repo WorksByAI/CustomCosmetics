@@ -66,14 +66,17 @@ public final class SettingsCatalog {
         add(entries, "Map Editor", "MAP", "Local visual map dungeon Kuudra rooms",
             "Freecam|Freecam Speed (blocks/s)|Map Editor|Dungeon Only|Force Dungeon|Force Kuudra|Edit Mode|Import FME Config|Choose Block / Favorites|Replace Materials|Editor HUD|Reset This Room|Block Material|Undo|Clear Current Edits|Automatically Restore Rooms|Preset Manager");
         add(entries, "Settings", "SYNC", "General preferences",
-            "Language|Font|Vanilla|Modern|Interface|Module Manager|Check for Updates|Command Tooltips|Snaplook|Snaplook View|Snaplook Keybind…");
+            "Language|Fonts|Interface|Module Manager|Check for Updates|Fast IP Ping|Command Tooltips|Snaplook|Snaplook View|Snaplook Keybind…");
+        add(entries, "Experimental Features", "EXPERIMENTAL", "Inventory and container background blur", "Inventory Blur");
         add(entries,"Interface","THEME","Local theme colors and finite screen animations","Mode|Accent Color|Interface Animations|Background Blur|Reset Theme");
         add(entries, "Settings", "SYNC", "Connections automatic sync online offline",
             "Mode|Automatic Sync|Refresh Interval (seconds)|Notifications|Sync Now");
         add(entries, "Settings", "SYNC", "Advanced connections proxy",
             "Proxy Host|Proxy Port|Proxy Auth|Disable P2P Connections|P2P UDP Port|Fallback Direct|Proxy Source");
         add(entries, "Module Manager", "MODULES", "Module master switch enabled disabled settings",
-            "Enable All Modules|Disable All Modules|Animations|Cape|Damage Splash|Equipments|Item Customization|Map Editor|NickTweaks|Player Size|SmolPeople|Sharing|Skins|Snaplook|Command Tooltips|Creature Model");
+            "Enable All Modules|Disable All Modules");
+        for (var module : com.customcosmetics.config.FeatureModules.Feature.values())
+            add(entries, "Module Manager", "MODULES", "Module master switch enabled disabled settings", module.label);
         return List.copyOf(entries);
     }
     private static void add(List<SettingsSearch.Entry> entries, String section, String page, String description, String titles) {

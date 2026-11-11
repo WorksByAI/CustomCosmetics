@@ -34,11 +34,26 @@ public final class ConfigManager {
     public static volatile int disabledModules=0;
     public static String uiThemeMode="dark";
     public static String uiLanguage="auto";
-    public static String uiFont="vanilla";
+    public static String uiFontPath = "";
+    public static float uiFontSize = 9, uiFontSpacing = 0;
     public static boolean droppedItems2dEnabled=false;
+    public static boolean fastIpPingEnabled = false;
+    public static boolean checkExperimentalAccess;
+    public static boolean freecamEnabled = false, freecamCollision = false, freecamExitOnDamage = true;
+    public static double freecamSpeed = 12, freecamVerticalSpeed = 12;
+    public static String fullscreenStyle = "vanilla";
+    public static boolean hitColorEnabled = false;
+    public static int hitColor = 0xFF5555;
+    public static float hitOpacity = 0.5f;
+    public static boolean hudLayoutEnabled=false;
+    public static java.util.EnumMap<com.customcosmetics.features.hud.HudLayout.Element,com.customcosmetics.features.hud.HudLayout.Options> hudLayout=
+        new java.util.EnumMap<>(com.customcosmetics.features.hud.HudLayout.Element.class);
+    public static boolean customSkyEnabled=false,customSkyDisc=true,customSkySunMoon=true,customSkyStars=false,customSkyFallback=true,customSkyDebug=false;
     public static int uiAccentColor=0xFFA8CA;
     public static boolean uiAnimationsEnabled=true;
     public static boolean uiBackgroundBlur=false;
+    public static boolean inventoryBlurEnabled = false;
+    public static boolean catharsisItemModels = false;
     public static boolean damageSplashEnabled=false, damageSplashBold=true, damageSplashCompact=false;
     public static boolean damageSplashStyleNormal=false, damageSplashShadow=true;
     public static String damageSplashStyle="default", damageSplashSymbol="✧", damageSplashSeparator="comma";
@@ -182,6 +197,9 @@ public final class ConfigManager {
             JsonObject root = JsonParser.parseString(Files.readString(path, StandardCharsets.UTF_8)).getAsJsonObject();
             JsonObject settings = root.getAsJsonObject("settings");
             if (settings == null) return;
+            uiFontPath = "";
+            uiFontSize = 9;
+            uiFontSpacing = 0;
             for (Field field : ConfigManager.class.getFields()) {
                 if (!Modifier.isStatic(field.getModifiers()) || Modifier.isTransient(field.getModifiers()) || !settings.has(field.getName())
                         || settings.get(field.getName()).isJsonNull()) continue;
@@ -193,10 +211,20 @@ public final class ConfigManager {
                     LOGGER.warn("Ignoring invalid setting {}", field.getName());
                 }
             }
+            hudLayout.values().removeIf(java.util.Objects::isNull);
             if(accessories==null)accessories=com.customcosmetics.features.accessories.AccessoriesSettings.NONE;
             uiThemeMode="light".equals(uiThemeMode)?"light":"dark";
             uiLanguage=com.customcosmetics.gui.UiText.normalize(uiLanguage);
-            uiFont="modern".equals(uiFont)?"modern":"vanilla";
+            try { if (uiFontPath == null || uiFontPath.length() > 4096 || !uiFontPath.isEmpty()
+                    && java.nio.file.Path.of(uiFontPath).getFileName() == null) uiFontPath = ""; }
+            catch (java.nio.file.InvalidPathException invalid) { uiFontPath = ""; }
+            fullscreenStyle = "borderless".equals(fullscreenStyle) ? "borderless" : "vanilla";
+            freecamSpeed = com.customcosmetics.features.map.Freecam.validSpeed(freecamSpeed);
+            freecamVerticalSpeed = com.customcosmetics.features.map.Freecam.validSpeed(freecamVerticalSpeed);
+            hitColor &= 0xFFFFFF;
+            hitOpacity = Float.isFinite(hitOpacity) ? Math.clamp(hitOpacity, 0, 1) : 0.5f;
+            uiFontSize = Float.isFinite(uiFontSize) ? Math.clamp(uiFontSize, 7, 12) : 9;
+            uiFontSpacing = Float.isFinite(uiFontSpacing) ? Math.clamp(uiFontSpacing, -1, 2) : 0;
             uiAccentColor&=0xFFFFFF;
             damageSplashStyle=com.customcosmetics.features.damage.DamageAnimation.normalize(damageSplashStyle);
             damageSplashColorMode=com.customcosmetics.features.damage.DamageColors.normalize(damageSplashColorMode);

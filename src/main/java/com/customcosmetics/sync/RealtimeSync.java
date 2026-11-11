@@ -12,6 +12,8 @@ import java.util.*;
 public final class RealtimeSync {
     private static RealtimeClient live;private static String endpoint="";private static PresenceAuthClient.Session identity;
     private static long nextAppearance;
+    private static SyncFailure lastAuthFailure;
+    private static String lastConnectFailure="";
     private static long generation,nextAttempt;private static boolean authenticating;private static BlockHand hand=BlockHand.NONE;private static String item="";
     private RealtimeSync(){}
     private static final int APPEARANCE_MODULES=com.customcosmetics.config.FeatureModules.Feature.NICK.bit()|com.customcosmetics.config.FeatureModules.Feature.PLAYER_SIZE.bit()|com.customcosmetics.config.FeatureModules.Feature.SMOL.bit()|com.customcosmetics.config.FeatureModules.Feature.EQUIPMENT.bit()|com.customcosmetics.config.FeatureModules.Feature.CREATURE_MODEL.bit()|com.customcosmetics.config.FeatureModules.Feature.SKINS.bit();
@@ -31,10 +33,12 @@ public final class RealtimeSync {
     public static List<String> diagnostics(){
         if(!RemoteAccess.online())return List.of("Realtime: Offline mode; remote connections are closed.");
         if(!enabled())return List.of("Realtime: Manual legacy UDP transport does not support party P2P.");
-        if(live!=null)return live.diagnostics();
+        if(live!=null&&!live.closed())return live.diagnostics();
+        if(lastAuthFailure!=null)return List.of("Realtime: "+(authenticating?"Retrying authentication; last failure: ":"")+lastAuthFailure.diagnostic());
+        if(!lastConnectFailure.isEmpty())return List.of("Realtime: "+lastConnectFailure);
         return List.of("Realtime: "+(authenticating?"Waiting for Minecraft authentication":identity==null?"No authenticated realtime session":"Waiting to connect; retry in "+Math.max(0,nextAttempt-System.currentTimeMillis())+"ms"));
     }
-    public static void disconnect(){PresenceSync.peerAppearances(Map.of());nextAppearance=0;if(live==null&&endpoint.isEmpty()&&identity==null&&!authenticating&&nextAttempt==0)return;generation++;if(live!=null)live.close();live=null;endpoint="";identity=null;nextAttempt=0;authenticating=false;}
+    public static void disconnect(){lastAuthFailure=null;lastConnectFailure="";PresenceSync.peerAppearances(Map.of());nextAppearance=0;if(live==null&&endpoint.isEmpty()&&identity==null&&!authenticating&&nextAttempt==0)return;generation++;if(live!=null)live.close();live=null;endpoint="";identity=null;nextAttempt=0;authenticating=false;}
     public static void onSettingsClosed(){if(live!=null&&live.requestedUdpPort()!=ConfigManager.getSyncP2pPort())disconnect();}
     public static void tick(Minecraft client){
         boolean blocking=(ConfigManager.swordBlockingEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ANIMATIONS))&&ConfigManager.swordBlockingSyncEnabled&&ConfigManager.syncEnabled;
@@ -55,7 +59,9 @@ public final class RealtimeSync {
         }
         if(System.currentTimeMillis()<nextAttempt||authenticating)return;nextAttempt=System.currentTimeMillis()+5000;
         long version=generation;
-        if(auth==null){authenticating=true;PresenceSync.authenticatedSession().whenComplete((session,error)->client.execute(()->{if(version!=generation)return;authenticating=false;if(error==null)nextAttempt=0;}));return;}
-        try{live=RemoteAccess.channel(()->new RealtimeClient(base,auth,"wss".equals(ConfigManager.syncBlockingTransport)));}catch(Exception unavailable){/* Bounded retry; no visual state is persisted. */}
+        if(auth==null){authenticating=true;PresenceSync.authenticatedSession().whenComplete((session,error)->client.execute(()->{if(version!=generation)return;authenticating=false;lastAuthFailure=error==null?null:SyncFailure.fromException(error,SyncFailure.Stage.SERVER_AUTH);if(error==null)nextAttempt=0;}));return;}
+        if(live!=null&&live.closed())lastConnectFailure=live.status();
+        try{live=RemoteAccess.channel(()->new RealtimeClient(base,auth,"wss".equals(ConfigManager.syncBlockingTransport)));}
+        catch(Exception unavailable){lastConnectFailure="Realtime setup: "+SyncFailure.fromException(unavailable,SyncFailure.Stage.OTHER).description();}
     }
 }

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Add administrator-gated experimental display, camera, inventory, font, and resource pack tools.
+- Support Catharsis tooltip textures and visual environment overrides.
+- Fix iron bar connections in visual map edits and improve sync connection diagnostics.
+- Ship one client JAR without bundled fonts.
+
 ## 2.0.1
 
 - Add animated SkyBlock head skins and per-item glint removal; fix animated-dye armor and inventory icons.

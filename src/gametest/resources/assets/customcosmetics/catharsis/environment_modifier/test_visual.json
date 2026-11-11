@@ -1,0 +1,5 @@
+{
+  "type": "environmental_attribute",
+  "attribute": "minecraft:sky_fog_end_distance",
+  "provider": {"type": "override", "value": 1234.0}
+}

@@ -267,10 +267,10 @@ class ConfigManagerTest {
     @TempDir Path directory;
     @Test void languageFontAndSharedAccessorySettingPersistIndependently()throws Exception{
         var path=directory.resolve("interface.json");
-        ConfigManager.uiLanguage="zh_cn";ConfigManager.uiFont="modern";ConfigManager.accessoryHelperTooltipEnabled=false;ConfigManager.save(path);
-        ConfigManager.uiLanguage="en_us";ConfigManager.uiFont="vanilla";ConfigManager.accessoryHelperTooltipEnabled=true;ConfigManager.load(path);
-        assertEquals("zh_cn",ConfigManager.uiLanguage);assertEquals("modern",ConfigManager.uiFont);assertFalse(ConfigManager.accessoryHelperTooltipEnabled);
-        Files.writeString(path,"{\"settings\":{\"uiFont\":\"unknown\"}}");ConfigManager.load(path);assertEquals("vanilla",ConfigManager.uiFont);
+        ConfigManager.uiLanguage="zh_cn";ConfigManager.uiFontPath="sample.ttf";ConfigManager.uiFontSize=10.5f;ConfigManager.uiFontSpacing=.4f;ConfigManager.accessoryHelperTooltipEnabled=false;ConfigManager.save(path);
+        ConfigManager.uiLanguage="en_us";ConfigManager.uiFontPath="";ConfigManager.accessoryHelperTooltipEnabled=true;ConfigManager.load(path);
+        assertEquals("zh_cn",ConfigManager.uiLanguage);assertEquals("sample.ttf",ConfigManager.uiFontPath);assertEquals(10.5f,ConfigManager.uiFontSize);assertEquals(.4f,ConfigManager.uiFontSpacing);assertFalse(ConfigManager.accessoryHelperTooltipEnabled);
+        Files.writeString(path,"{\"settings\":{\"uiFont\":\"unknown\"}}");ConfigManager.load(path);assertEquals("",ConfigManager.uiFontPath);
     }
     @Test void nicknameIsLimitedWhenReadingAndSavingConfiguration() throws Exception {
         var path = directory.resolve("config.json");

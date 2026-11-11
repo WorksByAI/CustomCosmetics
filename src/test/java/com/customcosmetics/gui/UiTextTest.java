@@ -5,16 +5,12 @@ import com.google.gson.*;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 class UiTextTest {
-    @AfterEach void reset(){UiText.configure("auto","en_us");com.customcosmetics.config.ConfigManager.uiFont="vanilla";}
+    @AfterEach void reset(){UiText.configure("auto","en_us");}
     @Test void translatedGameMessagesInheritTheGameFont(){
         UiText.configure("zh_cn","en_us");
         var message=UiText.component("Remote data synchronized!");
         assertEquals(net.minecraft.network.chat.FontDescription.DEFAULT,message.getStyle().getFont());
         assertEquals(net.minecraft.network.chat.FontDescription.DEFAULT,UiText.guiComponent("Settings").getStyle().getFont());
-        com.customcosmetics.config.ConfigManager.uiFont="modern";
-        assertEquals(UiFonts.CHINESE,UiText.guiComponent("Settings").getStyle().getFont());
-        UiText.configure("en_us","en_us");
-        assertEquals(UiFonts.CHINESE,UiText.guiComponent("Settings").getStyle().getFont());
     }
     @Test void independentOverrideFollowsGameOnlyWhenRequested(){
         UiText.configure("auto","zh_cn");assertEquals("设置",UiText.tr("Settings"));

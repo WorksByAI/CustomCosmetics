@@ -8,7 +8,7 @@ import net.minecraft.network.chat.Component;
 
 /** Common chrome for every mod dialog; no global render or client-tick hook. */
 public abstract class ThemedScreen extends Screen {
-    protected final net.minecraft.client.gui.Font font;
+    protected net.minecraft.client.gui.Font font;
     private final UiTooltipPositioner tooltipPositioner=new UiTooltipPositioner(this);
     public final net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipPositioner beginTooltip(GuiGraphicsExtractor g,net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipPositioner original){return tooltipPositioner.begin(g,original);}
     public final void endTooltip(){tooltipPositioner.end();}

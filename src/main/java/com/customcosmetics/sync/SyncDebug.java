@@ -36,8 +36,9 @@ public final class SyncDebug {
         lines.add("Mode: "+(RemoteAccess.online()?"online":"offline")+"; transport="+ConfigManager.syncBlockingTransport+"; P2P="+(ConfigManager.partyP2pEnabled?"enabled":"disabled"));
         var roster=PartyFeatures.roster();lines.add(roster.title()+" "+roster.sourceLabel());
         lines.add("Position sharing="+PartyFeatures.sharingPositions()+"; blocking sharing="+(ConfigManager.swordBlockingEnabled&&ConfigManager.swordBlockingSyncEnabled&&ConfigManager.syncEnabled));
-        if(roster.empty())lines.add("P2P requires a detected party.");
+        if(roster.empty())lines.add("P2P requires a detected party for party position sharing.");
         if(!PartyFeatures.sharingPositions())lines.add("P2P requires Party ESP or Tracers to share positions.");
+        lines.add("HTTP proxy mode: "+ConfigManager.syncProxySource);
         lines.addAll(RealtimeSync.diagnostics());
         lines.add("Probe loss is an estimate for control probes, not a measurement of all game data.");
         return List.copyOf(lines);

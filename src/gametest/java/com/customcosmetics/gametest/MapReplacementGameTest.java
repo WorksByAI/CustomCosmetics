@@ -21,7 +21,17 @@ public final class MapReplacementGameTest implements FabricClientGameTest {
             for(var p:List.of(FIRST,SECOND,FAR))world.getServer().runCommand("setblock "+p.getX()+" "+p.getY()+" "+p.getZ()+" minecraft:quartz_block");
             world.getServer().runCommand("setblock -2 65 0 minecraft:quartz_stairs[facing=east,half=top]");world.getServer().runCommand("setblock 3 66 0 minecraft:quartz_pillar[axis=x]");world.getServer().runCommand("setblock 4 66 0 minecraft:quartz_pillar[axis=z]");world.getServer().runCommand("time set noon");world.getServer().runCommand("tp @a 0.5 65 5.5 180 0");
             world.getServer().runOnServer(server->{var board=server.getScoreboard();var objective=board.addObjective("replace",net.minecraft.world.scores.criteria.ObjectiveCriteria.DUMMY,net.minecraft.network.chat.Component.literal("SKYBLOCK"),net.minecraft.world.scores.criteria.ObjectiveCriteria.RenderType.INTEGER,false,null);board.getOrCreatePlayerScore(net.minecraft.world.scores.ScoreHolder.forNameOnly("The Catacombs (F7)"),objective).set(1);board.setDisplayObjective(net.minecraft.world.scores.DisplaySlot.SIDEBAR,objective);});context.waitTicks(30);
-            context.runOnClient(client->{MapEditor.enabled=true;MapEditor.dungeonOnly=true;MapEditor.tick(client);MapEditor.clear();MapEditor.put(SECOND,"minecraft:diamond_block");MapEditor.put(GHOST,"minecraft:quartz_block");MapEditor.refresh();MapEditor.material="minecraft:gold_block";before=MapEditor.DATA.snapshot();check(MapEditor.currentRoom()!=null,"No F7 boss frame");});
+            context.runOnClient(client->{
+                MapEditor.enabled=true;MapEditor.dungeonOnly=true;MapEditor.tick(client);MapEditor.clear();
+                MapEditor.put(FIRST,"minecraft:iron_bars");MapEditor.put(SECOND,"minecraft:iron_bars");MapEditor.refresh();
+                var first = MapEditor.ironBars(client.level, FIRST);
+                var second = MapEditor.ironBars(client.level, SECOND);
+                check(first != null && first.getValue(net.minecraft.world.level.block.CrossCollisionBlock.EAST)
+                    && second != null && second.getValue(net.minecraft.world.level.block.CrossCollisionBlock.WEST), "Visual bars did not connect");
+                check(client.level.getBlockState(FIRST).is(Blocks.QUARTZ_BLOCK), "Visual bars changed the original block");
+                MapEditor.clear();MapEditor.put(SECOND,"minecraft:diamond_block");MapEditor.put(GHOST,"minecraft:quartz_block");
+                MapEditor.refresh();MapEditor.material="minecraft:gold_block";before=MapEditor.DATA.snapshot();check(MapEditor.currentRoom()!=null,"No F7 boss frame");
+            });
             MapSpecialGameTest.command(context,"replace",MapReplaceScreen.class);
             context.runOnClient(client->fields().getFirst().setValue("minecraft:stone"));click(context,"Choose Original Block");choose(context,"minecraft:quartz_block");
             context.runOnClient(client->{check(ClientUiAccess.screen(client) instanceof MapReplaceScreen,"Source picker did not return to replacement screen");check(fields().getFirst().getValue().equals("minecraft:quartz_block"),"Source picker failed");check(MapEditor.material.equals("minecraft:gold_block"),"Source picker changed editor placement material");});

@@ -77,6 +77,7 @@ public final class Waypoints {
     public static String status() { return status; }
     public static boolean writable() { init(); return store.writable(); }
     public static String currentScope() { init(); return WaypointWorld.scope(Minecraft.getInstance()); }
+    public static String currentIslandMode() { return WaypointWorld.islandMode(Minecraft.getInstance()); }
     static void invalidateScope() { dirtyScope = true; }
     public static void invalidateVisuals() { selectionDirty = true; }
 

@@ -14,9 +14,9 @@ import org.lwjgl.system.*;
 public final class NativeFileDialogs {
     public record Request(boolean atlas,Path directory,boolean sdl,long window,String purpose) {
         public Request(boolean atlas,Path directory,boolean sdl,long window){this(atlas,directory,sdl,window,"");}
-        public String title(){return com.customcosmetics.gui.UiText.tr("waypoint".equals(purpose)?"Import Skyblocker Waypoints":"fme".equals(purpose)?"Import FME Config":"skin".equals(purpose)?"Choose Local Skin":atlas?"Choose Vanilla-Format Cape Image":"Choose Image to Crop");}
-        public String description(){return "waypoint".equals(purpose)?"Skyblocker waypoints.json":"fme".equals(purpose)?"FME JSON Config":"skin".equals(purpose)?"Skin PNG":atlas?"Cape PNG (*.png)":"Image files";}
-        public String[] extensions(){return "waypoint".equals(purpose)||"fme".equals(purpose)?new String[]{"json"}:atlas?new String[]{"png"}:new String[]{"png","jpg","jpeg","bmp","gif"};}
+        public String title(){return com.customcosmetics.gui.UiText.tr("waypoint".equals(purpose)?"Import Skyblocker Waypoints":"fme".equals(purpose)?"Import FME Config":"skin".equals(purpose)?"Choose Local Skin":"font".equals(purpose)?"Choose Font File":atlas?"Choose Vanilla-Format Cape Image":"Choose Image to Crop");}
+        public String description(){return "waypoint".equals(purpose)?"Skyblocker waypoints.json":"fme".equals(purpose)?"FME JSON Config":"skin".equals(purpose)?"Skin PNG":"font".equals(purpose)?"Font files":atlas?"Cape PNG (*.png)":"Image files";}
+        public String[] extensions(){return "waypoint".equals(purpose)||"fme".equals(purpose)?new String[]{"json"}:"font".equals(purpose)?new String[]{"ttf","otf","ttc"}:atlas?new String[]{"png"}:new String[]{"png","jpg","jpeg","bmp","gif"};}
     }
     public record Result(Path path,String error,boolean unavailable) {
         public static Result selected(String filename){if(filename==null||filename.isEmpty())return cancelled();try{return new Result(Path.of(filename).toAbsolutePath().normalize(),"",false);}catch(RuntimeException invalid){return new Result(null,"Invalid image path.",false);}}

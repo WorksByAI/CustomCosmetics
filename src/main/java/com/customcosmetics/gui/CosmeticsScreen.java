@@ -3,8 +3,10 @@ package com.customcosmetics.gui;
 import com.customcosmetics.compatibility.ClientInput;
 import com.customcosmetics.compatibility.ClientUiAccess;
 import com.customcosmetics.config.ConfigManager;
+import com.customcosmetics.features.hud.HudLayout;
 import com.customcosmetics.config.PlayerBlocklist;
 import com.customcosmetics.sync.PresenceSync;
+import com.customcosmetics.sync.ExperimentalAccess;
 import com.customcosmetics.utils.NickRenderUtils;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -25,12 +27,20 @@ import static com.customcosmetics.gui.PinkUi.*;
 
 /** Compact settings workspace with local themes and finite, screen-owned motion. */
 public final class CosmeticsScreen extends ThemedScreen {
-    public enum Page { MAIN, SIZE, NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, BLOCKED_SKINS, POSITION_RECIPIENTS, ANIMATIONS, DAMAGE, ITEMS, ACCESSORIES, MAP, PARTY, LOCATION_SHARING, SKINS, SYNC, THEME, MODULES, SEARCH, DROP_2D }
+    public enum Page {
+        MAIN, SIZE, NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, BLOCKED_SKINS, POSITION_RECIPIENTS, ANIMATIONS, DAMAGE, ITEMS, ACCESSORIES, MAP, PARTY, LOCATION_SHARING, SKINS, SYNC, THEME, MODULES, SEARCH, DROP_2D, EXPERIMENTAL,
+        HUD_LAYOUT, SKYBOX, FONTS, FREECAM, WINDOW, HIT_COLOR, FAST_PING, CATHARSIS, INVENTORY_BLUR;
+
+        boolean experimentalOption() { return ordinal() > EXPERIMENTAL.ordinal(); }
+    }
     private static final net.minecraft.resources.Identifier MOD_LOGO=net.minecraft.resources.Identifier.fromNamespaceAndPath("customcosmetics","textures/gui/mod-logo.png");
     private static final String DISPLAY_VERSION="v"+net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("customcosmetics").orElseThrow().getMetadata().getVersion().getFriendlyString().split("[+-]",2)[0];
     private static final ScreenSession SESSION = new ScreenSession();
     private final Screen parent;
     private Page page;
+    private ExperimentalAccess.Status accessStatus;
+    private boolean accessAllowed;
+    private HudLayout.Element hudElement=HudLayout.Element.ITEM_NAME;
     private final List<AbstractWidget> navigation = new ArrayList<>();
     private final List<Placement> sidebarControls = new ArrayList<>();
     private final List<Consumer<GuiGraphicsExtractor>> sidebarArt = new ArrayList<>();
@@ -90,6 +100,10 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
 
     @Override protected void init() {
+        accessStatus = ExperimentalAccess.status();
+        accessAllowed = ExperimentalAccess.allowed();
+        if (page.experimentalOption() && !accessAllowed) page = Page.EXPERIMENTAL;
+        font = UiFonts.get(minecraft.font);
         if(wardrobeRequested){wardrobeRequested=false;ClientUiAccess.setScreen(minecraft,new WardrobeScreen(this));return;}
         UiLocale.refresh();UiTheme.refresh();
         positionedScroll=positionedNavScroll=Integer.MIN_VALUE;pendingToggleY=Integer.MIN_VALUE;pendingToggleRight=false;
@@ -126,6 +140,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             controls.clear();
             viewTop = rowY;
         }
+        if (page.experimentalOption()) fullButton("Back to Experimental Features", () -> open(Page.EXPERIMENTAL), false);
         switch (page) {
             case MAIN -> overview();
             case SIZE -> playerSize();
@@ -137,6 +152,16 @@ public final class CosmeticsScreen extends ThemedScreen {
             case BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, BLOCKED_SKINS -> blockedPlayers();
             case ANIMATIONS -> animations();
             case DAMAGE -> damageSplash();
+            case EXPERIMENTAL -> experimental();
+            case CATHARSIS -> catharsis();
+            case INVENTORY_BLUR -> inventoryBlur();
+            case HUD_LAYOUT -> hudLayout();
+            case SKYBOX -> customSky();
+            case FONTS -> fonts();
+            case FREECAM -> freecam();
+            case WINDOW -> windowMode();
+            case HIT_COLOR -> hitColor();
+            case FAST_PING -> fastPing();
             case DROP_2D -> {toggleRow("2D Drop","Render dropped items as flat sprites facing the camera.",()->ConfigManager.droppedItems2dEnabled,v->ConfigManager.droppedItems2dEnabled=v);}
             case ITEMS -> itemCosmetics();
             case MAP -> mapEditor();
@@ -163,6 +188,16 @@ public final class CosmeticsScreen extends ThemedScreen {
             case NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS -> "NickTweaks";
             case ANIMATIONS -> "Animations";
             case DAMAGE -> "Damage Splash";
+            case EXPERIMENTAL -> "Experimental Features";
+            case CATHARSIS -> "Catharsis Pack Support";
+            case INVENTORY_BLUR -> "Inventory Blur";
+            case HUD_LAYOUT -> "HUD Layout";
+            case SKYBOX -> "Custom Sky";
+            case FONTS -> "Fonts";
+            case FREECAM -> "Freecam";
+            case WINDOW -> "Window Mode";
+            case HIT_COLOR -> "Hit Color";
+            case FAST_PING -> "Fast IP Ping";
             case DROP_2D -> "2D Drop";
             case ITEMS -> "Item Customization";
             case MAP -> "Map Editor";
@@ -184,6 +219,16 @@ public final class CosmeticsScreen extends ThemedScreen {
             case NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS -> "Names, colors and animated gradients.";
             case ANIMATIONS -> "Hand poses, item placement and swing timing.";
             case DAMAGE -> "Style your local damage numbers.";
+            case EXPERIMENTAL -> "Access is granted by a server administrator.";
+            case CATHARSIS -> "SkyBlock item model properties for resource packs.";
+            case INVENTORY_BLUR -> "Blur the world behind inventories and containers.";
+            case HUD_LAYOUT -> "Move, resize or hide HUD elements.";
+            case SKYBOX -> "OptiFine and MCPatcher skies.";
+            case FONTS -> "Choose a font for this mod’s menus.";
+            case FREECAM -> "Move the camera independently of your player.";
+            case WINDOW -> "Choose how fullscreen opens.";
+            case HIT_COLOR -> "Customize the vanilla hurt flash.";
+            case FAST_PING -> "Skip reverse DNS for numeric server addresses.";
             case DROP_2D -> "Camera-facing dropped items.";
             case ITEMS -> "Custom names and models for your items.";
             case MAP -> "Visual layouts, room presets and editing tools.";
@@ -212,6 +257,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         navItem("2D Drop",Page.DROP_2D);
         navSection("CONNECTIONS");
         navItem("Party Sharing", Page.PARTY);navItem("Location Sharing",Page.LOCATION_SHARING);
+        navItem("Experimental Features", Page.EXPERIMENTAL);
         navContentBottom = navRowY;
         navScroll = Math.clamp(navScroll, 0, maxNavScroll());
         positionNavigation();
@@ -224,6 +270,7 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
     private void navItem(String name, Page target) {
         navAction(name, () -> open(target), () -> target == page
+            || target == Page.EXPERIMENTAL && page.experimentalOption()
             || target == Page.ACCESSORIES && page == Page.BLOCKED_ACCESSORIES
             || target == Page.SKINS && page == Page.BLOCKED_SKINS
             || target == Page.LOCATION_SHARING && page == Page.POSITION_RECIPIENTS
@@ -243,6 +290,71 @@ public final class CosmeticsScreen extends ThemedScreen {
             widget.visible = widget.getBottom() > navTop && widget.getY() < navBottom;
         }
     }
+    private void experimental() {
+        if (!accessAllowed) {
+            paragraph(switch (accessStatus) {
+                case CHECKING -> "Checking access…";
+                case UNAVAILABLE -> "Could not check access. Check your connection and online mode.";
+                default -> "Access is granted by a server administrator.";
+            }, MUTED);
+            fullButton("Check Access", () -> ExperimentalAccess.refresh(minecraft), true).active = accessStatus != ExperimentalAccess.Status.CHECKING;
+            return;
+        }
+        fullButton("Custom Sky", () -> open(Page.SKYBOX), false);
+        fullButton("HUD Layout", () -> open(Page.HUD_LAYOUT), false);
+        fullButton("Fast IP Ping", () -> open(Page.FAST_PING), false);
+        fullButton("Freecam", () -> open(Page.FREECAM), false);
+        fullButton("Window Mode", () -> open(Page.WINDOW), false);
+        fullButton("Hit Color", () -> open(Page.HIT_COLOR), false);
+        fullButton("Catharsis Pack Support", () -> open(Page.CATHARSIS), false);
+        fullButton("Inventory Blur", () -> open(Page.INVENTORY_BLUR), false);
+        fullButton("Fonts", () -> open(Page.FONTS), false);
+    }
+
+    private void inventoryBlur() {
+        if (!UiBlurPolicy.inventoryAvailable()) {
+            paragraph("The installed Inventory Blur mod handles this feature.", MUTED);
+            return;
+        }
+        toggleRow("Inventory Blur", "Uses Minecraft’s menu blur strength.",
+            () -> ConfigManager.inventoryBlurEnabled, value -> ConfigManager.inventoryBlurEnabled = value);
+    }
+
+    private void catharsis() {
+        if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("catharsis")) {
+            paragraph("The installed Catharsis mod handles resource packs.", MUTED);
+            return;
+        }
+        toggleRow("Catharsis Pack Support", "Item selectors, tooltip textures and visual environment overrides.",
+            () -> ConfigManager.catharsisItemModels, value -> ConfigManager.catharsisItemModels = value);
+    }
+
+    private void hudLayout(){
+        toggleRow("HUD Layout","",()->ConfigManager.hudLayoutEnabled,v->ConfigManager.hudLayoutEnabled=v);
+        var elements=List.of(HudLayout.Element.values());
+        for(var element:elements)indexOption(element.label,"",rowY);
+        dropdown("HUD Element",elements.stream().map(Enum::name).toList(),elements.stream().map(e->e.label).toList(),
+            ()->hudElement.name(),selected->hudElement=HudLayout.Element.valueOf(selected));
+        var element=hudElement;
+        toggleRow("Visible","",()->HudLayout.options(element).visible(),v->{var o=HudLayout.options(element);HudLayout.set(element,new HudLayout.Options(v,o.scale(),o.opacity(),o.x(),o.y()));});
+        sliderGrid(List.of(
+            new NumericSetting("X Offset",()->HudLayout.options(element).x(),-width,width,1,0,v->{var o=HudLayout.options(element);HudLayout.set(element,new HudLayout.Options(o.visible(),o.scale(),o.opacity(),(float)v,o.y()));}),
+            new NumericSetting("Y Offset",()->HudLayout.options(element).y(),-height,height,1,0,v->{var o=HudLayout.options(element);HudLayout.set(element,new HudLayout.Options(o.visible(),o.scale(),o.opacity(),o.x(),(float)v));}),
+            new NumericSetting("Scale",()->HudLayout.options(element).scale(),.25,3,.05,1,v->{var o=HudLayout.options(element);HudLayout.set(element,new HudLayout.Options(o.visible(),(float)v,o.opacity(),o.x(),o.y()));}),
+            new NumericSetting("Opacity",()->HudLayout.options(element).opacity(),0,1,.05,1,v->{var o=HudLayout.options(element);HudLayout.set(element,new HudLayout.Options(o.visible(),o.scale(),(float)v,o.x(),o.y()));})
+        ));
+        fullButton("Reset HUD Element",()->{HudLayout.set(element,HudLayout.Options.DEFAULT);changed();rebuildWidgets();},false);
+    }
+
+    private void customSky(){
+        toggleRow("Custom Sky","OptiFine and MCPatcher skies.",()->ConfigManager.customSkyEnabled,v->ConfigManager.customSkyEnabled=v);
+        toggleRow("Vanilla Sky Disc","",()->ConfigManager.customSkyDisc,v->ConfigManager.customSkyDisc=v);
+        toggleRow("Vanilla Sun and Moon","",()->ConfigManager.customSkySunMoon,v->ConfigManager.customSkySunMoon=v);
+        toggleRow("Vanilla Stars","",()->ConfigManager.customSkyStars,v->ConfigManager.customSkyStars=v);
+        toggleRow("Overworld Sky in Other Dimensions","",()->ConfigManager.customSkyFallback,v->ConfigManager.customSkyFallback=v);
+        toggleRow("Sky Debug Logging","",()->ConfigManager.customSkyDebug,v->ConfigManager.customSkyDebug=v);
+    }
+
     private void overview() {
         section("Appearance", "");
         fullButton("NickTweaks",()->open(Page.NICK),false);
@@ -253,6 +365,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         section("Preferences", "");
         fullButton("Interface",()->open(Page.THEME),false);
         fullButton("Module Manager",()->open(Page.MODULES),false);
+        fullButton("Experimental Features",()->open(Page.EXPERIMENTAL),false);
         section("Command tools", "");
         paragraph("/ccos waypoint    /ccos shortcuts",MUTED);
     }
@@ -302,7 +415,8 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
     private void indexOption(String title,String description,int y){searchOptions.add(new SettingsSearch.Entry(pageTitle(),title,description,page.name(),Math.max(0,y-viewTop)));}
     private void searchResults(){
-        var results=SettingsCatalog.find(searchQuery);
+        var results=SettingsCatalog.find(searchQuery).stream()
+            .filter(entry -> accessAllowed || entry.page().equals("CAPE") || !Page.valueOf(entry.page()).experimentalOption()).toList();
         label(searchQuery.isBlank()?"Type a setting name to search.":results.size()+" results",contentX,rowY+4,MUTED,contentWidth);rowY+=24;
         for(var result:results){
             int y=rowY;
@@ -883,8 +997,10 @@ public final class CosmeticsScreen extends ThemedScreen {
     private void modules(){
         fullButton("Enable All Modules",()->{int before=ConfigManager.disabledModules;com.customcosmetics.config.FeatureModules.all(true);moduleChanged(before);},false);
         fullButton("Disable All Modules",()->{int before=ConfigManager.disabledModules;com.customcosmetics.config.FeatureModules.all(false);moduleChanged(before);},false);
-        for(var feature:com.customcosmetics.config.FeatureModules.Feature.values())
+        for(var feature:com.customcosmetics.config.FeatureModules.Feature.values()) {
+            if (feature == com.customcosmetics.config.FeatureModules.Feature.HUD_LAYOUT || feature == com.customcosmetics.config.FeatureModules.Feature.SKYBOX) continue;
             toggleRow(feature.label,"Master switch; keeps your detailed settings.",()->com.customcosmetics.config.FeatureModules.enabled(feature),value->{int before=ConfigManager.disabledModules;com.customcosmetics.config.FeatureModules.set(feature,value);moduleChanged(before);});
+        }
     }
     private void moduleChanged(int before){
         changed();int difference=before^ConfigManager.disabledModules;
@@ -895,17 +1011,139 @@ public final class CosmeticsScreen extends ThemedScreen {
         if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS))com.customcosmetics.features.skins.LocalSkins.close();
         rebuildWidgets();
     }
+    private void freecam() {
+        if (!com.customcosmetics.features.map.Freecam.available()) {
+            section("Freecam", "The installed Freecam mod handles this feature.");
+            return;
+        }
+        toggleRow("Freecam", "", () -> ConfigManager.freecamEnabled, v -> ConfigManager.freecamEnabled = v);
+        toggleRow("Camera Collision", "", () -> ConfigManager.freecamCollision, v -> ConfigManager.freecamCollision = v);
+        toggleRow("Exit on Damage", "", () -> ConfigManager.freecamExitOnDamage, v -> ConfigManager.freecamExitOnDamage = v);
+        sliderGrid(List.of(
+            new NumericSetting("Horizontal Speed", () -> ConfigManager.freecamSpeed, 1, 40, .5, 12, v -> ConfigManager.freecamSpeed = v, ""),
+            new NumericSetting("Vertical Speed", () -> ConfigManager.freecamVerticalSpeed, 1, 40, .5, 12, v -> ConfigManager.freecamVerticalSpeed = v, "")));
+        fullButton("Freecam Keybind…", () -> ClientUiAccess.setScreen(minecraft,
+            new net.minecraft.client.gui.screens.options.controls.KeyBindsScreen(this, minecraft.options)), false);
+        label("/ccos freecam", contentX + 6, row(20) + 4, DIM, contentWidth - 12);
+    }
+
+    private void windowMode() {
+        var options = List.of(new OptionDropdown.Option("vanilla", "Game Default"),
+            new OptionDropdown.Option("borderless", "Borderless Fullscreen"));
+        var choice = add(new OptionDropdown(contentX, rowY, contentWidth, "Window Mode", options,
+            () -> ConfigManager.fullscreenStyle, v -> { ConfigManager.fullscreenStyle = v; changed(); }));
+        choice.active = !net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("cwb");
+        choiceMenus.add(choice);
+        rowY += 32;
+        label(choice.active ? "Applies the next time you enter fullscreen." : "Cubes Without Borders handles window modes.",
+            contentX + 6, row(20) + 4, DIM, contentWidth - 12);
+    }
+
+    private void hitColor() {
+        toggleRow("Hit Color", "", () -> ConfigManager.hitColorEnabled, v -> ConfigManager.hitColorEnabled = v);
+        fieldRow("Hurt Flash Color", "Color", String.format(java.util.Locale.ROOT, "#%06X", ConfigManager.hitColor), 7, "#RRGGBB", 100, value -> {
+            try {
+                if (value.matches("#?[0-9a-fA-F]{6}")) { ConfigManager.hitColor = Integer.parseInt(value.replace("#", ""), 16); changed(); }
+            } catch (NumberFormatException ignored) { }
+        });
+        sliderRow("Opacity", "", () -> ConfigManager.hitOpacity, 0, 1, .05, .5, v -> ConfigManager.hitOpacity = (float) v);
+        int y = row(28);
+        art.add(g -> PinkUi.rounded(g, contentX + 6, y + 4, 64, 16, 3,
+            0xFF000000 | ConfigManager.hitColor));
+    }
+
+    private void fastPing() {
+        toggleRow("Fast IP Ping", "Skip reverse DNS for numeric server addresses.",
+            () -> ConfigManager.fastIpPingEnabled, v -> ConfigManager.fastIpPingEnabled = v);
+    }
+
+    private List<java.nio.file.Path> systemFonts;
+    private boolean scanningFonts;
+    private float pendingFontSize = ConfigManager.uiFontSize;
+    private float pendingFontSpacing = ConfigManager.uiFontSpacing;
+
+    private void fonts() {
+        var selected = ConfigManager.uiFontPath;
+        var name = selected.isBlank() ? UiText.tr("Game Font") : java.nio.file.Path.of(selected).getFileName().toString();
+        label(name, contentX + 6, row(20) + 4, TEXT, contentWidth - 12);
+        fullButton("Use Game Font", () -> {
+            UiFonts.clear();
+            ConfigManager.uiFontPath = "";
+            changed();
+            rebuildWidgets();
+        }, selected.isBlank());
+        fullButton("Choose Font File", () -> {
+            var client = minecraft;
+            boolean sdl = net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("minecraft")
+                .orElseThrow().getMetadata().getVersion().getFriendlyString().startsWith("26.3");
+            com.customcosmetics.compatibility.NativeFileDialogs.open(
+                new com.customcosmetics.compatibility.NativeFileDialogs.Request(false,
+                    CapeFileScreen.defaultDirectory(), sdl, client.getWindow().handle(), "font"),
+                client::execute, result -> {
+                    if (ClientUiAccess.screen(client) != this) return;
+                    if (result.path() != null) applyFont(result.path());
+                    else if (result.unavailable()) toast("System file picker is unavailable");
+                });
+        }, false);
+        if (systemFonts == null) {
+            fullButton(scanningFonts ? "Finding System Fonts…" : "Find System Fonts", this::findSystemFonts, false).active = !scanningFonts;
+        } else if (!systemFonts.isEmpty()) {
+            var choices = new ArrayList<OptionDropdown.Option>();
+            choices.add(new OptionDropdown.Option("", UiText.tr("Choose")));
+            for (var path : systemFonts) choices.add(new OptionDropdown.Option(path.toString(), path.getFileName().toString()));
+            choiceMenus.add(add(new OptionDropdown(contentX, rowY, contentWidth, "System Font", choices,
+                () -> ConfigManager.uiFontPath, value -> { if (!value.isEmpty()) applyFont(java.nio.file.Path.of(value)); }).rawOptions()));
+            rowY += 30;
+        } else {
+            label("No system fonts found", contentX + 6, row(20) + 4, DIM, contentWidth - 12);
+        }
+        sliderGrid(List.of(
+            new NumericSetting("Font Size", () -> pendingFontSize, 7, 12, .25, 9, v -> pendingFontSize = (float) v, ""),
+            new NumericSetting("Letter Spacing", () -> pendingFontSpacing, -1, 2, .1, 0, v -> pendingFontSpacing = (float) v, "")));
+        fullButton("Apply Font Settings", () -> {
+            if (!ConfigManager.uiFontPath.isBlank()) applyFont(java.nio.file.Path.of(ConfigManager.uiFontPath));
+        }, false).active = !selected.isBlank();
+        label("Aa Bb Cc · 0123456789 · 中文预览", contentX + 6, row(23) + 6, TEXT, contentWidth - 12);
+    }
+
+    private void findSystemFonts() {
+        if (scanningFonts) return;
+        scanningFonts = true;
+        rebuildWidgets();
+        var client = minecraft;
+        java.util.concurrent.CompletableFuture.supplyAsync(UiFonts::systemFonts)
+            .whenComplete((paths, error) -> client.execute(() -> {
+                scanningFonts = false;
+                systemFonts = error == null ? paths : List.of();
+                if (ClientUiAccess.screen(client) == this && page == Page.FONTS) rebuildWidgets();
+            }));
+    }
+
+    private void applyFont(java.nio.file.Path path) {
+        var client = minecraft;
+        float size = pendingFontSize, spacing = pendingFontSpacing;
+        UiFonts.load(client, path, size, spacing, applied -> {
+            if (applied) {
+                ConfigManager.uiFontPath = path.toString();
+                ConfigManager.uiFontSize = size;
+                ConfigManager.uiFontSpacing = spacing;
+                ConfigManager.saveConfig();
+            }
+            if (ClientUiAccess.screen(client) == this) {
+                if (applied) rebuildWidgets();
+                else toast("Could not load this font");
+            }
+        });
+    }
+
     private void sync() {
         fullButton("Language: "+UiText.name(ConfigManager.uiLanguage),()->{UiLocale.cycle();rebuildWidgets();},false,"Language preference applies only to this mod.");
-        indexOption("Font","Vanilla Modern",rowY);
-        boolean bundledFont=com.customcosmetics.update.ClientFlavor.BUNDLED_FONT;
-        var fontOptions=bundledFont?java.util.List.of(new OptionDropdown.Option("vanilla","Vanilla"),new OptionDropdown.Option("modern","Modern")):java.util.List.of(new OptionDropdown.Option("vanilla","Vanilla"));
-        var fontChoice=add(new OptionDropdown(contentX,rowY,contentWidth,"Font",fontOptions,()->bundledFont?ConfigManager.uiFont:"vanilla",value->{ConfigManager.uiFont=value;changed();rebuildWidgets();}).rawOptions());
-        choiceMenus.add(fontChoice);rowY+=30;
+        fullButton("Fonts", () -> open(Page.FONTS), false);
         fullButton("Interface",()->open(Page.THEME),false,"Theme colors and animations");
         section("General", "Preferences and feature availability.");
         fullButton("Module Manager",()->open(Page.MODULES),false,"Enable or disable whole features without losing their settings.");
         toggleRow("Check for Updates","Check GitHub for new releases and show a chat notification. Enabled by default.",()->ConfigManager.updateCheckEnabled,v->ConfigManager.updateCheckEnabled=v);
+        if (accessAllowed) fastPing();
         toggleRow("Command Tooltips","Show the actual command when hovering clickable text. Preserves existing text, item and entity tooltips.",()->ConfigManager.commandTooltipsEnabled,v->ConfigManager.commandTooltipsEnabled=v);
         toggleRow("Snaplook","Hold your assigned key to switch perspective; release to restore your previous view.",()->ConfigManager.snaplookEnabled,v->{ConfigManager.snaplookEnabled=v;if(!v)com.customcosmetics.features.camera.Snaplook.stop(minecraft);});
         fullButton("Snaplook View: "+switch(com.customcosmetics.features.camera.Snaplook.normalize(ConfigManager.snaplookPerspective)){case "first"->"First Person";case "back"->"Third Person Back";default->"Third Person Front (Rear View)";},()->{
@@ -1168,7 +1406,12 @@ public final class CosmeticsScreen extends ThemedScreen {
         }
     }
 
-    @Override public void tick() { updateSyncNowButton(); if (page == Page.SYNC) updateConnectionStatus(); }
+    @Override public void tick() {
+        if ((page == Page.EXPERIMENTAL || page.experimentalOption() || page == Page.SYNC)
+                && (accessStatus != ExperimentalAccess.status() || accessAllowed != ExperimentalAccess.allowed())) rebuildWidgets();
+        updateSyncNowButton();
+        if (page == Page.SYNC) updateConnectionStatus();
+    }
 
     @Override public boolean mouseScrolled(double mx, double my, double horizontal, double vertical) {
         mx=UiEntrance.pointer(mx,panelX+panelWidth/2d,entranceScale);

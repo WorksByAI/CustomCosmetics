@@ -16,8 +16,10 @@ class LicensePackagingTest {
         String[] languages=readme.split("## English",2);
         assertEquals(2,languages.length);
         String version=System.getProperty("customcosmetics.version");
-        assertTrue(languages[0].contains(version) && languages[0].contains("Fabric"));
-        assertTrue(languages[1].contains(version) && languages[1].contains("Fabric"));
+        if (!version.contains("-")) for (var section : languages) assertTrue(section.contains(version));
+        assertTrue(languages[0].contains("此为私人模组，不保证质量与稳定性"));
+        assertTrue(languages[0].contains("This is a private mod. Quality and stability are not guaranteed."));
+        assertTrue(languages[0].contains("Fabric") && languages[1].contains("Fabric"));
         for(String section:languages){
             for(String feature:new String[]{"Player Size","Creature Model","NickTweaks","Animation","Cape","Equipments","Sharing","Skins","Item Customization","Damage Splash","Map Editor","Offline Mode"})
                 assertTrue(section.contains(feature+"**"),feature);
@@ -94,13 +96,9 @@ class LicensePackagingTest {
             assertEquals("tory@toryhi.com",metadata.getAsJsonObject("contact").get("email").getAsString());
         }
     }
-    @Test void chineseUiBundlesOnlyTheLicensedWenKaiFont()throws Exception{
-        try(var zip=new ZipFile(System.getProperty("customcosmetics.binaryJar"))){
-            assertEquals(java.util.List.of("assets/customcosmetics/font/lxgwwenkai-medium.ttf"),zip.stream().map(java.util.zip.ZipEntry::getName).filter(n->n.matches("(?i).*\\.(ttf|ttc|otf)$")).toList());
-            assertNotNull(zip.getEntry("LICENSES/LXGW-WenKai-OFL.txt"));
-            var entry=zip.getEntry("assets/customcosmetics/font/gui_chinese.json");assertNotNull(entry);
-            String definition=new String(zip.getInputStream(entry).readAllBytes(),StandardCharsets.UTF_8);
-            assertTrue(definition.contains("minecraft:uniform"));assertTrue(definition.contains("customcosmetics:lxgwwenkai-medium.ttf"));
+    @Test void clientDoesNotBundleFontFiles() throws Exception {
+        try (var zip = new ZipFile(System.getProperty("customcosmetics.binaryJar"))) {
+            assertFalse(zip.stream().anyMatch(entry -> entry.getName().matches("(?i).*\\.(ttf|ttc|otf)$")));
         }
     }
     private static final Path ROOT = Path.of(System.getProperty("customcosmetics.projectDir"));
@@ -245,7 +243,6 @@ class LicensePackagingTest {
         assertFalse(readme.contains("26.1.x / 26.2 / 26.3"));
         assertFalse(readme.contains("/docs/") || readme.contains("SOURCE-DELIVERY.md"));
         String changes = Files.readString(ROOT.resolve("CHANGELOG.md"));
-        assertTrue(changes.contains("## " + System.getProperty("customcosmetics.version")));
         assertTrue(changes.contains("New Feature: Party ESP and IRC For Party Members."));
         assertTrue(changes.contains("Sync: Improve latency in mainland China."));
         assertFalse(changes.substring(changes.indexOf("## 1.3.0"),changes.indexOf("## 1.2.1")).contains("P2P"));
@@ -285,7 +282,8 @@ class LicensePackagingTest {
 
     @Test void latestChangelogIsBriefAndEnglish() throws Exception {
         String changes=Files.readString(ROOT.resolve("CHANGELOG.md")).replace("\r\n","\n");
-        int start=changes.indexOf("## "+System.getProperty("customcosmetics.version"));
+        String version=System.getProperty("customcosmetics.version");
+        int start=changes.indexOf("## "+(version.contains("-dev.")?"Unreleased":version));
         assertTrue(start>=0);int end=changes.indexOf("\n## ",start+3);
         String entry=changes.substring(start,end<0?changes.length():end);
         assertTrue(entry.chars().allMatch(c->c<128), "Use English release notes");

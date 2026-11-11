@@ -27,6 +27,9 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
     public void onInitializeClient() {
         CosmeticsConfigDir.init();
         ConfigManager.loadConfig();
+        com.customcosmetics.gui.UiFonts.init();
+        com.customcosmetics.features.sky.Skyboxify.init();
+        com.customcosmetics.features.pack.CatharsisPackSupport.init();
         com.customcosmetics.gui.UiLocale.refresh();
         ModErrors.run(ModErrors.Key.CAPE, com.customcosmetics.features.cape.CapeCosmetics::init);
         ModErrors.run(ModErrors.Key.STARTUP, com.customcosmetics.features.nickname.NicknamePresets::init);
@@ -47,6 +50,7 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
             new TickStep(ModErrors.Key.CREATURE,com.customcosmetics.features.creature.CreatureModels::tick),
             new TickStep(ModErrors.Key.WORLD,c->{if(com.customcosmetics.sync.RemoteAccess.online())com.customcosmetics.features.animations.PresenceWorld.init();}),
             new TickStep(ModErrors.Key.CONFIG,c->ConfigManager.flushPendingSave()),
+            new TickStep(ModErrors.Key.SYNC,com.customcosmetics.sync.ExperimentalAccess::tick),
             new TickStep(ModErrors.Key.SIZE,com.customcosmetics.features.smolpeople.SmolPlayers::tick),
             new TickStep(ModErrors.Key.MAP,com.customcosmetics.features.map.MapEditor::tick),
             new TickStep(ModErrors.Key.FREECAM,com.customcosmetics.features.map.Freecam::tick),

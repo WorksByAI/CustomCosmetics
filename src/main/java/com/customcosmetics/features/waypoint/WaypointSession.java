@@ -8,11 +8,13 @@ final class WaypointSession {
     private Object connection;
     private boolean hypixel, skyblock;
     private String island = "";
+    private String islandMode;
 
     void reset(Object nextConnection) {
         connection = nextConnection;
         hypixel = skyblock = false;
         island = "";
+        islandMode = null;
     }
 
     boolean follow(Object currentConnection) {
@@ -32,12 +34,14 @@ final class WaypointSession {
         follow(source);
         hypixel = true;
         skyblock = "SKYBLOCK".equals(serverType);
+        islandMode = skyblock ? mode : null;
         island = skyblock ? SkyblockIslands.normalize(mode) : "";
     }
 
     boolean locraw(Object source, String gameType, String mode) {
         if (!isHypixel(source)) return false;
         skyblock = "SKYBLOCK".equals(gameType);
+        islandMode = skyblock ? mode : null;
         island = skyblock ? SkyblockIslands.normalize(mode) : "";
         return true;
     }
@@ -49,6 +53,8 @@ final class WaypointSession {
     boolean hasSkyblockLocation(Object source) {
         return isHypixel(source) && skyblock;
     }
+
+    String islandMode(Object source) { return hasSkyblockLocation(source) ? islandMode : null; }
 
     String scope(Object source, BooleanSupplier skyblockSidebar) {
         if (!isHypixel(source)) return "";

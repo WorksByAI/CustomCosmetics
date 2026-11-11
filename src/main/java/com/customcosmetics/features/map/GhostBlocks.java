@@ -87,12 +87,12 @@ public final class GhostBlocks {
         for(var edit:candidates){if(examinedCandidates>0&&System.nanoTime()>=deadline)break;examinedCandidates++;
             var p=MapEditor.blockPos(edit.position());if(p.distToCenterSqr(camera.pos)>96*96||!client.level.hasChunkAt(p))continue;
             var real=client.level.getBlockState(p);boolean ghost=edit.ghost(real.isAir()),container=real.hasBlockEntity()&&!hasGeometry(client.getModelManager().getBlockStateModelSet().get(real));if(!ghost&&!container)continue;
-            var state=MapEditor.state(edit.material());if(state==null||state.isAir())continue;
+            var bars=MapEditor.ironBars(client.level,p);var state=bars!=null?bars:MapEditor.state(edit.material());if(state==null||state.isAir())continue;
             var model=client.getModelManager().getBlockStateModelSet().get(state);
             parts.clear();random.setSeed(0);model.collectParts(random,parts);
             int light=(client.level.getBrightness(LightLayer.BLOCK,p)<<4)|(client.level.getBrightness(LightLayer.SKY,p)<<20);
             pose.setIdentity();pose.translate(p.getX()-camera.pos.x,p.getY()-camera.pos.y,p.getZ()-camera.pos.z);
-            if(container){
+            if(container&&bars==null){
                 var models=client.getModelManager().getBlockStateModelSet();var cube=models.get(Blocks.STONE.defaultBlockState());parts.clear();random.setSeed(0);MaterialModel.cached(models,cube,model,false).collectParts(random,parts);
                 for(var box:real.getShape(client.level,p).toAabbs())submit(parts,context,pose,box,0xffffffff,light,null,false);submittedPaintedEntities++;continue;
             }

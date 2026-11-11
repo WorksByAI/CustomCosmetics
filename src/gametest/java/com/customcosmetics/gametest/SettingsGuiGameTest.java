@@ -14,19 +14,35 @@ import java.util.concurrent.atomic.AtomicReference;
 final class SettingsGuiGameTest {
     static void checkFontChoiceAndTooltip(ClientGameTestContext context)throws Exception{
         context.getInput().resizeWindow(1600,1000);context.waitTicks(3);
-        context.runOnClient(client->{ConfigManager.uiLanguage="en_us";ConfigManager.uiFont="vanilla";ConfigManager.uiAnimationsEnabled=true;ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SYNC));});context.waitTicks(5);
-        click(context,"Font:",PinkUi.Action.class);context.waitTicks(2);context.getInput().pressKey(ClientInput.DOWN);context.getInput().pressKey(ClientInput.ENTER);context.waitTicks(3);
-        context.runOnClient(client->{
-            if(!ConfigManager.uiFont.equals("modern"))throw new AssertionError("Font dropdown failed to select Modern");
-            var sample=net.minecraft.network.chat.Component.literal("Settings 中文").withStyle(style->style.withFont(UiFonts.CHINESE));
-            if(UiFonts.get(client.font).width("Settings 中文")!=client.font.width(sample))throw new AssertionError("Modern font was not used for English UI");
-        });context.takeScreenshot("font-modern-english");
-        context.runOnClient(client->{ConfigManager.uiLanguage="zh_cn";ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SYNC));});context.waitTicks(4);context.takeScreenshot("font-modern-chinese");
-        click(context,"Font:",PinkUi.Action.class);context.waitTicks(2);context.getInput().pressKey(ClientInput.UP);context.getInput().pressKey(ClientInput.ENTER);context.waitTicks(3);
-        context.runOnClient(client->{
-            if(!ConfigManager.uiFont.equals("vanilla")||UiFonts.get(client.font).width("Settings 中文")!=client.font.width("Settings 中文"))throw new AssertionError("Vanilla did not restore the active game font");
-            ConfigManager.saveConfig();
-        });context.takeScreenshot("font-vanilla-chinese");
+        var access = com.customcosmetics.sync.ExperimentalAccess.class.getDeclaredField("status");
+        access.setAccessible(true);
+        var previous = access.get(null);
+        boolean offline = ConfigManager.offlineMode, checkAccess = ConfigManager.checkExperimentalAccess;
+        try {
+        var result = new java.util.concurrent.CompletableFuture<Boolean>();
+        context.runOnClient(client -> {
+            ConfigManager.checkExperimentalAccess = false;
+            ConfigManager.offlineMode = false;
+            try { access.set(null, com.customcosmetics.sync.ExperimentalAccess.Status.GRANTED); }
+            catch (IllegalAccessException error) { throw new AssertionError(error); }
+            ConfigManager.uiLanguage = "en_us";
+            ConfigManager.uiAnimationsEnabled = true;
+            ClientUiAccess.setScreen(client, new CosmeticsScreen(null, CosmeticsScreen.Page.FONTS));
+            UiFonts.load(client, testFont(), 11, 1, result::complete);
+        });
+        for (int i = 0; i < 100 && !result.isDone(); i++) context.waitTicks(1);
+        context.runOnClient(client -> {
+            if (!result.getNow(false) || UiFonts.get(client.font) == client.font
+                || UiFonts.get(client.font).width("CustomCosmetics") <= client.font.width("CustomCosmetics"))
+                throw new AssertionError("Local font or metrics did not apply");
+            ClientUiAccess.setScreen(client, new CosmeticsScreen(null, CosmeticsScreen.Page.FONTS));
+        });
+        context.waitTicks(4);
+        context.takeScreenshot("font-local");
+        click(context, "Use Game Font", PinkUi.Action.class);
+        context.runOnClient(client -> {
+            if (UiFonts.get(client.font) != client.font) throw new AssertionError("Game font not restored");
+        });
         context.runOnClient(client->{ConfigManager.uiLanguage="en_us";ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SYNC));});context.waitTicks(5);
         var pointer=context.computeOnClient(client->{var w=widget(client,"Snaplook Keybind",PinkUi.Action.class);double scale=client.getWindow().getGuiScale();return new double[]{(w.getX()+20)*scale,(w.getY()+w.getHeight()/2d)*scale};});
         context.getInput().setCursorPos(pointer[0],pointer[1]);context.waitTicks(8);context.takeScreenshot("tooltip-motion-start");
@@ -36,6 +52,26 @@ final class SettingsGuiGameTest {
             if(motion.x(pixels)<=0||Math.rint(motion.x(pixels)*pixels)!=motion.x(pixels)*pixels)throw new AssertionError("Tooltip is not aligned to physical pixels");
         });context.takeScreenshot("tooltip-motion-following");context.runOnClient(client->ClientUiAccess.setScreen(client,null));
         System.out.println("FONT_DROPDOWN_BOTH_LANGUAGES_AND_TOOLTIP_PHYSICAL_PIXELS_OK");
+        } finally {
+            context.runOnClient(client -> {
+                UiFonts.clear();
+                ConfigManager.offlineMode = offline;
+                ConfigManager.checkExperimentalAccess = checkAccess;
+                try { access.set(null, previous); }
+                catch (IllegalAccessException error) { throw new AssertionError(error); }
+            });
+        }
+    }
+    private static Path testFont() {
+        var windows = System.getenv("WINDIR");
+        if (windows != null) {
+            var arial = Path.of(windows, "Fonts", "arial.ttf");
+            if (Files.isRegularFile(arial)) return arial;
+        }
+        var dejavu = Path.of("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
+        if (Files.isRegularFile(dejavu)) return dejavu;
+        return UiFonts.systemFonts().stream().filter(path -> path.toString().toLowerCase(java.util.Locale.ROOT).endsWith(".ttf"))
+            .findFirst().orElseThrow(() -> new AssertionError("Install a system TrueType font for this fixture"));
     }
     static void checkAccessoryEquipment(ClientGameTestContext context)throws Exception{
         var saved=new java.util.EnumMap<net.minecraft.world.entity.EquipmentSlot,net.minecraft.world.item.ItemStack>(net.minecraft.world.entity.EquipmentSlot.class);
@@ -228,7 +264,7 @@ final class SettingsGuiGameTest {
     public static void checkLocalizationAndEntrance(ClientGameTestContext context)throws Exception{
         context.getInput().resizeWindow(1600,1000);context.waitTicks(3);
         String gameLanguage=context.computeOnClient(client->client.options.languageCode);
-        context.runOnClient(client->{ConfigManager.uiLanguage="auto";ConfigManager.uiFont="modern";ConfigManager.uiAnimationsEnabled=true;ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SYNC));});
+        context.runOnClient(client->{ConfigManager.uiLanguage="auto";ConfigManager.uiAnimationsEnabled=true;ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SYNC));});
         context.waitFor(client->{try{return (Float)read(ClientUiAccess.screen(client),"entranceScale")<.999f;}catch(Exception e){throw new AssertionError(e);}},20);
         context.takeScreenshot("interface-opening-spring");
         // Click at the visible transformed position, while the entrance is still moving.
@@ -260,9 +296,7 @@ final class SettingsGuiGameTest {
             var own=UiFonts.get(client.font);
             String sample="霞鹜文楷中文护符设置";
             int actual=own.width(sample);
-            var styled=net.minecraft.network.chat.Component.literal(sample).withStyle(style->style.withFont(UiFonts.CHINESE));
-            if(actual<=0||actual!=client.font.width(styled))throw new AssertionError("GUI font provider differs from mod-owned styled text");
-            System.out.println("CHINESE_FONT_NATIVE_OK bundledWenKai width="+actual);
+            if(actual<=0||actual!=client.font.width(sample))throw new AssertionError("Game font fallback was not used");
         });context.takeScreenshot("interface-chinese-rank-font");
         context.runOnClient(client->ClientUiAccess.setScreen(client,new WardrobeScreen(null,"back")));context.waitTicks(4);
         context.runOnClient(client->{if(ClientUiAccess.screen(client).children().stream().filter(PinkUi.Action.class::isInstance).map(PinkUi.Action.class::cast).noneMatch(w->w.getMessage().getString().equals("背部")))throw new AssertionError("Body slot was translated as navigation Back");});
@@ -277,7 +311,7 @@ final class SettingsGuiGameTest {
         System.out.println("CHINESE_ENGLISH_LANGUAGE_OVERRIDE_SEARCH_USER_TEXT_PERSISTENCE_AND_OPENING_INPUT_OK");
     }
 
-    /** A real pack changes W into a wide space; preview pixels must follow it, while UI stays WenKai. */
+    /** A real pack changes W into a wide space; preview pixels follow it even with a local UI font. */
     public static void checkPreviewGameFont(ClientGameTestContext context)throws Exception{
         String language=ConfigManager.uiLanguage,nick=ConfigManager.nickTweaksNickChanger;
         boolean enabled=ConfigManager.nickTweaksEnabled,bold=ConfigManager.nickTweaksBoldSelf,
@@ -290,6 +324,20 @@ final class SettingsGuiGameTest {
         Files.createDirectories(pack.resolve("assets/minecraft/font"));
         Files.writeString(pack.resolve("pack.mcmeta"),"{\"pack\":{\"description\":\"Preview font regression fixture\",\"min_format\":["+format.major()+","+format.minor()+"],\"max_format\":["+format.major()+","+format.minor()+"]}}");
         Files.writeString(pack.resolve("assets/minecraft/font/default.json"),"{\"providers\":[{\"type\":\"space\",\"advances\":{\"W\":19}},{\"type\":\"reference\",\"id\":\"minecraft:uniform\"}]}");
+        var access = com.customcosmetics.sync.ExperimentalAccess.class.getDeclaredField("status");
+        access.setAccessible(true);
+        var previous = access.get(null);
+        boolean offline = ConfigManager.offlineMode, checkAccess = ConfigManager.checkExperimentalAccess;
+        var loaded = new java.util.concurrent.CompletableFuture<Boolean>();
+        try {
+            context.runOnClient(client -> {
+                ConfigManager.checkExperimentalAccess = false;
+                ConfigManager.offlineMode = false;
+                access.set(null, com.customcosmetics.sync.ExperimentalAccess.Status.GRANTED);
+                UiFonts.load(client, testFont(), 11, 1, loaded::complete);
+            });
+            context.waitFor(client -> loaded.isDone(), 100);
+            if (!loaded.join()) throw new AssertionError("Local interface font did not load");
         try{
             context.runOnClient(client->{
                 ConfigManager.uiLanguage="zh_cn";ConfigManager.nickTweaksEnabled=true;ConfigManager.nickTweaksNickChanger="WWW";
@@ -323,6 +371,14 @@ final class SettingsGuiGameTest {
                 ConfigManager.uiLanguage=language;ConfigManager.nickTweaksNickChanger=nick;ConfigManager.nickTweaksEnabled=enabled;ConfigManager.nickTweaksBoldSelf=bold;
                 ConfigManager.nickTweaksCustomNickColorEnabled=custom;ConfigManager.nickTweaksChromaEnabled=chroma;ConfigManager.uiAnimationsEnabled=motion;
                 com.customcosmetics.utils.NickRenderUtils.invalidateLocalTargetsCache();ClientUiAccess.setScreen(client,null);UiLocale.refresh();
+            });
+        }
+        } finally {
+            context.runOnClient(client -> {
+                UiFonts.clear();
+                ConfigManager.offlineMode = offline;
+                ConfigManager.checkExperimentalAccess = checkAccess;
+                access.set(null, previous);
             });
         }
     }

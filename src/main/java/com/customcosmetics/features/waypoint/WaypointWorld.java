@@ -84,4 +84,5 @@ final class WaypointWorld {
         if (client.level == null || client.player == null) return "";
         return SESSION.scope(client.getConnection(), () -> hasSkyblockSidebar(client));
     }
+    static String islandMode(Minecraft client) { return SESSION.islandMode(client.getConnection()); }
 }

@@ -155,6 +155,31 @@ public final class MapEditor {
     private static <T extends Comparable<T>> BlockState withProperty(BlockState state,net.minecraft.world.level.block.state.properties.Property<T> property,String value){return property.getValue(value).map(v->state.setValue(property,v)).orElse(null);}
     public static String rotateMaterial(String id,int turns){var state=state(id);if(state==null)return id;var rotated=state.rotate(Rotation.values()[Math.floorMod(turns,4)]);String name=BuiltInRegistries.BLOCK.getKey(rotated.getBlock()).toString();if(rotated.getProperties().isEmpty())return name;var props=new TreeMap<String,String>();rotated.getProperties().forEach(p->props.put(p.getName(),propertyName(p,rotated.getValue(p))));return name+"["+String.join(",",props.entrySet().stream().map(e->e.getKey()+"="+e.getValue()).toList())+"]";}
     @SuppressWarnings({"rawtypes","unchecked"}) private static String propertyName(net.minecraft.world.level.block.state.properties.Property property,Comparable value){return property.getName(value);}
+    private static final Direction[] BAR_DIRECTIONS={Direction.NORTH,Direction.EAST,Direction.SOUTH,Direction.WEST};
+    /** Iron bars use their actual multipart geometry. Resolve bare IDs against visual neighbors only. */
+    public static BlockState ironBars(net.minecraft.world.level.BlockGetter world,BlockPos pos) {
+        var edits=visible;
+        if(edits.isEmpty())return null;
+        var edit=edits.get(position(pos));
+        if(edit==null)return null;
+        var id=edit.material();
+        if(!id.equals("minecraft:iron_bars")&&!id.startsWith("minecraft:iron_bars["))return null;
+        var bars=state(id);
+        if(bars==null||id.indexOf('[')>=0)return bars;
+        for(var side:BAR_DIRECTIONS){
+            var neighbor=pos.relative(side);
+            var neighborEdit=edits.get(position(neighbor));
+            var other=neighborEdit==null?null:state(neighborEdit.material());
+            if(other==null)other=world.getBlockState(neighbor);
+            if(other.is(Blocks.IRON_BARS)||other.getBlock() instanceof net.minecraft.world.level.block.IronBarsBlock
+                ||other.isFaceSturdy(world,neighbor,side.getOpposite()))
+                bars=bars.setValue(net.minecraft.world.level.block.CrossCollisionBlock.PROPERTY_BY_DIRECTION.get(side),true);
+        }
+        return bars;
+    }
+    public static BlockStateModel model(BlockState state){
+        return Minecraft.getInstance().getModelManager().getBlockStateModelSet().get(state);
+    }
     public static BlockStateModel wrap(BlockStateModel model,BlockPos p){
         if(visible.isEmpty())return model;
         if(model instanceof MaterialModel)return model;

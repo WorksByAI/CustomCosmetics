@@ -60,7 +60,7 @@ public final class StudioGameTest implements FabricClientGameTest {
         }catch(Exception error){throw new AssertionError(error);}
     }
     private static void checkShortChineseTooltip(ClientGameTestContext context){
-        context.runOnClient(client->{ConfigManager.uiLanguage="zh_cn";ConfigManager.uiFont="modern";ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SKINS));});context.waitTicks(4);
+        context.runOnClient(client->{ConfigManager.uiLanguage="zh_cn";ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SKINS));});context.waitTicks(4);
         var pointer=context.computeOnClient(client->{
             var widget=ClientUiAccess.screen(client).children().stream().filter(child->child instanceof PinkUi.Toggle toggle&&toggle.getMessage().getString().startsWith("Share Skin via P2P")).map(child->(AbstractWidget)child).findFirst().orElseThrow();
             var lines=net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent("Skin sharing only supports P2P. Turning this option off stops sharing.")).toCharSequence(client);if(lines.size()!=1)throw new AssertionError("Short Chinese P2P tooltip still splits into "+lines.size()+" lines");
@@ -70,7 +70,7 @@ public final class StudioGameTest implements FabricClientGameTest {
         System.out.println("SHORT_CHINESE_TOOLTIP_NATIVE_ONE_LINE_OK");
     }
     private static void fontPreview(ClientGameTestContext context){
-        context.runOnClient(client->{ConfigManager.offlineMode=true;ConfigManager.syncEnabled=false;ConfigManager.uiLanguage="zh_cn";ConfigManager.uiFont="modern";ConfigManager.uiThemeMode="dark";ConfigManager.uiBackgroundBlur=false;ConfigManager.uiAnimationsEnabled=false;});
+        context.runOnClient(client->{ConfigManager.offlineMode=true;ConfigManager.syncEnabled=false;ConfigManager.uiLanguage="zh_cn";ConfigManager.uiThemeMode="dark";ConfigManager.uiBackgroundBlur=false;ConfigManager.uiAnimationsEnabled=false;});
         try(var world=context.worldBuilder().create()){
             context.getInput().resizeWindow(1600,1000);context.waitTicks(5);
             context.runOnClient(client->{client.options.guiScale().set(2);ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SKINS));});context.getInput().setCursorPos(1595,995);context.waitTicks(5);context.takeScreenshot("font-standard-9-skins");
