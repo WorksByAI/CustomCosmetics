@@ -5,7 +5,6 @@ import com.customcosmetics.features.pack.HypixelPackDisabler;
 import com.customcosmetics.features.pack.LegacyPackItems;
 import com.customcosmetics.features.pack.PackDisablerCommands;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
-import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.tooltip.TooltipRenderUtil;
@@ -16,7 +15,7 @@ import net.minecraft.client.resources.server.PackDownloader;
 import net.minecraft.client.resources.server.ServerPackManager;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.Identifier;
-import net.minecraft.server.packs.PackResources;
+import net.minecraft.server.packs.repository.Pack;
 import net.minecraft.server.packs.repository.PackRepository;
 import net.minecraft.server.packs.resources.FallbackResourceManager;
 import net.minecraft.server.packs.resources.Resource;
@@ -56,16 +55,37 @@ public final class HypixelPackDisablerMixin {
             HypixelPackDisabler.remember(id, url, hash);
         }
 
-        @Inject(method = "cleanupAfterDisconnect", at = @At("HEAD"))
+        @Inject(method = "popPack", at = @At("HEAD"))
+        private void ccos$forget(UUID id, CallbackInfo ci) {
+            HypixelPackDisabler.forget(id);
+        }
+
+        @Inject(method = {"popAll", "cleanupAfterDisconnect"}, at = @At("HEAD"))
         private void ccos$disconnect(CallbackInfo ci) {
             HypixelPackDisabler.disconnect();
+        }
+
+        @Inject(method = "loadRequestedPacks", at = @At("RETURN"))
+        private void ccos$prepareNativePack(CallbackInfoReturnable<List<Pack>> ci) {
+            HypixelPackDisabler.prepareNativePack(ci.getReturnValue());
+        }
+
+        @Inject(method = "onReloadSuccess", at = @At("TAIL"))
+        private void ccos$retainNativePack(CallbackInfo ci) {
+            HypixelPackDisabler.finishNativeReload();
+        }
+
+        @Inject(method = "onRecovery", at = @At("HEAD"))
+        private void ccos$discardFailedPack(CallbackInfo ci) {
+            HypixelPackDisabler.discardFailedPack();
         }
     }
 
     @Mixin(PackRepository.class)
     public static class Repository {
-        @ModifyReturnValue(method = "openAllSelected", at = @At("RETURN"))
-        private List<PackResources> ccos$deprioritizeOfficialTextures(List<PackResources> packs) {
+        @ModifyExpressionValue(method = "openAllSelected", at = @At(value = "FIELD",
+            target = "Lnet/minecraft/server/packs/repository/PackRepository;selected:Ljava/util/List;"))
+        private List<Pack> ccos$deprioritizeOfficialTextures(List<Pack> packs) {
             return HypixelPackDisabler.prioritize(packs);
         }
     }

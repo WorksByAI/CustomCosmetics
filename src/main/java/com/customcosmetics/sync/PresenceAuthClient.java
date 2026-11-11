@@ -11,6 +11,7 @@ import java.security.SecureRandom;
 import java.util.HexFormat;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 /** No Minecraft credentials are sent to the cosmetics service. */
 public final class PresenceAuthClient {
@@ -18,6 +19,8 @@ public final class PresenceAuthClient {
     private static final URI MOJANG_JOIN = URI.create("https://sessionserver.mojang.com/session/minecraft/join");
     private static final Set<String> REQUEST_PATHS = Set.of(
         "/health", "/users.json", "/auth/challenge", "/auth/experimental", "/register", "/report", "/auth/logout", "/actions", "/actions/udp-session", "/capes/status", "/capes/submit");
+    private static final String UUID_PATTERN = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+    private static final Pattern PEER_EXCLUSIONS = Pattern.compile("peerExcluded=" + UUID_PATTERN + "(?:," + UUID_PATTERN + "){0,15}");
 
     @FunctionalInterface public interface SessionJoin { void join(String serverId) throws Exception; }
     @FunctionalInterface public interface ConnectionFactory { HttpURLConnection open(String url) throws Exception; }
@@ -70,14 +73,18 @@ public final class PresenceAuthClient {
 
     public static void validateBaseUrl(String baseUrl) throws IOException {
         URI uri = validateOrigin(baseUrl);
-        if (!(uri.getRawPath() == null || uri.getRawPath().isEmpty()))
+        if (uri.getRawQuery() != null || uri.getRawPath() != null && !uri.getRawPath().isEmpty())
             throw invalidAddress();
     }
 
     /** API request paths are distinct from the configured, path-free service address. */
     public static void validateRequestUrl(String requestUrl) throws IOException {
         URI uri = validateOrigin(requestUrl);
-        if (uri.getRawPath() == null || !REQUEST_PATHS.contains(uri.getRawPath())&&!uri.getRawPath().matches("/cape/[a-f0-9]{64}\\.png"))
+        String path = uri.getRawPath();
+        if (path == null || !REQUEST_PATHS.contains(path) && !path.matches("/cape/[a-f0-9]{64}\\.png"))
+            throw invalidAddress();
+        String query = uri.getRawQuery();
+        if (query != null && (!"/users.json".equals(path) || !PEER_EXCLUSIONS.matcher(query).matches()))
             throw invalidAddress();
     }
 
@@ -96,7 +103,7 @@ public final class PresenceAuthClient {
         String host = SyncEndpoint.normalizeHost(uri.getHost());
         boolean httpEndpoint = host != null && !host.isEmpty() && host.equalsIgnoreCase(uri.getHost())
             && uri.getPort() >= 1 && uri.getPort() <= 65535;
-        if (uri.getHost() == null || uri.getUserInfo() != null || uri.getQuery() != null || uri.getFragment() != null
+        if (uri.getHost() == null || uri.getUserInfo() != null || uri.getRawFragment() != null
                 || !("https".equals(uri.getScheme()) || "http".equals(uri.getScheme()) && httpEndpoint))
             throw invalidAddress();
         return uri;

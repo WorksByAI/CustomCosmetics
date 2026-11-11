@@ -10,7 +10,7 @@ class CapePreviewSelectionTest {
         assertEquals("approved",CapeVisibility.hash(self,self,true,true,true,null,approved));
         assertEquals(CapeVisibility.hash(self,self,true,true,false,null,approved),CapeVisibility.previewHash(self,true,null,approved));
     }
-    @Test void localDraftStillTakesPriorityInPreviewWithoutLeakingOnline(){
+    @Test void localCapeTakesPriorityInPreviewAndOnTheOwnersClient(){
         var approved=Map.of(self,"approved");
         assertEquals("draft",CapeVisibility.previewHash(self,true,"draft",approved));
         assertEquals("draft",CapeVisibility.hash(self,self,true,true,true,"draft",approved));

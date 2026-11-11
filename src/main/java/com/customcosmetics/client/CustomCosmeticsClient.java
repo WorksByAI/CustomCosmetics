@@ -66,7 +66,8 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
             new TickStep(ModErrors.Key.SKINS,c->com.customcosmetics.features.skins.LocalSkins.tick()),
             new TickStep(ModErrors.Key.DEBUG,c->com.customcosmetics.sync.SyncDebug.tick()),
             new TickStep(ModErrors.Key.ANIMATIONS,com.customcosmetics.features.animations.ViewModelAnimations::tick),
-            new TickStep(ModErrors.Key.BLOCKHIT,com.customcosmetics.features.blocking.VisualBlockhit::tick)
+            new TickStep(ModErrors.Key.BLOCKHIT,com.customcosmetics.features.blocking.VisualBlockhit::tick),
+            new TickStep(ModErrors.Key.PACK,com.customcosmetics.features.pack.HypixelPackDisabler::tick)
         };
         ClientTickEvents.END_CLIENT_TICK.register(client->{
             for(var step:steps)ModErrors.tick(step.key(),client,step.action());

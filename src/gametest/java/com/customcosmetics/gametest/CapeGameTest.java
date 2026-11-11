@@ -170,10 +170,24 @@ public final class CapeGameTest implements FabricClientGameTest {
                 synchronized(sessions){sessionField.set(sessions,session);}
                 var cached=PresenceSync.authenticatedSession();
                 if(!cached.isDone()||cached.join()!=session)throw new AssertionError("Cape traffic fixture did not reuse the shared authenticated session");
-                var old=client.player.getSkin();if(old.cape()!=null&&old.cape().texturePath().equals(CapeCosmetics.preview()))throw new AssertionError("Unreviewed local cape leaked into online rendering");
+                var image = CapeCosmetics.localPng();
+                CapeCosmetics.clearLocal();
+                CapeCosmetics.saveLocal(image);
+                var cape = client.player.getSkin().cape();
+                if (cape == null || !cape.texturePath().equals(CapeCosmetics.preview())) {
+                    throw new AssertionError("An imported cape was not visible to its owner online");
+                }
                 ClientUiAccess.setScreen(client,new CapeScreen(null));
             });context.waitTicks(5);
             if(reads.get()!=0||writes.get()!=0)throw new AssertionError("Switching online or opening the cape page performed automatic I/O");
+            click(context,"Show My Local Cape");
+            context.runOnClient(client -> {
+                var cape = client.player.getSkin().cape();
+                if (cape != null && cape.texturePath().equals(CapeCosmetics.preview())) {
+                    throw new AssertionError("The local cape switch did not hide the worn cape");
+                }
+            });
+            click(context,"Show My Local Cape");
             click(context,"Submit for Review");
             context.waitFor(client->writes.get()==1);
             context.runOnClient(client->{var snapshot=new com.google.gson.JsonObject();snapshot.add("capes",new com.google.gson.JsonObject());CapeSync.acceptSnapshot(snapshot,"http://127.0.0.1:"+server.getAddress().getPort());});

@@ -311,10 +311,18 @@ public final class Release201GameTest implements FabricClientGameTest {
         context.waitFor(client -> bakedModels != com.customcosmetics.features.items.ItemCosmetics.catalogIdentity()
             && packIsFallback(client, texture), 240);
         checkHypixelTextAndTooltip(context);
+        var beforeTransfer = context.computeOnClient(client -> com.customcosmetics.features.items.ItemCosmetics.catalogIdentity());
+        context.runOnClient(client -> client.getDownloadedPackSource().popAll());
+        context.waitFor(client -> beforeTransfer != com.customcosmetics.features.items.ItemCosmetics.catalogIdentity()
+            && HypixelPackDisabler.usingFallback() && packIsFallback(client, texture), 240);
+        var afterTransfer = context.computeOnClient(client -> com.customcosmetics.features.items.ItemCosmetics.catalogIdentity());
+        context.runOnClient(HypixelPackDisabler::checkDownloadAndReload);
+        context.waitFor(client -> afterTransfer != com.customcosmetics.features.items.ItemCosmetics.catalogIdentity()
+            && HypixelPackDisabler.usingFallback() && packIsFallback(client, texture), 240);
+        System.out.println("HYPIXEL_PACK_RECOVERY_AFTER_NATIVE_PACK_REMOVAL_OK");
         context.runOnClient(client -> {
             ConfigManager.hideHypixelSkyBlockPack = false;
-            client.getDownloadedPackSource().popPack(official);
-            HypixelPackDisabler.disconnect();
+            HypixelPackDisabler.refresh(client);
         });
         context.waitFor(client -> client.getResourceManager().getResource(texture).isEmpty(), 240);
         System.out.println("CACHED_HYPIXEL_PACK_MAGMA_URCHIN_LEGACY_AND_OFFICIAL_MODELS_OK");

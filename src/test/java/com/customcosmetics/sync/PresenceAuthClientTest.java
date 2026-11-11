@@ -19,6 +19,7 @@ import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -49,6 +50,17 @@ class PresenceAuthClientTest {
         assertDoesNotThrow(() -> PresenceAuthClient.validateRequestUrl("http://cosmetics.example:25577" + path));
         assertDoesNotThrow(() -> PresenceAuthClient.validateRequestUrl("https://cosmetics.example" + path));
         assertThrows(IOException.class, () -> PresenceAuthClient.validateBaseUrl(LAN_BASE + path));
+    }
+
+    @Test
+    void acceptsOnlyThePeerExclusionQueryOnAppearanceDownloads() {
+        var users = LAN_BASE + "/users.json";
+        var peer = UUID.fromString("00000000-0000-0000-0000-000000000002");
+        assertDoesNotThrow(() -> PresenceAuthClient.validateRequestUrl(PresenceSync.peerFetchUrl(users, Set.of(PLAYER, peer))));
+        assertThrows(IOException.class, () -> PresenceAuthClient.validateRequestUrl(LAN_BASE + "/health?peerExcluded=" + PLAYER));
+        assertThrows(IOException.class, () -> PresenceAuthClient.validateRequestUrl(users + "?peerExcluded=" + PLAYER + "&extra=1"));
+        assertThrows(IOException.class, () -> PresenceAuthClient.validateRequestUrl(users + "?peerExcluded=1"));
+        assertThrows(IOException.class, () -> PresenceAuthClient.validateRequestUrl(users + "?peerExcluded=" + (PLAYER + ",").repeat(16) + peer));
     }
 
     @ParameterizedTest
@@ -134,6 +146,7 @@ class PresenceAuthClientTest {
                     }
                     case "/users.json" -> {
                         assertEquals("GET", exchange.getRequestMethod());
+                        assertEquals("peerExcluded=" + PLAYER, exchange.getRequestURI().getRawQuery());
                         respond(exchange, 200, "{\"authVersion\":2,\"users\":{}}");
                     }
                     default -> respond(exchange, 404, "{}");
@@ -161,7 +174,7 @@ class PresenceAuthClientTest {
                 }
                 assertEquals(200, report.getResponseCode());
             } finally { report.disconnect(); }
-            HttpURLConnection read = open(base + "/users.json");
+            HttpURLConnection read = open(PresenceSync.peerFetchUrl(base + "/users.json", Set.of(PLAYER)));
             try {
                 assertEquals(200, read.getResponseCode());
                 String body = new String(read.getInputStream().readAllBytes(), StandardCharsets.UTF_8);

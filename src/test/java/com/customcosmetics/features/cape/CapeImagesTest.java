@@ -70,10 +70,12 @@ class CapeImagesTest {
     }
     @Test void offlineOnlyShowsLocalSelfAndReturningOnlineCannotExposeUnreviewedLocalCape(){
         UUID self=UUID.randomUUID(),other=UUID.randomUUID();var approved=Map.of(self,"approved-self",other,"approved-other");
-        assertEquals("private",CapeVisibility.hash(self,self,false,true,false,"private",approved));
+        assertEquals("private",CapeVisibility.hash(self,self,false,true,true,"private",approved));
+        assertNull(CapeVisibility.hash(self,self,false,true,false,"private",approved));
         assertNull(CapeVisibility.hash(other,self,false,true,false,"private",approved));
         assertEquals("approved-self",CapeVisibility.hash(self,self,true,true,false,"private",approved));
-        assertEquals("approved-other",CapeVisibility.hash(other,self,true,true,false,"private",approved));
+        assertEquals("approved-other",CapeVisibility.hash(other,self,true,true,true,"private",approved));
+        assertNull(CapeVisibility.hash(other,self,true,true,true,"private",Map.of()));
         assertNull(CapeVisibility.hash(self,self,true,true,false,"private",Map.of()));
         assertEquals("private",CapeVisibility.hash(self,self,true,true,true,"private",approved));
         assertNull(CapeVisibility.hash(self,self,true,false,true,"private",approved));

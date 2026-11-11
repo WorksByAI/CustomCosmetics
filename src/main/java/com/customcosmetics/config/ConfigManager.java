@@ -116,6 +116,7 @@ public final class ConfigManager {
     public static boolean snaplookEnabled=true;
     public static String snaplookPerspective="back";
     public static boolean capeEnabled = true;
+    public static boolean showLocalCape = true;
     public static boolean localSkinEnabled=true,localSkinSlim=false,skinP2pSharing=true,skinP2pReceiving=true;
     public static volatile java.util.List<PlayerBlocklist.Entry> skinBlockedPlayers=java.util.List.of();
     public static volatile String otherPlayerSkinMode="original";

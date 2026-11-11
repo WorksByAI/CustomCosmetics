@@ -2,9 +2,9 @@
 
 ## Unreleased
 
-- Add administrator-gated experimental display, camera, inventory, font, and resource pack tools.
+- Add experimental display tools and local-only capes in online play.
 - Add global text color rules, inventory dimming, a hit color palette, and optional Hypixel text colors and tooltips.
-- Fix iron bar connections in visual map edits and improve sync connection diagnostics.
+- Fix visual map iron bars, Hypixel pack recovery, and sync with connected peers.
 - Add searchable system fonts and game-wide font controls without bundling fonts.
 
 ## 2.0.1

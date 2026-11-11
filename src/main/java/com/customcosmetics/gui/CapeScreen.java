@@ -17,11 +17,17 @@ public final class CapeScreen extends ThemedScreen {
         addRenderableWidget(new PinkUi.Action(x+w-164,y+10,150,22,"Blocked Capes",false,()->ClientUiAccess.setScreen(minecraft,new CosmeticsScreen(this,CosmeticsScreen.Page.BLOCKED_CAPES))));
         int buttonY=y+h-119,cell=(w-38)/2;
         cropButton=addRenderableWidget(new PinkUi.Action(x+14,buttonY,cell,24,"Choose Image & Crop",false,()->choose(false)));
-        cropButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent("Choose a regular image, crop it into a cape, then submit it for review.")));
+        cropButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent("Crop a regular image into a local cape.")));
         atlasButton=addRenderableWidget(new PinkUi.Action(x+24+cell,buttonY,cell,24,"Choose Vanilla-Format Cape Image",false,()->choose(true)));
         atlasButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent("Choose a PNG in Minecraft's cape texture format; no cropping needed.")));
         removeButton=addRenderableWidget(new PinkUi.Action(x+14,buttonY+31,cell,24,"Remove Local Cape",false,()->{try{CapeCosmetics.clearLocal();notice="Local cape removed.";}catch(Exception error){notice=error.getMessage();}}));
         submit=addRenderableWidget(new PinkUi.Action(x+24+cell,buttonY+31,cell,24,"Submit for Review",true,()->{notice="";CapeSync.submit();}));
+        var showLocal=addRenderableWidget(new PinkUi.Action(x+w-164,y+h-57,150,22,"Show My Local Cape",false,()->{
+            ConfigManager.showLocalCape=!ConfigManager.showLocalCape;
+            ConfigManager.requestSave();
+        }));
+        showLocal.selected(()->ConfigManager.showLocalCape);
+        showLocal.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent("Show your imported cape on this client.")));
         boolean administrator=RemoteAccess.online()&&CapeAdministrators.includes(minecraft.getUser().getProfileId());int part=administrator?(w-48)/3:cell;
         var enabled=addRenderableWidget(new PinkUi.Action(x+14,y+h-29,part,22,"Show Custom Capes",false,()->{ConfigManager.capeEnabled=!ConfigManager.capeEnabled;ConfigManager.requestSave();}));enabled.selected(()->ConfigManager.capeEnabled);
         int next=x+24+part;
@@ -52,11 +58,11 @@ public final class CapeScreen extends ThemedScreen {
         if(texture!=null){int side=Math.min(90,previewHeight-33),ph=Math.max(1,side);g.blit(texture,x+30,y+69,x+30+Math.max(1,ph*10/16),y+69+ph,1f/64,11f/64,1f/32,17f/32);}
         if(minecraft.player!=null)CapePreview.draw(g,x+w/4,y+58,w*3/4-20,Math.max(1,previewHeight-25));
         else uiText(g,font,"Enter a world for the player preview.",x+24,y+75,MUTED,w-48);
-        uiText(g,font,RemoteAccess.online()?"Online: approved capes are shared. Local edits stay private.":"Offline: local cape only. Nothing is uploaded.",x+14,y+h-130,MUTED,w-28);
+        uiText(g,font,RemoteAccess.online()?"Local capes are visible only to you. Submit for review to share.":"Local capes are visible only to you.",x+14,y+h-130,MUTED,w-28);
         submit.active=!choosing&&CapeSync.canSubmit();removeButton.active=!choosing;
         cropButton.active=atlasButton.active=!choosing&&!com.customcosmetics.compatibility.NativeFileDialogs.busy();
         String state=UiText.tr(CapeSync.status());long cooldown=CapeSync.cooldownSeconds();if(cooldown>0)state+=UiText.tr(" · Next submission in ")+(cooldown/3600)+"h "+(cooldown%3600/60)+"m";
-        text(g,font,state,x+14,y+h-52,MUTED,w-28);
+        text(g,font,state,x+14,y+h-51,MUTED,Math.max(0,w-188));
         if(!notice.isBlank())uiText(g,font,notice,x+14,y+h-66,PINK,w-28);
         super.extractRenderState(g,mx,my,dt);
     }
