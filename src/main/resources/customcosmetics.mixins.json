@@ -59,6 +59,8 @@
     "UiTooltipMixin$Modern",
     "UiFontAccessor",
     "LocalFontFaceMixin",
+    "LocalBoldGlyphMixin$Metrics",
+    "LocalBoldGlyphMixin$Bitmap",
     "LocalFontSamplingMixin$World",
     "LocalFontSamplingMixin$Gui",
     "LocalFontSampling263Mixin$World",

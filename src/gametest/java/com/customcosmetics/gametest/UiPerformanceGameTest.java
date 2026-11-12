@@ -7,6 +7,7 @@ import com.customcosmetics.gui.CosmeticsScreen;
 import com.customcosmetics.gui.PinkUi;
 import com.customcosmetics.gui.UiFonts;
 import com.customcosmetics.sync.ExperimentalAccess;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.google.gson.*;
 import java.lang.management.ManagementFactory;
 import java.nio.file.*;
@@ -17,8 +18,11 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.InactivityFpsLimit;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.font.TextRenderable;
 import net.minecraft.client.renderer.state.gui.GlyphRenderState;
 import net.minecraft.network.chat.FontDescription;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import org.joml.Matrix3x2f;
 
@@ -103,17 +107,26 @@ public final class UiPerformanceGameTest implements FabricClientGameTest {
                     var row=new JsonObject();row.addProperty("page",phase);row.addProperty("sampleStartEpochMillis",startMillis);row.addProperty("sampleEndEpochMillis",System.currentTimeMillis());row.addProperty("gcMillis",gcMillis()-gcMillis);row.addProperty("gcCollections",gcCount()-gcCount);row.addProperty("actualFrames",current.frames);row.addProperty("focusedFrames",current.focused);row.addProperty("averageFps",current.frames*1e9/total);row.addProperty("onePercentLowFps",tail*1e9/slow);row.addProperty("meanFrameMs",total/1e6/current.frames);row.addProperty("p95FrameMs",percentile(intervals,.95));row.addProperty("p99FrameMs",percentile(intervals,.99));row.addProperty("maxFrameMs",percentile(intervals,1));row.addProperty("guiExtractions",current.cpuCount);row.addProperty("meanGuiCpuMs",current.cpuCount==0?0:cpuTotal/1e6/current.cpuCount);row.addProperty("p95GuiCpuMs",percentile(cpu,.95));row.addProperty("guiBytesPerFrame",current.cpuCount==0?0:allocated/(double)current.cpuCount);rows.add(row);
                 }
                 if (fontPath != null) {
+                    String inlineBold = System.getenv("CCOS_TEST_INLINE_BOLD");
                     world.getServer().runCommand("kill @e[type=minecraft:text_display]");
                     world.getServer().runCommand("summon minecraft:text_display 0.5 86.6 5 "
                         + "{text:[{text:'[522] ',color:'dark_red'},{text:'ToryHi ',color:'red'},"
                         + "{text:'♦ ',color:'aqua'},{text:'5145 ❤ 山海',color:'white'}],billboard:'center',shadow:1b}");
                     var applied = new CompletableFuture<Boolean>();
                     context.runOnClient(client -> UiFonts.load(client, Path.of(fontPath),
-                        new UiFonts.Style(9, 0, 2, 0, 1), applied::complete));
+                        new UiFonts.Style(9, 0, inlineBold == null ? 2 : UiFonts.MAX_SAMPLING, 0, 1), applied::complete));
                     context.waitFor(client -> applied.isDone(), 300);
                     if (!applied.join()) throw new AssertionError("Local font failed to reload");
                     context.waitTicks(5);
                     context.takeScreenshot("world_font");
+                    if (inlineBold != null) {
+                        world.getServer().runCommand("scoreboard objectives add cc_bold dummy {text:'SKYBLOCK',color:'yellow',bold:true}");
+                        world.getServer().runCommand("scoreboard players set 'Purse' cc_bold 125");
+                        world.getServer().runCommand("scoreboard objectives setdisplay sidebar cc_bold");
+                        context.waitTicks(5);
+                        context.takeScreenshot("inline_bold_sidebar");
+                        context.runOnClient(client -> checkInlineBold(client, inlineBold));
+                    }
                 }
                 context.runOnClient(client->ClientUiAccess.setScreen(client,null));
             }
@@ -154,6 +167,7 @@ public final class UiPerformanceGameTest implements FabricClientGameTest {
         context.runOnClient(client -> {
             if (client.font.width(sample) == regular) throw new AssertionError("Expected physical bold glyph metrics");
             assertFontSampling(client);
+            if ("fixed".equals(System.getenv("CCOS_TEST_INLINE_BOLD"))) checkInlineBold(client, "fixed");
             UiFonts.clear();
             UiFonts.restore(client);
         });
@@ -188,5 +202,31 @@ public final class UiPerformanceGameTest implements FabricClientGameTest {
             throw new AssertionError("Local font replaced a private-use glyph");
         }
         System.out.println("LOCAL_FONT_GUI_WORLD_SAMPLING_AND_PRIVATE_USE_FALLBACK_OK");
+    }
+
+    private static void checkInlineBold(Minecraft client, String mode) {
+        var plain = Component.literal("K");
+        var bold = plain.copy().withStyle(Style.EMPTY.withBold(true));
+        if (!mode.equals("baseline")) {
+            float extra = client.font.getSplitter().stringWidth(bold) - client.font.getSplitter().stringWidth(plain);
+            if (UiFonts.boldActive() ? extra != 0 : extra <= 0 || extra >= 1)
+                throw new AssertionError("Bold text did not use the rasterized advance: " + extra);
+        }
+        int[] vertices = {0};
+        var consumer = (VertexConsumer) java.lang.reflect.Proxy.newProxyInstance(VertexConsumer.class.getClassLoader(),
+            new Class<?>[]{VertexConsumer.class}, (proxy, method, args) -> {
+                if (method.getName().equals("addVertex")) vertices[0]++;
+                return proxy;
+            });
+        client.font.prepareText(bold.getVisualOrderText(), 0, 0, 0xFFFFFFFF, true, false, 0)
+            .visit(new Font.GlyphVisitor() {
+                @Override public void acceptGlyph(TextRenderable.Styled glyph) {
+                    if (UiFonts.localAtlas(glyph.textureView()) == null) throw new AssertionError("Expected a local glyph");
+                    glyph.render(new org.joml.Matrix4f(), consumer, 0xF000F0, true);
+                }
+            });
+        if (vertices[0] != (mode.equals("baseline") ? 16 : 8))
+            throw new AssertionError("Unexpected bold foreground/shadow geometry: " + vertices[0]);
+        System.out.println("INLINE_BOLD_VERTICES " + vertices[0]);
     }
 }

@@ -119,6 +119,10 @@ public final class UiFonts {
         return active.source(vanilla);
     }
 
+    public static GlyphSource forTextStyle(GlyphSource source, net.minecraft.network.chat.Style style) {
+        return source instanceof Loaded.LocalSource local && style.isBold() ? local.boldSource : source;
+    }
+
     public static void clear() {
         request++;
         swap(null);
@@ -218,7 +222,10 @@ public final class UiFonts {
         private final LocalFontFaces.Family family;
         private final boolean bold;
         private final Int2ObjectOpenHashMap<BakedGlyph> glyphs = new Int2ObjectOpenHashMap<>();
-        private final IntFunction<BakedGlyph> bake = this::bake;
+        private final Int2ObjectOpenHashMap<BakedGlyph> boldGlyphs = new Int2ObjectOpenHashMap<>();
+        private final IntFunction<BakedGlyph> bake = codepoint -> bake(codepoint, false);
+        private final IntFunction<BakedGlyph> bakeBold = codepoint -> bake(codepoint, true);
+        private final IdentityHashMap<net.minecraft.network.chat.Style, net.minecraft.network.chat.Style> drawStyles = new IdentityHashMap<>();
         private final IdentityHashMap<GlyphSource, GlyphSource> sources = new IdentityHashMap<>();
         private final IdentityHashMap<Object, AbstractTexture> atlasViews = new IdentityHashMap<>();
         private boolean reportedBadGlyph;
@@ -231,16 +238,21 @@ public final class UiFonts {
             this.style = style;
         }
 
-        private BakedGlyph bake(int codepoint) {
+        private BakedGlyph bake(int codepoint, boolean formattedBold) {
             // SkyBlock icons and Devonian's symbol replacements use private-use glyphs.
             if (Character.getType(codepoint) == Character.PRIVATE_USE) return MISSING;
             try {
-                var unbaked = provider.getGlyph(codepoint);
-                if (unbaked == null) return MISSING;
-                var glyph = unbaked.bake(this);
+                BakedGlyph glyph;
+                if (formattedBold) {
+                    glyph = LocalBoldGlyphs.bake(provider, codepoint, this);
+                } else {
+                    var unbaked = provider.getGlyph(codepoint);
+                    glyph = unbaked == null ? null : unbaked.bake(this);
+                }
                 if (glyph == null || glyph == MISSING) return MISSING;
-                return !bold && style.spacing() == 0 && style.shadow() == 1 ? glyph
-                    : new StyledGlyph(glyph, style.spacing(), style.shadow(), bold);
+                boolean bakedBold = bold || formattedBold;
+                return !bakedBold && style.spacing() == 0 && style.shadow() == 1 ? glyph
+                    : new StyledGlyph(glyph, style.spacing(), style.shadow(), bakedBold ? drawStyles : null);
             } catch (RuntimeException error) {
                 if (!reportedBadGlyph) {
                     reportedBadGlyph = true;
@@ -257,28 +269,57 @@ public final class UiFonts {
             var cached = sources.get(fallback);
             if (cached != null) return cached;
             if (sources.size() >= 4) sources.clear();
-            GlyphSource source = new GlyphSource() {
-                @Override public BakedGlyph getGlyph(int codepoint) {
-                    var glyph = glyphs.computeIfAbsent(codepoint, bake);
-                    return glyph == MISSING ? fallback.getGlyph(codepoint) : glyph;
-                }
-                @Override public BakedGlyph getRandomGlyph(RandomSource random, int codepoint) {
-                    return fallback.getRandomGlyph(random, codepoint);
-                }
-            };
+            GlyphSource source = new LocalSource(fallback, false);
             sources.put(fallback, source);
             return source;
         }
+
+        private final class LocalSource implements GlyphSource {
+            private final GlyphSource fallback;
+            private final boolean formattedBold;
+            private final GlyphSource boldSource;
+
+            private LocalSource(GlyphSource fallback, boolean formattedBold) {
+                this.fallback = fallback;
+                this.formattedBold = formattedBold;
+                boldSource = bold || formattedBold ? this : new LocalSource(fallback, true);
+            }
+
+            @Override public BakedGlyph getGlyph(int codepoint) {
+                if (formattedBold) {
+                    var thick = boldGlyphs.computeIfAbsent(codepoint, bakeBold);
+                    if (thick != MISSING) return thick;
+                }
+                var glyph = glyphs.computeIfAbsent(codepoint, bake);
+                return glyph == MISSING ? fallback.getGlyph(codepoint) : glyph;
+            }
+
+            @Override public BakedGlyph getRandomGlyph(RandomSource random, int codepoint) {
+                return fallback.getRandomGlyph(random, codepoint);
+            }
+        }
+
         @Override public void close() { atlas.close(); provider.close(); }
     }
 
-    private record StyledGlyph(BakedGlyph base, float spacing, float shadow, boolean alreadyBold) implements BakedGlyph, GlyphInfo {
+    private record StyledGlyph(BakedGlyph base, float spacing, float shadow,
+        IdentityHashMap<net.minecraft.network.chat.Style, net.minecraft.network.chat.Style> drawStyles) implements BakedGlyph, GlyphInfo {
         @Override public GlyphInfo info() { return this; }
         @Override public float getAdvance() { return Math.max(0, base.info().getAdvance() + spacing); }
-        @Override public float getBoldOffset() { return alreadyBold ? 0 : base.info().getBoldOffset(); }
+        @Override public float getBoldOffset() { return drawStyles != null ? 0 : base.info().getBoldOffset(); }
         @Override public float getShadowOffset() { return base.info().getShadowOffset() * shadow; }
         @Override public net.minecraft.client.gui.font.TextRenderable.Styled createGlyph(
             float x, float y, int color, int shadow, net.minecraft.network.chat.Style style, float bold, float italic) {
+            if (drawStyles != null && style.isBold()) {
+                var normal = drawStyles.get(style);
+                if (normal == null) {
+                    // Only the draw instance drops Minecraft's duplicate pass. Layout keeps the text's actual style.
+                    if (drawStyles.size() >= 128) drawStyles.clear();
+                    normal = style.withBold(false);
+                    drawStyles.put(style, normal);
+                }
+                style = normal;
+            }
             return base.createGlyph(x, y, color, shadow, style, bold, italic);
         }
     }
