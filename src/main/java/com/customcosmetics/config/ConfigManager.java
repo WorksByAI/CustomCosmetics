@@ -54,6 +54,7 @@ public final class ConfigManager {
     public static boolean uiAnimationsEnabled=true;
     public static boolean uiBackgroundBlur=false;
     public static boolean inventoryBlurEnabled = false;
+    public static boolean longSignTextEnabled = false;
     public static int inventoryDimPercent = 80;
     public static boolean hideHypixelSkyBlockPack = false;
     public static boolean hypixelPackTextColors = false;

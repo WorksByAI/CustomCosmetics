@@ -70,6 +70,7 @@ public final class SettingsCatalog {
         add(entries, "Experimental Features", "EXPERIMENTAL", "Inventory and container background blur", "Inventory Blur");
         add(entries, "Experimental Features", "DROP_2D", "Camera-facing dropped item sprites", "2D Drop");
         add(entries, "Inventory Blur", "INVENTORY_BLUR", "Inventory and container background", "Background Darkness (%)");
+        add(entries, "Long Sign Text", "SIGN_TEXT", "Signs and hanging signs", "Long Sign Text");
         add(entries, "Pack Disabler", "PACK_DISABLER", "Official server resource pack", "Hide Hypixel SkyBlock Pack");
         add(entries, "Pack Disabler", "PACK_DISABLER", "Official server resource pack", "Hypixel Text Colors");
         add(entries, "Pack Disabler", "PACK_DISABLER", "Official server resource pack", "Hypixel Tooltip Background");

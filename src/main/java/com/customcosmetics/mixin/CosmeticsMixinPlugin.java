@@ -29,6 +29,7 @@ public final class CosmeticsMixinPlugin implements IMixinConfigPlugin {
                 .getMetadata().getVersion().getFriendlyString().startsWith("26.1");
         }
         if(mixin.contains(".InventoryBlurMixin"))return !FabricLoader.getInstance().isModLoaded("eg_inventory_blur");
+        if(mixin.contains(".LongSignTextMixin$"))return !FabricLoader.getInstance().isModLoaded("unlimitedsigntext");
         if(mixin.endsWith("HudLayoutMixin$Hud")) {
             var version = FabricLoader.getInstance().getModContainer("minecraft").orElseThrow().getMetadata().getVersion().getFriendlyString();
             return target.endsWith(version.startsWith("26.1") ? ".Gui" : ".Hud");

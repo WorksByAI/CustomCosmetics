@@ -32,7 +32,7 @@ import static com.customcosmetics.gui.PinkUi.*;
 public final class CosmeticsScreen extends ThemedScreen {
     public enum Page {
         MAIN, SIZE, NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, BLOCKED_SKINS, POSITION_RECIPIENTS, ANIMATIONS, DAMAGE, ITEMS, ACCESSORIES, MAP, PARTY, LOCATION_SHARING, SKINS, SYNC, THEME, MODULES, SEARCH, EXPERIMENTAL,
-        HUD_LAYOUT, SKYBOX, FONTS, FREECAM, WINDOW, HIT_COLOR, FAST_PING, PACK_DISABLER, INVENTORY_BLUR, TEXT_COLORS, DROP_2D, TEXT_REPLACEMENTS;
+        HUD_LAYOUT, SKYBOX, FONTS, FREECAM, WINDOW, HIT_COLOR, FAST_PING, PACK_DISABLER, INVENTORY_BLUR, TEXT_COLORS, DROP_2D, TEXT_REPLACEMENTS, SIGN_TEXT;
 
         boolean experimentalOption() { return ordinal() > EXPERIMENTAL.ordinal(); }
     }
@@ -164,6 +164,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             case PACK_DISABLER -> packDisabler();
             case TEXT_COLORS -> textColors();
             case TEXT_REPLACEMENTS -> textReplacement();
+            case SIGN_TEXT -> longSignText();
             case INVENTORY_BLUR -> inventoryBlur();
             case HUD_LAYOUT -> hudLayout();
             case SKYBOX -> customSky();
@@ -202,6 +203,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             case PACK_DISABLER -> "Pack Disabler";
             case TEXT_COLORS -> "Customize Text Colors";
             case TEXT_REPLACEMENTS -> "Text Replacement";
+            case SIGN_TEXT -> "Long Sign Text";
             case INVENTORY_BLUR -> "Inventory Blur";
             case HUD_LAYOUT -> "HUD Layout";
             case SKYBOX -> "Custom Sky";
@@ -235,6 +237,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             case PACK_DISABLER -> "Hide the official Hypixel SkyBlock textures.";
             case TEXT_COLORS -> "Replace exact text colors.";
             case TEXT_REPLACEMENTS -> "Replace matching text on this client.";
+            case SIGN_TEXT -> "Allow up to 384 characters per line on signs and hanging signs.";
             case INVENTORY_BLUR -> "Blur the world behind inventories and containers.";
             case HUD_LAYOUT -> "Move, resize or hide HUD elements.";
             case SKYBOX -> "OptiFine and MCPatcher skies.";
@@ -320,9 +323,19 @@ public final class CosmeticsScreen extends ThemedScreen {
         fullButton("Pack Disabler", () -> open(Page.PACK_DISABLER), false);
         fullButton("Customize Text Colors", () -> open(Page.TEXT_COLORS), false);
         fullButton("Text Replacement", () -> open(Page.TEXT_REPLACEMENTS), false);
+        fullButton("Long Sign Text", () -> open(Page.SIGN_TEXT), false);
         fullButton("Inventory Blur", () -> open(Page.INVENTORY_BLUR), false);
         fullButton("2D Drop", () -> open(Page.DROP_2D), false);
         fullButton("Fonts", () -> open(Page.FONTS), false);
+    }
+
+    private void longSignText() {
+        if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("unlimitedsigntext")) {
+            paragraph("The installed Unlimited Sign Text mod handles this feature.", MUTED);
+            return;
+        }
+        toggleRow("Long Sign Text", "Allow up to 384 characters per line on signs and hanging signs.",
+            () -> ConfigManager.longSignTextEnabled, value -> ConfigManager.longSignTextEnabled = value);
     }
 
     private void inventoryBlur() {

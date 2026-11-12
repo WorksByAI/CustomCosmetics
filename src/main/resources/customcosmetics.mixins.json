@@ -37,6 +37,8 @@
     "InventoryBlurMixin",
     "InventoryBlurMixin$Graphics",
     "InventoryBlurMixin$BlurState",
+    "LongSignTextMixin$Editor",
+    "LongSignTextMixin$Display",
     "HypixelPackDisablerMixin$Downloads",
     "HypixelPackDisablerMixin$DownloadSource",
     "HypixelPackDisablerMixin$Manager",
