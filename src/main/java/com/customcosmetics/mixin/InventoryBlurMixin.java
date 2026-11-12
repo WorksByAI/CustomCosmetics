@@ -30,7 +30,7 @@ abstract class InventoryBlurMixin {
     private void ccos$inventoryDarkness(GuiGraphicsExtractor graphics, int left, int top, int right, int bottom,
                                          int first, int last, Operation<Void> original) {
         int darkness = ConfigManager.inventoryDimPercent;
-        if (darkness != 80 && UiBlurPolicy.inventorySettings((Screen) (Object) this)) {
+        if (darkness != 80 && UiBlurPolicy.inventoryDarkness((Screen) (Object) this)) {
             if (darkness == 0) return;
             first = UiBlurPolicy.inventoryDimColor(first, darkness);
             last = UiBlurPolicy.inventoryDimColor(last, darkness);

@@ -60,6 +60,7 @@
     "UiTooltipMixin$Legacy",
     "UiTooltipMixin$Modern",
     "UiFontAccessor",
+    "GradientTextCoverageMixin",
     "LocalFontFaceMixin",
     "LocalBoldGlyphMixin$Metrics",
     "LocalBoldGlyphMixin$Bitmap",

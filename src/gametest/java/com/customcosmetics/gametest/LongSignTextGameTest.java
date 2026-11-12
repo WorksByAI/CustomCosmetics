@@ -18,7 +18,10 @@ import net.minecraft.world.level.block.entity.SignText;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
+import javax.imageio.ImageIO;
+import java.io.IOException;
 import java.lang.reflect.Field;
+import java.nio.file.Path;
 import java.util.List;
 
 public final class LongSignTextGameTest implements FabricClientGameTest {
@@ -36,6 +39,7 @@ public final class LongSignTextGameTest implements FabricClientGameTest {
         });
         try (var world = context.worldBuilder().setUseConsistentSettings(true).create()) {
             var server = world.getServer();
+            server.runCommand("time set noon");
             server.runCommand("fill -2 84 -2 3 84 3 minecraft:stone");
             server.runCommand("setblock 0 85 2 minecraft:oak_sign[rotation=8]");
             server.runCommand("setblock 1 87 2 minecraft:stone");
@@ -46,6 +50,7 @@ public final class LongSignTextGameTest implements FabricClientGameTest {
                 context.runOnClient(client -> client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND,
                     new BlockHitResult(Vec3.atCenterOf(pos), Direction.NORTH, pos, false)));
                 context.waitFor(client -> ClientUiAccess.screen(client) instanceof AbstractSignEditScreen, 100);
+                checkBackgroundDarkness(context, access, pos.getX() == 0 ? "standing" : "hanging");
                 context.runOnClient(client -> {
                     var screen = (AbstractSignEditScreen) ClientUiAccess.screen(client);
                     var input = (TextFieldHelper) read(field(AbstractSignEditScreen.class, "signField"), screen);
@@ -88,6 +93,43 @@ public final class LongSignTextGameTest implements FabricClientGameTest {
                 ConfigManager.longSignTextEnabled = false;
                 grant(access, ExperimentalAccess.Status.UNCHECKED);
             });
+        }
+    }
+
+    private static void checkBackgroundDarkness(ClientGameTestContext context, Field access, String sign) {
+        context.runOnClient(client -> {
+            grant(access, ExperimentalAccess.Status.GRANTED);
+            ConfigManager.inventoryBlurEnabled = true;
+            ConfigManager.inventoryDimPercent = 0;
+        });
+        context.waitTicks(3);
+        int clear = backgroundBrightness(context.takeScreenshot(sign + "_sign_background_0"));
+        context.runOnClient(client -> ConfigManager.inventoryDimPercent = 15);
+        context.waitTicks(3);
+        int light = backgroundBrightness(context.takeScreenshot(sign + "_sign_background_15"));
+        context.runOnClient(client -> ConfigManager.inventoryDimPercent = 80);
+        context.waitTicks(3);
+        int normal = backgroundBrightness(context.takeScreenshot(sign + "_sign_background_80"));
+        if (clear < 30 || clear <= light || light <= normal + 10) {
+            throw new AssertionError("Sign background ignored darkness slider: " + clear + "/" + light + "/" + normal);
+        }
+        System.out.println("SIGN_BACKGROUND_DARKNESS_OK " + sign + " " + clear + "/" + light + "/" + normal);
+    }
+
+    private static int backgroundBrightness(Path screenshot) {
+        try {
+            var image = ImageIO.read(screenshot.toFile());
+            int left = image.getWidth() / 8, top = image.getHeight() / 3;
+            int sum = 0;
+            for (int y = top; y < top + 40; y++) {
+                for (int x = left; x < left + 40; x++) {
+                    int rgb = image.getRGB(x, y);
+                    sum += (rgb >>> 16 & 255) + (rgb >>> 8 & 255) + (rgb & 255);
+                }
+            }
+            return sum / (40 * 40 * 3);
+        } catch (IOException error) {
+            throw new AssertionError("Could not inspect sign background", error);
         }
     }
 

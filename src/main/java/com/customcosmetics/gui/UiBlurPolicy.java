@@ -8,6 +8,7 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.AbstractSignEditScreen;
 
 /** The mod toggle must still work when vanilla's menu blur slider is zero. Never writes Options. */
 public final class UiBlurPolicy {
@@ -17,11 +18,15 @@ public final class UiBlurPolicy {
     private UiBlurPolicy(){}
     public static boolean inventoryAvailable(){return !EXTERNAL_INVENTORY_BLUR;}
     public static boolean inventory(Screen screen){
-        return inventoryAvailable() && ConfigManager.inventoryBlurEnabled && inventorySettings(screen);
+        return inventoryAvailable() && ConfigManager.inventoryBlurEnabled
+            && screen instanceof AbstractContainerScreen<?> && inAuthorizedWorld();
     }
-    public static boolean inventorySettings(Screen screen) {
-        return screen instanceof AbstractContainerScreen<?> && ExperimentalAccess.allowed()
-            && Minecraft.getInstance().level != null;
+    public static boolean inventoryDarkness(Screen screen) {
+        return (screen instanceof AbstractContainerScreen<?> || screen instanceof AbstractSignEditScreen)
+            && inAuthorizedWorld();
+    }
+    private static boolean inAuthorizedWorld() {
+        return ExperimentalAccess.allowed() && Minecraft.getInstance().level != null;
     }
     public static int inventoryDimColor(int vanilla, int percent) {
         int alpha = vanilla >>> 24;

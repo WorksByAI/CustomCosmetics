@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package com.customcosmetics.mixin;
 
+import com.customcosmetics.compatibility.LocalGradientPipelines;
 import com.customcosmetics.gui.UiFonts;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.llamalad7.mixinextras.injector.ModifyReturnValue;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.FilterMode;
 import net.minecraft.client.gui.font.GlyphRenderTypes;
@@ -33,6 +36,15 @@ public final class LocalFontSamplingMixin {
     @Mixin(GlyphRenderState.class)
     public static class Gui {
         @Shadow @Final private TextRenderable renderable;
+
+        @ModifyReturnValue(method = "pipeline", at = @At("RETURN"))
+        private RenderPipeline customcosmetics$gradient(RenderPipeline original) {
+            if (LocalGradientPipelines.GRADIENT.equals(original.getFragmentShader())
+                    && UiFonts.localAtlas(renderable.textureView()) != null) {
+                return (RenderPipeline) LocalGradientPipelines.grayscale(renderable, original);
+            }
+            return original;
+        }
 
         // The GUI uses its own sampler rather than the FontTexture's sampler.
         @ModifyExpressionValue(method = "textureSetup", at = @At(value = "FIELD",

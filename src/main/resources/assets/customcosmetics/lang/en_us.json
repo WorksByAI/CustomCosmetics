@@ -1251,7 +1251,7 @@
   "customcosmetics.ui.font_baseline": "Baseline Offset",
   "customcosmetics.ui.font_shadow_offset": "Text Shadow Offset",
   "customcosmetics.ui.inventory_darkness": "Background Darkness (%)",
-  "customcosmetics.ui.inventory_darkness_desc": "Adjust the dark overlay behind inventories and containers.",
+  "customcosmetics.ui.inventory_darkness_desc": "Adjust the dark overlay behind inventories, containers and sign editors.",
   "customcosmetics.ui.hit_flash_color": "Hurt Flash Color",
   "customcosmetics.ui.pack_disabler": "Pack Disabler",
   "customcosmetics.ui.pack_hide_desc": "Hide the official Hypixel SkyBlock textures.",

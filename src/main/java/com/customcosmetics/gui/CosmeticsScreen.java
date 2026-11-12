@@ -345,7 +345,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         }
         toggleRow("Inventory Blur", "Uses Minecraft’s menu blur strength.",
             () -> ConfigManager.inventoryBlurEnabled, value -> ConfigManager.inventoryBlurEnabled = value);
-        sliderRow("Background Darkness (%)", "Adjust the dark overlay behind inventories and containers.",
+        sliderRow("Background Darkness (%)", "Adjust the dark overlay behind inventories, containers and sign editors.",
             () -> ConfigManager.inventoryDimPercent, 0, 100, 1, 80,
             value -> ConfigManager.inventoryDimPercent = (int) value);
     }

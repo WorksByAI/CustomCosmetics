@@ -135,6 +135,11 @@ public final class UiPerformanceGameTest implements FabricClientGameTest {
                         context.waitTicks(5);
                         context.takeScreenshot("inline_bold_chat");
                     }
+                    if (System.getenv("CCOS_TEST_SKYOCEAN_CHAT") != null) {
+                        context.runOnClient(UiPerformanceGameTest::addSkyOceanChatFixture);
+                        context.waitTicks(5);
+                        context.takeScreenshot("skyocean_forge_chat");
+                    }
                 }
                 context.runOnClient(client->ClientUiAccess.setScreen(client,null));
             }
@@ -253,5 +258,42 @@ public final class UiPerformanceGameTest implements FabricClientGameTest {
         ClientUiAccess.chat(client).addClientSystemMessage(
             Component.literal("[SkyOcean]").withStyle(aqua.withShadowColor(0))
                 .append(Component.literal(" With no shadow")));
+    }
+
+    private static void addSkyOceanChatFixture(Minecraft client) {
+        client.options.textBackgroundOpacity().set(0.0);
+        var message = Component.literal("Forge Reminder").withColor(0xCDD6F4)
+            .append(Component.literal(" | ").withColor(0x585B70))
+            .append(Component.literal("7x ").withColor(0xAAAAAA))
+            .append(Component.literal("Skeleton Key"))
+            .append(Component.literal(" [").withColor(0xFFFF55))
+            .append(Component.literal("Click to warp").withColor(0xFFAA00)
+                .withStyle(net.minecraft.ChatFormatting.UNDERLINE))
+            .append(Component.literal("]").withColor(0xFFFF55));
+        try {
+            var chatUtils = Class.forName("me.owdding.skyocean.utils.chat.ChatUtils");
+            var instance = chatUtils.getField("INSTANCE").get(null);
+            chatUtils.getMethod("chat", Component.class).invoke(instance, message);
+            var prefix = (Component) chatUtils.getMethod("getPrefix").invoke(instance);
+            int[] gradientGlyphs = {0, 0};
+            client.font.prepareText(prefix.getVisualOrderText(), 0, 0, 0xFFFFFFFF, true, false, 0)
+                .visit(new Font.GlyphVisitor() {
+                    @Override public void acceptGlyph(TextRenderable.Styled glyph) {
+                        var pipeline = new GlyphRenderState(new Matrix3x2f(), glyph, null).pipeline();
+                        if (pipeline.getLocation().getNamespace().equals("meowdding-lib")
+                                && UiFonts.localAtlas(glyph.textureView()) != null) {
+                            gradientGlyphs[0]++;
+                            if (pipeline.getShaderDefines().flags().contains("IS_GRAYSCALE")) gradientGlyphs[1]++;
+                        }
+                    }
+                });
+            if (gradientGlyphs[0] == 0 || "fixed".equals(System.getenv("CCOS_TEST_SKYOCEAN_CHAT"))
+                    && gradientGlyphs[0] != gradientGlyphs[1]) {
+                throw new AssertionError("Unexpected grayscale gradient glyph count: " + Arrays.toString(gradientGlyphs));
+            }
+            System.out.println("SKYOCEAN_PREFIX_GRAYSCALE " + Arrays.toString(gradientGlyphs));
+        } catch (ReflectiveOperationException error) {
+            throw new AssertionError("Could not send the SkyOcean fixture", error);
+        }
     }
 }

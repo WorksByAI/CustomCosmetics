@@ -1251,7 +1251,7 @@
   "customcosmetics.ui.font_baseline": "基线偏移",
   "customcosmetics.ui.font_shadow_offset": "文字阴影偏移",
   "customcosmetics.ui.inventory_darkness": "背景暗度 (%)",
-  "customcosmetics.ui.inventory_darkness_desc": "调整背包和容器后方的背景暗度。",
+  "customcosmetics.ui.inventory_darkness_desc": "调整背包、容器和告示牌编辑器的背景暗度。",
   "customcosmetics.ui.hit_flash_color": "受伤闪光颜色",
   "customcosmetics.ui.pack_disabler": "服务器资源包",
   "customcosmetics.ui.pack_hide_desc": "隐藏 Hypixel SkyBlock 官方材质。",
