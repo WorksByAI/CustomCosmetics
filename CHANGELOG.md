@@ -5,7 +5,6 @@
 - Improve local font smoothing and bold rendering, and load glyphs on demand.
 - Fix gradient chat rendering and apply background dimming to sign editors.
 - Add long text support for signs and hanging signs.
-- Simplify player status in the admin panel.
 
 ## 2.1.0
 
