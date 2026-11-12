@@ -41,17 +41,25 @@ import java.util.stream.Stream;
 public final class UiFonts {
     private static final String ATLAS_PATH = "local_font/";
     private static final Identifier FILE = Identifier.fromNamespaceAndPath("customcosmetics", "local.ttf");
-    private static final long MAX_BYTES = 128L * 1024 * 1024;
+    public static final int MAX_SAMPLING = 6;
     private static final FontDescription.Resource LOCAL = new FontDescription.Resource(
         Identifier.fromNamespaceAndPath("customcosmetics", "local"));
     private static final FontDescription.Resource UNIFORM = new FontDescription.Resource(
         Identifier.withDefaultNamespace("uniform"));
     public record Style(float size, float spacing, int oversample, float baseline, float shadow) {}
+    private record Prepared(GlyphProvider provider, LocalFontFaces.Family family, boolean bold) {}
     private static long request;
     private static Font base, view;
     private static Loaded loaded;
 
     private UiFonts() {}
+
+    public static boolean boldAvailable() { return loaded != null && loaded.family.canSwitch(); }
+    public static boolean boldActive() { return loaded != null && loaded.bold; }
+
+    public static long localFaceIndex(ResourceManager resources, long defaultIndex) {
+        return resources instanceof FontFile file ? file.index() : defaultIndex;
+    }
 
     // The GPU may discard texture labels. Use the actual view to identify local text.
     public static boolean registerLocalAtlas(Supplier<String> name, AbstractTexture texture, Object view) {
@@ -129,34 +137,44 @@ public final class UiFonts {
     }
 
     public static void load(Minecraft client, Path path, Style style, Consumer<Boolean> done) {
+        load(client, path, style, ConfigManager.uiFontBold, done);
+    }
+
+    public static void load(Minecraft client, Path path, Style style, Boolean preferBold, Consumer<Boolean> done) {
         if (!com.customcosmetics.sync.ExperimentalAccess.allowed()) { done.accept(false); return; }
+        var normalized = path.toAbsolutePath().normalize();
+        var known = loaded != null && loaded.family.path().equals(normalized) ? loaded.family : null;
         long id = ++request;
-        CompletableFuture.supplyAsync(() -> read(path, style)).thenAccept(provider -> client.execute(() -> {
+        CompletableFuture.supplyAsync(() -> read(normalized, known, style, preferBold)).thenAccept(prepared -> client.execute(() -> {
             if (request != id || !com.customcosmetics.sync.ExperimentalAccess.allowed()) {
-                if (provider != null) provider.close();
+                if (prepared != null) prepared.provider().close();
                 return;
             }
-            if (provider == null) { done.accept(false); return; }
+            if (prepared == null) { done.accept(false); return; }
             var atlas = new GlyphStitcher(client.getTextureManager(),
                 Identifier.fromNamespaceAndPath("customcosmetics", ATLAS_PATH + id));
-            swap(new Loaded(provider, atlas, style));
+            swap(new Loaded(prepared, atlas, style));
             done.accept(true);
         }));
     }
 
-    private static GlyphProvider read(Path path, Style style) {
+    private static Prepared read(Path path, LocalFontFaces.Family known, Style style, Boolean preferBold) {
         try {
-            if (!isFont(path) || !Files.isRegularFile(path) || Files.size(path) > MAX_BYTES) return null;
+            var family = known == null ? LocalFontFaces.resolve(path) : known;
+            if (family == null) return null;
+            var face = family.choose(preferBold);
+            if (!LocalFontFaces.readable(face.path())) return null;
             var definition = new TrueTypeGlyphProviderDefinition(FILE, style.size(), style.oversample(),
                 new TrueTypeGlyphProviderDefinition.Shift(0, style.baseline()), "");
-            return definition.unpack().left().orElseThrow().load(new FontFile(path));
+            var provider = definition.unpack().left().orElseThrow().load(new FontFile(face.path(), face.index()));
+            return new Prepared(provider, family, face.bold());
         } catch (IOException | RuntimeException | LinkageError error) {
             CustomCosmeticsClient.LOGGER.debug("Could not load the selected interface font", error);
             return null;
         }
     }
 
-    private static boolean isFont(Path path) {
+    static boolean isFont(Path path) {
         if (path.getFileName() == null) return false;
         var name = path.getFileName().toString().toLowerCase(Locale.ROOT);
         return name.endsWith(".ttf") || name.endsWith(".otf") || name.endsWith(".ttc");
@@ -197,14 +215,18 @@ public final class UiFonts {
         private final GlyphProvider provider;
         private final GlyphStitcher atlas;
         private final Style style;
+        private final LocalFontFaces.Family family;
+        private final boolean bold;
         private final Int2ObjectOpenHashMap<BakedGlyph> glyphs = new Int2ObjectOpenHashMap<>();
         private final IntFunction<BakedGlyph> bake = this::bake;
         private final IdentityHashMap<GlyphSource, GlyphSource> sources = new IdentityHashMap<>();
         private final IdentityHashMap<Object, AbstractTexture> atlasViews = new IdentityHashMap<>();
         private boolean reportedBadGlyph;
 
-        private Loaded(GlyphProvider provider, GlyphStitcher atlas, Style style) {
-            this.provider = provider;
+        private Loaded(Prepared prepared, GlyphStitcher atlas, Style style) {
+            this.provider = prepared.provider();
+            this.family = prepared.family();
+            this.bold = prepared.bold();
             this.atlas = atlas;
             this.style = style;
         }
@@ -217,8 +239,8 @@ public final class UiFonts {
                 if (unbaked == null) return MISSING;
                 var glyph = unbaked.bake(this);
                 if (glyph == null || glyph == MISSING) return MISSING;
-                return style.spacing() == 0 && style.shadow() == 1 ? glyph
-                    : new StyledGlyph(glyph, style.spacing(), style.shadow());
+                return !bold && style.spacing() == 0 && style.shadow() == 1 ? glyph
+                    : new StyledGlyph(glyph, style.spacing(), style.shadow(), bold);
             } catch (RuntimeException error) {
                 if (!reportedBadGlyph) {
                     reportedBadGlyph = true;
@@ -250,10 +272,10 @@ public final class UiFonts {
         @Override public void close() { atlas.close(); provider.close(); }
     }
 
-    private record StyledGlyph(BakedGlyph base, float spacing, float shadow) implements BakedGlyph, GlyphInfo {
+    private record StyledGlyph(BakedGlyph base, float spacing, float shadow, boolean alreadyBold) implements BakedGlyph, GlyphInfo {
         @Override public GlyphInfo info() { return this; }
         @Override public float getAdvance() { return Math.max(0, base.info().getAdvance() + spacing); }
-        @Override public float getBoldOffset() { return base.info().getBoldOffset(); }
+        @Override public float getBoldOffset() { return alreadyBold ? 0 : base.info().getBoldOffset(); }
         @Override public float getShadowOffset() { return base.info().getShadowOffset() * shadow; }
         @Override public net.minecraft.client.gui.font.TextRenderable.Styled createGlyph(
             float x, float y, int color, int shadow, net.minecraft.network.chat.Style style, float bold, float italic) {
@@ -261,7 +283,7 @@ public final class UiFonts {
         }
     }
 
-    private record FontFile(Path path) implements ResourceManager {
+    private record FontFile(Path path, int index) implements ResourceManager {
         @Override public Optional<Resource> getResource(Identifier id) {
             return id.equals(FILE.withPrefix("font/"))
                 ? Optional.of(new Resource(null, () -> Files.newInputStream(path))) : Optional.empty();

@@ -15,6 +15,10 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 
 public final class CustomCosmeticsClient implements ClientModInitializer {
     public static final String MOD_ID = "customcosmetics";
+    public static String version() {
+        return net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer(MOD_ID)
+            .map(mod -> mod.getMetadata().getVersion().getFriendlyString()).orElse("unknown");
+    }
     public static final Logger LOGGER = LoggerFactory.getLogger("CustomCosmetics");
     public static boolean openGuiNextTick;
     public static CosmeticsScreen.Page openGuiPageNextTick=CosmeticsScreen.Page.MAIN;

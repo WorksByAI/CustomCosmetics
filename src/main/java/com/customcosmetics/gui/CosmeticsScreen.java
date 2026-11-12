@@ -37,7 +37,8 @@ public final class CosmeticsScreen extends ThemedScreen {
         boolean experimentalOption() { return ordinal() > EXPERIMENTAL.ordinal(); }
     }
     private static final net.minecraft.resources.Identifier MOD_LOGO=net.minecraft.resources.Identifier.fromNamespaceAndPath("customcosmetics","textures/gui/mod-logo.png");
-    private static final String DISPLAY_VERSION="v"+net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("customcosmetics").orElseThrow().getMetadata().getVersion().getFriendlyString().split("[+-]",2)[0];
+    private static final String INSTALLED_VERSION = com.customcosmetics.client.CustomCosmeticsClient.version();
+    private static final String DISPLAY_VERSION = "v" + INSTALLED_VERSION.split("[+-]", 2)[0];
     private static final ScreenSession SESSION = new ScreenSession();
     private final Screen parent;
     private Page page;
@@ -1333,6 +1334,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         fullButton("Use Game Font", () -> {
             UiFonts.clear();
             ConfigManager.uiFontPath = "";
+            ConfigManager.uiFontBold = null;
             changed();
             rebuildWidgets();
         }, selected.isBlank());
@@ -1362,10 +1364,14 @@ public final class CosmeticsScreen extends ThemedScreen {
                 ConfigManager.useFontInGame = value;
                 rebuildWidgets();
             });
+        toggleRow("Bold Font", UiFonts.boldAvailable() ? "" : "No matching bold and regular faces.",
+            UiFonts::boldActive, value -> applyFont(java.nio.file.Path.of(selected), value,
+                new UiFonts.Style(ConfigManager.uiFontSize, ConfigManager.uiFontSpacing, ConfigManager.uiFontOversample,
+                    ConfigManager.uiFontBaseline, ConfigManager.uiFontShadow)), false).active = UiFonts.boldAvailable();
         sliderGrid(List.of(
             new NumericSetting("Font Size", () -> pendingFontSize, 7, 12, .25, 9, v -> pendingFontSize = (float) v, ""),
             new NumericSetting("Letter Spacing", () -> pendingFontSpacing, -1, 2, .1, 0, v -> pendingFontSpacing = (float) v, ""),
-            new NumericSetting("Font Sampling", () -> pendingFontOversample, 1, 4, 1, 2, v -> pendingFontOversample = (int) v,
+            new NumericSetting("Font Sampling", () -> pendingFontOversample, 1, UiFonts.MAX_SAMPLING, 1, UiFonts.MAX_SAMPLING, v -> pendingFontOversample = (int) v,
                 "Higher sampling smooths small text and uses more texture memory."),
             new NumericSetting("Baseline Offset", () -> pendingFontBaseline, -2, 2, .25, 0, v -> pendingFontBaseline = (float) v, ""),
             new NumericSetting("Text Shadow Offset", () -> pendingFontShadow, 0, 2, .1, 1, v -> pendingFontShadow = (float) v, "")));
@@ -1389,12 +1395,18 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
 
     private void applyFont(java.nio.file.Path path) {
-        var client = minecraft;
+        Boolean preferBold = path.toString().equals(ConfigManager.uiFontPath) ? ConfigManager.uiFontBold : null;
         var style = new UiFonts.Style(pendingFontSize, pendingFontSpacing, pendingFontOversample,
             pendingFontBaseline, pendingFontShadow);
-        UiFonts.load(client, path, style, applied -> {
+        applyFont(path, preferBold, style);
+    }
+
+    private void applyFont(java.nio.file.Path path, Boolean preferBold, UiFonts.Style style) {
+        var client = minecraft;
+        UiFonts.load(client, path, style, preferBold, applied -> {
             if (applied) {
                 ConfigManager.uiFontPath = path.toString();
+                ConfigManager.uiFontBold = UiFonts.boldAvailable() ? UiFonts.boldActive() : null;
                 ConfigManager.uiFontSize = style.size();
                 ConfigManager.uiFontSpacing = style.spacing();
                 ConfigManager.uiFontOversample = style.oversample();
@@ -1415,6 +1427,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         fullButton("Interface",()->open(Page.THEME),false,"Theme colors and animations");
         fullButton("Experimental Features", () -> open(Page.EXPERIMENTAL), false);
         section("General", "Preferences and feature availability.");
+        label("Installed Mod Version: " + INSTALLED_VERSION, contentX + 6, row(20) + 4, TEXT, contentWidth - 12);
         fullButton("Module Manager",()->open(Page.MODULES),false,"Enable or disable whole features without losing their settings.");
         toggleRow("Check for Updates","Check GitHub for new releases and show a chat notification. Enabled by default.",()->ConfigManager.updateCheckEnabled,v->ConfigManager.updateCheckEnabled=v);
         if (accessAllowed) fastPing();

@@ -4,6 +4,7 @@ import com.customcosmetics.compatibility.ClientUiAccess;
 import com.customcosmetics.compatibility.UiFontAccess;
 import com.customcosmetics.config.*;
 import com.customcosmetics.gui.CosmeticsScreen;
+import com.customcosmetics.gui.PinkUi;
 import com.customcosmetics.gui.UiFonts;
 import com.customcosmetics.sync.ExperimentalAccess;
 import com.google.gson.*;
@@ -44,6 +45,7 @@ public final class UiPerformanceGameTest implements FabricClientGameTest {
                 context.runOnClient(client->{client.options.guiScale().set(2);client.options.enableVsync().set(false);client.options.framerateLimit().set(260);client.options.inactivityFpsLimit().set(InactivityFpsLimit.MINIMIZED);client.options.pauseOnLostFocus=false;});
                 context.waitTicks(40);context.getInput().setCursorPos(1595,995);
                 String fontPath = System.getenv("CCOS_TEST_FONT");
+                String fontWeights = System.getenv("CCOS_TEST_FONT_BOLD");
                 List<String> phases = fontPath == null ? List.of("CLOSED","MAIN","ANIMATIONS","DAMAGE","THEME","CLOSED_AFTER")
                     : List.of("CLOSED_VANILLA", "FONTS_VANILLA", "FONTS_APPLY", "FONTS_LOCAL", "CLOSED_LOCAL", "CLOSED_RESTORED");
                 if (fontPath != null) {
@@ -78,8 +80,10 @@ public final class UiPerformanceGameTest implements FabricClientGameTest {
                         sample=current;
                         if (phase.equals("FONTS_APPLY")) {
                             long start = System.nanoTime();
-                            UiFonts.load(client, Path.of(fontPath), new UiFonts.Style(9, 0, 2, 0, 1), success -> {
+                            int sampling = fontWeights == null ? 2 : UiFonts.MAX_SAMPLING;
+                            UiFonts.load(client, Path.of(fontPath), new UiFonts.Style(9, 0, sampling, 0, 1), success -> {
                                 System.out.println("FONT_APPLY_LATENCY_MS " + (System.nanoTime() - start) / 1e6);
+                                if (success && fontWeights != null) ConfigManager.uiFontPath = fontPath;
                                 ClientUiAccess.setScreen(client, new CosmeticsScreen(null, CosmeticsScreen.Page.FONTS));
                                 fontApplied.complete(success);
                             });
@@ -90,6 +94,7 @@ public final class UiPerformanceGameTest implements FabricClientGameTest {
                         context.waitFor(client -> fontApplied.isDone(), 300);
                         if (!fontApplied.join()) throw new AssertionError("Local font failed to load");
                         context.runOnClient(UiPerformanceGameTest::assertFontSampling);
+                        if (fontWeights != null) assertFontWeights(context, fontWeights.equals("available"));
                     }
                     if (phase.equals("FONTS_LOCAL")) context.takeScreenshot("fonts_local");
                     if(current.frames<20)throw new AssertionError("Too few real rendered frames in "+phase);
@@ -133,6 +138,40 @@ public final class UiPerformanceGameTest implements FabricClientGameTest {
         } catch (NoSuchMethodException legacyDevice) {
             return (String) device.getClass().getMethod("getBackendName").invoke(device);
         }
+    }
+
+    private static void assertFontWeights(ClientGameTestContext context, boolean expected) {
+        context.runOnClient(client -> {
+            if (UiFonts.boldAvailable() != expected || fontBoldToggle(client).active != expected
+                    || ConfigManager.uiFontOversample != UiFonts.MAX_SAMPLING)
+                throw new AssertionError("Unexpected bold control or sampling default");
+        });
+        if (!expected) return;
+        String sample = "ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz";
+        int regular = context.computeOnClient(client -> client.font.width(sample));
+        context.runOnClient(client -> clickFontBold(client));
+        context.waitFor(client -> UiFonts.boldActive() && Boolean.TRUE.equals(ConfigManager.uiFontBold), 150);
+        context.runOnClient(client -> {
+            if (client.font.width(sample) == regular) throw new AssertionError("Expected physical bold glyph metrics");
+            assertFontSampling(client);
+            UiFonts.clear();
+            UiFonts.restore(client);
+        });
+        context.waitFor(client -> UiFonts.boldActive(), 150);
+        context.runOnClient(client -> clickFontBold(client));
+        context.waitFor(client -> !UiFonts.boldActive() && Boolean.FALSE.equals(ConfigManager.uiFontBold), 150);
+        System.out.println("REAL_FONT_BOLD_SWITCH_RESTORE_AND_MAX_SAMPLING_OK");
+    }
+
+    private static PinkUi.Toggle fontBoldToggle(Minecraft client) {
+        return ClientUiAccess.screen(client).children().stream().filter(PinkUi.Toggle.class::isInstance)
+            .map(PinkUi.Toggle.class::cast).filter(toggle -> toggle.getMessage().getString().startsWith("Bold Font"))
+            .findFirst().orElseThrow();
+    }
+
+    private static void clickFontBold(Minecraft client) {
+        fontBoldToggle(client).onClick(new net.minecraft.client.input.MouseButtonEvent(0, 0,
+            new net.minecraft.client.input.MouseButtonInfo(0, 0)), false);
     }
 
     private static void assertFontSampling(Minecraft client) {

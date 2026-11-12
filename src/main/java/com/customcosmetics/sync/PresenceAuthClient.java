@@ -51,6 +51,7 @@ public final class PresenceAuthClient {
         JsonObject proof = new JsonObject();
         proof.addProperty("challengeId", id);
         proof.addProperty("clientNonce", nonce);
+        proof.addProperty("clientVersion", com.customcosmetics.client.CustomCosmeticsClient.version());
         JsonObject response = post(baseUrl + "/register", proof, SyncFailure.Stage.AUTH_VERIFY);
         String token = requiredString(response, "token");
         UUID verifiedUuid;

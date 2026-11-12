@@ -35,6 +35,7 @@ public final class ConfigManager {
     public static String uiThemeMode="dark";
     public static String uiLanguage="auto";
     public static String uiFontPath = "";
+    public static Boolean uiFontBold;
     public static float uiFontSize = 9, uiFontSpacing = 0;
     public static boolean droppedItems2dEnabled=false;
     public static boolean fastIpPingEnabled = false;
@@ -65,7 +66,7 @@ public final class ConfigManager {
     public static java.util.Map<String, String> hypixelPackReplacements = java.util.Map.of();
     public static java.util.Map<String, Boolean> hypixelPackGlints = java.util.Map.of();
     public static boolean useFontInGame = true;
-    public static int uiFontOversample = 2;
+    public static int uiFontOversample = com.customcosmetics.gui.UiFonts.MAX_SAMPLING;
     public static float uiFontBaseline = 0;
     public static float uiFontShadow = 1;
     public static boolean damageSplashEnabled=false, damageSplashBold=true, damageSplashCompact=false;
@@ -213,6 +214,8 @@ public final class ConfigManager {
             JsonObject settings = root.getAsJsonObject("settings");
             if (settings == null) return;
             uiFontPath = "";
+            uiFontBold = null;
+            uiFontOversample = com.customcosmetics.gui.UiFonts.MAX_SAMPLING;
             uiFontSize = 9;
             uiFontSpacing = 0;
             for (Field field : ConfigManager.class.getFields()) {
@@ -241,7 +244,7 @@ public final class ConfigManager {
             textReplacements = com.customcosmetics.features.text.TextReplacements.normalize(textReplacements);
             com.customcosmetics.features.text.TextReplacements.setRules(textReplacements);
             inventoryDimPercent = Math.clamp(inventoryDimPercent, 0, 100);
-            uiFontOversample = Math.clamp(uiFontOversample, 1, 4);
+            uiFontOversample = Math.clamp(uiFontOversample, 1, com.customcosmetics.gui.UiFonts.MAX_SAMPLING);
             uiFontBaseline = Float.isFinite(uiFontBaseline) ? Math.clamp(uiFontBaseline, -2, 2) : 0;
             uiFontShadow = Float.isFinite(uiFontShadow) ? Math.clamp(uiFontShadow, 0, 2) : 1;
             uiFontSize = Float.isFinite(uiFontSize) ? Math.clamp(uiFontSize, 7, 12) : 9;

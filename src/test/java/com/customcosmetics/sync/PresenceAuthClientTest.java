@@ -125,8 +125,10 @@ class PresenceAuthClientTest {
                     case "/register" -> {
                         assertEquals("POST", exchange.getRequestMethod());
                         JsonObject body = readJson(exchange);
-                        assertEquals(2, body.size());
+                        assertEquals(3, body.size());
                         assertEquals(CHALLENGE, body.get("challengeId").getAsString());
+                        assertEquals(com.customcosmetics.client.CustomCosmeticsClient.version(),
+                            body.get("clientVersion").getAsString());
                         String nonce = body.get("clientNonce").getAsString();
                         assertTrue(nonce.matches("[0-9a-f]{64}"));
                         String proof = "customcosmetics:auth:v1\0" + CHALLENGE + "\0" + nonce;

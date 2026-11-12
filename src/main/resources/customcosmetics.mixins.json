@@ -58,6 +58,7 @@
     "UiTooltipMixin$Legacy",
     "UiTooltipMixin$Modern",
     "UiFontAccessor",
+    "LocalFontFaceMixin",
     "LocalFontSamplingMixin$World",
     "LocalFontSamplingMixin$Gui",
     "LocalFontSampling263Mixin$World",
