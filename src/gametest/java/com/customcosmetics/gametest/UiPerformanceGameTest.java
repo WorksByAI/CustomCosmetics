@@ -108,13 +108,16 @@ public final class UiPerformanceGameTest implements FabricClientGameTest {
                 }
                 if (fontPath != null) {
                     String inlineBold = System.getenv("CCOS_TEST_INLINE_BOLD");
+                    boolean chatFixture = System.getenv("CCOS_TEST_INLINE_CHAT") != null;
                     world.getServer().runCommand("kill @e[type=minecraft:text_display]");
                     world.getServer().runCommand("summon minecraft:text_display 0.5 86.6 5 "
                         + "{text:[{text:'[522] ',color:'dark_red'},{text:'ToryHi ',color:'red'},"
                         + "{text:'♦ ',color:'aqua'},{text:'5145 ❤ 山海',color:'white'}],billboard:'center',shadow:1b}");
                     var applied = new CompletableFuture<Boolean>();
+                    var style = chatFixture ? new UiFonts.Style(9.5f, .3f, 5, 0, .6f)
+                        : new UiFonts.Style(9, 0, inlineBold == null ? 2 : UiFonts.MAX_SAMPLING, 0, 1);
                     context.runOnClient(client -> UiFonts.load(client, Path.of(fontPath),
-                        new UiFonts.Style(9, 0, inlineBold == null ? 2 : UiFonts.MAX_SAMPLING, 0, 1), applied::complete));
+                        style, applied::complete));
                     context.waitFor(client -> applied.isDone(), 300);
                     if (!applied.join()) throw new AssertionError("Local font failed to reload");
                     context.waitTicks(5);
@@ -126,6 +129,11 @@ public final class UiPerformanceGameTest implements FabricClientGameTest {
                         context.waitTicks(5);
                         context.takeScreenshot("inline_bold_sidebar");
                         context.runOnClient(client -> checkInlineBold(client, inlineBold));
+                    }
+                    if (chatFixture) {
+                        context.runOnClient(UiPerformanceGameTest::addChatFixture);
+                        context.waitTicks(5);
+                        context.takeScreenshot("inline_bold_chat");
                     }
                 }
                 context.runOnClient(client->ClientUiAccess.setScreen(client,null));
@@ -162,10 +170,15 @@ public final class UiPerformanceGameTest implements FabricClientGameTest {
         if (!expected) return;
         String sample = "ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz";
         int regular = context.computeOnClient(client -> client.font.width(sample));
+        float inlineBold = context.computeOnClient(client ->
+            client.font.getSplitter().stringWidth(Component.literal(sample).withStyle(Style.EMPTY.withBold(true))));
         context.runOnClient(client -> clickFontBold(client));
         context.waitFor(client -> UiFonts.boldActive() && Boolean.TRUE.equals(ConfigManager.uiFontBold), 150);
         context.runOnClient(client -> {
             if (client.font.width(sample) == regular) throw new AssertionError("Expected physical bold glyph metrics");
+            if ("fixed".equals(System.getenv("CCOS_TEST_INLINE_BOLD"))
+                    && Math.abs(client.font.getSplitter().stringWidth(sample) - inlineBold) > .001f)
+                throw new AssertionError("Game-formatted bold did not use the physical bold face");
             assertFontSampling(client);
             if ("fixed".equals(System.getenv("CCOS_TEST_INLINE_BOLD"))) checkInlineBold(client, "fixed");
             UiFonts.clear();
@@ -207,7 +220,7 @@ public final class UiPerformanceGameTest implements FabricClientGameTest {
     private static void checkInlineBold(Minecraft client, String mode) {
         var plain = Component.literal("K");
         var bold = plain.copy().withStyle(Style.EMPTY.withBold(true));
-        if (!mode.equals("baseline")) {
+        if (!mode.equals("baseline") && (!UiFonts.boldAvailable() || UiFonts.boldActive())) {
             float extra = client.font.getSplitter().stringWidth(bold) - client.font.getSplitter().stringWidth(plain);
             if (UiFonts.boldActive() ? extra != 0 : extra <= 0 || extra >= 1)
                 throw new AssertionError("Bold text did not use the rasterized advance: " + extra);
@@ -228,5 +241,17 @@ public final class UiPerformanceGameTest implements FabricClientGameTest {
         if (vertices[0] != (mode.equals("baseline") ? 16 : 8))
             throw new AssertionError("Unexpected bold foreground/shadow geometry: " + vertices[0]);
         System.out.println("INLINE_BOLD_VERTICES " + vertices[0]);
+    }
+
+    private static void addChatFixture(Minecraft client) {
+        client.options.textBackgroundOpacity().set(0.0);
+        var aqua = Style.EMPTY.withColor(0x55FFFF).withBold(true);
+        var message = Component.literal("[Party] ").withStyle(net.minecraft.ChatFormatting.LIGHT_PURPLE)
+            .append(Component.literal("[SkyOcean]").withStyle(aqua))
+            .append(Component.literal(" Foraging").withStyle(net.minecraft.ChatFormatting.GRAY));
+        ClientUiAccess.chat(client).addClientSystemMessage(message);
+        ClientUiAccess.chat(client).addClientSystemMessage(
+            Component.literal("[SkyOcean]").withStyle(aqua.withShadowColor(0))
+                .append(Component.literal(" With no shadow")));
     }
 }

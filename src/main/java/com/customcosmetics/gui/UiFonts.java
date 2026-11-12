@@ -47,7 +47,16 @@ public final class UiFonts {
     private static final FontDescription.Resource UNIFORM = new FontDescription.Resource(
         Identifier.withDefaultNamespace("uniform"));
     public record Style(float size, float spacing, int oversample, float baseline, float shadow) {}
-    private record Prepared(GlyphProvider provider, LocalFontFaces.Family family, boolean bold) {}
+    private record Prepared(GlyphProvider provider, GlyphProvider inlineBold,
+                            LocalFontFaces.Family family, boolean bold) implements AutoCloseable {
+        @Override public void close() {
+            try {
+                provider.close();
+            } finally {
+                if (inlineBold != null) inlineBold.close();
+            }
+        }
+    }
     private static long request;
     private static Font base, view;
     private static Loaded loaded;
@@ -151,7 +160,7 @@ public final class UiFonts {
         long id = ++request;
         CompletableFuture.supplyAsync(() -> read(normalized, known, style, preferBold)).thenAccept(prepared -> client.execute(() -> {
             if (request != id || !com.customcosmetics.sync.ExperimentalAccess.allowed()) {
-                if (prepared != null) prepared.provider().close();
+                if (prepared != null) prepared.close();
                 return;
             }
             if (prepared == null) { done.accept(false); return; }
@@ -171,9 +180,21 @@ public final class UiFonts {
             var definition = new TrueTypeGlyphProviderDefinition(FILE, style.size(), style.oversample(),
                 new TrueTypeGlyphProviderDefinition.Shift(0, style.baseline()), "");
             var provider = definition.unpack().left().orElseThrow().load(new FontFile(face.path(), face.index()));
-            return new Prepared(provider, family, face.bold());
+            var inlineBold = face.bold() ? null : loadInlineBold(definition, family.bold());
+            return new Prepared(provider, inlineBold, family, face.bold());
         } catch (IOException | RuntimeException | LinkageError error) {
             CustomCosmeticsClient.LOGGER.debug("Could not load the selected interface font", error);
+            return null;
+        }
+    }
+
+    private static GlyphProvider loadInlineBold(TrueTypeGlyphProviderDefinition definition, LocalFontFaces.Face face) {
+        if (face == null) return null;
+        try {
+            if (!LocalFontFaces.readable(face.path())) return null;
+            return definition.unpack().left().orElseThrow().load(new FontFile(face.path(), face.index()));
+        } catch (IOException | RuntimeException | LinkageError error) {
+            CustomCosmeticsClient.LOGGER.debug("Could not load the font's inline bold face", error);
             return null;
         }
     }
@@ -216,7 +237,7 @@ public final class UiFonts {
 
     private static final class Loaded implements AutoCloseable, UnbakedGlyph.Stitcher {
         private static final BakedGlyph MISSING = new EmptyGlyph(0).bake(null);
-        private final GlyphProvider provider;
+        private final Prepared fonts;
         private final GlyphStitcher atlas;
         private final Style style;
         private final LocalFontFaces.Family family;
@@ -231,7 +252,7 @@ public final class UiFonts {
         private boolean reportedBadGlyph;
 
         private Loaded(Prepared prepared, GlyphStitcher atlas, Style style) {
-            this.provider = prepared.provider();
+            this.fonts = prepared;
             this.family = prepared.family();
             this.bold = prepared.bold();
             this.atlas = atlas;
@@ -242,12 +263,11 @@ public final class UiFonts {
             // SkyBlock icons and Devonian's symbol replacements use private-use glyphs.
             if (Character.getType(codepoint) == Character.PRIVATE_USE) return MISSING;
             try {
-                BakedGlyph glyph;
-                if (formattedBold) {
-                    glyph = LocalBoldGlyphs.bake(provider, codepoint, this);
-                } else {
-                    var unbaked = provider.getGlyph(codepoint);
-                    glyph = unbaked == null ? null : unbaked.bake(this);
+                var provider = formattedBold ? fonts.inlineBold() : fonts.provider();
+                var unbaked = provider == null ? null : provider.getGlyph(codepoint);
+                BakedGlyph glyph = unbaked == null ? null : unbaked.bake(this);
+                if (formattedBold && (glyph == null || glyph == MISSING)) {
+                    glyph = LocalBoldGlyphs.bake(fonts.provider(), codepoint, this);
                 }
                 if (glyph == null || glyph == MISSING) return MISSING;
                 boolean bakedBold = bold || formattedBold;
@@ -299,7 +319,13 @@ public final class UiFonts {
             }
         }
 
-        @Override public void close() { atlas.close(); provider.close(); }
+        @Override public void close() {
+            try {
+                atlas.close();
+            } finally {
+                fonts.close();
+            }
+        }
     }
 
     private record StyledGlyph(BakedGlyph base, float spacing, float shadow,
