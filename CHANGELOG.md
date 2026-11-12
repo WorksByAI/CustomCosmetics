@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.1.1
+
+- Improve local font smoothing and bold rendering, and load glyphs on demand.
+- Fix gradient chat rendering and apply background dimming to sign editors.
+- Add long text support for signs and hanging signs.
+- Simplify player status in the admin panel.
+
 ## 2.1.0
 
 - Open Experimental Features by default and move them under Settings.
