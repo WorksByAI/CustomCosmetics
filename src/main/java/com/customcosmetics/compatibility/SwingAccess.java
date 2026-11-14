@@ -5,8 +5,21 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import net.minecraft.world.InteractionHand;
 
-/** Read-only access to the swing snapshot renamed and encapsulated in Minecraft 26.3. */
+/** Access to the swing snapshot and interaction animation across Minecraft versions. */
 public final class SwingAccess {
+    private record Action(Method method, Object animation) {}
+    private static final ClassValue<Action> ACTION = new ClassValue<>() {
+        @Override protected Action computeValue(Class<?> type) {
+            try {
+                try { return new Action(type.getMethod("swing", InteractionHand.class), null); }
+                catch (NoSuchMethodException modern) {
+                    var animation = Class.forName("net.minecraft.world.item.component.SwingAnimation");
+                    var swing = type.getMethod("swing", InteractionHand.class, animation, boolean.class);
+                    return new Action(swing, animation.getField("DEFAULT").get(null));
+                }
+            } catch (ReflectiveOperationException error) { throw new IllegalStateException("Unsupported interaction swing", error); }
+        }
+    };
     private record Access(Method progress, Field hand, Method description, Method descriptionHand, Method descriptionAnimation) {}
     private static final ClassValue<Access> ACCESS = new ClassValue<>() {
         @Override protected Access computeValue(Class<?> type) {
@@ -35,6 +48,15 @@ public final class SwingAccess {
         }
     };
     private SwingAccess() {}
+    public static void swingMainHand(Object player) {
+        var action = ACTION.get(player.getClass());
+        try {
+            if (action.animation() == null) action.method().invoke(player, InteractionHand.MAIN_HAND);
+            else action.method().invoke(player, InteractionHand.MAIN_HAND, action.animation(), false);
+        } catch (ReflectiveOperationException error) {
+            throw new IllegalStateException("Cannot play interaction swing", error);
+        }
+    }
     public static void validate(Class<?> type) { ACCESS.get(type); }
     public static boolean modern(Object player) { return ACCESS.get(player.getClass()).description != null; }
     public static void validateItem(Class<?> type) { ITEM_ANIMATION.get(type); }

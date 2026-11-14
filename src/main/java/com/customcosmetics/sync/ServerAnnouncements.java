@@ -29,6 +29,6 @@ public final class ServerAnnouncements {
             if(ClientUiAccess.title(client,Component.literal(lines[0]),Component.literal(lines.length==2?lines[1].replace('\n',' '):"")))return;
         }
         String label=UiText.language().equals("zh_cn")?"公告":"Announcement";
-        ClientUiAccess.chat(client).addClientSystemMessage(Component.literal("[CustomCosmetics · "+label+"] ").withStyle(net.minecraft.ChatFormatting.LIGHT_PURPLE).append(Component.literal(notice.message()).withStyle(net.minecraft.ChatFormatting.WHITE)));
+        ClientUiAccess.chat(client).addClientSystemMessage(Component.literal("[CustomSkyBlock · "+label+"] ").withStyle(net.minecraft.ChatFormatting.LIGHT_PURPLE).append(Component.literal(notice.message()).withStyle(net.minecraft.ChatFormatting.WHITE)));
     }
 }

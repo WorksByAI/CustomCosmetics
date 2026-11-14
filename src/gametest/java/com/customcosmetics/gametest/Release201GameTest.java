@@ -46,7 +46,7 @@ public final class Release201GameTest implements FabricClientGameTest {
                 trackDrops=false;
                 var screen=new CosmeticsScreen(null,CosmeticsScreen.Page.DROP_2D);
                 ClientUiAccess.setScreen(c,screen);
-                if(read(screen,"page")!=CosmeticsScreen.Page.EXPERIMENTAL)throw new AssertionError("2D Drop settings bypassed experimental access");
+                if(read(screen,"page")!=CosmeticsScreen.Page.DROP_2D)throw new AssertionError("Offline QOL did not open 2D Drop");
             });
             System.out.println("RELEASE_201_NATIVE_DEPTH_AND_DROP_OK thin="+thinWidth+" deep="+deepWidth);
             context.runOnClient(c->{ClientUiAccess.setScreen(c,null);c.level.removeEntity(-20101,net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);});
@@ -54,24 +54,13 @@ public final class Release201GameTest implements FabricClientGameTest {
         }catch(Exception error){throw new AssertionError(error);}finally{trackDrops=false;}
     }
     private static void checkInventoryBlur(ClientGameTestContext context, java.util.function.Consumer<String> command) throws Exception {
-        var access = com.customcosmetics.sync.ExperimentalAccess.class.getDeclaredField("status");
-        access.setAccessible(true);
-        var previous = access.get(null);
         try {
             context.runOnClient(client -> {
-                ConfigManager.checkExperimentalAccess = false;
                 client.options.menuBackgroundBlurriness().set(5);
                 ClientUiAccess.setScreen(client, new net.minecraft.client.gui.screens.inventory.InventoryScreen(client.player));
                 trackInventoryBlur = true;
                 inventoryBlurPasses = 0;
                 ConfigManager.inventoryBlurEnabled = true;
-            });
-            context.waitTicks(3);
-            if (inventoryBlurPasses != 0) throw new AssertionError("Unauthorized inventory blur rendered");
-            context.runOnClient(client -> {
-                ConfigManager.offlineMode = false;
-                try { access.set(null, com.customcosmetics.sync.ExperimentalAccess.Status.GRANTED); }
-                catch (ReflectiveOperationException error) { throw new AssertionError(error); }
             });
             context.waitTicks(3);
             context.takeScreenshot("experimental-inventory-blur");
@@ -86,7 +75,7 @@ public final class Release201GameTest implements FabricClientGameTest {
             });
             context.waitTicks(3);
             if (inventoryBlurPasses != 0) throw new AssertionError("Disabled inventory blur rendered");
-            System.out.println("EXPERIMENTAL_INVENTORY_BLUR_AUTHORIZED_ONLY_OK");
+            System.out.println("QOL_INVENTORY_BLUR_LOCAL_TOGGLE_OK");
             context.runOnClient(client -> ConfigManager.inventoryDimPercent = 0);
             context.waitTicks(3);
             int undimmed = backgroundLight(context.takeScreenshot("inventory-dim-zero"));
@@ -146,8 +135,7 @@ public final class Release201GameTest implements FabricClientGameTest {
                 ConfigManager.offlineMode = true;
                 ConfigManager.customSkyEnabled = false;
                 com.customcosmetics.features.sky.Skyboxify.replace(java.util.List.of());
-                try { access.set(null, previous); }
-                catch (ReflectiveOperationException error) { throw new AssertionError(error); }
+
                 ClientUiAccess.setScreen(client, null);
             });
         }

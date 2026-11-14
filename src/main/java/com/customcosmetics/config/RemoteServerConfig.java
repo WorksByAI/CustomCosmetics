@@ -16,7 +16,7 @@ public final class RemoteServerConfig {
     private static String previousText;
     private static long nextCheck;
     private static final java.util.concurrent.ExecutorService READER = java.util.concurrent.Executors.newSingleThreadExecutor(task -> {
-        var thread = new Thread(task,"CustomCosmetics-config-reader");thread.setDaemon(true);return thread;
+        var thread = new Thread(task,"CustomSkyBlock-config-reader");thread.setDaemon(true);return thread;
     });
     private record Read(String text, Endpoint endpoint, boolean invalid) {}
     private static java.util.concurrent.CompletableFuture<Read> pending;
@@ -29,7 +29,7 @@ public final class RemoteServerConfig {
         try {
             Files.createDirectories(path.getParent());
             if (!Files.exists(path)) Files.writeString(path, template(), StandardCharsets.UTF_8, StandardOpenOption.CREATE_NEW);
-        } catch (java.io.IOException error) { LoggerFactory.getLogger("CustomCosmetics/RemoteServer").warn("Cannot create custom remote server file"); }
+        } catch (java.io.IOException error) { LoggerFactory.getLogger("CustomSkyBlock/RemoteServer").warn("Cannot create custom remote server file"); }
         reload(true);
     }
     public static String template() {
@@ -109,7 +109,7 @@ public final class RemoteServerConfig {
     private static boolean accept(Read result) {
         previousText=result.text();
         if (result.invalid()) {
-            LoggerFactory.getLogger("CustomCosmetics/RemoteServer").warn("Invalid custom remote server file; keeping the last valid connection settings");
+            LoggerFactory.getLogger("CustomSkyBlock/RemoteServer").warn("Invalid custom remote server file; keeping the last valid connection settings");
             return false;
         }
         if (result.endpoint()==null) return false;

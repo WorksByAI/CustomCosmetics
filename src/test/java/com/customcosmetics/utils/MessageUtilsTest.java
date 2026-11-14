@@ -22,10 +22,10 @@ import static org.junit.jupiter.api.Assertions.*;
 class MessageUtilsTest {
     @ParameterizedTest
     @CsvSource({
-        "true, false, '[CustomCosmetics] Succeeded to sync remote data!'",
-        "false, false, '[CustomCosmetics] Failed to sync remote data.'",
-        "true, true, '[CustomCosmetics] Succeeded to sync remote data! [stop notifications]'",
-        "false, true, '[CustomCosmetics] Failed to sync remote data. [stop notifications]'"
+        "true, false, '[CustomSkyBlock] Succeeded to sync remote data!'",
+        "false, false, '[CustomSkyBlock] Failed to sync remote data.'",
+        "true, true, '[CustomSkyBlock] Succeeded to sync remote data! [stop notifications]'",
+        "false, true, '[CustomSkyBlock] Failed to sync remote data. [stop notifications]'"
     })
     void syncResultsHaveCleanTextAndTheGuiPinkColor(boolean success, boolean notification, String expected) {
         Component result = MessageUtils.createSyncResult(success, notification);
@@ -53,7 +53,7 @@ class MessageUtilsTest {
 
     @Test
     void otherChatMessagesUseTheUpdatedDisplayName() {
-        assertEquals("[CustomCosmetics] Example", MessageUtils.createMessageWithPrefix("Example").getString());
+        assertEquals("[CustomSkyBlock] Example", MessageUtils.createMessageWithPrefix("Example").getString());
     }
 
     @ParameterizedTest
@@ -64,7 +64,7 @@ class MessageUtilsTest {
     })
     void allCommandMessagesUsePinkForBothPrefixAndBody(String text) {
         Component message = MessageUtils.createMessageWithPrefix(text);
-        assertEquals("[CustomCosmetics] " + text, message.getString());
+        assertEquals("[CustomSkyBlock] " + text, message.getString());
         assertEntirelyPink(message);
     }
 
@@ -76,7 +76,7 @@ class MessageUtilsTest {
         var original = Component.literal("Example ").withStyle(style -> style.withColor(0xFFFFFF).withBold(true))
             .append(Component.empty().withStyle(style -> style.withColor(0x00FF00)).append(child));
         Component message = MessageUtils.createMessageWithPrefix(original);
-        assertEquals("[CustomCosmetics] Example [stop notifications]", message.getString());
+        assertEquals("[CustomSkyBlock] Example [stop notifications]", message.getString());
         assertEntirelyPink(message);
         List<Component> clickable = new ArrayList<>();
         collectClickable(message, clickable);
@@ -96,7 +96,7 @@ class MessageUtilsTest {
     void detailedFailuresKeepTheGuiPinkAndNotificationAction(SyncFailure.Reason reason) {
         var failure = SyncFailure.of(reason, SyncFailure.Stage.UPLOAD);
         var message = MessageUtils.createSyncResult(false, true, failure);
-        assertEquals("[CustomCosmetics] Failed to sync remote data: " + failure.description() + ". [stop notifications]", message.getString());
+        assertEquals("[CustomSkyBlock] Failed to sync remote data: " + failure.description() + ". [stop notifications]", message.getString());
         assertEntirelyPink(message);
         List<Component> clickable = new ArrayList<>();
         collectClickable(message, clickable);
@@ -109,7 +109,7 @@ class MessageUtilsTest {
         try (var stream = MessageUtilsTest.class.getResourceAsStream("/fabric.mod.json")) {
             assertNotNull(stream);
             var metadata = JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8)).getAsJsonObject();
-            assertEquals("CustomCosmetics", metadata.get("name").getAsString());
+            assertEquals("CustomSkyBlock", metadata.get("name").getAsString());
             assertEquals("customcosmetics", metadata.get("id").getAsString());
             assertEquals(System.getProperty("customcosmetics.version"), metadata.get("version").getAsString());
         }

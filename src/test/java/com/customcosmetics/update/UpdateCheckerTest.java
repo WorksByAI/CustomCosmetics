@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class UpdateCheckerTest {
     @Test void noticeUsesPinkAndAUserClickedFixedProjectReleaseLink() {
         var message = UpdateChecker.message("1.0.0", "1.0.1");
-        assertEquals("[CustomCosmetics] Update available: 1.0.1 (installed: 1.0.0). [View Release]", message.getString());
+        assertEquals("[CustomSkyBlock] Update available: 1.0.1 (installed: 1.0.0). [View Release]", message.getString());
         var links = new java.util.ArrayList<ClickEvent>();
         message.visit((style,text) -> {
             assertEquals(PinkUi.PINK & 0xFFFFFF, style.getColor().getValue()); assertNull(style.getHoverEvent());

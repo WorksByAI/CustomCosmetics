@@ -18,7 +18,7 @@ public final class RealtimeSync {
     private RealtimeSync(){}
     private static final int APPEARANCE_MODULES=com.customcosmetics.config.FeatureModules.Feature.NICK.bit()|com.customcosmetics.config.FeatureModules.Feature.PLAYER_SIZE.bit()|com.customcosmetics.config.FeatureModules.Feature.SMOL.bit()|com.customcosmetics.config.FeatureModules.Feature.EQUIPMENT.bit()|com.customcosmetics.config.FeatureModules.Feature.CREATURE_MODEL.bit()|com.customcosmetics.config.FeatureModules.Feature.SKINS.bit();
     private static boolean appearanceEnabled(){
-        return ConfigManager.syncEnabled&&ConfigManager.partyP2pEnabled&&com.customcosmetics.client.ModErrors.active(com.customcosmetics.client.ModErrors.Key.APPEARANCE)&&(ConfigManager.disabledModules&APPEARANCE_MODULES)!=APPEARANCE_MODULES;
+        return ConfigManager.syncEnabled&&com.customcosmetics.client.ModErrors.active(com.customcosmetics.client.ModErrors.Key.APPEARANCE)&&(ConfigManager.disabledModules&APPEARANCE_MODULES)!=APPEARANCE_MODULES;
     }
     public static boolean enabled(){return !"udp".equals(ConfigManager.syncBlockingTransport)||PositionSharing.enabled()||appearanceEnabled();}
     public static void block(BlockHand value,String id){
@@ -50,7 +50,7 @@ public final class RealtimeSync {
         if(!key.equals(endpoint)||auth!=identity){disconnect();endpoint=key;identity=auth;}
         if(live!=null&&!live.closed()){
             var world=PresenceWorld.read(client);var player=client.player;var roster=PartyFeatures.roster();
-            live.update(new RealtimeClient.View(world.world(),blocking?world.players():Set.of(),roster,PresenceWorld.environment(client),party,(party||locations||appearance)&&ConfigManager.partyP2pEnabled,audience,appearance?world.players():Set.of()),
+            live.update(new RealtimeClient.View(world.world(),blocking?world.players():Set.of(),roster,PresenceWorld.environment(client),party,party||locations||appearance,audience,appearance?world.players():Set.of()),
                 blocking?hand:BlockHand.NONE,blocking?item:"",audience.publishes(roster,party)?new PartyClient.Position(player.getX(),player.getY(),player.getZ(),player.getBbWidth(),player.getBbHeight()):null);
             long now=System.nanoTime()/1_000_000;
             if(appearance&&now>=nextAppearance){nextAppearance=now+5000;live.appearance(PresenceSync.capturePeerAppearance());}

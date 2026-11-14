@@ -11,6 +11,24 @@ public final class CosmeticsMixinPlugin implements IMixinConfigPlugin {
     @Override public void onLoad(String mixinPackage) {}
     @Override public String getRefMapperConfig() { return null; }
     @Override public boolean shouldApplyMixin(String target, String mixin) {
+        if (mixin.contains("RenderOptimiserMixin$")) {
+            var loader = FabricLoader.getInstance();
+            if (loader.isModLoaded("athen")) return false;
+            String game = loader.getModContainer("minecraft").orElseThrow().getMetadata().getVersion().getFriendlyString();
+            if (mixin.endsWith("$Arm")) return target.endsWith(game.startsWith("26.3") ? ".FirstPersonHandsAndItemsRenderer" : ".ItemInHandRenderer");
+            if (mixin.endsWith("$Hud")) return target.endsWith(game.startsWith("26.1") ? ".Gui" : ".Hud");
+        }
+        if (mixin.contains(".HitColor")) {
+            var loader = FabricLoader.getInstance();
+            if (loader.isModLoaded("contts-hitcolorx")) return false;
+            String game = loader.getModContainer("minecraft").orElseThrow().getMetadata().getVersion().getFriendlyString();
+            if (mixin.endsWith("FirstPersonLegacy")) return !game.startsWith("26.3");
+            if (mixin.endsWith("HitColorRenderTypesMixin")) return game.startsWith("26.1");
+            if (mixin.endsWith("FirstPersonModern") || mixin.endsWith("HitColorPipelines263Mixin"))
+                return game.startsWith("26.3");
+            if (mixin.endsWith("HitColorPipelines261Mixin")) return game.startsWith("26.1");
+            if (mixin.endsWith("HitColorPipelines262Mixin")) return game.startsWith("26.2");
+        }
         if(mixin.contains(".Sky")){
             var loader=FabricLoader.getInstance();
             if(loader.isModLoaded("skyboxify"))return false;

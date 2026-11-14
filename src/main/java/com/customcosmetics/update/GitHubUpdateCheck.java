@@ -55,7 +55,7 @@ public final class GitHubUpdateCheck {
         connection.setInstanceFollowRedirects(false); connection.setUseCaches(false);
         connection.setRequestProperty("Accept", "application/vnd.github+json");
         connection.setRequestProperty("X-GitHub-Api-Version", "2026-03-10");
-        connection.setRequestProperty("User-Agent", "CustomCosmetics-UpdateChecker");
+        connection.setRequestProperty("User-Agent", "CustomSkyBlock-UpdateChecker");
         try {
             if (connection.getResponseCode() != 200) return Optional.empty();
             try (var input = connection.getInputStream()) {

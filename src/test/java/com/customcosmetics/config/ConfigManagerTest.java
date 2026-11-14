@@ -166,10 +166,13 @@ class ConfigManagerTest {
         assertTrue(com.customcosmetics.features.party.PartyFeatures.sharingPositions());
         assertTrue(ConfigManager.partyShowNames);assertTrue(ConfigManager.partyFarMarkers);
     }
-    @Test void partyP2pDefaultsOnAndExplicitOptOutPersists() throws Exception {
-        assertTrue(ConfigManager.partyP2pEnabled);var path=directory.resolve("party-p2p.json");
-        ConfigManager.partyP2pEnabled=false;ConfigManager.save(path);ConfigManager.partyP2pEnabled=true;ConfigManager.load(path);assertFalse(ConfigManager.partyP2pEnabled);
+    @Test void retiredP2pFlagDoesNotPreventLoadingAnAutomaticPort() throws Exception {
+        var path = directory.resolve("party-p2p.json");
+        Files.writeString(path, "{\"partyP2pEnabled\":false,\"syncP2pPort\":0}");
+        ConfigManager.load(path);
+        assertEquals(0, ConfigManager.getSyncP2pPort());
     }
+
     @Test void tracersAreOptionalAndSaveTheirOwnColor() throws Exception {
         assertFalse(ConfigManager.partyTracersEnabled);var path=directory.resolve("party-tracers.json");
         ConfigManager.partyTracersEnabled=true;ConfigManager.partyTracerColor=0x12ABEF;ConfigManager.save(path);

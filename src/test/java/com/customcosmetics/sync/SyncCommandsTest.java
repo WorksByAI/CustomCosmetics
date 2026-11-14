@@ -9,12 +9,15 @@ class SyncCommandsTest {
     @Test void shortAliasPreservesTheOriginalCommandAndEverySubcommand() {
         var dispatcher = new CommandDispatcher<FabricClientCommandSource>();
         SyncCommands.register(dispatcher);
-        var original = dispatcher.getRoot().getChild("customcosmetics");
-        var alias = dispatcher.getRoot().getChild("ccos");
+        var original = dispatcher.getRoot().getChild("customskyblock");
         assertNotNull(original);
         assertNotNull(original.getCommand());
-        assertSame(original, alias.getRedirect());
-        assertSame(original.getCommand(), alias.getCommand());
+        for (String name : new String[]{"ccos", "csb", "customcosmetics"}) {
+            var alias = dispatcher.getRoot().getChild(name);
+            assertNotNull(alias);
+            assertSame(original, alias.getRedirect());
+            assertSame(original.getCommand(), alias.getCommand());
+        }
         for (String name : new String[]{"notification", "sync", "party", "dev", "map", "waypoint", "shortcuts"})
             assertNotNull(original.getChild(name), name);
         for (String action : new String[]{"next", "previous", "first", "reset"}) {

@@ -22,7 +22,7 @@ public final class BorderlessWindowMixin {
             target = "Lorg/lwjgl/glfw/GLFW;glfwSetWindowMonitor(JJIIIII)V"))
         private void ccos$fullscreen(long window, long monitor, int x, int y, int width, int height,
                                      int refresh, Operation<Void> original) {
-            if (monitor != 0 && "borderless".equals(ConfigManager.fullscreenStyle) && com.customcosmetics.sync.ExperimentalAccess.allowed()) {
+            if (monitor != 0 && "borderless".equals(ConfigManager.fullscreenStyle)) {
                 var mode = GLFW.glfwGetVideoMode(monitor);
                 if (mode != null) {
                     var monitorX = new int[1];
@@ -55,7 +55,7 @@ public final class BorderlessWindowMixin {
 
         @Inject(method = "applyFullscreenMode", at = @At("HEAD"), cancellable = true)
         private void ccos$fullscreen(CallbackInfoReturnable<Boolean> callback) {
-            if ("borderless".equals(ConfigManager.fullscreenStyle) && com.customcosmetics.sync.ExperimentalAccess.allowed()) callback.setReturnValue(applyBorderlessFullscreen());
+            if ("borderless".equals(ConfigManager.fullscreenStyle)) callback.setReturnValue(applyBorderlessFullscreen());
         }
     }
 }

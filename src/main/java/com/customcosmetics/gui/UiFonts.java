@@ -86,6 +86,7 @@ public final class UiFonts {
     }
 
     public static void init() {
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STARTED.register(UiFonts::restore);
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING.register(client -> clear());
     }
 
@@ -100,7 +101,7 @@ public final class UiFonts {
     }
 
     public static Font get(Font original) {
-        if (loaded == null || !com.customcosmetics.sync.ExperimentalAccess.allowed()) return original;
+        if (loaded == null) return original;
         if (ConfigManager.useFontInGame) return original;
         if (base != original || view == null) {
             base = original;
@@ -109,7 +110,7 @@ public final class UiFonts {
             view = new Font(new Font.Provider() {
                 @Override public GlyphSource glyphs(FontDescription description) {
                     var active = loaded;
-                    if (active != null && com.customcosmetics.sync.ExperimentalAccess.allowed()
+                    if (active != null
                             && (description.equals(FontDescription.DEFAULT) || description.equals(LOCAL))) {
                         return active.source(vanilla.glyphs(FontDescription.DEFAULT));
                     }
@@ -123,7 +124,7 @@ public final class UiFonts {
 
     public static GlyphSource gameSource(FontDescription description, GlyphSource vanilla) {
         var active = loaded;
-        if (active == null || !ConfigManager.useFontInGame || !com.customcosmetics.sync.ExperimentalAccess.allowed()) return vanilla;
+        if (active == null || !ConfigManager.useFontInGame) return vanilla;
         if (!description.equals(FontDescription.DEFAULT) && !description.equals(UNIFORM)) return vanilla;
         return active.source(vanilla);
     }
@@ -154,12 +155,11 @@ public final class UiFonts {
     }
 
     public static void load(Minecraft client, Path path, Style style, Boolean preferBold, Consumer<Boolean> done) {
-        if (!com.customcosmetics.sync.ExperimentalAccess.allowed()) { done.accept(false); return; }
         var normalized = path.toAbsolutePath().normalize();
         var known = loaded != null && loaded.family.path().equals(normalized) ? loaded.family : null;
         long id = ++request;
         CompletableFuture.supplyAsync(() -> read(normalized, known, style, preferBold)).thenAccept(prepared -> client.execute(() -> {
-            if (request != id || !com.customcosmetics.sync.ExperimentalAccess.allowed()) {
+            if (request != id) {
                 if (prepared != null) prepared.close();
                 return;
             }

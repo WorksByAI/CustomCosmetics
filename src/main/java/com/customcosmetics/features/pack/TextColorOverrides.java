@@ -2,7 +2,6 @@
 package com.customcosmetics.features.pack;
 
 import com.customcosmetics.config.ConfigManager;
-import com.customcosmetics.sync.ExperimentalAccess;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.resources.Identifier;
@@ -42,7 +41,7 @@ public final class TextColorOverrides {
 
     static boolean update() {
         Map<Integer, Integer> next = Map.of();
-        if (ConfigManager.customTextColorsEnabled && ExperimentalAccess.allowed()) {
+        if (ConfigManager.customTextColorsEnabled) {
             var rules = new TreeMap<Integer, Integer>();
             ConfigManager.customTextColors.forEach((from, to) -> {
                 Integer source = parse(from), target = parse(to);

@@ -29,7 +29,7 @@ public final class SodiumGlyphWriter implements InvocationHandler {
         if(method.getName().equals("push")){push(vertices,((Number)args[1]).longValue(),((Number)args[2]).intValue(),args[3]);return null;}
         if(method.getName().equals("equals"))return proxy==args[0];
         if(method.getName().equals("hashCode"))return System.identityHashCode(proxy);
-        if(method.getName().equals("toString"))return "CustomCosmetics optimized gradient vertices";
+        if(method.getName().equals("toString"))return "CustomSkyBlock optimized gradient vertices";
         try{var result=method.invoke(vertices,args);return result==vertices?proxy:result;}
         catch(InvocationTargetException problem){throw problem.getCause();}
     }

@@ -27,7 +27,7 @@ class PartyConnectionNoticeTest {
 
     @Test void messageIsPinkEnglishAndEverySpanOpensTheLocalPartySettingsCommand() {
         var message = PartyConnectionNotice.message();
-        assertEquals("[CustomCosmetics] Connected to the Party sharing server. [Settings]", message.getString());
+        assertEquals("[CustomSkyBlock] Connected to the Party sharing server. [Settings]", message.getString());
         message.visit((style, text) -> {
             assertEquals(PinkUi.PINK & 0xFFFFFF, style.getColor().getValue());
             assertEquals(new ClickEvent.RunCommand("/customcosmetics party"), style.getClickEvent());
@@ -50,7 +50,7 @@ class PartyConnectionNoticeTest {
         assertTrue(notice.connected(true,true));assertFalse(notice.failed(true));assertFalse(notice.connected(true,true));
         notice.membership(false);notice.membership(true);assertFalse(notice.failed(false));
         now.set(60_000);assertFalse(notice.failed(false));assertFalse(notice.failed(true));
-        var message=PartyConnectionNotice.message(false);assertEquals("[CustomCosmetics] Could not connect to the Party sharing server. [Settings]",message.getString());
+        var message=PartyConnectionNotice.message(false);assertEquals("[CustomSkyBlock] Could not connect to the Party sharing server. [Settings]",message.getString());
         assertEquals(new ClickEvent.RunCommand(PartyConnectionNotice.SETTINGS_COMMAND),message.getStyle().getClickEvent());
     }
 

@@ -23,6 +23,11 @@ public final class HudLayoutMixin {
     @Pseudo
     @Mixin(targets={"net.minecraft.client.gui.Hud","net.minecraft.client.gui.Gui"})
     public abstract static class Hud {
+        @Inject(method="extractRenderState", at=@At("TAIL"))
+        private void gameplayHud(GuiGraphicsExtractor graphics, DeltaTracker tick, CallbackInfo callback) {
+            com.customcosmetics.features.gameplay.GameplayFeatures.drawHud(graphics, false);
+        }
+
         @WrapMethod(method="extractOverlayMessage")
         private void ccos$OverlayMessage(GuiGraphicsExtractor g,DeltaTracker tick,Operation<Void> original){
             var o=HudLayout.active(Element.ACTION_BAR);

@@ -63,4 +63,11 @@ class SettingsCatalogTest {
         assertTrue(SettingsCatalog.find("waypoint").isEmpty());
         assertTrue(SettingsCatalog.find("shortcuts").isEmpty());
     }
+
+    @Test void missingEnchantsSearchOpensTooltipTweaks() {
+        var matches = SettingsCatalog.find("Missing Enchants").stream()
+            .filter(entry -> entry.title().equals("Missing Enchants")).toList();
+        assertEquals(1, matches.size());
+        assertEquals("TOOLTIP_TWEAKS", matches.getFirst().page());
+    }
 }

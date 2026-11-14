@@ -2,12 +2,10 @@
 package com.customcosmetics.features.pack;
 
 import com.customcosmetics.config.ConfigManager;
-import com.customcosmetics.sync.ExperimentalAccess;
 import com.customcosmetics.utils.MessageUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonParser;
 import com.mojang.blaze3d.platform.InputConstants;
-import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.serialization.JsonOps;
@@ -71,33 +69,28 @@ public final class PackDisablerCommands {
 
     public static LiteralArgumentBuilder<FabricClientCommandSource> command(String name) {
         return ClientCommands.literal(name)
-            .executes(authorized(context -> help()))
-            .then(ClientCommands.literal("help").executes(authorized(context -> help())))
-            .then(ClientCommands.literal("reload").executes(authorized(context -> reload())))
-            .then(ClientCommands.literal("textcolors").executes(authorized(context -> {
+            .executes(context -> help())
+            .then(ClientCommands.literal("help").executes(context -> help()))
+            .then(ClientCommands.literal("reload").executes(context -> reload()))
+            .then(ClientCommands.literal("textcolors").executes(context -> {
                 ConfigManager.hypixelPackTextColors = !ConfigManager.hypixelPackTextColors;
                 ConfigManager.requestSave();
                 HypixelPackDisabler.refresh(Minecraft.getInstance());
                 return message("Hypixel text colors: " + (ConfigManager.hypixelPackTextColors ? "on" : "off"));
-            })))
+            }))
             .then(ClientCommands.literal("whitelist")
-                .executes(authorized(context -> whitelist(heldId())))
+                .executes(context -> whitelist(heldId()))
                 .then(ClientCommands.argument("id", StringArgumentType.greedyString())
                     .suggests((context, builder) -> {
-                        if (!ExperimentalAccess.allowed()) return builder.buildFuture();
+
                         String prefix = builder.getRemainingLowerCase();
                         LegacyPackItems.ids().stream().filter(id -> id.toLowerCase(Locale.ROOT).startsWith(prefix))
                             .sorted().forEach(builder::suggest);
                         return builder.buildFuture();
                     })
-                    .executes(authorized(context -> whitelist(normalizeId(StringArgumentType.getString(context, "id").strip()))))))
+                    .executes(context -> whitelist(normalizeId(StringArgumentType.getString(context, "id").strip())))))
             .then(replacements())
             .then(glints());
-    }
-
-    private static Command<FabricClientCommandSource> authorized(Command<FabricClientCommandSource> command) {
-        // Permissions are fetched after joining. Keep the command tree available for later grants.
-        return context -> ExperimentalAccess.allowed() ? command.run(context) : message("Pack Disabler requires experimental access.");
     }
 
     private static int help() {
@@ -131,18 +124,18 @@ public final class PackDisablerCommands {
             .then(ClientCommands.literal("set")
                 .then(ClientCommands.argument("item", StringArgumentType.greedyString())
                     .suggests((context, builder) -> {
-                        if (!ExperimentalAccess.allowed()) return builder.buildFuture();
+
                         String prefix = builder.getRemainingLowerCase();
                         BuiltInRegistries.ITEM.keySet().stream().filter(id -> "minecraft".equals(id.getNamespace()))
                             .map(id -> prefix.contains(":") ? id.toString() : id.getPath())
                             .filter(id -> id.startsWith(prefix)).sorted().forEach(builder::suggest);
                         return builder.buildFuture();
                     })
-                    .executes(authorized(context -> setReplacement(StringArgumentType.getString(context, "item").strip())))))
-            .then(ClientCommands.literal("remove").executes(authorized(context -> remove(true))))
-            .then(ClientCommands.literal("list").executes(authorized(context -> list(ConfigManager.hypixelPackReplacements))))
-            .then(ClientCommands.literal("export").executes(authorized(context -> exportReplacements())))
-            .then(ClientCommands.literal("import").executes(authorized(context -> importReplacements())));
+                    .executes(context -> setReplacement(StringArgumentType.getString(context, "item").strip()))))
+            .then(ClientCommands.literal("remove").executes(context -> remove(true)))
+            .then(ClientCommands.literal("list").executes(context -> list(ConfigManager.hypixelPackReplacements)))
+            .then(ClientCommands.literal("export").executes(context -> exportReplacements()))
+            .then(ClientCommands.literal("import").executes(context -> importReplacements()));
     }
 
     private static int setReplacement(String value) {
@@ -158,10 +151,10 @@ public final class PackDisablerCommands {
     private static LiteralArgumentBuilder<FabricClientCommandSource> glints() {
         return ClientCommands.literal("glint")
             .then(ClientCommands.literal("set")
-                .then(ClientCommands.literal("on").executes(authorized(context -> setGlint(true))))
-                .then(ClientCommands.literal("off").executes(authorized(context -> setGlint(false)))))
-            .then(ClientCommands.literal("remove").executes(authorized(context -> remove(false))))
-            .then(ClientCommands.literal("list").executes(authorized(context -> list(ConfigManager.hypixelPackGlints))));
+                .then(ClientCommands.literal("on").executes(context -> setGlint(true)))
+                .then(ClientCommands.literal("off").executes(context -> setGlint(false))))
+            .then(ClientCommands.literal("remove").executes(context -> remove(false)))
+            .then(ClientCommands.literal("list").executes(context -> list(ConfigManager.hypixelPackGlints)));
     }
 
     private static int setGlint(boolean value) {

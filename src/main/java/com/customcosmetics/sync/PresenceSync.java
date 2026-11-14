@@ -55,7 +55,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 @Environment(EnvType.CLIENT)
 public final class PresenceSync {
-    private static final Logger LOGGER = LoggerFactory.getLogger("CustomCosmetics/PresenceSync");
+    private static final Logger LOGGER = LoggerFactory.getLogger("CustomSkyBlock/PresenceSync");
     private static final SyncCadence CADENCE = new SyncCadence();
     private static final StartupSyncNotice STARTUP_NOTICE = new StartupSyncNotice();
     private static final RateLimitNotice RATE_LIMIT_NOTICE = new RateLimitNotice();
@@ -70,7 +70,7 @@ public final class PresenceSync {
     private static final long HARD_EXPIRE_AFTER_MS = 3L * 24L * 60L * 60L * 1000L;
     private static final Gson CACHE_GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final ExecutorService CACHE_WRITER = Executors.newSingleThreadExecutor(task -> {
-        var thread = new Thread(task, "CustomCosmetics-presence-cache"); thread.setDaemon(true); return thread;
+        var thread = new Thread(task, "CustomSkyBlock-presence-cache"); thread.setDaemon(true); return thread;
     });
     private static final AtomicReference<Runnable> PENDING_CACHE = new AtomicReference<>();
     private static final AtomicBoolean CACHE_SCHEDULED = new AtomicBoolean();

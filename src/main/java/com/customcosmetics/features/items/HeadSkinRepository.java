@@ -28,7 +28,7 @@ public final class HeadSkinRepository {
         this.directory = directory;
         var client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8)).followRedirects(HttpClient.Redirect.NORMAL).build();
         fetcher = (uri, etag) -> {
-            var request = HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(40)).header("User-Agent", "CustomCosmetics-head-skins");
+            var request = HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(40)).header("User-Agent", "CustomSkyBlock-head-skins");
             if (!etag.isEmpty()) request.header("If-None-Match", etag);
             var response = client.send(request.GET().build(), HttpResponse.BodyHandlers.ofInputStream());
             return new Response(response.statusCode(), response.headers().firstValue("ETag").orElse(""), response.body());

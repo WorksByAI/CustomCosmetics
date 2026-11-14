@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.0
+
+- Rename to CustomSkyBlock, add `/csb` and `/customskyblock`, and reorganize the settings sidebar.
+- Integrate Natural Motion Blur and Bobby from source, add zoom controls, and remove QoL access checks.
+- Add dungeon, Slayer, and seasonal tools, module keybinds, and complete Auto Experiments settings.
+- Speed up World Scanner and fix egg highlights, book combining, and inventory refills.
+
 ## 2.1.1
 
 - Improve local font smoothing and bold rendering, and load glyphs on demand.

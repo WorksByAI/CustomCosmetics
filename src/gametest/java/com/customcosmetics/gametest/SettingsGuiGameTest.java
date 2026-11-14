@@ -14,19 +14,14 @@ import java.util.concurrent.atomic.AtomicReference;
 final class SettingsGuiGameTest {
     static void checkFontChoiceAndTooltip(ClientGameTestContext context)throws Exception{
         context.getInput().resizeWindow(1600,1000);context.waitTicks(3);
-        var access = com.customcosmetics.sync.ExperimentalAccess.class.getDeclaredField("status");
-        access.setAccessible(true);
-        var previous = access.get(null);
-        boolean offline = ConfigManager.offlineMode, checkAccess = ConfigManager.checkExperimentalAccess;
+        boolean offline = ConfigManager.offlineMode;
         boolean gameFont = ConfigManager.useFontInGame;
         try {
         var result = new java.util.concurrent.CompletableFuture<Boolean>();
         context.runOnClient(client -> {
-            ConfigManager.checkExperimentalAccess = false;
-            ConfigManager.offlineMode = false;
+            ConfigManager.offlineMode = true;
             ConfigManager.useFontInGame = false;
-            try { access.set(null, com.customcosmetics.sync.ExperimentalAccess.Status.GRANTED); }
-            catch (IllegalAccessException error) { throw new AssertionError(error); }
+
             ConfigManager.uiLanguage = "en_us";
             ConfigManager.uiAnimationsEnabled = true;
             ClientUiAccess.setScreen(client, new CosmeticsScreen(null, CosmeticsScreen.Page.FONTS));
@@ -108,9 +103,7 @@ final class SettingsGuiGameTest {
                 UiFonts.clear();
                 ConfigManager.useFontInGame = gameFont;
                 ConfigManager.offlineMode = offline;
-                ConfigManager.checkExperimentalAccess = checkAccess;
-                try { access.set(null, previous); }
-                catch (IllegalAccessException error) { throw new AssertionError(error); }
+
             });
         }
     }
@@ -379,18 +372,13 @@ final class SettingsGuiGameTest {
         Files.createDirectories(pack.resolve("assets/minecraft/font"));
         Files.writeString(pack.resolve("pack.mcmeta"),"{\"pack\":{\"description\":\"Preview font regression fixture\",\"min_format\":["+format.major()+","+format.minor()+"],\"max_format\":["+format.major()+","+format.minor()+"]}}");
         Files.writeString(pack.resolve("assets/minecraft/font/default.json"),"{\"providers\":[{\"type\":\"space\",\"advances\":{\"W\":19}},{\"type\":\"reference\",\"id\":\"minecraft:uniform\"}]}");
-        var access = com.customcosmetics.sync.ExperimentalAccess.class.getDeclaredField("status");
-        access.setAccessible(true);
-        var previous = access.get(null);
-        boolean offline = ConfigManager.offlineMode, checkAccess = ConfigManager.checkExperimentalAccess;
+        boolean offline = ConfigManager.offlineMode;
         boolean gameFont = ConfigManager.useFontInGame;
         var loaded = new java.util.concurrent.CompletableFuture<Boolean>();
         try {
             context.runOnClient(client -> {
-                ConfigManager.checkExperimentalAccess = false;
-                ConfigManager.offlineMode = false;
+                ConfigManager.offlineMode = true;
                 ConfigManager.useFontInGame = false;
-                access.set(null, com.customcosmetics.sync.ExperimentalAccess.Status.GRANTED);
                 UiFonts.load(client, testFont(), 11, 1, loaded::complete);
             });
             context.waitFor(client -> loaded.isDone(), 100);
@@ -435,8 +423,6 @@ final class SettingsGuiGameTest {
                 UiFonts.clear();
                 ConfigManager.useFontInGame = gameFont;
                 ConfigManager.offlineMode = offline;
-                ConfigManager.checkExperimentalAccess = checkAccess;
-                access.set(null, previous);
             });
         }
     }

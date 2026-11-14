@@ -2,7 +2,6 @@
 package com.customcosmetics.mixin;
 
 import com.customcosmetics.config.ConfigManager;
-import com.customcosmetics.sync.ExperimentalAccess;
 import net.minecraft.client.gui.screens.inventory.AbstractSignEditScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
@@ -40,7 +39,7 @@ public final class LongSignTextMixin {
         @Unique
         private static void ccos$validateSignLine(String line, CallbackInfoReturnable<Boolean> result) {
             // The server's sign update codec measures Java string length.
-            if (ConfigManager.longSignTextEnabled && ExperimentalAccess.allowed())
+            if (ConfigManager.longSignTextEnabled)
                 result.setReturnValue(line.length() <= CCOS_MAX_LINE_LENGTH);
         }
     }
@@ -53,7 +52,7 @@ public final class LongSignTextMixin {
         @ModifyVariable(method = "getRenderMessages", at = @At("HEAD"), argsOnly = true)
         private Function<Component, FormattedCharSequence> ccos$renderSignLine(
                 Function<Component, FormattedCharSequence> vanilla) {
-            boolean expanded = ConfigManager.longSignTextEnabled && ExperimentalAccess.allowed();
+            boolean expanded = ConfigManager.longSignTextEnabled;
             if (ccos$expanded != expanded) {
                 // Let vanilla rebuild its cached visual lines and apply the player's text filter.
                 ccos$expanded = expanded;

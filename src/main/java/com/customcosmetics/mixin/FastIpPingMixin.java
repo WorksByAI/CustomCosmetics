@@ -14,7 +14,7 @@ import java.net.UnknownHostException;
 public interface FastIpPingMixin {
     @WrapOperation(method="lambda$static$0",at=@At(value="INVOKE",target="Ljava/net/InetAddress;getByName(Ljava/lang/String;)Ljava/net/InetAddress;"))
     private static InetAddress ccos$resolve(String host,Operation<InetAddress> original) throws UnknownHostException {
-        if(ConfigManager.fastIpPingEnabled && com.customcosmetics.sync.ExperimentalAccess.allowed()){
+        if(ConfigManager.fastIpPingEnabled){
             try {
                 var literal=InetAddress.ofLiteral(host);
                 // A scoped IPv6 address must keep its scope ID.

@@ -41,7 +41,7 @@ public final class Freecam {
     public static void toggle(){setEnabled(!active());}
     public static void setEnabled(boolean enabled){setEnabled(enabled, true);}
     public static void toggleGeneral(){
-        if (!available() || !ConfigManager.freecamEnabled || !com.customcosmetics.sync.ExperimentalAccess.allowed()) throw new IllegalStateException("Enable Freecam in Experimental Features first.");
+        if (!available() || !ConfigManager.freecamEnabled) throw new IllegalStateException("Enable Freecam in QOL first.");
         setEnabled(!active(), false);
     }
     private static void setEnabled(boolean enabled, boolean map){
@@ -82,9 +82,9 @@ public final class Freecam {
     }
     public static void tick(Minecraft client){
         while(key!=null&&key.consumeClick())if(ClientUiAccess.screen(client)==null)MapCommands.run(Freecam::toggle);
-        while(generalKey!=null&&generalKey.consumeClick())if(ClientUiAccess.screen(client)==null&&ConfigManager.freecamEnabled&&com.customcosmetics.sync.ExperimentalAccess.allowed())MapCommands.run(Freecam::toggleGeneral);
+        while(generalKey!=null&&generalKey.consumeClick())if(ClientUiAccess.screen(client)==null&&ConfigManager.freecamEnabled)MapCommands.run(Freecam::toggleGeneral);
         if(!active())return;
-        if(client.player!=body||client.level!=camera.level()||(mapMode? !MapEditor.enabled||!MapEditor.allowed(client) : !ConfigManager.freecamEnabled||!com.customcosmetics.sync.ExperimentalAccess.allowed()||ConfigManager.freecamExitOnDamage&&body.getHealth()<health)||!body.isAlive()||body.isPassenger()||body.isSleeping()||client.getCameraEntity()!=camera){stop(client);return;}
+        if(client.player!=body||client.level!=camera.level()||(mapMode? !MapEditor.enabled||!MapEditor.allowed(client) : !ConfigManager.freecamEnabled||ConfigManager.freecamExitOnDamage&&body.getHealth()<health)||!body.isAlive()||body.isPassenger()||body.isSleeping()||client.getCameraEntity()!=camera){stop(client);return;}
         health=body.getHealth();
         camera.setOldPosAndRot();client.options.setCameraType(CameraType.FIRST_PERSON);
         if(ClientUiAccess.screen(client)!=null)return;

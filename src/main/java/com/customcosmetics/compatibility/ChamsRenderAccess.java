@@ -73,7 +73,7 @@ public final class ChamsRenderAccess {
             replaying=true;
             try{if(EXPLICIT_PASS){
                 Object frame=call(dispatcher,"prepareFrame",captured);
-                Object pass=method(encoder,"createRenderPass",5).invoke(encoder,(Supplier<String>)()->"CustomCosmetics original appearance",call(target,"getColorTextureView"),Optional.empty(),call(target,"getDepthTextureView"),OptionalDouble.empty());
+                Object pass=method(encoder,"createRenderPass",5).invoke(encoder,(Supplier<String>)()->"CustomSkyBlock original appearance",call(target,"getColorTextureView"),Optional.empty(),call(target,"getDepthTextureView"),OptionalDouble.empty());
                 try{RenderSystem.class.getMethod("bindDefaultUniforms",Class.forName("com.mojang.renderpearl.api.commands.RenderPass")).invoke(null,pass);method(dispatcher,"renderAllFeatures",2).invoke(null,pass,frame);}
                 finally{((AutoCloseable)pass).close();((AutoCloseable)frame).close();}
             }else{
@@ -120,9 +120,9 @@ public final class ChamsRenderAccess {
         Object colorFormat=call(call(main,"getColorTexture"),"getFormat"),depthFormat=call(call(main,"getDepthTexture"),"getFormat");
         if(target!=null&&target.getClass().getField("width").getInt(target)==width&&target.getClass().getField("height").getInt(target)==height&&Objects.equals(colorFormat,targetColorFormat)&&Objects.equals(depthFormat,targetDepthFormat))return;
         closeTarget();var ctor=Class.forName("com.mojang.blaze3d.pipeline.TextureTarget").getConstructors()[0];
-        if(ctor.getParameterCount()==4)target=ctor.newInstance("CustomCosmetics Chams",width,height,true);
-        else if(ctor.getParameterTypes()[3]==boolean.class)target=ctor.newInstance("CustomCosmetics Chams",width,height,true,colorFormat);
-        else target=ctor.newInstance("CustomCosmetics Chams",width,height,colorFormat,depthFormat);
+        if(ctor.getParameterCount()==4)target=ctor.newInstance("CustomSkyBlock Chams",width,height,true);
+        else if(ctor.getParameterTypes()[3]==boolean.class)target=ctor.newInstance("CustomSkyBlock Chams",width,height,true,colorFormat);
+        else target=ctor.newInstance("CustomSkyBlock Chams",width,height,colorFormat,depthFormat);
         targetColorFormat=colorFormat;targetDepthFormat=depthFormat;
     }
     private static void closeTarget()throws ReflectiveOperationException{if(target!=null){call(target,"destroyBuffers");target=null;}}

@@ -9,7 +9,6 @@ import com.customcosmetics.features.pack.TextColorOverrides;
 import com.customcosmetics.features.text.TextReplacements;
 import com.customcosmetics.config.PlayerBlocklist;
 import com.customcosmetics.sync.PresenceSync;
-import com.customcosmetics.sync.ExperimentalAccess;
 import com.customcosmetics.utils.NickRenderUtils;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -32,9 +31,13 @@ import static com.customcosmetics.gui.PinkUi.*;
 public final class CosmeticsScreen extends ThemedScreen {
     public enum Page {
         MAIN, SIZE, NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, BLOCKED_SKINS, POSITION_RECIPIENTS, ANIMATIONS, DAMAGE, ITEMS, ACCESSORIES, MAP, PARTY, LOCATION_SHARING, SKINS, SYNC, THEME, MODULES, SEARCH, EXPERIMENTAL,
-        HUD_LAYOUT, SKYBOX, FONTS, FREECAM, WINDOW, HIT_COLOR, FAST_PING, PACK_DISABLER, INVENTORY_BLUR, TEXT_COLORS, DROP_2D, TEXT_REPLACEMENTS, SIGN_TEXT;
+        HUD_LAYOUT, SKYBOX, FONTS, FREECAM, WINDOW, HIT_COLOR, FAST_PING, PACK_DISABLER, INVENTORY_BLUR, TEXT_COLORS, DROP_2D, TEXT_REPLACEMENTS, SIGN_TEXT, COMMAND_TOOLTIPS, SNAPLOOK, MOTION_BLUR, PLAYER_SPIN, LOBBY_MARKER, BOBBY, ZOOM, SEYMOUR, TOOLTIP_TWEAKS;
 
-        boolean experimentalOption() { return ordinal() > EXPERIMENTAL.ordinal(); }
+        boolean qolOption() { return switch (this) {
+            case HUD_LAYOUT, SKYBOX, FONTS, FREECAM, WINDOW, HIT_COLOR, FAST_PING, INVENTORY_BLUR,
+                 TEXT_COLORS, DROP_2D, TEXT_REPLACEMENTS, SIGN_TEXT -> true;
+            default -> false;
+        }; }
     }
     private static final net.minecraft.resources.Identifier MOD_LOGO=net.minecraft.resources.Identifier.fromNamespaceAndPath("customcosmetics","textures/gui/mod-logo.png");
     private static final String INSTALLED_VERSION = com.customcosmetics.client.CustomCosmeticsClient.version();
@@ -42,12 +45,21 @@ public final class CosmeticsScreen extends ThemedScreen {
     private static final ScreenSession SESSION = new ScreenSession();
     private final Screen parent;
     private Page page;
-    private ExperimentalAccess.Status accessStatus;
-    private boolean accessAllowed;
     private HudLayout.Element hudElement=HudLayout.Element.ITEM_NAME;
     private final List<AbstractWidget> navigation = new ArrayList<>();
-    private final List<Placement> sidebarControls = new ArrayList<>();
-    private final List<Consumer<GuiGraphicsExtractor>> sidebarArt = new ArrayList<>();
+    private enum Section {
+        APPEARANCE("Appearance"), CONNECTIONS("Connections"), QOL("QOL"), SKYBLOCK("SkyBlock");
+        final String label;
+        Section(String label) { this.label = label; }
+    }
+    private static final int CHEATING_BUTTON_HEIGHT = 25;
+    private record NavEntry(AbstractWidget widget, Section parent, Section header) {}
+    private final List<NavEntry> sidebarControls = new ArrayList<>();
+    private final UiMotion[] navTransitions = java.util.Arrays.stream(Section.values()).map(section -> new UiMotion(0)).toArray(UiMotion[]::new);
+    private final int[] navChildCounts = new int[Section.values().length];
+    private int[] navClipBottom = new int[0];
+    private Section expanded, navBuilding;
+    private boolean navInitialized;
     private final List<Placement> controls = new ArrayList<>();
     private final List<Consumer<GuiGraphicsExtractor>> art = new ArrayList<>();
     private final List<Consumer<GuiGraphicsExtractor>> pinnedArt = new ArrayList<>();
@@ -57,7 +69,7 @@ public final class CosmeticsScreen extends ThemedScreen {
     private PreviewLayout.PlayerPanel playerPanel;
     private WardrobeCamera playerCamera=WardrobeCamera.DEFAULT;
     private boolean turningPlayer;
-    private int navTop, navBottom, navContentBottom, navRowY, navScroll, scrollGrabOffset;
+    private int navTop, navBottom, navContentBottom, navScroll, scrollGrabOffset;
     private boolean draggingNavigation;
     private String connectionSummary = "";
     private List<String> connectionLines = List.of();
@@ -93,11 +105,11 @@ public final class CosmeticsScreen extends ThemedScreen {
     private final UiMotion entrance=new UiMotion(0,UiMotion.Curve.SPRING);
     private float entranceScale=1;
     private boolean drawingPinned;
-    private int positionedScroll=Integer.MIN_VALUE, positionedNavScroll=Integer.MIN_VALUE;
+    private int positionedScroll=Integer.MIN_VALUE;
     private record Placement(AbstractWidget widget, int y) {}
 
     public CosmeticsScreen(Screen parent, Page page) {
-        super(Component.literal("CustomCosmetics"));
+        super(Component.literal("CustomSkyBlock"));
         this.parent = parent;
         if (page == Page.MAIN) {
             var remembered = SESSION.open(System.currentTimeMillis());
@@ -108,14 +120,11 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
 
     @Override protected void init() {
-        accessStatus = ExperimentalAccess.status();
-        accessAllowed = ExperimentalAccess.allowed();
-        if (page.experimentalOption() && !accessAllowed) page = Page.EXPERIMENTAL;
         font = UiFonts.get(minecraft.font);
         if(wardrobeRequested){wardrobeRequested=false;ClientUiAccess.setScreen(minecraft,new WardrobeScreen(this));return;}
         UiLocale.refresh();UiTheme.refresh();
-        positionedScroll=positionedNavScroll=Integer.MIN_VALUE;pendingToggleY=Integer.MIN_VALUE;pendingToggleRight=false;
-        navigation.clear(); sidebarControls.clear(); sidebarArt.clear(); controls.clear(); art.clear(); pinnedArt.clear();
+        positionedScroll=Integer.MIN_VALUE;pendingToggleY=Integer.MIN_VALUE;pendingToggleRight=false;
+        navigation.clear(); sidebarControls.clear(); controls.clear(); art.clear(); pinnedArt.clear();
         searchOptions.clear();
         hexField = null; picker = null;
         refreshIntervalField = null; syncNowButton = null;
@@ -126,9 +135,12 @@ public final class CosmeticsScreen extends ThemedScreen {
         panelX = layout.x(); panelY = layout.y(); sideWidth = layout.sidebarWidth();
         contentX = layout.contentX(); contentWidth = layout.contentWidth();
         viewTop = layout.contentTop(); viewBottom = layout.contentBottom();
-        navTop = layout.navigationTop(); navBottom = layout.navigationBottom();
+        int cheatingY = layout.navigationBottom() - CHEATING_BUTTON_HEIGHT;
+        navTop = layout.navigationTop(); navBottom = cheatingY - 7;
         rowY = viewTop;
         buildNavigation();
+        navigation.add(addWidget(new PinkUi.Action(panelX + 8, cheatingY, sideWidth - 18, CHEATING_BUTTON_HEIGHT,
+            "Cheating", false, () -> CheatingScreen.open(this)).leftAligned()));
         navigation.add(addWidget(new RepositoryButton(panelX + 12, panelY + panelHeight - 42)));
         navigation.add(addWidget(new PinkUi.Action(panelX+47,panelY+panelHeight-42,sideWidth-55,30,"Settings",false,()->open(Page.SYNC)).selected(()->page==Page.SYNC)));
         navigation.add(addWidget(new PinkUi.Action(panelX + panelWidth - 32, panelY + 14, 20, 20, "×", false, this::onClose)));
@@ -148,7 +160,6 @@ public final class CosmeticsScreen extends ThemedScreen {
             controls.clear();
             viewTop = rowY;
         }
-        if (page.experimentalOption()) fullButton("Back to Experimental Features", () -> open(Page.EXPERIMENTAL), false);
         switch (page) {
             case MAIN -> overview();
             case SIZE -> playerSize();
@@ -172,7 +183,16 @@ public final class CosmeticsScreen extends ThemedScreen {
             case FREECAM -> freecam();
             case WINDOW -> windowMode();
             case HIT_COLOR -> hitColor();
+            case BOBBY -> bobby();
+            case ZOOM -> zoom();
+            case SEYMOUR -> seymour();
             case FAST_PING -> fastPing();
+            case COMMAND_TOOLTIPS -> commandTooltips();
+            case SNAPLOOK -> snaplook();
+            case MOTION_BLUR -> motionBlur();
+            case PLAYER_SPIN -> playerSpin();
+            case LOBBY_MARKER -> lobbyMarker();
+            case TOOLTIP_TWEAKS -> tooltipTweaks();
             case DROP_2D -> {toggleRow("2D Drop","Render dropped items as flat sprites facing the camera.",()->ConfigManager.droppedItems2dEnabled,v->ConfigManager.droppedItems2dEnabled=v);}
             case ITEMS -> itemCosmetics();
             case MAP -> mapEditor();
@@ -199,19 +219,28 @@ public final class CosmeticsScreen extends ThemedScreen {
             case NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS -> "Nick Changer";
             case ANIMATIONS -> "Animations";
             case DAMAGE -> "Damage Splash";
-            case EXPERIMENTAL -> "Experimental Features";
+            case EXPERIMENTAL -> "QOL";
             case PACK_DISABLER -> "Pack Disabler";
             case TEXT_COLORS -> "Customize Text Colors";
             case TEXT_REPLACEMENTS -> "Text Replacement";
             case SIGN_TEXT -> "Long Sign Text";
             case INVENTORY_BLUR -> "Inventory Blur";
-            case HUD_LAYOUT -> "HUD Layout";
-            case SKYBOX -> "Custom Sky";
+            case HUD_LAYOUT -> "HUD Manager";
+            case SKYBOX -> "Optifine Skies";
             case FONTS -> "Fonts";
             case FREECAM -> "Freecam";
-            case WINDOW -> "Window Mode";
+            case WINDOW -> "Windowed Fullscreen";
             case HIT_COLOR -> "Hit Color";
+            case BOBBY -> "Bobby";
+            case ZOOM -> "Zoom";
+            case SEYMOUR -> "Seymour Analyzer";
             case FAST_PING -> "Fast IP Ping";
+            case COMMAND_TOOLTIPS -> "Command Tooltips";
+            case SNAPLOOK -> "Snaplook";
+            case MOTION_BLUR -> "Motion Blur";
+            case PLAYER_SPIN -> "Player Spin";
+            case LOBBY_MARKER -> "Lobby Marker";
+            case TOOLTIP_TWEAKS -> "Tooltip Tweaks";
             case DROP_2D -> "2D Drop";
             case ITEMS -> "Item Customization";
             case MAP -> "Map Editor";
@@ -226,101 +255,146 @@ public final class CosmeticsScreen extends ThemedScreen {
         };
     }
 
-    private String pageDescription() {
-        return switch (page) {
-            case MAIN -> "Your look, your settings, all in one place.";
-            case SIZE -> "Proportions and the SmolPeople model.";
-            case NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS -> "Names, colors and animated gradients.";
-            case ANIMATIONS -> "Hand poses, item placement and swing timing.";
-            case DAMAGE -> "Style your local damage numbers.";
-            case EXPERIMENTAL -> "Access is granted by a server administrator.";
-            case PACK_DISABLER -> "Hide the official Hypixel SkyBlock textures.";
-            case TEXT_COLORS -> "Replace exact text colors.";
-            case TEXT_REPLACEMENTS -> "Replace matching text on this client.";
-            case SIGN_TEXT -> "Allow up to 384 characters per line on signs and hanging signs.";
-            case INVENTORY_BLUR -> "Blur the world behind inventories and containers.";
-            case HUD_LAYOUT -> "Move, resize or hide HUD elements.";
-            case SKYBOX -> "OptiFine and MCPatcher skies.";
-            case FONTS -> "Choose a font for this mod’s menus.";
-            case FREECAM -> "Move the camera independently of your player.";
-            case WINDOW -> "Choose how fullscreen opens.";
-            case HIT_COLOR -> "Customize the vanilla hurt flash.";
-            case FAST_PING -> "Skip reverse DNS for numeric server addresses.";
-            case DROP_2D -> "Camera-facing dropped items.";
-            case ITEMS -> "Custom names and models for your items.";
-            case MAP -> "Visual layouts, room presets and editing tools.";
-            case SKINS, BLOCKED_SKINS -> "Local imports and direct P2P sharing.";
-            case ACCESSORIES, BLOCKED_ACCESSORIES -> "Build an outfit and adjust its placement.";
-            case PARTY -> "Party chat, positions and teammate visuals.";
-            case LOCATION_SHARING, POSITION_RECIPIENTS -> "Choose who can see your position.";
-            case SYNC -> "Preferences, connections and advanced settings.";
-            case MODULES -> "Pause whole features while keeping your settings.";
-            case BLOCKED_CAPES -> "Choose whose capes you see.";
-            case SEARCH -> "Find a setting and jump straight to it.";
-            case THEME -> "Theme and motion";
-        };
-    }
-
     private void buildNavigation() {
-        navRowY = navTop;
+        java.util.Arrays.fill(navChildCounts, 0);
+        navBuilding = null;
+        if (!navInitialized) {
+            navInitialized = true;
+            selectSection(sectionFor(page), false);
+        }
         navItem("Overview", Page.MAIN);
-        navSection("APPEARANCE");
-        navItem("Nick Changer", Page.NICK); navItem("Player Size", Page.SIZE);
-        navItem("Skins", Page.SKINS); navItem("Equipments", Page.ACCESSORIES);
+        navSection(Section.APPEARANCE);
         navAction("Cape", () -> ClientUiAccess.setScreen(minecraft, new CapeScreen(this)), () -> page == Page.BLOCKED_CAPES);
-        navSection("SKYBLOCK");
-        navItem("Animations", Page.ANIMATIONS); navItem("Damage Splash", Page.DAMAGE);
-        navItem("Item Customization", Page.ITEMS); navItem("Map Editor", Page.MAP);
-        navSection("CONNECTIONS");
-        navItem("Party Sharing", Page.PARTY);navItem("Location Sharing",Page.LOCATION_SHARING);
-        navContentBottom = navRowY;
-        navScroll = Math.clamp(navScroll, 0, maxNavScroll());
+        navItem("Equipments", Page.ACCESSORIES);
+        navItem("Nick Changer", Page.NICK);
+        navItem("Player Size", Page.SIZE);
+        navItem("Skins", Page.SKINS);
+        navSection(Section.CONNECTIONS);
+        navItem("Location Sharing", Page.LOCATION_SHARING);
+        navItem("Party Sharing", Page.PARTY);
+        navSection(Section.QOL);
+        navItem("2D Drop", Page.DROP_2D);
+        navItem("Bobby", Page.BOBBY);
+        navItem("Command Tooltips", Page.COMMAND_TOOLTIPS);
+        navItem("Customize Text Colors", Page.TEXT_COLORS);
+        navItem("Fast IP Ping", Page.FAST_PING);
+        navItem("Fonts", Page.FONTS);
+        navItem("Freecam", Page.FREECAM);
+        navItem("Hit Color", Page.HIT_COLOR);
+        navItem("HUD Manager", Page.HUD_LAYOUT);
+        navItem("Inventory Blur", Page.INVENTORY_BLUR);
+        navItem("Long Sign Text", Page.SIGN_TEXT);
+        navItem("Motion Blur", Page.MOTION_BLUR);
+        navItem("Optifine Skies", Page.SKYBOX);
+        navItem("Player Spin", Page.PLAYER_SPIN);
+        navItem("Snaplook", Page.SNAPLOOK);
+        navItem("Text Replacement", Page.TEXT_REPLACEMENTS);
+        navItem("Windowed Fullscreen", Page.WINDOW);
+        navItem("Zoom", Page.ZOOM);
+        navSection(Section.SKYBLOCK);
+        navItem("Animations", Page.ANIMATIONS);
+        navItem("Damage Splash", Page.DAMAGE);
+        navItem("Item Customization", Page.ITEMS);
+        navItem("Lobby Marker", Page.LOBBY_MARKER);
+        navItem("Map Editor", Page.MAP);
+        navItem("Pack Disabler", Page.PACK_DISABLER);
+        navItem("Seymour Analyzer", Page.SEYMOUR);
+        navItem("Tooltip Tweaks", Page.TOOLTIP_TWEAKS);
+        navClipBottom = new int[sidebarControls.size()];
         positionNavigation();
     }
 
-    private void navSection(String title) {
-        int y = navRowY + 7;
-        sidebarArt.add(g -> uiText(g, font, title, panelX + 15, y, DIM, sideWidth - 26));
-        navRowY += 21;
+    private static Section sectionFor(Page page) {
+        if (page.qolOption()) return Section.QOL;
+        return switch (page) {
+            case NICK, SIZE, COLOR, CHROMA, PRESETS, RANK, SKINS, ACCESSORIES,
+                 BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, BLOCKED_SKINS -> Section.APPEARANCE;
+            case PARTY, LOCATION_SHARING, POSITION_RECIPIENTS -> Section.CONNECTIONS;
+            case EXPERIMENTAL, COMMAND_TOOLTIPS, SNAPLOOK, MOTION_BLUR, PLAYER_SPIN, BOBBY, ZOOM -> Section.QOL;
+            case ANIMATIONS, DAMAGE, ITEMS, MAP, PACK_DISABLER, LOBBY_MARKER, SEYMOUR, TOOLTIP_TWEAKS -> Section.SKYBLOCK;
+            default -> null;
+        };
     }
+
+    private void selectSection(Section section, boolean animate) {
+        expanded = section;
+        for (Section candidate : Section.values()) {
+            navTransitions[candidate.ordinal()].value(candidate == section ? 1 : 0, animate);
+        }
+    }
+
+    private void navSection(Section section) {
+        var button = new PinkUi.Action(panelX + 8, navTop, sideWidth - 18, 25, section.label, false,
+            () -> selectSection(expanded == section ? null : section, ConfigManager.uiAnimationsEnabled))
+            .leftAligned().selected(() -> expanded == section);
+        sidebarControls.add(new NavEntry(addWidget(button), null, section));
+        navBuilding = section;
+    }
+
     private void navItem(String name, Page target) {
         navAction(name, () -> open(target), () -> target == page
             || target == Page.ACCESSORIES && page == Page.BLOCKED_ACCESSORIES
             || target == Page.SKINS && page == Page.BLOCKED_SKINS
             || target == Page.LOCATION_SHARING && page == Page.POSITION_RECIPIENTS
-            || target == Page.NICK && (page == Page.COLOR || page == Page.CHROMA || page == Page.RANK || page == Page.PRESETS || page == Page.BLOCKED_NICKS));
+            || target == Page.NICK && sectionFor(page) == Section.APPEARANCE
+                && (page == Page.COLOR || page == Page.CHROMA || page == Page.RANK || page == Page.PRESETS || page == Page.BLOCKED_NICKS));
     }
+
     private void navAction(String name, Runnable callback, BooleanSupplier selected) {
-        var widget = new PinkUi.Action(panelX + 8, navRowY, sideWidth - 18, 23, name, false, callback).leftAligned().selected(selected);
-        widget.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent(name)));
-        sidebarControls.add(new Placement(addWidget(widget), navRowY)); navRowY += 26;
+        int indent = navBuilding == null ? 8 : 15;
+        var widget = new PinkUi.Action(panelX + indent, navTop, sideWidth - indent - 10, 21, name, false, callback)
+            .leftAligned().selected(selected);
+        if (navBuilding != null) navChildCounts[navBuilding.ordinal()]++;
+        sidebarControls.add(new NavEntry(addWidget(widget), navBuilding, null));
     }
+
     private int maxNavScroll() { return Math.max(0, navContentBottom - navBottom); }
+
     private void positionNavigation() {
-        if(positionedNavScroll==navScroll)return;
-        positionedNavScroll=navScroll;
-        for (var placement : sidebarControls) {
-            var widget = placement.widget(); widget.setY(placement.y() - navScroll);
-            widget.visible = widget.getBottom() > navTop && widget.getY() < navBottom;
+        int y = navTop, clip = navBottom, endOfSection = y;
+        boolean animate = ConfigManager.uiAnimationsEnabled;
+        for (int i = 0; i < sidebarControls.size(); i++) {
+            var entry = sidebarControls.get(i);
+            var widget = entry.widget();
+            if (entry.header() != null) {
+                y = Math.max(navTop, endOfSection);
+                widget.setY(y - navScroll);
+                y += 28;
+                int index = entry.header().ordinal();
+                float progress = navTransitions[index].value(expanded == entry.header() ? 1 : 0, animate);
+                endOfSection = y + Math.round(progress * navChildCounts[index] * 23);
+                clip = endOfSection - navScroll;
+            } else {
+                widget.setY(y - navScroll);
+                y += entry.parent() == null ? 26 : 23;
+                if (entry.parent() == null) endOfSection = y;
+            }
+            navClipBottom[i] = entry.parent() == null ? navBottom : clip;
         }
+        navContentBottom = endOfSection;
+        int clamped = Math.clamp(navScroll, 0, maxNavScroll());
+        for (int i = 0; i < sidebarControls.size(); i++) {
+            var entry = sidebarControls.get(i);
+            var widget = entry.widget();
+            widget.setY(widget.getY() + navScroll - clamped);
+            if (entry.parent() != null) navClipBottom[i] = Math.min(navBottom, navClipBottom[i] + navScroll - clamped);
+            widget.visible = navClipBottom[i] > navTop && widget.getBottom() > navTop && widget.getY() < navClipBottom[i];
+            widget.active = entry.parent() == null || entry.parent() == expanded && widget.getBottom() <= navClipBottom[i];
+        }
+        navScroll = clamped;
     }
+
     private void experimental() {
-        if (!accessAllowed) {
-            paragraph(switch (accessStatus) {
-                case CHECKING -> "Checking access…";
-                case UNAVAILABLE -> "Could not check access. Check your connection and online mode.";
-                default -> "Access is granted by a server administrator.";
-            }, MUTED);
-            fullButton("Check Access", () -> ExperimentalAccess.refresh(minecraft), true).active = accessStatus != ExperimentalAccess.Status.CHECKING;
-            return;
-        }
-        fullButton("Custom Sky", () -> open(Page.SKYBOX), false);
-        fullButton("HUD Layout", () -> open(Page.HUD_LAYOUT), false);
+        fullButton("Command Tooltips", () -> open(Page.COMMAND_TOOLTIPS), false);
+        fullButton("Snaplook", () -> open(Page.SNAPLOOK), false);
+        fullButton("Motion Blur", () -> open(Page.MOTION_BLUR), false);
+        fullButton("Player Spin", () -> open(Page.PLAYER_SPIN), false);
+        fullButton("Optifine Skies", () -> open(Page.SKYBOX), false);
+        fullButton("HUD Manager", () -> open(Page.HUD_LAYOUT), false);
         fullButton("Fast IP Ping", () -> open(Page.FAST_PING), false);
         fullButton("Freecam", () -> open(Page.FREECAM), false);
-        fullButton("Window Mode", () -> open(Page.WINDOW), false);
+        fullButton("Windowed Fullscreen", () -> open(Page.WINDOW), false);
         fullButton("Hit Color", () -> open(Page.HIT_COLOR), false);
-        fullButton("Pack Disabler", () -> open(Page.PACK_DISABLER), false);
         fullButton("Customize Text Colors", () -> open(Page.TEXT_COLORS), false);
         fullButton("Text Replacement", () -> open(Page.TEXT_REPLACEMENTS), false);
         fullButton("Long Sign Text", () -> open(Page.SIGN_TEXT), false);
@@ -557,7 +631,7 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
 
     private void hudLayout(){
-        toggleRow("HUD Layout","",()->ConfigManager.hudLayoutEnabled,v->ConfigManager.hudLayoutEnabled=v);
+        toggleRow("HUD Manager","",()->ConfigManager.hudLayoutEnabled,v->ConfigManager.hudLayoutEnabled=v);
         var elements=List.of(HudLayout.Element.values());
         for(var element:elements)indexOption(element.label,"",rowY);
         dropdown("HUD Element",elements.stream().map(Enum::name).toList(),elements.stream().map(e->e.label).toList(),
@@ -574,7 +648,7 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
 
     private void customSky(){
-        toggleRow("Custom Sky","OptiFine and MCPatcher skies.",()->ConfigManager.customSkyEnabled,v->ConfigManager.customSkyEnabled=v);
+        toggleRow("Optifine Skies","OptiFine and MCPatcher skies.",()->ConfigManager.customSkyEnabled,v->ConfigManager.customSkyEnabled=v);
         toggleRow("Vanilla Sky Disc","",()->ConfigManager.customSkyDisc,v->ConfigManager.customSkyDisc=v);
         toggleRow("Vanilla Sun and Moon","",()->ConfigManager.customSkySunMoon,v->ConfigManager.customSkySunMoon=v);
         toggleRow("Vanilla Stars","",()->ConfigManager.customSkyStars,v->ConfigManager.customSkyStars=v);
@@ -641,8 +715,7 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
     private void indexOption(String title,String description,int y){searchOptions.add(new SettingsSearch.Entry(pageTitle(),title,description,page.name(),Math.max(0,y-viewTop)));}
     private void searchResults(){
-        var results=SettingsCatalog.find(searchQuery).stream()
-            .filter(entry -> accessAllowed || entry.page().equals("CAPE") || !Page.valueOf(entry.page()).experimentalOption()).toList();
+        var results=SettingsCatalog.find(searchQuery);
         label(searchQuery.isBlank()?"Type a setting name to search.":results.size()+" results",contentX,rowY+4,MUTED,contentWidth);rowY+=24;
         for(var result:results){
             int y=rowY;
@@ -1287,7 +1360,7 @@ public final class CosmeticsScreen extends ThemedScreen {
     private void windowMode() {
         var options = List.of(new OptionDropdown.Option("vanilla", "Game Default"),
             new OptionDropdown.Option("borderless", "Borderless Fullscreen"));
-        var choice = add(new OptionDropdown(contentX, rowY, contentWidth, "Window Mode", options,
+        var choice = add(new OptionDropdown(contentX, rowY, contentWidth, "Windowed Fullscreen", options,
             () -> ConfigManager.fullscreenStyle, v -> { ConfigManager.fullscreenStyle = v; changed(); }));
         choice.active = !net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("cwb");
         choiceMenus.add(choice);
@@ -1302,8 +1375,9 @@ public final class CosmeticsScreen extends ThemedScreen {
         int y = row(86);
         var palette = add(new PinkUi.ColorPicker(contentX + 6, y + 4, Math.min(290, contentWidth - 12), 76,
             ConfigManager.hitColor, color -> {
-                if (ConfigManager.hitColor != color) {
+                if (ConfigManager.hitColor != color || ConfigManager.hitColorChroma) {
                     ConfigManager.hitColor = color;
+                    ConfigManager.hitColorChroma = false;
                     ConfigManager.requestSave();
                 }
                 String value = hex(color);
@@ -1315,16 +1389,135 @@ public final class CosmeticsScreen extends ThemedScreen {
             hexField.invalid(!valid);
             if (!valid) return;
             int color = Integer.parseInt(value.startsWith("#") ? value.substring(1) : value, 16);
-            if (color != ConfigManager.hitColor) {
+            if (color != ConfigManager.hitColor || ConfigManager.hitColorChroma) {
                 ConfigManager.hitColor = color;
+                ConfigManager.hitColorChroma = false;
                 palette.setColor(color);
                 ConfigManager.requestSave();
             }
         });
         sliderRow("Opacity", "", () -> ConfigManager.hitOpacity, 0, 1, .05, .5, v -> ConfigManager.hitOpacity = (float) v);
-        int previewY = row(28);
-        art.add(g -> PinkUi.rounded(g, contentX + 6, previewY + 4, 64, 16, 3,
-            0xFF000000 | ConfigManager.hitColor));
+        var presets = com.customcosmetics.features.hitcolor.HitColors.PRESETS;
+        for (var entries = presets.entrySet().iterator(); entries.hasNext();) {
+            int groupY = row(20);
+            int col = (contentWidth - 16) / 9;
+            for (int i = 0; i < 9 && entries.hasNext(); i++) {
+                var entry = entries.next();
+                var swatch = new PinkUi.Action(contentX + 8 + i * col, groupY, Math.max(4, col - 4), 16, "", false, () -> {
+                    ConfigManager.hitColorChroma = false;
+                    ConfigManager.hitColor = entry.getValue();
+                    palette.setColor(entry.getValue());
+                    hexField.setValue(hex(entry.getValue()));
+                    ConfigManager.requestSave();
+                }) {
+                    @Override protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
+                        PinkUi.outline(g, getX(), getY(), getWidth(), getHeight(), 3,
+                            isHoveredOrFocused() ? PinkUi.PINK : PinkUi.BORDER, 0xFF000000 | entry.getValue());
+                    }
+                };
+                swatch.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.component(entry.getKey())));
+                add(swatch);
+            }
+        }
+        toggleRow("Chroma", "", () -> ConfigManager.hitColorChroma, value -> ConfigManager.hitColorChroma = value);
+        sliderRow("Chroma Speed", "", () -> ConfigManager.hitColorChromaSpeed, 1, 100, 1, 50,
+            value -> ConfigManager.hitColorChromaSpeed = (int) value);
+        toggleRow("Tint Body", "", () -> ConfigManager.hitColorBody, value -> ConfigManager.hitColorBody = value);
+        toggleRow("Tint Armor", "", () -> ConfigManager.hitColorArmor, value -> ConfigManager.hitColorArmor = value);
+        toggleRow("Tint Armor Trims", "", () -> ConfigManager.hitColorTrims, value -> ConfigManager.hitColorTrims = value);
+        toggleRow("Tint Held Items", "", () -> ConfigManager.hitColorItems, value -> ConfigManager.hitColorItems = value);
+        toggleRow("Tint Cape", "", () -> ConfigManager.hitColorCape, value -> ConfigManager.hitColorCape = value);
+        fullButton("Hurt Flash Preview", () -> ClientUiAccess.setScreen(minecraft, new HitColorPreviewScreen(this)), false);
+        fullButton("Reset Hit Color", () -> { com.customcosmetics.features.hitcolor.HitColors.reset(); rebuildWidgets(); }, false);
+    }
+
+    private int[] bobbySettings;
+    private String bobbyStatus = "";
+    private void bobby() {
+        if (bobbySettings == null) bobbySettings = com.customcosmetics.features.gameplay.BobbyIntegration.read();
+        toggleRow("Bobby", "Render previously cached chunks beyond the server's view distance.", () -> bobbySettings[0] != 0, value -> bobbySettings[0] = value ? 1 : 0, false);
+        toggleRow("Dynamic Multi World", "Keep separate caches for same-named worlds. Bobby merges matching caches once enough chunks agree. For an existing cache, run /bobby upgrade after enabling.", () -> bobbySettings[1] != 0, value -> bobbySettings[1] = value ? 1 : 0, false);
+        toggleRow("Skip Cached Block Entities", "Skip block entities such as chests in cached chunks to avoid their per-tick updates.", () -> bobbySettings[2] != 0, value -> bobbySettings[2] = value ? 1 : 0, false);
+        toggleRow("Dim Cached Chunks", "Lower the light level in cached chunks so they are easy to distinguish.", () -> bobbySettings[3] != 0, value -> bobbySettings[3] = value ? 1 : 0, false);
+        var numbers = List.of(
+            new NumericSetting("Unload Delay (s)", () -> bobbySettings[4], 0, 300, 1, 60, v -> bobbySettings[4] = (int) v,
+                "Keep chunks outside render distance for this many seconds, useful for short trips or cutscenes. Changing dimensions unloads them."),
+            new NumericSetting("Cache Retention (days)", () -> bobbySettings[5], -1, 365, 1, -1, v -> bobbySettings[5] = (int) v,
+                "Remove unused cached regions on disconnect and old world caches at startup. -1 disables cleanup. 0 clears a world's cache on disconnect."),
+            new NumericSetting("Max Render Distance", () -> bobbySettings[6], 4, 128, 1, 32, v -> bobbySettings[6] = (int) v,
+                "Raise the maximum selectable render distance. Requires Sodium."),
+            new NumericSetting("Singleplayer View Distance", () -> bobbySettings[7], 0, 32, 1, 0, v -> bobbySettings[7] = (int) v,
+                "Override the singleplayer server's view distance and enable Bobby there. 0 disables the override. Rejoin the world after changing it."));
+        sliderGrid(numbers, contentWidth >= 394 ? 2 : 1, true, false);
+        if (!bobbyStatus.isEmpty()) paragraph(bobbyStatus, MUTED);
+        fullButton("Save Bobby Settings", () -> {
+            try {
+                com.customcosmetics.features.gameplay.BobbyIntegration.save(bobbySettings);
+                bobbyStatus = "Bobby settings saved.";
+            } catch (IllegalStateException failure) {
+                bobbyStatus = "Could not save Bobby settings.";
+                com.customcosmetics.client.CustomCosmeticsClient.LOGGER.warn("Could not save Bobby settings", failure);
+            }
+            rebuildWidgets();
+        }, true);
+    }
+
+    private void seymour() {
+        if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("seymouranalyzer")) {
+            paragraph("The installed Seymour Analyzer mod handles armor dyes.", MUTED);
+            return;
+        }
+        toggleRow("Seymour Analyzer", "Show the closest dye and color difference on dyed armor tooltips.",
+            () -> ConfigManager.seymourEnabled, value -> ConfigManager.seymourEnabled = value);
+        toggleRow("Match Fade Dyes", "", () -> ConfigManager.seymourFadeDyes, value -> ConfigManager.seymourFadeDyes = value);
+    }
+
+    private void tooltipTweaks() {
+        toggleRow("Remove Gear Score", "", () -> ConfigManager.tooltipHideGearScore, v -> ConfigManager.tooltipHideGearScore = v);
+        toggleRow("Remove Vanilla Enchant Lines", "Hide the gray Aqua Affinity and Depth Strider lines.",
+            () -> ConfigManager.tooltipHideVanillaEnchants, v -> ConfigManager.tooltipHideVanillaEnchants = v);
+        toggleRow("Missing Enchants", "",
+            () -> ConfigManager.missingEnchantsEnabled, v -> ConfigManager.missingEnchantsEnabled = v);
+        toggleRow("Require Shift", "Hold Shift on a SkyBlock item to show missing enchantments.",
+            () -> ConfigManager.missingEnchantsRequireShift, v -> ConfigManager.missingEnchantsRequireShift = v);
+        toggleRow("Show Item Age", "", () -> ConfigManager.tooltipShowAge, v -> ConfigManager.tooltipShowAge = v);
+        toggleRow("Show Dye Hex", "Set the dye hex key in Minecraft Controls. Leave it unassigned to always show the color.",
+            () -> ConfigManager.tooltipShowHex, v -> ConfigManager.tooltipShowHex = v);
+        fieldRow("Item Age Format", "Item Age Format", ConfigManager.tooltipAgeStyle, 160, "#age · #time", 220,
+            value -> { ConfigManager.tooltipAgeStyle = value; changed(); });
+        fieldRow("Dye Hex Format", "Dye Hex Format", ConfigManager.tooltipHexStyle, 160, "#hex", 220,
+            value -> { ConfigManager.tooltipHexStyle = value; changed(); });
+        toggleRow("Color the Hex", "", () -> ConfigManager.tooltipColorHex, v -> ConfigManager.tooltipColorHex = v);
+        toggleRow("Display Color Box", "", () -> ConfigManager.tooltipColorBox, v -> ConfigManager.tooltipColorBox = v);
+        fullButton("Dye Hex Keybind", () -> ClientUiAccess.setScreen(minecraft,
+            new net.minecraft.client.gui.screens.options.controls.KeyBindsScreen(this, minecraft.options)), false);
+        toggleRow("Cake Year Overlay", "", () -> ConfigManager.tooltipCakeYears, v -> ConfigManager.tooltipCakeYears = v);
+        toggleRow("Item Stars Overlay", "", () -> ConfigManager.tooltipItemStars, v -> ConfigManager.tooltipItemStars = v);
+        int y = row(76);
+        label("Star Color", contentX + 6, y + 1, TEXT, contentWidth - 12);
+        add(new PinkUi.ColorPicker(contentX + 6, y + 15, Math.min(290, contentWidth - 12), 55, ConfigManager.tooltipStarColor,
+            color -> { ConfigManager.tooltipStarColor = color; changed(); }));
+    }
+
+    private void zoom() {
+        if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("zoomify")) {
+            paragraph("The installed Zoomify mod handles zoom.", MUTED);
+            return;
+        }
+        toggleRow("Zoom", "Set the zoom key in Minecraft Controls.", () -> ConfigManager.zoomEnabled, v -> ConfigManager.zoomEnabled = v);
+        toggleRow("Toggle Zoom", "", () -> ConfigManager.zoomToggle, v -> ConfigManager.zoomToggle = v);
+        toggleRow("Scroll to Zoom", "", () -> ConfigManager.zoomScroll, v -> ConfigManager.zoomScroll = v);
+        toggleRow("Scroll Below Initial Zoom", "Allow the scroll wheel to return to the normal field of view while zooming.",
+            () -> ConfigManager.zoomScrollBelowInitial, v -> ConfigManager.zoomScrollBelowInitial = v);
+        toggleRow("Scale Mouse Sensitivity", "", () -> ConfigManager.zoomSensitivity, v -> ConfigManager.zoomSensitivity = v);
+        toggleRow("Zoom Held Items", "", () -> ConfigManager.zoomHands, v -> ConfigManager.zoomHands = v);
+        toggleRow("Zoom Animation", "Smoothly change the field of view when starting or ending zoom.",
+            () -> ConfigManager.zoomAnimate, v -> ConfigManager.zoomAnimate = v);
+        sliderGrid(List.of(
+            new NumericSetting("Zoom Factor", () -> ConfigManager.zoomFactor, 1.25, 16, .25, 4, v -> ConfigManager.zoomFactor = v),
+            new NumericSetting("Zoom In (s)", () -> ConfigManager.zoomInSeconds, 0, 2, .05, .25, v -> ConfigManager.zoomInSeconds = v),
+            new NumericSetting("Zoom Out (s)", () -> ConfigManager.zoomOutSeconds, 0, 2, .05, .25, v -> ConfigManager.zoomOutSeconds = v)),
+            contentWidth >= 394 ? 2 : 1, true, true);
     }
 
     private void fastPing() {
@@ -1434,22 +1627,71 @@ public final class CosmeticsScreen extends ThemedScreen {
         });
     }
 
-    private void sync() {
-        fullButton("Language: "+UiText.name(ConfigManager.uiLanguage),()->{UiLocale.cycle();rebuildWidgets();},false,"Language preference applies only to this mod.");
-        fullButton("Fonts", () -> open(Page.FONTS), false);
-        fullButton("Interface",()->open(Page.THEME),false,"Theme colors and animations");
-        fullButton("Experimental Features", () -> open(Page.EXPERIMENTAL), false);
-        section("General", "Preferences and feature availability.");
-        label("Installed Mod Version: " + INSTALLED_VERSION, contentX + 6, row(20) + 4, TEXT, contentWidth - 12);
-        fullButton("Module Manager",()->open(Page.MODULES),false,"Enable or disable whole features without losing their settings.");
-        toggleRow("Check for Updates","Check GitHub for new releases and show a chat notification. Enabled by default.",()->ConfigManager.updateCheckEnabled,v->ConfigManager.updateCheckEnabled=v);
-        if (accessAllowed) fastPing();
+    private void commandTooltips() {
         toggleRow("Command Tooltips","Show the actual command when hovering clickable text. Preserves existing text, item and entity tooltips.",()->ConfigManager.commandTooltipsEnabled,v->ConfigManager.commandTooltipsEnabled=v);
+    }
+
+    private void snaplook() {
         toggleRow("Snaplook","Hold your assigned key to switch perspective; release to restore your previous view.",()->ConfigManager.snaplookEnabled,v->{ConfigManager.snaplookEnabled=v;if(!v)com.customcosmetics.features.camera.Snaplook.stop(minecraft);});
         fullButton("Snaplook View: "+switch(com.customcosmetics.features.camera.Snaplook.normalize(ConfigManager.snaplookPerspective)){case "first"->"First Person";case "back"->"Third Person Back";default->"Third Person Front (Rear View)";},()->{
             ConfigManager.snaplookPerspective=switch(com.customcosmetics.features.camera.Snaplook.normalize(ConfigManager.snaplookPerspective)){case "front"->"back";case "back"->"first";default->"front";};changed();rebuildWidgets();
         },false);
-        fullButton("Snaplook Keybind…",()->ClientUiAccess.setScreen(minecraft,new net.minecraft.client.gui.screens.options.controls.KeyBindsScreen(this,minecraft.options)),false,"Assign Snaplook under CustomCosmetics: Camera. Unbound by default.");
+        fullButton("Snaplook Keybind…",()->ClientUiAccess.setScreen(minecraft,new net.minecraft.client.gui.screens.options.controls.KeyBindsScreen(this,minecraft.options)),false,"Assign Snaplook under CustomSkyBlock: Camera. Unbound by default.");
+    }
+
+    private void motionBlur() {
+        if (com.customcosmetics.features.gameplay.NaturalMotionBlurIntegration.available()) {
+            fullButton("Open Natural Motion Blur Settings", () -> ClientUiAccess.setScreen(minecraft,
+                com.customcosmetics.features.gameplay.NaturalMotionBlurIntegration.open(this)), true);
+            return;
+        }
+        if (!com.customcosmetics.features.motionblur.MotionBlurPort.integrated()) {
+            paragraph("Natural Motion Blur requires the game's built-in renderer.", MUTED);
+            return;
+        }
+        var blur = com.customcosmetics.features.motionblur.MotionBlurPort.getConfig();
+        toggleRow("Motion Blur", "", () -> blur.enabled, value -> blur.enabled = value, false);
+        toggleRow("Refresh Rate Scaling", "", () -> blur.refreshRateScaling, value -> blur.refreshRateScaling = value, false);
+        var algorithms = com.customcosmetics.features.motionblur.BlurSettings.BlurAlgorithm.values();
+        fullButton("Blur Algorithm: " + blur.blurAlgorithm.label, () -> {
+            blur.blurAlgorithm = algorithms[(blur.blurAlgorithm.ordinal() + 1) % algorithms.length];
+            rebuildWidgets();
+        }, false);
+        toggleRow("Weighted Sampling", "", () -> blur.blurProfile == com.customcosmetics.features.motionblur.BlurSettings.BlurProfile.WEIGHTED,
+            value -> blur.blurProfile = value ? com.customcosmetics.features.motionblur.BlurSettings.BlurProfile.WEIGHTED
+                : com.customcosmetics.features.motionblur.BlurSettings.BlurProfile.UNIFORM, false);
+        sliderGrid(List.of(new NumericSetting("Blur Strength", () -> blur.motionBlurStrength, 0, 2, .01, 1,
+            value -> blur.motionBlurStrength = (float) value, "")), 1, true, false);
+        toggleRow("Enable OBS Spout Output", "Windows only. Add a Spout2 Capture source in OBS.", () -> blur.recordingOverlayEnabled,
+            value -> blur.recordingOverlayEnabled = value, false);
+        sliderGrid(List.of(new NumericSetting("Recording FPS Target", () -> blur.recordingOverlayTargetFPS, 24, 240, 1, 60,
+            value -> blur.recordingOverlayTargetFPS = (int) value, "")), 1, true, false);
+        fullButton("Save Motion Blur Settings", com.customcosmetics.features.motionblur.MotionBlurPort::save, true);
+    }
+
+    private void playerSpin() {
+        toggleRow("Rotate Head", "", () -> ConfigManager.spinHeadEnabled, value -> ConfigManager.spinHeadEnabled = value);
+        toggleRow("Rotate Body", "", () -> ConfigManager.spinBodyEnabled, value -> ConfigManager.spinBodyEnabled = value);
+        sliderRow("Head Rotations per Second", "Negative values turn counterclockwise.",
+            () -> ConfigManager.spinHeadSpeed, -10, 10, .1, 1, value -> ConfigManager.spinHeadSpeed = (float) value);
+        sliderRow("Body Rotations per Second", "Negative values turn counterclockwise.",
+            () -> ConfigManager.spinBodySpeed, -10, 10, .1, 1, value -> ConfigManager.spinBodySpeed = (float) value);
+    }
+
+    private void lobbyMarker() {
+        toggleRow("Lobby Marker", "", () -> ConfigManager.lobbyMarkerEnabled, value -> ConfigManager.lobbyMarkerEnabled = value);
+        toggleRow("Only in Crystal Hollows", "", () -> ConfigManager.lobbyMarkerCrystalOnly, value -> ConfigManager.lobbyMarkerCrystalOnly = value);
+        sliderRow("Remember Lobbies (minutes)", "", () -> ConfigManager.lobbyMarkerMinutes, 1, 60, 1, 5,
+            value -> ConfigManager.lobbyMarkerMinutes = (int) value);
+    }
+
+    private void sync() {
+        fullButton("Language: "+UiText.name(ConfigManager.uiLanguage),()->{UiLocale.cycle();rebuildWidgets();},false,"Language preference applies only to this mod.");
+        fullButton("Interface",()->open(Page.THEME),false,"Theme colors and animations");
+        section("General", "Preferences and feature availability.");
+        label("Installed Mod Version: " + INSTALLED_VERSION, contentX + 6, row(20) + 4, TEXT, contentWidth - 12);
+        fullButton("Module Manager",()->open(Page.MODULES),false,"Enable or disable whole features without losing their settings.");
+        toggleRow("Check for Updates","Check GitHub for new releases and show a chat notification. Enabled by default.",()->ConfigManager.updateCheckEnabled,v->ConfigManager.updateCheckEnabled=v);
         section("Connections", "Choose how your cosmetics and teammates stay in sync.");
         fullButton("Mode: "+(ConfigManager.offlineMode?"Offline":"Online"),()->{
             com.customcosmetics.config.CosmeticsMode.setOffline(!ConfigManager.offlineMode);activity();rebuildWidgets();
@@ -1483,14 +1725,6 @@ public final class CosmeticsScreen extends ThemedScreen {
         });
         var auth = proxyText("Proxy Auth",ConfigManager.syncProxyAuth,value -> ConfigManager.syncProxyAuth = value);
         auth.secret(true);
-        toggleRow("Disable P2P Connections","",()->!ConfigManager.partyP2pEnabled,v->ConfigManager.partyP2pEnabled=!v);
-        var p2pPort=fieldRow("P2P UDP Port","P2P UDP Port",Integer.toString(ConfigManager.getSyncP2pPort()),5,"0 = automatic. Applied when this menu closes.",100,value->{});
-        p2pPort.setResponder(value->{
-            activity();
-            try{int parsed=value.isBlank()?0:Integer.parseInt(value);boolean valid=parsed>=0&&parsed<=65535;
-                p2pPort.invalid(!valid);if(valid){ConfigManager.syncP2pPort=parsed;changed();}
-            }catch(NumberFormatException error){p2pPort.invalid(true);}
-        });
         toggleRow("Fallback Direct","Retry without the proxy if it fails.",() -> ConfigManager.syncProxyFallbackDirect,
             value -> { ConfigManager.syncProxyFallbackDirect = value; proxyChanged(); });
         indexOption("Proxy Source", "Advanced connection proxy source none manual auto", rowY);
@@ -1499,6 +1733,13 @@ public final class CosmeticsScreen extends ThemedScreen {
             ConfigManager.syncProxySource = sources.get((sources.indexOf(ConfigManager.syncProxySource) + 1) % sources.size());
             proxyChanged(); rebuildWidgets();
         })); rowY += 36;
+        var p2pPort=fieldRow("P2P UDP Port","P2P UDP Port",ConfigManager.getSyncP2pPort() == 0 ? "" : Integer.toString(ConfigManager.getSyncP2pPort()),5,"Leave blank to choose an available port automatically.",100,value->{});
+        p2pPort.setResponder(value->{
+            activity();
+            try{int parsed=value.isBlank()?0:Integer.parseInt(value);boolean valid=parsed>=0&&parsed<=65535;
+                p2pPort.invalid(!valid);if(valid){ConfigManager.syncP2pPort=parsed;changed();}
+            }catch(NumberFormatException error){p2pPort.invalid(true);}
+        });
     }
 
     private PinkUi.Action fullButton(String title,Runnable action){return fullButton(title,action,false);}
@@ -1571,21 +1812,33 @@ public final class CosmeticsScreen extends ThemedScreen {
         NumericSetting(String title,DoubleSupplier getter,double min,double max,double step,double defaultValue,DoubleConsumer setter){this(title,getter,min,max,step,defaultValue,setter,"");}
     }
     private void sliderGrid(List<NumericSetting> settings){
-        int columns=contentWidth>=520?3:contentWidth>=300?2:1,cellWidth=(contentWidth-(columns-1)*10)/columns;
+        sliderGrid(settings, contentWidth>=520?3:contentWidth>=300?2:1, false, true);
+    }
+    private void sliderGrid(List<NumericSetting> settings, int columns, boolean stackedLabel, boolean persist) {
+        int cellWidth=(contentWidth-(columns-1)*10)/columns;
         for(int i=0;i<settings.size();i++){
-            sliderCell(settings.get(i),contentX+(i%columns)*(cellWidth+10),rowY,cellWidth);
-            if(i%columns==columns-1||i==settings.size()-1)rowY+=40;
+            var setting = settings.get(i);
+            int x = contentX + (i % columns) * (cellWidth + 10);
+            if (stackedLabel) label(setting.title(), x, rowY, TEXT, cellWidth);
+            sliderCell(setting, x, rowY + (stackedLabel ? 13 : 0), cellWidth, stackedLabel, persist);
+            if(i%columns==columns-1||i==settings.size()-1)rowY+=stackedLabel ? 47 : 40;
         }
     }
     private void sliderCell(NumericSetting setting,int x,int y,int width) {
+        sliderCell(setting, x, y, width, false, true);
+    }
+    private void sliderCell(NumericSetting setting,int x,int y,int width,boolean stackedLabel,boolean persist) {
         indexOption(setting.title(),setting.description(),y);
         PinkUi.Field[] number=new PinkUi.Field[1];
-        number[0]=add(new PinkUi.Field(font,x+width-70,y,48,setting.title()+" value",22));number[0].setMaxLength(7);number[0].setValue(String.format(Locale.ROOT,"%.2f",setting.getter().getAsDouble()));
-        var reset=add(new PinkUi.Action(x+width-18,y+2,18,18,"Reset",false,()->{setting.setter().accept(setting.defaultValue());changed();rebuildWidgets();}).displayAs("↺"));
+        String numberFormat = setting.step() == 1 ? "%.0f" : "%.2f";
+        Runnable onChange = persist ? this::changed : this::activity;
+        number[0]=add(new PinkUi.Field(font,x+width-70,y,48,setting.title()+" value",22));number[0].setMaxLength(7);number[0].setValue(String.format(Locale.ROOT,numberFormat,setting.getter().getAsDouble()));
+        var reset=add(new PinkUi.Action(x+width-18,y+2,18,18,"Reset",false,()->{setting.setter().accept(setting.defaultValue());onChange.run();rebuildWidgets();}).displayAs("↺"));
         reset.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent("Reset")));
-        var slider=add(new PinkUi.Slider(x,y+1,width,setting.title(),setting.getter().getAsDouble(),setting.min(),setting.max(),setting.step(),value->{setting.setter().accept(value);changed();if(!number[0].isFocused())number[0].setValue(String.format(Locale.ROOT,"%.2f",value));}).labelSpace(76));
+        var slider=add(new PinkUi.Slider(x,y+1,width,setting.title(),setting.getter().getAsDouble(),setting.min(),setting.max(),setting.step(),value->{setting.setter().accept(value);onChange.run();if(!number[0].isFocused())number[0].setValue(String.format(Locale.ROOT,numberFormat,value));}).labelSpace(stackedLabel ? width : 76));
         number[0].setResponder(value->{activity();if(!number[0].isFocused())return;try{double parsed=Double.parseDouble(value);boolean valid=Double.isFinite(parsed)&&parsed>=setting.min()&&parsed<=setting.max();number[0].invalid(!valid);if(valid)slider.setActual(parsed);}catch(NumberFormatException error){number[0].invalid(true);}});
         slider.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent(setting.description().isEmpty()?setting.title():setting.description())));
+        if (stackedLabel && !setting.description().isEmpty()) number[0].setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent(setting.description())));
     }
 
     private void updateSyncNowButton() {
@@ -1677,7 +1930,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         return button;
     }
     private <T extends AbstractWidget> T add(T widget) { controls.add(new Placement(widget, widget.getY())); return addWidget(widget); }
-    private void open(Page page) {if(page==Page.ACCESSORIES){activity();ClientUiAccess.setScreen(minecraft,new WardrobeScreen(this));return;} this.page = page;pageFade.snap(0); searchQuery="";scroll = 0; activity(); setFocused(null); rebuildWidgets(); }
+    private void open(Page page) {if(page==Page.ACCESSORIES){activity();ClientUiAccess.setScreen(minecraft,new WardrobeScreen(this));return;} this.page = page; if (sectionFor(page) != null) selectSection(sectionFor(page), ConfigManager.uiAnimationsEnabled); pageFade.snap(0); searchQuery="";scroll = 0; activity(); setFocused(null); rebuildWidgets(); }
     private void selectEndpoint(int index) { selectedEndpoint = index; rebuildWidgets(); }
     private int color(int endpoint) {
         if (editingShimmerColors) return endpoint == 0 ? ConfigManager.nickTweaksShimmerColor : ConfigManager.nickTweaksShimmerHighlightColor;
@@ -1711,8 +1964,6 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
 
     @Override public void tick() {
-        if ((page == Page.EXPERIMENTAL || page.experimentalOption() || page == Page.SYNC)
-                && (accessStatus != ExperimentalAccess.status() || accessAllowed != ExperimentalAccess.allowed())) rebuildWidgets();
         updateSyncNowButton();
         if (page == Page.SYNC) updateConnectionStatus();
     }
@@ -1774,8 +2025,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             for (Placement placement : controls) placement.widget().visible = false;
         }
         if (event.y() < navTop || event.y() >= navBottom) {
-            positionedNavScroll=Integer.MIN_VALUE;
-            for (Placement placement : sidebarControls) placement.widget().visible = false;
+            for (NavEntry entry : sidebarControls) entry.widget().visible = false;
         }
         try { return super.mouseClicked(event, doubleClick); }
         finally { positionControls(); positionNavigation(); }
@@ -1823,7 +2073,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         if (event.key() != ClientInput.ESCAPE) activity();
         boolean handled = super.keyPressed(event);
         if (getFocused() instanceof AbstractWidget focused) {
-            for (Placement placement : sidebarControls) {
+            for (NavEntry placement : sidebarControls) {
                 if (placement.widget() != focused) continue;
                 if (focused.getY() < navTop) navScroll -= navTop - focused.getY();
                 else if (focused.getBottom() > navBottom) navScroll += focused.getBottom() - navBottom;
@@ -1861,7 +2111,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             rounded(g,panelX+1,panelY+1,sideWidth,panelHeight-2,4,SIDEBAR);
             g.fill(panelX + sideWidth, panelY + 1, panelX + sideWidth + 1, panelY + panelHeight - 1, BORDER);
             g.blit(MOD_LOGO,panelX+10,panelY+16,panelX+38,panelY+44,0f,1f,0f,1f);
-            g.pose().pushMatrix();g.pose().translate(panelX+44,panelY+18);float brandScale=Math.min(1,(sideWidth-50)/(float)Math.max(1,font.width("CustomCosmetics")));g.pose().scale(brandScale,brandScale);g.text(font,"CustomCosmetics",0,0,TEXT,false);g.pose().popMatrix();
+            g.pose().pushMatrix();g.pose().translate(panelX+44,panelY+18);float brandScale=Math.min(1,(sideWidth-50)/(float)Math.max(1,font.width("CustomSkyBlock")));g.pose().scale(brandScale,brandScale);g.text(font,"CustomSkyBlock",0,0,TEXT,false);g.pose().popMatrix();
             text(g,font,DISPLAY_VERSION,panelX+44,panelY+34,DIM,sideWidth-50);
             UiFonts.drawTitle(g,UiText.tr(pageTitle()),contentX,panelY+21,TEXT,contentWidth-28);
             g.fill(contentX, panelY + 83, contentX + contentWidth, panelY + 84, BORDER);
@@ -1869,16 +2119,18 @@ public final class CosmeticsScreen extends ThemedScreen {
             // overlap ordering otherwise searches the accumulated background subtree per quad.
             g.nextStratum();
             positionNavigation();
-            g.enableScissor(panelX + 1, navTop, panelX + sideWidth - 6, navBottom);
-            g.pose().pushMatrix(); g.pose().translate(0, -navScroll);
-            for (var draw : sidebarArt) draw.accept(g);
-            g.pose().popMatrix();
-            g.nextStratum();
-            for (var placement : sidebarControls) if (placement.widget().visible) {
+            for (int i = 0; i < sidebarControls.size(); i++) {
+                var entry = sidebarControls.get(i);
+                if (!entry.widget().visible) continue;
+                int bottom = navClipBottom[i];
+                g.enableScissor(panelX + 1, navTop, panelX + sideWidth - 6, bottom);
                 g.nextStratum();
-                placement.widget().extractRenderState(g, mx, my >= navTop && my < navBottom ? my : Integer.MIN_VALUE, dt);
+                entry.widget().extractRenderState(g, mx, my >= navTop && my < bottom ? my : Integer.MIN_VALUE, dt);
+                if (entry.header() != null) {
+                    g.text(font, expanded == entry.header() ? "▾" : "›", panelX + sideWidth - 21, entry.widget().getY() + 8, DIM, false);
+                }
+                g.disableScissor();
             }
-            g.disableScissor();
             if (maxNavScroll() > 0) {
                 var bar = navigationScrollbar();
                 rounded(g, panelX + sideWidth - 5, navTop, 2, navBottom - navTop, 1, BORDER);

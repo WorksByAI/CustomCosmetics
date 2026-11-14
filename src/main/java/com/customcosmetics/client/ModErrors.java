@@ -17,11 +17,11 @@ public final class ModErrors {
         SYNC("Remote Sync"),PARTY("Sharing"),UPDATES("Check for Updates"),BLOCKING("Sword Blocking"),
         REALTIME("Real-time Connection"),SKINS("Skins"),DEBUG("Debug"),ANIMATIONS("Animations"),BLOCKHIT("Blockhit"),
         APPEARANCE("Peer Appearance"),ACCESSORIES("Accessory Helper"),WAYPOINTS("Waypoints"),SHORTCUTS("Shortcuts"),COMMANDS("Commands"),
-        PACK("Pack Disabler");
+        PACK("Pack Disabler"), GAMEPLAY("Gameplay Features"), MOTION_BLUR("Motion Blur"), BOBBY("Bobby");
         public final String label;Key(String label){this.label=label;}
     }
     private record Notice(Key key,String error){}
-    private static final org.slf4j.Logger LOGGER=org.slf4j.LoggerFactory.getLogger("CustomCosmetics/Errors");
+    private static final org.slf4j.Logger LOGGER=org.slf4j.LoggerFactory.getLogger("CustomSkyBlock/Errors");
     private static final AtomicLong failed=new AtomicLong();
     private static final ConcurrentLinkedQueue<Notice> pending=new ConcurrentLinkedQueue<>();
     private static long nextNotice;

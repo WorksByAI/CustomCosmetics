@@ -15,7 +15,7 @@ import java.io.*;
 
 /** Only Sync's read cycle downloads capes. Only explicit review submission uploads a cape. */
 public final class CapeSync {
-    private static final org.slf4j.Logger LOGGER=org.slf4j.LoggerFactory.getLogger("CustomCosmetics/CapeSync");
+    private static final org.slf4j.Logger LOGGER=org.slf4j.LoggerFactory.getLogger("CustomSkyBlock/CapeSync");
     private static final AtomicBoolean submitting=new AtomicBoolean(),downloading=new AtomicBoolean();
     private static volatile long nextSubmissionAt;
     private static volatile String status="Not submitted";

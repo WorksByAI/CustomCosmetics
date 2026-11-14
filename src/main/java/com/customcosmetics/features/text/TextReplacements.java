@@ -4,7 +4,6 @@ package com.customcosmetics.features.text;
 import com.customcosmetics.compatibility.ClientUiAccess;
 import com.customcosmetics.config.ConfigManager;
 import com.customcosmetics.features.nickname.RankText;
-import com.customcosmetics.sync.ExperimentalAccess;
 import com.customcosmetics.utils.IdentityFrameCache;
 import net.minecraft.client.Minecraft;
 import net.minecraft.locale.Language;
@@ -64,7 +63,7 @@ public final class TextReplacements {
     }
 
     public static boolean active() {
-        return ConfigManager.textReplacementsEnabled && rules.pattern != null && ExperimentalAccess.allowed()
+        return ConfigManager.textReplacementsEnabled && rules.pattern != null
             && RAW_WIDTH.get() == null;
     }
 

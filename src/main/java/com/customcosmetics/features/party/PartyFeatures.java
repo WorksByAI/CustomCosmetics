@@ -62,5 +62,5 @@ public final class PartyFeatures{
         PartySync.tick(client);
     }
     public static String membershipStatus(){return roster.empty()?(hasApi?"Waiting for Party information":"Run /p list to detect your party"):(roster.size()+" members · "+roster.source());}
-    public static void notice(String text){var client=Minecraft.getInstance();client.execute(()->{if(client.player!=null)ClientUiAccess.chat(client).addClientSystemMessage(Component.literal("[CustomCosmetics] "+text).withColor(0xFFA6CF));});}
+    public static void notice(String text){var client=Minecraft.getInstance();client.execute(()->{if(client.player!=null)ClientUiAccess.chat(client).addClientSystemMessage(Component.literal("[CustomSkyBlock] "+text).withColor(0xFFA6CF));});}
 }

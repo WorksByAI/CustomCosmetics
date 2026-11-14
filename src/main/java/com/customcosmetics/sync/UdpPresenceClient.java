@@ -41,7 +41,7 @@ public final class UdpPresenceClient implements BlockingPresence {
     public UdpPresenceClient(String host, int port, Session session, Consumer<Map<UUID, BlockingTransport.Pose>> receiver) throws Exception {
         this.session = session; this.receiver = receiver;
         codec = new UdpPacket(HexFormat.of().parseHex(session.id()), HexFormat.of().parseHex(session.key()), true);
-        worker = new Thread(() -> run(host, port), "CustomCosmetics-UDP"); worker.setDaemon(true); worker.start();
+        worker = new Thread(() -> run(host, port), "CustomSkyBlock-UDP"); worker.setDaemon(true); worker.start();
     }
     public void update(String world, Set<UUID> players, BlockHand hand, String itemId) {
         if (!world.isEmpty() && !world.matches("[a-f0-9]{64}")) throw new IllegalArgumentException("Invalid world hash");

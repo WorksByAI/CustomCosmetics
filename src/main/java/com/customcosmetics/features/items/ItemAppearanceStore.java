@@ -21,7 +21,7 @@ public final class ItemAppearanceStore {
     private static final java.util.regex.Pattern FULL_UUID = java.util.regex.Pattern.compile("[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}");
     private static final int MAX_FILE_BYTES = 2 * 1024 * 1024;
     private static final Executor WRITER = Executors.newSingleThreadExecutor(task -> {
-        var thread = new Thread(task,"CustomCosmetics-item-save");thread.setDaemon(true);return thread;
+        var thread = new Thread(task,"CustomSkyBlock-item-save");thread.setDaemon(true);return thread;
     });
     public record Appearance(String name, String model, String armorModel, Integer armorColor, String headTexture, boolean hideGlint) {
         public Appearance(String name, String model) { this(name, model, "", null, ""); }

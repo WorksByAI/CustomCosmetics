@@ -56,12 +56,14 @@ class CosmeticsScreenTest {
         var sync=code(screen,"sync");
         var strings=sync.stream().filter(ConstantInstruction.class::isInstance).map(ConstantInstruction.class::cast).map(ConstantInstruction::constantValue).toList();
         String hint="Leave these settings unchanged unless you use a custom network configuration.";
-        assertTrue(strings.containsAll(List.of("Advanced connections","Disable P2P Connections",hint)));
+        assertTrue(strings.containsAll(List.of("Advanced connections","Fallback Direct","Proxy Source","P2P UDP Port",hint)));
+        assertFalse(strings.contains("Disable P2P Connections"));
         assertFalse(strings.contains("If you don't know what this button does, leave it off."));
         assertTrue(strings.indexOf("Advanced connections")<strings.indexOf(hint));
-        assertTrue(strings.indexOf(hint)<strings.indexOf("Disable P2P Connections"));
-        assertTrue(strings.indexOf("Proxy Auth")<strings.indexOf("Disable P2P Connections"));
-        assertTrue(strings.indexOf("Disable P2P Connections")<strings.indexOf("P2P UDP Port"));
+        assertTrue(strings.indexOf(hint)<strings.indexOf("Fallback Direct"));
+        assertTrue(strings.indexOf("Proxy Auth")<strings.indexOf("Fallback Direct"));
+        assertTrue(strings.indexOf("Fallback Direct")<strings.indexOf("Proxy Source"));
+        assertTrue(strings.indexOf("Proxy Source")<strings.indexOf("P2P UDP Port"));
         assertTrue(sync.stream().filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast).anyMatch(call->call.name().stringValue().equals("connectionStatus")));
         var party=code(screen,"party");
         assertTrue(party.stream().filter(ConstantInstruction.class::isInstance).map(ConstantInstruction.class::cast).noneMatch(value->value.constantValue().equals("P2P Connections")||value.constantValue().equals("Disable P2P Connections")));
@@ -102,17 +104,18 @@ class CosmeticsScreenTest {
         var screen = read(SCREEN);
         var render = code(screen, "extractRenderState").stream().filter(ConstantInstruction.class::isInstance)
             .map(ConstantInstruction.class::cast).map(ConstantInstruction::constantValue).toList();
-        assertTrue(render.contains("CustomCosmetics"));
+        assertTrue(render.contains("CustomSkyBlock"));
         assertFalse(render.contains("CUSTOM"));
         assertTrue(code(screen,"extractRenderState").stream().filter(FieldInstruction.class::isInstance)
             .map(FieldInstruction.class::cast).anyMatch(field -> field.owner().name().stringValue().equals("com/customcosmetics/gui/PinkUi") && field.name().stringValue().equals("TEXT")));
         var navigation = code(screen, "buildNavigation").stream().filter(ConstantInstruction.class::isInstance)
             .map(ConstantInstruction.class::cast).map(ConstantInstruction::constantValue).toList();
-        assertTrue(navigation.containsAll(List.of("Overview", "APPEARANCE", "SKYBLOCK", "CONNECTIONS")));
-        assertTrue(navigation.indexOf("APPEARANCE") < navigation.indexOf("Nick Changer"));
-        assertTrue(navigation.indexOf("SKYBLOCK") < navigation.indexOf("Animations"));
-        assertTrue(navigation.indexOf("CONNECTIONS") < navigation.indexOf("Party Sharing"));
-        assertTrue(navigation.indexOf("Party Sharing") < navigation.indexOf("Location Sharing"));
+        assertTrue(navigation.containsAll(List.of("Overview", "Nick Changer", "Party Sharing", "Location Sharing", "Animations")));
+        var groups = code(screen, "buildNavigation").stream().filter(FieldInstruction.class::isInstance)
+            .map(FieldInstruction.class::cast).filter(field -> field.owner().name().stringValue().equals(SCREEN + "$Section"))
+            .map(field -> field.name().stringValue()).toList();
+        assertEquals(List.of("APPEARANCE", "CONNECTIONS", "QOL", "SKYBLOCK"), groups);
+        assertTrue(navigation.indexOf("Location Sharing") < navigation.indexOf("Party Sharing"));
         var previewCalls=screen.methods().stream().filter(method -> method.methodName().stringValue().equals("playerPreview") || method.methodName().stringValue().startsWith("lambda$playerPreview$")).flatMap(method -> instructions(method).stream()).filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast).toList();
         assertTrue(previewCalls.stream().anyMatch(call -> call.owner().name().stringValue().equals("com/customcosmetics/gui/CapePreview") && call.name().stringValue().equals("drawModel")));
         assertFalse(previewCalls.stream().anyMatch(call -> call.owner().name().stringValue().equals("com/customcosmetics/utils/NickRenderUtils")));

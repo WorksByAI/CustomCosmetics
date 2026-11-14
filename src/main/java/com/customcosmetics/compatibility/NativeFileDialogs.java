@@ -35,7 +35,7 @@ public final class NativeFileDialogs {
             try{backend.open(request,finish);}catch(Exception|LinkageError unavailable){finish.accept(Result.unavailableResult());}return true;
         }
     }
-    private static final ExecutorService TINY_WORKER=Executors.newSingleThreadExecutor(task->{var thread=new Thread(task,"CustomCosmetics file picker");thread.setDaemon(true);return thread;});
+    private static final ExecutorService TINY_WORKER=Executors.newSingleThreadExecutor(task->{var thread=new Thread(task,"CustomSkyBlock file picker");thread.setDaemon(true);return thread;});
     private static final Coordinator COORDINATOR=new Coordinator(NativeFileDialogs::openBackend);
     private static final AtomicReference<SdlRequest> SDL_PENDING=new AtomicReference<>();
     // One permanent callback avoids freeing a native trampoline while it is still executing.
@@ -68,7 +68,7 @@ public final class NativeFileDialogs {
         Object handler=Proxy.newProxyInstance(callbackInterface.getClassLoader(),new Class<?>[]{callbackInterface},(proxy,method,args)->{
             if(method.getName().equals("invoke")){receiveSdl((long)args[1]);return null;}
             if(method.isDefault())return InvocationHandler.invokeDefault(proxy,method,args);
-            return switch(method.getName()){case "hashCode"->System.identityHashCode(proxy);case "equals"->proxy==args[0];case "toString"->"CustomCosmetics file callback";default->throw new UnsupportedOperationException(method.getName());};
+            return switch(method.getName()){case "hashCode"->System.identityHashCode(proxy);case "equals"->proxy==args[0];case "toString"->"CustomSkyBlock file callback";default->throw new UnsupportedOperationException(method.getName());};
         });
         sdlCallback=Class.forName("org.lwjgl.sdl.SDL_DialogFileCallback").getMethod("create",callbackInterface).invoke(null,handler);return sdlCallback;
     }

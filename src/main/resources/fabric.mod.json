@@ -2,21 +2,30 @@
   "schemaVersion": 1,
   "id": "customcosmetics",
   "version": "${version}",
-  "name": "CustomCosmetics",
+  "name": "CustomSkyBlock",
   "icon": "assets/customcosmetics/icon.png",
-  "description": "SmolPeople, Nick Changer, viewmodel animations and visual sword blocking with shared cosmetics.",
+  "description": "A QOL mod for Hypixel SkyBlock.",
   "license": "AGPL-3.0-or-later",
-  "authors": ["CustomCosmetics contributors"],
+  "authors": ["CustomSkyBlock contributors"],
   "contact": {
     "sources": "https://github.com/WorksByAI/CustomCosmetics",
     "issues": "https://github.com/WorksByAI/CustomCosmetics/issues",
     "email": "tory@toryhi.com"
   },
-  "mixins": ["customcosmetics.mixins.json"],
+  "mixins": [
+    "customcosmetics.mixins.json",
+    "csb-bobby-261.mixins.json", "csb-bobby-262.mixins.json", "csb-bobby-263.mixins.json",
+    "csb-motionblur-261.mixins.json", "csb-motionblur-262.mixins.json", "csb-motionblur-263.mixins.json"
+  ],
   "environment": "client",
   "entrypoints": {
+    "preLaunch": [
+      "com.customcosmetics.features.gameplay.BobbyIntegration",
+      "com.customcosmetics.features.gameplay.NaturalMotionBlurIntegration"
+    ],
     "client": ["com.customcosmetics.client.CustomCosmeticsClient"],
-    "modmenu": ["com.customcosmetics.compatibility.ModMenuEntry"]
+    "modmenu": ["com.customcosmetics.compatibility.ModMenuEntry"],
+    "sodium:config_api_user": ["com.customcosmetics.compatibility.BobbySodiumSettings"]
   },
   "depends": {
     "fabricloader": ">=${loader_version}",

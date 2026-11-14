@@ -11,7 +11,7 @@ public final class ShortcutRules {
     public record Entry(String id, Kind kind, String trigger, String command, boolean enabled) {}
     public static final int MAX_ENTRIES = 256, MAX_COMMAND = 256;
     private static final Pattern PLACEHOLDER = Pattern.compile("\\$(\\*|[1-9][0-9]?)");
-    private static final Set<String> OWN_COMMANDS = Set.of("customcosmetics", "ccos");
+    private static final Set<String> OWN_COMMANDS = Set.of("customskyblock", "csb", "ccos", "customcosmetics");
     private final Map<String, Entry> aliases, arguments;
 
     public ShortcutRules(List<Entry> entries) {
@@ -55,7 +55,7 @@ public final class ShortcutRules {
                 if (!trigger.matches("[A-Za-z0-9_:-]+"))
                     throw new IllegalArgumentException("Alias names use letters, numbers, _, : or - without /.");
                 if (OWN_COMMANDS.contains(trigger))
-                    throw new IllegalArgumentException("/" + trigger + " is reserved for CustomCosmetics shortcut management.");
+                    throw new IllegalArgumentException("/" + trigger + " is reserved for CustomSkyBlock shortcut management.");
                 if (!commandTriggers.add(trigger)) throw new IllegalArgumentException("That command shortcut is already used.");
             } else if (entry.kind() == Kind.ARGUMENT) {
                 if (trigger.chars().anyMatch(Character::isWhitespace))
@@ -63,7 +63,7 @@ public final class ShortcutRules {
                 if (PLACEHOLDER.matcher(entry.command()).find())
                     throw new IllegalArgumentException("Argument replacements use literal text, without $ placeholders.");
                 if (trigger.startsWith("/") && OWN_COMMANDS.contains(trigger.substring(1)))
-                    throw new IllegalArgumentException(trigger + " is reserved for CustomCosmetics shortcut management.");
+                    throw new IllegalArgumentException(trigger + " is reserved for CustomSkyBlock shortcut management.");
                 if (trigger.startsWith("/") && !commandTriggers.add(trigger.substring(1)))
                     throw new IllegalArgumentException("That command shortcut is already used.");
             } else {

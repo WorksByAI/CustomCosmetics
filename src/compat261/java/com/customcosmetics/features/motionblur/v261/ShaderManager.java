@@ -1,0 +1,252 @@
+// SPDX-License-Identifier: LGPL-3.0-only
+package com.customcosmetics.features.motionblur.v261;
+
+import com.mojang.blaze3d.buffers.GpuBuffer;
+import com.mojang.blaze3d.buffers.Std140Builder;
+import com.mojang.blaze3d.resource.GraphicsResourceAllocator;
+import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.LevelTargetBundle;
+import net.minecraft.client.renderer.PostChain;
+import net.minecraft.client.renderer.PostPass;
+import net.minecraft.resources.Identifier;
+import com.customcosmetics.features.motionblur.BlurSettings;
+import com.customcosmetics.features.motionblur.MotionBlurPort;
+import com.customcosmetics.features.motionblur.v261.mixin.PostChainAccessor;
+import com.customcosmetics.features.motionblur.v261.mixin.PostPassAccessor;
+import com.customcosmetics.features.motionblur.v261.shader.BlurStrengthCalculator;
+import com.customcosmetics.features.motionblur.v261.shader.CameraState;
+import com.customcosmetics.features.motionblur.v261.shader.FrameBlendingManager;
+import com.customcosmetics.features.motionblur.v261.shader.FrameTimer;
+import com.customcosmetics.features.motionblur.v261.util.ManagedUniformBuffer;
+import org.joml.Matrix4f;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+public class ShaderManager {
+
+    private static final FrameTimer             frameTimer   = new FrameTimer();
+    private static final CameraState            cameraState  = new CameraState();
+    private static final BlurStrengthCalculator strengthCalc = new BlurStrengthCalculator();
+
+    private static GraphicsResourceAllocator frameAllocator = null;
+    private static boolean deferredTemporalBlurApplied = false;
+
+    private static PostChain cachedPreProcessor  = null;
+    private static PostChain cachedF5Processor   = null;
+    private static PostChain cachedPostProcessor = null;
+    private static final Set<String> loadErrorLogged = new HashSet<>();
+
+    private static final int UBO_SIZE = 304;
+    private static final ManagedUniformBuffer preEntityUBO  = new ManagedUniformBuffer("PreEntityBlurUniforms",  UBO_SIZE);
+    private static final ManagedUniformBuffer f5EntityUBO   = new ManagedUniformBuffer("PreEntityBlurUniforms",  UBO_SIZE);
+    private static final ManagedUniformBuffer postRenderUBO = new ManagedUniformBuffer("PostRenderBlurUniforms", UBO_SIZE);
+
+    private enum BlurPass { NORMAL_PRE, SPECIAL_F5, NORMAL_POST }
+
+    public static void captureAllocator(GraphicsResourceAllocator allocator) { frameAllocator = allocator; }
+    public static void clearFrameAllocator() { frameAllocator = null; }
+    public static void beginFrame() {
+        frameTimer.beginFrame();
+        deferredTemporalBlurApplied = false;
+    }
+    private static long submittedPasses;
+
+    public static long submittedPasses() { return submittedPasses; }
+    public static void noteSubmittedPass() { submittedPasses++; }
+
+    public static float getCurrentFPS() { return frameTimer.getFPS(); }
+    public static void invalidate() {
+        preEntityUBO.reset();
+        f5EntityUBO.reset();
+        postRenderUBO.reset();
+        FrameBlendingManager.invalidate();
+    }
+
+    public static void setFrameMotionBlur(Matrix4f modelView, Matrix4f prevModelView,
+                                          Matrix4f projection, Matrix4f prevProjection,
+                                          float dx, float dy, float dz) {
+        cameraState.setFrame(modelView, prevModelView, projection, prevProjection, dx, dy, dz);
+    }
+
+    public static void applyPreEntityBlur()          { if (shouldRun()) applyBlurInternal(BlurPass.NORMAL_PRE,  true);  }
+    public static void applyF5EntityRideBlur()       { if (shouldRun()) applyBlurInternal(BlurPass.SPECIAL_F5,  true);  }
+    public static void applyPostRenderVelocityOnly() { if (shouldRun()) applyBlurInternal(BlurPass.NORMAL_POST, false); }
+
+    public static void applyDeferredTemporalBlur() {
+        if (deferredTemporalBlurApplied || frameAllocator == null || !shouldRun()) return;
+
+        BlurSettings config = MotionBlurPort.getConfig();
+        switch (config.blurAlgorithm) {
+            case FRAME_BLENDING, HYBRID_BLENDING -> {
+                applyFrameBlendingInternal();
+                deferredTemporalBlurApplied = true;
+            }
+            case ACCUMULATION_MAX -> {
+                FrameBlendingManager.applyAccumulationMax(
+                        frameAllocator, config.getEffectiveMotionBlurStrength());
+                deferredTemporalBlurApplied = true;
+            }
+            case ACCUMULATION_MIX -> {
+                FrameBlendingManager.applyAccumulationMix(
+                        frameAllocator, config.getEffectiveMotionBlurStrength());
+                deferredTemporalBlurApplied = true;
+            }
+            default -> {}
+        }
+    }
+
+    private static boolean shouldRun() {
+        BlurSettings config = MotionBlurPort.getConfig();
+        return config.enabled && config.getEffectiveMotionBlurStrength() != 0;
+    }
+
+    private static void applyBlurInternal(BlurPass pass, boolean includeTemporal) {
+        if (frameAllocator == null) return;
+
+        BlurSettings config = MotionBlurPort.getConfig();
+        Minecraft     client = Minecraft.getInstance();
+
+        // Accumulation Blur
+        if (includeTemporal) {
+            if (config.blurAlgorithm == BlurSettings.BlurAlgorithm.FRAME_BLENDING) {return;}
+            if (config.blurAlgorithm == BlurSettings.BlurAlgorithm.ACCUMULATION_MAX) {return;}
+            if (config.blurAlgorithm == BlurSettings.BlurAlgorithm.ACCUMULATION_MIX) {return;}
+        } else if (!config.usesVelocityBlur()) {return;}
+
+        // Velocity Blur
+        BlurStrengthCalculator.Result blur = calculateVelocityBlur(config);
+        float viewW = client.getMainRenderTarget().width;
+        float viewH = client.getMainRenderTarget().height;
+        int   profile = config.blurProfile.ordinal();
+
+        switch (pass) {
+            case NORMAL_PRE -> {
+                PostChain p = getPreProcessor(client);
+                if (p != null) {
+                    writeAndRun(p, "PreEntityBlurUniforms", preEntityUBO, blur.strength(), viewW, viewH, profile, blur.sampleAmount(), client);
+                }
+            }
+            case SPECIAL_F5 -> {
+                PostChain p = getF5Processor(client);
+                if (p != null) {
+                    writeAndRun(p, "PreEntityBlurUniforms", f5EntityUBO, blur.strength(), viewW, viewH, profile, blur.sampleAmount(), client);
+                }
+            }
+            case NORMAL_POST -> {
+                PostChain p = getPostProcessor(client);
+                if (p != null) {
+                    writeAndRun(p, "PostRenderBlurUniforms", postRenderUBO, blur.strength(), viewW, viewH, profile, blur.sampleAmount(), client);
+                }
+                if (includeTemporal && config.blurAlgorithm == BlurSettings.BlurAlgorithm.HYBRID_BLENDING) {
+                    applyFrameBlendingInternal();
+                }
+            }
+        }
+    }
+
+    private static void applyFrameBlendingInternal() {
+        if (frameAllocator == null) return;
+        BlurSettings config = MotionBlurPort.getConfig();
+        FrameBlendingManager.applyFrameBlending(
+                frameAllocator,
+                frameTimer.getFPS(),
+                frameTimer.getRefreshRate(),
+                config.getEffectiveMotionBlurStrength());
+    }
+
+    private static BlurStrengthCalculator.Result calculateVelocityBlur(BlurSettings config) {
+        float fps = frameTimer.getFPS();
+        int refreshRate = frameTimer.getRefreshRate();
+
+        if (config.blurAlgorithm == BlurSettings.BlurAlgorithm.HYBRID_BLENDING) {
+            float fillerStrength = FrameBlendingManager.getHybridVelocityStrength(
+                    fps, refreshRate, config.getEffectiveMotionBlurStrength());
+            int sampleAmount = Math.max(100, Math.round(100.0f * fillerStrength));
+            return new BlurStrengthCalculator.Result(fillerStrength, sampleAmount);
+        }
+
+        return strengthCalc.calculate(
+                config.getEffectiveMotionBlurStrength(),
+                fps,
+                refreshRate,
+                config.refreshRateScaling && config.allowsRefreshRateScaling());
+    }
+
+    // Shader cache
+
+    private static PostChain getPreProcessor(Minecraft client) {
+        PostChain result = loadProcessor(client, "velocity_pre", "pre-entity");
+        if (result == null) { cachedPreProcessor = null; return null; }
+        if (result != cachedPreProcessor) cachedPreProcessor = result;
+        return cachedPreProcessor;
+    }
+
+    private static PostChain getF5Processor(Minecraft client) {
+        PostChain result = loadProcessor(client, "velocity_f5", "F5/entity-riding");
+        if (result == null) { cachedF5Processor = null; return null; }
+        if (result != cachedF5Processor) cachedF5Processor = result;
+        return cachedF5Processor;
+    }
+
+    private static PostChain getPostProcessor(Minecraft client) {
+        PostChain result = loadProcessor(client, "velocity_post", "post-render");
+        if (result == null) { cachedPostProcessor = null; return null; }
+        if (result != cachedPostProcessor) cachedPostProcessor = result;
+        return cachedPostProcessor;
+    }
+
+    private static PostChain loadProcessor(Minecraft client, String shaderName, String displayName) {
+        try {
+            PostChain chain = client.getShaderManager().getPostChain(
+                    Identifier.fromNamespaceAndPath(NaturalMotionBlurMod.ID, shaderName),
+                    LevelTargetBundle.MAIN_TARGETS);
+            loadErrorLogged.remove(shaderName);
+            return chain;
+        } catch (Exception e) {
+            if (loadErrorLogged.add(shaderName))
+                System.err.println("[NaturalMotionBlur] Failed to load " + displayName + " shader: " + e.getMessage());
+            return null;
+        }
+    }
+
+    // UBO writing
+
+    private static void writeAndRun(PostChain processor, String uboKey, ManagedUniformBuffer managedUBO, float blendFactor, float viewW, float viewH, int blurProfile, int sampleAmount, Minecraft client) {
+        List<PostPass> passes = ((PostChainAccessor) processor).getPasses();
+        if (passes.isEmpty()) return;
+
+        Map<String, GpuBuffer> uniformBuffers = ((PostPassAccessor) passes.getFirst()).getCustomUniforms();
+        if (!uniformBuffers.containsKey(uboKey)) return;
+
+        // Replace the shader loader's placeholder buffer with ours and close the old one
+        GpuBuffer ubo = managedUBO.put(processor, uniformBuffers, uboKey);
+
+        try {
+            // Write uniforms in std140 order - must match the GLSL block declaration
+            try (GpuBuffer.MappedView view = RenderSystem.getDevice().createCommandEncoder().mapBuffer(ubo, false, true)) {
+                Std140Builder b = Std140Builder.intoBuffer(view.data());
+                b.putMat4f(cameraState.getMvInverse());
+                b.putMat4f(cameraState.getProjInverse());
+                b.putMat4f(cameraState.getPrevModelView());
+                b.putMat4f(cameraState.getPrevProjection());
+                b.putVec3(cameraState.getDx(), cameraState.getDy(), cameraState.getDz());
+                b.putVec2(viewW, viewH);
+                b.putFloat(blendFactor);
+                b.putInt(sampleAmount);
+                b.putInt(blurProfile);
+                b.putInt(1);
+            }
+
+            processor.process(client.getMainRenderTarget(), frameAllocator);
+
+            noteSubmittedPass();
+        } catch (RuntimeException e) {
+            if (managedUBO.resetIfClosed(e)) return;
+            throw e;
+        }
+    }
+}

@@ -4,7 +4,6 @@ package com.customcosmetics.features.pack;
 import com.customcosmetics.client.CustomCosmeticsClient;
 import com.customcosmetics.config.ConfigManager;
 import com.customcosmetics.features.animations.PresenceWorld;
-import com.customcosmetics.sync.ExperimentalAccess;
 import com.customcosmetics.utils.MessageUtils;
 import com.google.common.hash.HashCode;
 import net.fabricmc.loader.api.FabricLoader;
@@ -77,7 +76,7 @@ public final class HypixelPackDisabler {
     public static boolean available() { return !EXTERNAL; }
 
     public static boolean enabled() {
-        return available() && ConfigManager.hideHypixelSkyBlockPack && ExperimentalAccess.allowed();
+        return available() && ConfigManager.hideHypixelSkyBlockPack;
     }
 
     public static boolean usingFallback() {

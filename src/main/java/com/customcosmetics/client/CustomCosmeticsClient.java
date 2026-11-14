@@ -19,7 +19,7 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
         return net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer(MOD_ID)
             .map(mod -> mod.getMetadata().getVersion().getFriendlyString()).orElse("unknown");
     }
-    public static final Logger LOGGER = LoggerFactory.getLogger("CustomCosmetics");
+    public static final Logger LOGGER = LoggerFactory.getLogger("CustomSkyBlock");
     public static boolean openGuiNextTick;
     public static CosmeticsScreen.Page openGuiPageNextTick=CosmeticsScreen.Page.MAIN;
     private record TickStep(ModErrors.Key key,java.util.function.Consumer<net.minecraft.client.Minecraft> action){}
@@ -31,6 +31,8 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
     public void onInitializeClient() {
         CosmeticsConfigDir.init();
         ConfigManager.loadConfig();
+        ModErrors.run(ModErrors.Key.MOTION_BLUR, com.customcosmetics.features.motionblur.MotionBlurPort::init);
+        ModErrors.run(ModErrors.Key.BOBBY, com.customcosmetics.features.gameplay.BobbyIntegration::init);
         com.customcosmetics.gui.UiFonts.init();
         com.customcosmetics.features.sky.Skyboxify.init();
         com.customcosmetics.gui.UiLocale.refresh();
@@ -40,6 +42,7 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
         ModErrors.run(ModErrors.Key.ACCESSORIES, com.customcosmetics.features.accessoryhelper.AccessoryTooltipHelper::init);
         ModErrors.run(ModErrors.Key.MAP, com.customcosmetics.features.map.MapEditor::init);
         ModErrors.run(ModErrors.Key.SNAPLOOK, com.customcosmetics.features.camera.Snaplook::init);
+        ModErrors.run(ModErrors.Key.SNAPLOOK, com.customcosmetics.features.camera.CameraZoom::init);
         ModErrors.run(ModErrors.Key.SKINS, com.customcosmetics.features.skins.LocalSkins::init);
         ModErrors.run(ModErrors.Key.SYNC, PresenceSync::init);
         ModErrors.run(ModErrors.Key.PARTY, com.customcosmetics.features.party.PartyFeatures::init);
@@ -48,13 +51,18 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
         ModErrors.run(ModErrors.Key.WAYPOINTS, com.customcosmetics.features.waypoint.Waypoints::init);
         ModErrors.run(ModErrors.Key.SHORTCUTS, com.customcosmetics.features.shortcuts.Shortcuts::init);
         ModErrors.run(ModErrors.Key.COMMANDS, com.customcosmetics.features.pack.PackDisablerCommands::init);
+        ModErrors.run(ModErrors.Key.GAMEPLAY,com.customcosmetics.features.gameplay.GameplayFeatures::init);
+        ModErrors.run(ModErrors.Key.GAMEPLAY,com.customcosmetics.features.gameplay.MissingEnchants::init);
+        ModErrors.run(ModErrors.Key.GAMEPLAY, com.customcosmetics.features.gameplay.SeymourColors::init);
+        ModErrors.run(ModErrors.Key.GAMEPLAY, com.customcosmetics.features.gameplay.TooltipTweaks::init);
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) -> ModErrors.attempt(ModErrors.Key.COMMANDS,()->SyncCommands.register(dispatcher)));
         // Callback objects are built once; ordinary ticks do not allocate guard lambdas.
         TickStep[] steps={
             new TickStep(ModErrors.Key.CREATURE,com.customcosmetics.features.creature.CreatureModels::tick),
             new TickStep(ModErrors.Key.WORLD,c->{if(com.customcosmetics.sync.RemoteAccess.online())com.customcosmetics.features.animations.PresenceWorld.init();}),
             new TickStep(ModErrors.Key.CONFIG,c->ConfigManager.flushPendingSave()),
-            new TickStep(ModErrors.Key.SYNC,com.customcosmetics.sync.ExperimentalAccess::tick),
+            new TickStep(ModErrors.Key.GAMEPLAY,com.customcosmetics.features.gameplay.GameplayFeatures::tick),
+            new TickStep(ModErrors.Key.GAMEPLAY,com.customcosmetics.features.gameplay.LobbyMarker::tick),
             new TickStep(ModErrors.Key.SIZE,com.customcosmetics.features.smolpeople.SmolPlayers::tick),
             new TickStep(ModErrors.Key.MAP,com.customcosmetics.features.map.MapEditor::tick),
             new TickStep(ModErrors.Key.FREECAM,com.customcosmetics.features.map.Freecam::tick),
@@ -95,6 +103,6 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
             ModErrors.cleanup(ModErrors.Key.ITEMS,com.customcosmetics.features.items.ItemCosmetics::save);
             ModErrors.cleanup(ModErrors.Key.ITEMS,com.customcosmetics.features.items.ItemCosmetics::flush);
         });
-        LOGGER.info("CustomCosmetics initialized");
+        LOGGER.info("CustomSkyBlock initialized");
     }
 }

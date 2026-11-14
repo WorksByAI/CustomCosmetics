@@ -1,0 +1,17 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.customcosmetics.features.motionblur.v261.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "MixinLevelRenderer",
+    "MixinGameRenderer",
+    "PostPassAccessor",
+    "PostChainAccessor",
+    "MixinMinecraft"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "plugin": "com.customcosmetics.mixin.IntegratedClientMixinPlugin"
+}

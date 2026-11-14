@@ -16,7 +16,7 @@ import javax.net.ssl.SSLParameters;
 public final class WebSocketPresenceClient implements BlockingPresence, WebSocket.Listener {
     public static final int TTL_MS = 1250, MAX_PLAYERS = 2048;
     private final ScheduledExecutorService worker = Executors.newSingleThreadScheduledExecutor(r -> {
-        var thread = new Thread(r,"CustomCosmetics-WSS"); thread.setDaemon(true); return thread;
+        var thread = new Thread(r,"CustomSkyBlock-WSS"); thread.setDaemon(true); return thread;
     });
     private final Consumer<Map<UUID, BlockingTransport.Pose>> receiver;
     private final HttpClient http;

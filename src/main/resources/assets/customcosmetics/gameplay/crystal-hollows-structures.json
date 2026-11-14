@@ -1,0 +1,664 @@
+[
+  {
+    "key": "KING",
+    "category": "CH_CRYSTALS",
+    "quarter": "GOBLIN_HOLDOUT",
+    "name": "King",
+    "offset": [
+      1,
+      -1,
+      2
+    ],
+    "blocks": [
+      {
+        "block": "red_wool"
+      },
+      {
+        "block": "dark_oak_stairs"
+      },
+      {
+        "block": "dark_oak_stairs"
+      },
+      {
+        "block": "dark_oak_stairs"
+      }
+    ]
+  },
+  {
+    "key": "QUEEN",
+    "category": "CH_CRYSTALS",
+    "quarter": "ANY",
+    "name": "Queen",
+    "offset": [
+      0,
+      5,
+      0
+    ],
+    "blocks": [
+      {
+        "block": "stone"
+      },
+      {
+        "block": "acacia_wood"
+      },
+      {
+        "block": "acacia_wood"
+      },
+      {
+        "block": "acacia_wood"
+      },
+      {
+        "block": "acacia_wood"
+      },
+      {
+        "block": "cauldron"
+      }
+    ]
+  },
+  {
+    "key": "DIVAN",
+    "category": "CH_CRYSTALS",
+    "quarter": "MITHRIL_DEPOSITS",
+    "name": "Divan",
+    "offset": [
+      0,
+      5,
+      0
+    ],
+    "blocks": [
+      {
+        "block": "quartz_pillar"
+      },
+      {
+        "block": "quartz_stairs"
+      },
+      {
+        "block": "stone_brick_stairs"
+      },
+      {
+        "block": "chiseled_stone_bricks"
+      }
+    ]
+  },
+  {
+    "key": "CITY",
+    "category": "CH_CRYSTALS",
+    "quarter": "PRECURSOR_REMNANTS",
+    "name": "City",
+    "offset": [
+      24,
+      0,
+      -17
+    ],
+    "blocks": [
+      {
+        "block": "stone_bricks"
+      },
+      {
+        "block": "cobblestone"
+      },
+      {
+        "block": "cobblestone"
+      },
+      {
+        "block": "cobblestone"
+      },
+      {
+        "block": "cobblestone"
+      },
+      {
+        "block": "cobblestone_stairs"
+      },
+      {
+        "block": "polished_andesite"
+      },
+      {
+        "block": "polished_andesite"
+      },
+      {
+        "block": "dark_oak_stairs"
+      }
+    ]
+  },
+  {
+    "key": "TEMPLE",
+    "category": "CH_CRYSTALS",
+    "quarter": "ANY",
+    "name": "Temple",
+    "offset": [
+      -45,
+      47,
+      -18
+    ],
+    "blocks": [
+      {
+        "block": "bedrock"
+      },
+      {
+        "block": "bedrock"
+      },
+      {
+        "block": "bedrock"
+      },
+      {
+        "block": "bedrock"
+      },
+      {
+        "block": "stone"
+      },
+      {
+        "block": "clay"
+      },
+      {
+        "block": "clay"
+      },
+      {
+        "block": "clay"
+      },
+      {
+        "block": "oak_leaves"
+      },
+      {
+        "block": "oak_leaves"
+      },
+      {
+        "block": "lime_terracotta"
+      },
+      {
+        "block": "lime_terracotta"
+      },
+      {
+        "block": "green_terracotta"
+      }
+    ]
+  },
+  {
+    "key": "BAL",
+    "category": "CH_CRYSTALS",
+    "quarter": "MAGMA_FIELDS",
+    "name": "Bal",
+    "offset": [
+      0,
+      1,
+      0
+    ],
+    "blocks": [
+      {
+        "block": "lava"
+      },
+      {
+        "block": "barrier"
+      },
+      {
+        "block": "barrier"
+      },
+      {
+        "block": "barrier"
+      },
+      {
+        "block": "barrier"
+      },
+      {
+        "block": "barrier"
+      },
+      {
+        "block": "barrier"
+      },
+      {
+        "block": "barrier"
+      },
+      {
+        "block": "barrier"
+      },
+      {
+        "block": "barrier"
+      },
+      {
+        "block": "barrier"
+      }
+    ]
+  },
+  {
+    "key": "CORLEONE_DOCK",
+    "category": "CORLEONE",
+    "quarter": "MITHRIL_DEPOSITS",
+    "name": "Corleone Dock",
+    "offset": [
+      23,
+      11,
+      17
+    ],
+    "blocks": [
+      {
+        "block": "stone_bricks"
+      },
+      {
+        "block": "stone_bricks"
+      },
+      {
+        "block": "stone_bricks"
+      },
+      {
+        "block": "stone_bricks"
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "block": "stone_bricks"
+      },
+      {
+        "block": "stone_bricks"
+      },
+      {
+        "block": "fire"
+      },
+      {
+        "block": "stone_bricks"
+      }
+    ]
+  },
+  {
+    "key": "CORLEONE_HOLE",
+    "category": "CORLEONE",
+    "quarter": "MITHRIL_DEPOSITS",
+    "name": "Corleone Hole",
+    "offset": [
+      -18,
+      -1,
+      29
+    ],
+    "blocks": [
+      {
+        "block": "smooth_stone_slab",
+        "slab": "double"
+      },
+      {
+        "block": "polished_andesite"
+      },
+      {
+        "block": "stone_bricks"
+      },
+      {
+        "block": "polished_granite"
+      },
+      {
+        "block": "light_gray_terracotta"
+      },
+      {
+        "block": "light_gray_terracotta"
+      },
+      {
+        "block": "light_gray_terracotta"
+      },
+      {
+        "block": "light_gray_terracotta"
+      },
+      {
+        "block": "light_gray_terracotta"
+      },
+      {
+        "block": "light_gray_terracotta"
+      },
+      {
+        "block": "light_gray_terracotta"
+      },
+      {
+        "block": "light_gray_terracotta"
+      },
+      {
+        "block": "light_gray_terracotta"
+      },
+      {
+        "block": "light_gray_terracotta"
+      },
+      {
+        "block": "light_gray_terracotta"
+      },
+      {
+        "block": "light_gray_terracotta"
+      },
+      {
+        "block": "light_gray_terracotta"
+      },
+      {
+        "block": "light_gray_terracotta"
+      },
+      {
+        "block": "light_gray_terracotta"
+      },
+      {
+        "block": "light_gray_terracotta"
+      },
+      {
+        "block": "light_gray_terracotta"
+      },
+      {
+        "block": "light_gray_terracotta"
+      },
+      {
+        "block": "jungle_stairs"
+      },
+      {
+        "block": "granite"
+      },
+      {
+        "block": "polished_granite"
+      },
+      {
+        "block": "stone_bricks"
+      },
+      {
+        "block": "stone_bricks"
+      }
+    ]
+  },
+  {
+    "key": "KEY_GUARDIAN_SPIRAL",
+    "category": "KEY_GUARDIAN",
+    "quarter": "JUNGLE",
+    "name": "Key Guardian Spiral",
+    "offset": [
+      0,
+      0,
+      0
+    ],
+    "blocks": [
+      {
+        "block": "jungle_stairs"
+      },
+      {
+        "block": "jungle_planks"
+      },
+      {
+        "block": "glowstone"
+      },
+      {
+        "block": "brown_carpet"
+      },
+      null,
+      {
+        "block": "jungle_slab"
+      },
+      null,
+      {
+        "block": "jungle_stairs"
+      },
+      {
+        "block": "stone"
+      },
+      {
+        "block": "stone"
+      },
+      {
+        "block": "stone"
+      }
+    ]
+  },
+  {
+    "key": "KEY_GUARDIAN_TOWER",
+    "category": "KEY_GUARDIAN",
+    "quarter": "JUNGLE",
+    "name": "Key Guardian Tower",
+    "offset": [
+      0,
+      0,
+      0
+    ],
+    "blocks": [
+      {
+        "block": "stone"
+      },
+      {
+        "block": "polished_granite"
+      },
+      {
+        "block": "jungle_slab",
+        "slab": "top"
+      },
+      null,
+      {
+        "block": "jungle_slab",
+        "slab": "top"
+      },
+      null,
+      {
+        "block": "jungle_slab",
+        "slab": "top"
+      },
+      null,
+      {
+        "block": "jungle_slab",
+        "slab": "top"
+      },
+      {
+        "block": "jungle_slab",
+        "slab": "top"
+      },
+      {
+        "block": "jungle_planks"
+      }
+    ]
+  },
+  {
+    "key": "XALX",
+    "category": "XALX",
+    "quarter": "GOBLIN_HOLDOUT",
+    "name": "Xalx",
+    "offset": [
+      -2,
+      1,
+      -2
+    ],
+    "blocks": [
+      {
+        "block": "stone"
+      },
+      {
+        "block": "coal_block"
+      },
+      {
+        "block": "fire"
+      },
+      {
+        "block": "nether_quartz_ore"
+      },
+      {
+        "block": "air"
+      },
+      {
+        "block": "air"
+      },
+      {
+        "block": "air"
+      },
+      {
+        "block": "air"
+      },
+      {
+        "block": "air"
+      },
+      {
+        "block": "air"
+      },
+      {
+        "block": "air"
+      }
+    ]
+  },
+  {
+    "key": "PETE",
+    "category": "PETE",
+    "quarter": "GOBLIN_HOLDOUT",
+    "name": "Pete (3 bears)",
+    "offset": [
+      0,
+      0,
+      0
+    ],
+    "blocks": [
+      {
+        "block": "netherrack"
+      },
+      {
+        "block": "fire"
+      },
+      {
+        "block": "iron_bars"
+      },
+      {
+        "block": "air"
+      },
+      {
+        "block": "air"
+      },
+      {
+        "block": "air"
+      },
+      {
+        "block": "air"
+      },
+      {
+        "block": "air"
+      },
+      {
+        "block": "air"
+      },
+      {
+        "block": "air"
+      }
+    ]
+  },
+  {
+    "key": "ODAWA",
+    "category": "ODAWA",
+    "quarter": "JUNGLE",
+    "name": "Odawa",
+    "offset": [
+      0,
+      0,
+      0
+    ],
+    "blocks": [
+      {
+        "block": "jungle_log"
+      },
+      {
+        "block": "spruce_stairs"
+      },
+      {
+        "block": "spruce_stairs"
+      },
+      {
+        "block": "jungle_log"
+      },
+      {
+        "block": "spruce_stairs"
+      },
+      {
+        "block": "spruce_stairs"
+      },
+      {
+        "block": "jungle_log"
+      },
+      {
+        "block": "jungle_log"
+      },
+      {
+        "block": "jungle_log"
+      },
+      {
+        "block": "hay_block"
+      },
+      {
+        "block": "yellow_terracotta"
+      }
+    ]
+  },
+  {
+    "key": "GOLDEN_DRAGON",
+    "category": "GOLDEN_DRAGON",
+    "quarter": "ANY",
+    "name": "Golden Dragon",
+    "offset": [
+      0,
+      -3,
+      5
+    ],
+    "blocks": [
+      {
+        "block": "stone"
+      },
+      {
+        "block": "red_terracotta"
+      },
+      {
+        "block": "red_terracotta"
+      },
+      {
+        "block": "red_terracotta"
+      },
+      {
+        "block": "player_head"
+      },
+      {
+        "block": "red_wool"
+      }
+    ]
+  },
+  {
+    "key": "FAIRY_GROTTO",
+    "category": "FAIRY_GROTTO",
+    "quarter": "ANY",
+    "name": "Fairy Grotto",
+    "offset": [
+      0,
+      0,
+      0
+    ],
+    "blocks": [
+      {
+        "block": "magenta_stained_glass"
+      },
+      {
+        "block": "magenta_stained_glass_pane"
+      }
+    ]
+  },
+  {
+    "key": "WORM_FISHING",
+    "category": "WORM_FISHING",
+    "quarter": "PRECURSOR_REMNANTS",
+    "name": "Worm Fishing",
+    "offset": [
+      0,
+      0,
+      0
+    ],
+    "blocks": [
+      {
+        "block": "lava"
+      },
+      {
+        "block": "air"
+      }
+    ]
+  }
+]

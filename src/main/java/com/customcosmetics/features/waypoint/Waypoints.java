@@ -48,7 +48,7 @@ public final class Waypoints {
     private static final AtomicReference<Snapshot> PENDING_SAVE = new AtomicReference<>();
     private static final AtomicBoolean SAVE_SCHEDULED = new AtomicBoolean();
     private static final ExecutorService WRITER = Executors.newSingleThreadExecutor(r -> {
-        Thread thread = new Thread(r, "CustomCosmetics-waypoint-save");
+        Thread thread = new Thread(r, "CustomSkyBlock-waypoint-save");
         thread.setDaemon(true);
         return thread;
     });

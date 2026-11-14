@@ -44,7 +44,7 @@ public final class AccessoryTooltipHelper {
     private static final Path CATALOG_PATH = CosmeticsConfigDir.getCosmeticsConfigDir().resolve("accessory-catalog.json");
     private static final URI CATALOG_URI = URI.create("https://hysky.de/api/accessories");
     private static final ExecutorService WRITER = Executors.newSingleThreadExecutor(task -> {
-        Thread thread = new Thread(task, "CustomCosmetics-accessory-save"); thread.setDaemon(true); return thread;
+        Thread thread = new Thread(task, "CustomSkyBlock-accessory-save"); thread.setDaemon(true); return thread;
     });
     private static final AtomicReference<String> PENDING = new AtomicReference<>();
     private static final AtomicBoolean WRITING = new AtomicBoolean();

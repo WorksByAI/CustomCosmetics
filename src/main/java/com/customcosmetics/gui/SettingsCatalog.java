@@ -66,9 +66,23 @@ public final class SettingsCatalog {
         add(entries, "Map Editor", "MAP", "Local visual map dungeon Kuudra rooms",
             "Freecam|Freecam Speed (blocks/s)|Map Editor|Dungeon Only|Force Dungeon|Force Kuudra|Edit Mode|Import FME Config|Choose Block / Favorites|Replace Materials|Editor HUD|Reset This Room|Block Material|Undo|Clear Current Edits|Automatically Restore Rooms|Preset Manager");
         add(entries, "Settings", "SYNC", "General preferences",
-            "Language|Fonts|Interface|Experimental Features|Module Manager|Check for Updates|Fast IP Ping|Command Tooltips|Snaplook|Snaplook View|Snaplook Keybind…");
-        add(entries, "Experimental Features", "EXPERIMENTAL", "Inventory and container background blur", "Inventory Blur");
-        add(entries, "Experimental Features", "DROP_2D", "Camera-facing dropped item sprites", "2D Drop");
+            "Language|Interface|Module Manager|Check for Updates");
+        add(entries, "Inventory Blur", "INVENTORY_BLUR", "Inventory and container background blur", "Inventory Blur");
+        add(entries, "Zoom", "ZOOM", "Camera zoom", "Zoom|Toggle Zoom|Scroll to Zoom|Scroll Below Initial Zoom|Zoom Factor|Zoom Animation|Zoom In|Zoom Out");
+        add(entries, "Bobby", "BOBBY", "Client chunk cache", "Bobby|Dynamic Multi World");
+        add(entries, "Seymour Analyzer", "SEYMOUR", "SkyBlock armor dye colors", "Seymour Analyzer|Match Fade Dyes");
+        add(entries, "QOL", "DROP_2D", "Camera-facing dropped item sprites", "2D Drop");
+        add(entries, "Optifine Skies", "SKYBOX", "Custom skies", "Optifine Skies");
+        add(entries, "HUD Manager", "HUD_LAYOUT", "HUD positioning", "HUD Manager");
+        add(entries, "Windowed Fullscreen", "WINDOW", "Window mode borderless", "Windowed Fullscreen");
+        add(entries, "Fast IP Ping", "FAST_PING", "Numeric addresses", "Fast IP Ping");
+        add(entries, "Command Tooltips", "COMMAND_TOOLTIPS", "Show command on hover", "Command Tooltips");
+        add(entries, "Snaplook", "SNAPLOOK", "Camera perspective", "Snaplook|Snaplook View|Snaplook Keybind…");
+        add(entries, "Motion Blur", "MOTION_BLUR", "Camera frame blending", "Motion Blur|Blur Strength");
+        add(entries, "Player Spin", "PLAYER_SPIN", "Local model rotation", "Player Spin|Rotate Head|Rotate Body");
+        add(entries, "Lobby Marker", "LOBBY_MARKER", "Visited SkyBlock lobbies", "Lobby Marker");
+        add(entries, "Tooltip Tweaks", "TOOLTIP_TWEAKS", "SkyBlock item enchantment tooltip", "Missing Enchants|Require Shift");
+        add(entries, "Tooltip Tweaks", "TOOLTIP_TWEAKS", "SkyBlock item age dye hex cake year stars", "Remove Gear Score|Remove Vanilla Enchant Lines|Show Item Age|Show Dye Hex|Cake Year Overlay|Item Stars Overlay");
         add(entries, "Inventory Blur", "INVENTORY_BLUR", "Inventory and container background", "Background Darkness (%)");
         add(entries, "Long Sign Text", "SIGN_TEXT", "Signs and hanging signs", "Long Sign Text");
         add(entries, "Pack Disabler", "PACK_DISABLER", "Official server resource pack", "Hide Hypixel SkyBlock Pack");
@@ -84,7 +98,7 @@ public final class SettingsCatalog {
         add(entries, "Settings", "SYNC", "Connections automatic sync online offline",
             "Mode|Automatic Sync|Refresh Interval (seconds)|Notifications|Sync Now");
         add(entries, "Settings", "SYNC", "Advanced connections proxy",
-            "Proxy Host|Proxy Port|Proxy Auth|Disable P2P Connections|P2P UDP Port|Fallback Direct|Proxy Source");
+            "Proxy Host|Proxy Port|Proxy Auth|Fallback Direct|Proxy Source|P2P UDP Port");
         add(entries, "Module Manager", "MODULES", "Module master switch enabled disabled settings",
             "Enable All Modules|Disable All Modules");
         for (var module : com.customcosmetics.config.FeatureModules.Feature.values())

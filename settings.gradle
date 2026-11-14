@@ -10,7 +10,7 @@ plugins {
     id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
 }
 
-rootProject.name = 'customcosmetics'
+rootProject.name = 'CustomSkyBlock'
 
 // Preserve these explicitly allowlisted source inputs; keep .git and all other exclusions.
 org.apache.tools.ant.DirectoryScanner.removeDefaultExclude('**/.gitignore')

@@ -53,7 +53,7 @@ public final class SkyRenderer26_2 implements Skyboxify.Renderer {
     }
     @Override public void render(Object current,ClientLevel level,float delta){
         var target=Minecraft.getInstance().gameRenderer.mainRenderTarget();
-        var descriptor=RenderPassDescriptor.create(()->"CustomCosmetics sky").withColorAttachment(target.getColorTextureView());
+        var descriptor=RenderPassDescriptor.create(()->"CustomSkyBlock sky").withColorAttachment(target.getColorTextureView());
         if(target.useDepth&&target.getDepthTextureView()!=null)descriptor.withDepthAttachment(target.getDepthTextureView());
         descriptor.withRenderArea(new RenderPass.RenderArea(0,0,target.width,target.height));
         try(var pass=RenderSystem.getDevice().createCommandEncoder().createRenderPass(descriptor)){draw(pass,level,delta);}
@@ -97,7 +97,7 @@ public final class SkyRenderer26_2 implements Skyboxify.Renderer {
             }
             try(var mesh=builder.buildOrThrow()){
                 indexCount=mesh.drawState().indexCount();
-                vertices=RenderSystem.getDevice().createBuffer(()->"CustomCosmetics sky cube",GpuBuffer.USAGE_VERTEX,mesh.vertexBuffer());
+                vertices=RenderSystem.getDevice().createBuffer(()->"CustomSkyBlock sky cube",GpuBuffer.USAGE_VERTEX,mesh.vertexBuffer());
             }
         }
     }

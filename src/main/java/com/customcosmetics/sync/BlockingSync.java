@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicLong;
 /** Independent cosmetic WSS by default, with the previous encrypted UDP transport retained. */
 public final class BlockingSync {
     private static final java.util.concurrent.ExecutorService NETWORK = Executors.newSingleThreadExecutor(r -> {
-        Thread worker = new Thread(r, "CustomCosmetics-blocking-auth"); worker.setDaemon(true); return worker;
+        Thread worker = new Thread(r, "CustomSkyBlock-blocking-auth"); worker.setDaemon(true); return worker;
     });
     private static final BlockingTransport TRANSPORT = new BlockingTransport(PresenceSync::openActionConnection);
     private static final AtomicLong GENERATION = new AtomicLong();

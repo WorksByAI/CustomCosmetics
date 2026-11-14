@@ -16,7 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 public class CosmeticsConfigDir {
-    private static final Logger LOGGER = LoggerFactory.getLogger("CustomCosmetics/ConfigDir");
+    private static final Logger LOGGER = LoggerFactory.getLogger("CustomSkyBlock/ConfigDir");
     private static Path cosmeticsConfigDir = null;
     private static boolean initialized = false;
 

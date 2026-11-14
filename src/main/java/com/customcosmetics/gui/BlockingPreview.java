@@ -30,7 +30,7 @@ public final class BlockingPreview {
     private static com.mojang.blaze3d.ProjectionType previousType;
     private BlockingPreview() {}
     public static void beginProjection(Projection projection) {
-        if(projectionBuffer==null)projectionBuffer=new net.minecraft.client.renderer.ProjectionMatrixBuffer("CustomCosmetics blocking preview");
+        if(projectionBuffer==null)projectionBuffer=new net.minecraft.client.renderer.ProjectionMatrixBuffer("CustomSkyBlock blocking preview");
         try {
             if(getProjection==null){
                 var type=com.mojang.blaze3d.systems.RenderSystem.class;

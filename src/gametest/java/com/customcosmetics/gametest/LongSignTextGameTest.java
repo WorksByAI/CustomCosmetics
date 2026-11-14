@@ -3,7 +3,6 @@ package com.customcosmetics.gametest;
 
 import com.customcosmetics.compatibility.ClientUiAccess;
 import com.customcosmetics.config.ConfigManager;
-import com.customcosmetics.sync.ExperimentalAccess;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.minecraft.client.gui.font.TextFieldHelper;
@@ -28,14 +27,11 @@ public final class LongSignTextGameTest implements FabricClientGameTest {
     private static final String LONG_LINE = "W宽".repeat(192);
 
     @Override public void runTest(ClientGameTestContext context) {
-        var access = field(ExperimentalAccess.class, "status");
         context.runOnClient(client -> {
             ConfigManager.syncEnabled = false;
             ConfigManager.updateCheckEnabled = false;
-            ConfigManager.checkExperimentalAccess = false;
-            ConfigManager.offlineMode = false;
+            ConfigManager.offlineMode = true;
             ConfigManager.longSignTextEnabled = true;
-            grant(access, ExperimentalAccess.Status.DENIED);
         });
         try (var world = context.worldBuilder().setUseConsistentSettings(true).create()) {
             var server = world.getServer();
@@ -50,15 +46,11 @@ public final class LongSignTextGameTest implements FabricClientGameTest {
                 context.runOnClient(client -> client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND,
                     new BlockHitResult(Vec3.atCenterOf(pos), Direction.NORTH, pos, false)));
                 context.waitFor(client -> ClientUiAccess.screen(client) instanceof AbstractSignEditScreen, 100);
-                checkBackgroundDarkness(context, access, pos.getX() == 0 ? "standing" : "hanging");
+                checkBackgroundDarkness(context, pos.getX() == 0 ? "standing" : "hanging");
                 context.runOnClient(client -> {
                     var screen = (AbstractSignEditScreen) ClientUiAccess.screen(client);
                     var input = (TextFieldHelper) read(field(AbstractSignEditScreen.class, "signField"), screen);
                     var lines = (String[]) read(field(AbstractSignEditScreen.class, "messages"), screen);
-                    grant(access, ExperimentalAccess.Status.DENIED);
-                    input.insertText(LONG_LINE);
-                    assertLine(lines, "");
-                    grant(access, ExperimentalAccess.Status.GRANTED);
                     ConfigManager.longSignTextEnabled = false;
                     input.insertText(LONG_LINE);
                     assertLine(lines, "");
@@ -91,14 +83,12 @@ public final class LongSignTextGameTest implements FabricClientGameTest {
         } finally {
             context.runOnClient(client -> {
                 ConfigManager.longSignTextEnabled = false;
-                grant(access, ExperimentalAccess.Status.UNCHECKED);
             });
         }
     }
 
-    private static void checkBackgroundDarkness(ClientGameTestContext context, Field access, String sign) {
+    private static void checkBackgroundDarkness(ClientGameTestContext context, String sign) {
         context.runOnClient(client -> {
-            grant(access, ExperimentalAccess.Status.GRANTED);
             ConfigManager.inventoryBlurEnabled = true;
             ConfigManager.inventoryDimPercent = 0;
         });
@@ -174,8 +164,4 @@ public final class LongSignTextGameTest implements FabricClientGameTest {
         catch (IllegalAccessException error) { throw new AssertionError(error); }
     }
 
-    private static void grant(Field field, ExperimentalAccess.Status status) {
-        try { field.set(null, status); }
-        catch (IllegalAccessException error) { throw new AssertionError(error); }
-    }
 }

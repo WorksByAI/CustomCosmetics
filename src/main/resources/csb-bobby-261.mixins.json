@@ -1,0 +1,31 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.customcosmetics.features.bobby.v261.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "plugin": "com.customcosmetics.mixin.IntegratedClientMixinPlugin",
+  "client": [
+    "FogRendererMixin",
+    "BiomeManagerAccessor",
+    "LightEngineMixin",
+    "ClientChunkCacheMixin",
+    "ClientPacketListenerMixin",
+    "ClientInformationMixin",
+    "ClientLevelAccessor",
+    "OptionsMixin",
+    "GameRendererMixin",
+    "IntegratedServerMixin",
+    "LevelLightEngineMixin",
+    "MinecraftMixin",
+    "OptionInstanceAccessor",
+    "OptionInstanceIntRangeAccessor",
+    "LevelChunkMixin",
+    "LevelRendererMixin",
+    "sodium06.SodiumClientChunkCacheMixin",
+    "sodium06.SodiumClientLevelMixin",
+    "sodium06.SodiumClientPacketListenerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

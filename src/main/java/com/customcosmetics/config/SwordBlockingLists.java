@@ -10,7 +10,7 @@ import java.util.*;
 
 /** Separate list preferences, with strict reads so a damaged file is never silently replaced. */
 final class SwordBlockingLists {
-    private static final org.slf4j.Logger LOGGER=org.slf4j.LoggerFactory.getLogger("CustomCosmetics/SwordBlockingLists");
+    private static final org.slf4j.Logger LOGGER=org.slf4j.LoggerFactory.getLogger("CustomSkyBlock/SwordBlockingLists");
     private static final Gson JSON=new GsonBuilder().setPrettyPrinting().create();
     private static final long MAX_BYTES=2*1024*1024;
     private static final Set<String> FIELDS=Set.of("swordBlockingListMode","swordBlockingBlacklist","swordBlockingWhitelist","swordBlockingListsApplyToOthers");

@@ -1,12 +1,12 @@
-# CustomCosmetics
+# CustomSkyBlock
 
 此为私人模组，不保证质量与稳定性
 
 This is a private mod. Quality and stability are not guaranteed.
 
-v2.1.1。Fabric 客户端外观模组，支持 26.1～26.3，部分功能可在玩家间同步。设置可切换中英文。实验功能支持为整个游戏或模组菜单选择系统字体和本地字体。
+v3.0.0。面向 Hypixel SkyBlock 的 Fabric 客户端模组，支持 26.1～26.3，部分外观可在玩家间同步。设置可切换中英文。QOL 中可为整个游戏或模组菜单选择系统字体和本地字体。
 
-新版不内置字体。从 v2.0.1 升级需手动替换一次 JAR。实验功能默认向已验证账号开放。
+新版不内置字体。从 v2.0.1 升级需手动替换一次 JAR。
 
 目前模组所有功能（[√] 表示其他安装本模组的玩家可见）：
 
@@ -26,14 +26,14 @@ v2.1.1。Fabric 客户端外观模组，支持 26.1～26.3，部分功能可在�
 - **Offline Mode**：断开所有远程同步连接，不使用共享功能，也无法看见别人的装饰品。
 - 模块：Settings → Module Manager。
 
-用 `/ccos` 或 `/customcosmetics` 打开设置；`/ccos waypoint`、`/ccos shortcuts` 打开工具。需要 Java 25、Fabric Loader 0.19.5+ 和匹配的 Fabric API。
+用 `/csb`、`/customskyblock` 或 `/ccos` 打开设置。`/csb waypoint`、`/csb shortcuts` 打开工具。需要 Java 25、Fabric Loader 0.19.5+ 和匹配的 Fabric API。
 共享功能需安装 [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api)。
 
 ## English
 
-v2.1.1. Choose English or Simplified Chinese in Settings. Experimental font controls support system and local fonts for the whole game or just mod menus.
+v3.0.0. Choose English or Simplified Chinese in Settings. QOL font controls support system and local fonts for the whole game or just mod menus.
 
-New builds omit bundled fonts. Replace the v2.0.1 JAR manually once. Experimental features are available to verified accounts by default.
+New builds omit bundled fonts. Replace the v2.0.1 JAR manually once.
 
 Fabric cosmetics for Minecraft 26.1–26.3, with optional player sync.
 
@@ -55,11 +55,11 @@ Features ([√] visible to other mod users):
 - **Offline Mode**: Disconnect all remote synchronization connections. Sharing is disabled, and other players' cosmetics are not shown.
 - Modules: Settings → Module Manager.
 
-Use `/ccos` or `/customcosmetics` for settings; `/ccos waypoint` and `/ccos shortcuts` open the tools. Requires Java 25, Fabric Loader 0.19.5+ and matching Fabric API.
+Use `/csb`, `/customskyblock` or `/ccos` for settings. Use `/csb waypoint` and `/csb shortcuts` for the tools. Requires Java 25, Fabric Loader 0.19.5+ and matching Fabric API.
 Sharing modules requires [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api).
 
 采用 / Licensed under **AGPL-3.0-or-later**。部分代码移植自 / Portions ported from [Baity](https://github.com/raueyhs/Baity), originally authored by raueyhs. See [LICENSE](https://github.com/WorksByAI/CustomCosmetics/blob/main/LICENSE) and [NOTICE](https://github.com/WorksByAI/CustomCosmetics/blob/main/NOTICE).
 
 NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.
 
-WorksByAI / CustomCosmetics contributors · [tory@toryhi.com](mailto:tory@toryhi.com) · [QQ群 / QQ Group](https://qm.qq.com/q/Km3ScGpvga)
+WorksByAI / CustomSkyBlock contributors · [tory@toryhi.com](mailto:tory@toryhi.com) · [QQ群 / QQ Group](https://qm.qq.com/q/Km3ScGpvga)

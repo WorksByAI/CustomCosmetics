@@ -93,7 +93,7 @@ public final class LocalSkins {
     }
     private static Identifier registerTexture(String hash,NativeImage pixels){
         var existing=textures.get(hash);if(existing!=null){pixels.close();return existing;}
-        var id=Identifier.fromNamespaceAndPath("customcosmetics","skin/"+hash);Minecraft.getInstance().getTextureManager().register(id,new DynamicTexture(()->"CustomCosmetics skin",pixels));textures.put(hash,id);
+        var id=Identifier.fromNamespaceAndPath("customcosmetics","skin/"+hash);Minecraft.getInstance().getTextureManager().register(id,new DynamicTexture(()->"CustomSkyBlock skin",pixels));textures.put(hash,id);
         while(textures.size()>20){var first=textures.entrySet().iterator();var entry=first.next();first.remove();Minecraft.getInstance().getTextureManager().release(entry.getValue());}return id;
     }
     private static Identifier texture(byte[] png)throws IOException{

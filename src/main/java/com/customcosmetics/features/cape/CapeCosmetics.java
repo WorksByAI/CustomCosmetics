@@ -36,7 +36,7 @@ public final class CapeCosmetics {
     public static synchronized Identifier texture(byte[] png)throws IOException{
         String hash=CapeImages.hash(png);Identifier existing=textures.get(hash);if(existing!=null)return existing;
         var id=Identifier.fromNamespaceAndPath("customcosmetics","cape/"+hash);
-        var pixels=NativeImage.read(png);var texture=new DynamicTexture(()->"CustomCosmetics cape",pixels);
+        var pixels=NativeImage.read(png);var texture=new DynamicTexture(()->"CustomSkyBlock cape",pixels);
         Minecraft.getInstance().getTextureManager().register(id,texture);textures.put(hash,id);
         while(textures.size()>64){var iterator=textures.entrySet().iterator();var first=iterator.next();iterator.remove();Minecraft.getInstance().getTextureManager().release(first.getValue());}
         return id;

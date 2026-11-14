@@ -18,7 +18,7 @@ public final class PartyClient implements WebSocket.Listener,AutoCloseable{
     }
     public record Chat(UUID uuid,String name,String text,int delivered){}
     private record Pending(Scope scope,String text){}
-    private final ScheduledExecutorService worker=Executors.newSingleThreadScheduledExecutor(r->{var t=new Thread(r,"CustomCosmetics-Party");t.setDaemon(true);return t;});
+    private final ScheduledExecutorService worker=Executors.newSingleThreadScheduledExecutor(r->{var t=new Thread(r,"CustomSkyBlock-Party");t.setDaemon(true);return t;});
     private final HttpClient http=WebSocketPresenceClient.createHttpClient();
     private final Consumer<Map<UUID,Teammate>> positions;private final Consumer<Chat> chats;private final Consumer<String> errors;
     private final StringBuilder fragments=new StringBuilder();private final Set<String> seen=new LinkedHashSet<>();

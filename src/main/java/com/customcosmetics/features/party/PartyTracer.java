@@ -10,13 +10,16 @@ public final class PartyTracer {
     public static boolean enabled(boolean party){return party?com.customcosmetics.config.ConfigManager.partyTracersEnabled:com.customcosmetics.config.ConfigManager.locationTracersEnabled;}
     public static int color(boolean party){return 0xFF000000|(party?com.customcosmetics.config.ConfigManager.partyTracerColor:com.customcosmetics.config.ConfigManager.locationTracerColor)&0xFFFFFF;}
     public static List<Vec3> ribbon(Vec3 forward,Vec3 right,Vec3 target,double range){
+        return ribbon(forward,right,target,range,1);
+    }
+    public static List<Vec3> ribbon(Vec3 forward,Vec3 right,Vec3 target,double range,double width){
         double length=target.length();
         if(!Double.isFinite(length)||length<.01)return List.of();
         Vec3 start=forward.scale(.5),end=target.scale(Math.min(1,range/length));
         Vec3 side=end.subtract(start).cross(end.add(start));
         if(side.lengthSqr()<1e-12)side=right;
         side=side.normalize();
-        Vec3 near=side.scale(.00065),far=side.scale(.0013*end.length());
+        Vec3 near=side.scale(.00065*width),far=side.scale(.0013*end.length()*width);
         return List.of(start.add(near),start.subtract(near),end.subtract(far),end.add(far));
     }
 }

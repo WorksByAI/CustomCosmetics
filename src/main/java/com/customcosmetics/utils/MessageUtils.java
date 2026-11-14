@@ -26,7 +26,7 @@ public class MessageUtils {
     }
     
     public static MutableComponent createMessageWithPrefix(MutableComponent message) {
-        return Component.literal("[CustomCosmetics] ").withStyle(style -> style.withColor(MESSAGE_COLOR))
+        return Component.literal("[CustomSkyBlock] ").withStyle(style -> style.withColor(MESSAGE_COLOR))
             .append(styleMessage(message));
     }
 

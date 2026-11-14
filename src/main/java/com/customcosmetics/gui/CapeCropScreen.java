@@ -23,7 +23,7 @@ public final class CapeCropScreen extends ThemedScreen {
         if(texture==null)try{
             texture=Identifier.fromNamespaceAndPath("customcosmetics","cape_crop");var pixels=new NativeImage(source.getWidth(),source.getHeight(),false);
             for(int iy=0;iy<source.getHeight();iy++)for(int ix=0;ix<source.getWidth();ix++)pixels.setPixel(ix,iy,source.getRGB(ix,iy));
-            minecraft.getTextureManager().register(texture,new DynamicTexture(()->"CustomCosmetics crop",pixels));
+            minecraft.getTextureManager().register(texture,new DynamicTexture(()->"CustomSkyBlock crop",pixels));
         }catch(Exception failure){notice="Could not preview image.";}
         int cell=(w-48)/3;
         addRenderableWidget(new PinkUi.Action(x+14,y+h-32,cell,22,"Reset Crop",false,()->crop=CapeImages.Crop.centered(source.getWidth(),source.getHeight())));

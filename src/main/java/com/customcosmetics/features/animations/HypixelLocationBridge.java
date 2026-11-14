@@ -20,7 +20,7 @@ public final class HypixelLocationBridge {
                 Object callback = Proxy.newProxyInstance(loader, new Class<?>[]{handler}, (proxy, method, args) -> {
                     if (!method.getName().equals("handle")) return switch (method.getName()) {
                         case "hashCode" -> System.identityHashCode(proxy); case "equals" -> proxy == args[0];
-                        case "toString" -> "CustomCosmetics world listener"; default -> null;
+                        case "toString" -> "CustomSkyBlock world listener"; default -> null;
                     };
                     if (name.endsWith("HelloPacket")) {
                         Object env = type.getMethod("getEnvironment").invoke(args[0]);

@@ -30,6 +30,15 @@ public final class PresenceWorld {
         context(client);
         return client.player!=null&&!client.hasSingleplayerServer()&&(hypixel||hypixelHost);
     }
+    public static String skyblockInstance(Minecraft client) {
+        context(client);
+        return hypixel && "SKYBLOCK".equals(gameType) ? instance : "";
+    }
+    public static boolean hasOfficialLocation(Minecraft client) {
+        context(client);
+        return hypixel && gameType != null;
+    }
+
     public static int environment(Minecraft client){context(client);return environment;}
     /** Official location wins; cache the sidebar title only until the first location packet arrives. */
     public static boolean isSkyblock(Minecraft client){

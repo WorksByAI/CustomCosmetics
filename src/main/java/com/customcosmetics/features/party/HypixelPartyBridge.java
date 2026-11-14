@@ -15,7 +15,7 @@ public final class HypixelPartyBridge{
             var requestType=Class.forName("net.hypixel.modapi.packet.impl.serverbound.ServerboundPartyInfoPacket",false,loader);request=requestType.getConstructor();
             send=Arrays.stream(apiType.getMethods()).filter(m->m.getName().equals("sendPacket")&&m.getParameterCount()==1&&m.getParameterTypes()[0].isAssignableFrom(requestType)).findFirst().orElseThrow();
             Object callback=Proxy.newProxyInstance(loader,new Class<?>[]{handler},(proxy,method,args)->{
-                if(!method.getName().equals("handle"))return switch(method.getName()){case "hashCode"->System.identityHashCode(proxy);case "equals"->proxy==args[0];case "toString"->"CustomCosmetics party listener";default->null;};
+                if(!method.getName().equals("handle"))return switch(method.getName()){case "hashCode"->System.identityHashCode(proxy);case "equals"->proxy==args[0];case "toString"->"CustomSkyBlock party listener";default->null;};
                 Object value=args[0];
                 if(!(boolean)packet.getMethod("isExpectedVersion").invoke(value))return null;
                 if(!(boolean)packet.getMethod("isInParty").invoke(value)){consumer.accept(PartyRoster.EMPTY);return null;}

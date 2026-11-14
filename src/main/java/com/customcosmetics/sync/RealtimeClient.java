@@ -22,7 +22,7 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
     }
     private record Block(BlockHand hand,String itemId){}
     private record Stamp(long epoch,long sequence){}
-    private final ScheduledExecutorService worker=Executors.newSingleThreadScheduledExecutor(r->{var t=new Thread(r,"CustomCosmetics-Realtime");t.setDaemon(true);return t;});
+    private final ScheduledExecutorService worker=Executors.newSingleThreadScheduledExecutor(r->{var t=new Thread(r,"CustomSkyBlock-Realtime");t.setDaemon(true);return t;});
     private final HttpClient http=WebSocketPresenceClient.createHttpClient();
     private final RealtimeRoute route=new RealtimeRoute();private final boolean forceWss;
     private final UUID self;private final PartyPeerClient peers;private long epoch;private InetSocketAddress relayAddress;private JsonObject localCandidate;
@@ -250,7 +250,7 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
         }catch(Exception failure){socket.close();throw failure;}
         udpFailure="";
         cipher=new UdpPacket(HexFormat.of().parseHex(id),HexFormat.of().parseHex(grant.get("key").getAsString()),true,3);grantId=id;outgoing=new long[3];incoming=new long[3];udp=socket;nextUdpProbe=0;
-        var reader=new Thread(()->readUdp(socket),"CustomCosmetics-Realtime-UDP");reader.setDaemon(true);reader.start();
+        var reader=new Thread(()->readUdp(socket),"CustomSkyBlock-Realtime-UDP");reader.setDaemon(true);reader.start();
     }
     private void readUdp(DatagramSocket source){
         while(!closed&&!source.isClosed()){

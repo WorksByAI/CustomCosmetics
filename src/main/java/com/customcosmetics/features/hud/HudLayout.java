@@ -31,7 +31,7 @@ public final class HudLayout {
     private HudLayout(){}
     public static Options options(Element element){return ConfigManager.hudLayout.getOrDefault(element,Options.DEFAULT);}
     public static Options active(Element element){
-        if(!ConfigManager.hudLayoutEnabled||!com.customcosmetics.sync.ExperimentalAccess.allowed()||!FeatureModules.enabled(FeatureModules.Feature.HUD_LAYOUT))return null;
+        if(!ConfigManager.hudLayoutEnabled||!FeatureModules.enabled(FeatureModules.Feature.HUD_LAYOUT))return null;
         return ConfigManager.hudLayout.get(element);
     }
     public static void set(Element element,Options options){

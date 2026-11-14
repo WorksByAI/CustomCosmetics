@@ -38,7 +38,7 @@ final class HypixelWaypointBridge {
             return switch (method.getName()) {
                 case "hashCode" -> System.identityHashCode(proxy);
                 case "equals" -> proxy == args[0];
-                case "toString" -> "CustomCosmetics waypoint listener";
+                case "toString" -> "CustomSkyBlock waypoint listener";
                 default -> null;
             };
         });

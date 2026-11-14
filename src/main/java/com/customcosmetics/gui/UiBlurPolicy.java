@@ -3,7 +3,6 @@ package com.customcosmetics.gui;
 
 import com.customcosmetics.config.ConfigManager;
 import com.customcosmetics.compatibility.ClientUiAccess;
-import com.customcosmetics.sync.ExperimentalAccess;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
@@ -26,7 +25,7 @@ public final class UiBlurPolicy {
             && inAuthorizedWorld();
     }
     private static boolean inAuthorizedWorld() {
-        return ExperimentalAccess.allowed() && Minecraft.getInstance().level != null;
+        return Minecraft.getInstance().level != null;
     }
     public static int inventoryDimColor(int vanilla, int percent) {
         int alpha = vanilla >>> 24;

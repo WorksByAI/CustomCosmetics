@@ -331,7 +331,7 @@ public final class PartyGameTest implements FabricClientGameTest{
                 context.runOnClient(client->{try{
                     ClientUiAccess.setScreen(client,new CosmeticsScreen(null,page));var screen=(CosmeticsScreen)ClientUiAccess.screen(client);
                     int x=(Integer)uiField(screen,"contentX"),width=(Integer)uiField(screen,"contentWidth");
-                    var names=List.of("Nick Changer","Player Size","Skins","Equipments","Cape","Animations","Damage Splash","Item Customization","Map Editor","Party Sharing","Location Sharing");
+                    var names=List.of("Cape","Equipments","Nick Changer","Player Size","Skins","Location Sharing","Party Sharing","Animations","Damage Splash","Item Customization","Map Editor");
                     var navigation=screen.children().stream().filter(child->child instanceof com.customcosmetics.gui.PinkUi.Action widget&&names.contains(widget.getMessage().getString())).map(child->(net.minecraft.client.gui.components.AbstractWidget)child).sorted(Comparator.comparingInt(net.minecraft.client.gui.components.AbstractWidget::getY)).toList();
                     if(!navigation.stream().map(widget->widget.getMessage().getString()).toList().equals(names))throw new AssertionError("Sidebar lost its Appearance/SkyBlock/Connections navigation or separate sharing destinations");
                     for(var nav:navigation)if(nav.getWidth()<90||nav.getHeight()<20)throw new AssertionError("Sidebar control is too small: "+nav.getMessage().getString());
@@ -341,10 +341,9 @@ public final class PartyGameTest implements FabricClientGameTest{
                     boolean mode=screen.children().stream().anyMatch(child->child instanceof com.customcosmetics.gui.PinkUi.Action widget&&widget.getMessage().getString().startsWith("Mode: "));
                     if(mode!=(page==CosmeticsScreen.Page.SYNC))throw new AssertionError("Online/offline mode must only appear in Settings");
                     if(page==CosmeticsScreen.Page.SYNC){
-                        var auth=(net.minecraft.client.gui.components.AbstractWidget)screen.children().stream().filter(child->child instanceof com.customcosmetics.gui.PinkUi.Field field&&field.getMessage().getString().equals("Proxy Auth")).findFirst().orElseThrow();
-                        var disable=(net.minecraft.client.gui.components.AbstractWidget)screen.children().stream().filter(child->child instanceof com.customcosmetics.gui.PinkUi.Toggle toggle&&toggle.getMessage().getString().startsWith("Disable P2P Connections")).findFirst().orElseThrow();
-                        var port=(net.minecraft.client.gui.components.AbstractWidget)screen.children().stream().filter(child->child instanceof com.customcosmetics.gui.PinkUi.Field field&&field.getMessage().getString().equals("P2P UDP Port")).findFirst().orElseThrow();
-                        if(auth.getBottom()>=disable.getY()||disable.getBottom()>=port.getY())throw new AssertionError("P2P controls must follow Proxy Auth, in order");
+                        var source=screen.children().stream().filter(child->child instanceof com.customcosmetics.gui.PinkUi.Action action&&action.getMessage().getString().startsWith("Proxy Source")).map(net.minecraft.client.gui.components.AbstractWidget.class::cast).findFirst().orElseThrow();
+                        var port=screen.children().stream().filter(child->child instanceof com.customcosmetics.gui.PinkUi.Field field&&field.getMessage().getString().equals("P2P UDP Port")).map(net.minecraft.client.gui.components.AbstractWidget.class::cast).findFirst().orElseThrow();
+                        if(source.getBottom()>port.getY())throw new AssertionError("P2P port must follow Proxy Source");
                     }
                     var sliders=screen.children().stream().filter(com.customcosmetics.gui.PinkUi.Slider.class::isInstance).map(com.customcosmetics.gui.PinkUi.Slider.class::cast).toList();
                     for(var slider:sliders)if(slider.getWidth()<=0||slider.getX()<x||slider.getRight()>x+width)throw new AssertionError("Slider escaped the content bounds: "+page+" / "+slider.getMessage().getString());
@@ -417,27 +416,6 @@ public final class PartyGameTest implements FabricClientGameTest{
         showDevHeading(context,"sync-dev-heading-inline");
         context.getInput().resizeWindow(854,480);context.waitTicks(3);showDevHeading(context,"sync-dev-heading-wrapped");
         context.getInput().resizeWindow(1280,720);context.waitTicks(3);
-        for(boolean disabled:new boolean[]{true,false}){
-            var location=new java.util.concurrent.atomic.AtomicReference<double[]>();
-            context.runOnClient(client->{try{
-                var screen=(CosmeticsScreen)ClientUiAccess.screen(client);
-                var toggle=(net.minecraft.client.gui.components.AbstractWidget)screen.children().stream().filter(child->child instanceof com.customcosmetics.gui.PinkUi.Toggle widget&&widget.getMessage().getString().startsWith("Disable P2P Connections")).findFirst().orElseThrow();
-                if(!disabled&&ConfigManager.partyP2pEnabled||disabled&&!ConfigManager.partyP2pEnabled)throw new AssertionError("Unexpected P2P state before click");
-                var scroll=CosmeticsScreen.class.getDeclaredField("scroll");scroll.setAccessible(true);
-                var top=CosmeticsScreen.class.getDeclaredField("viewTop");top.setAccessible(true);
-                var max=CosmeticsScreen.class.getDeclaredMethod("maxScroll");max.setAccessible(true);
-                scroll.setDouble(screen,Math.clamp(scroll.getDouble(screen)+toggle.getY()-top.getInt(screen)-62,0,(Double)max.invoke(screen)));
-                var apply=CosmeticsScreen.class.getDeclaredMethod("positionControls");apply.setAccessible(true);apply.invoke(screen);
-                double scale=client.getWindow().getGuiScale();location.set(new double[]{(toggle.getX()+toggle.getWidth()/2.0)*scale,(toggle.getY()+toggle.getHeight()/2.0)*scale});
-            }catch(ReflectiveOperationException error){throw new AssertionError(error);}});
-            context.waitTicks(3);
-            if(disabled)context.runOnClient(client->{
-                var toggle=ClientUiAccess.screen(client).children().stream().filter(child->child instanceof com.customcosmetics.gui.PinkUi.Toggle widget&&widget.getMessage().getString().startsWith("Disable P2P Connections")).map(child->(net.minecraft.client.gui.components.AbstractWidget)child).findFirst().orElseThrow();
-                if(!toggle.getMessage().getString().endsWith(": Off"))throw new AssertionError("Disable P2P must default to off");
-            });
-            context.getInput().setCursorPos(location.get()[0],location.get()[1]);context.getInput().pressMouse(ClientInput.MOUSE_LEFT);context.waitTicks(3);
-            context.runOnClient(client->{if(ConfigManager.partyP2pEnabled==disabled)throw new AssertionError("Disable P2P toggle is not inverted");});
-        }
         var portLocation=new java.util.concurrent.atomic.AtomicReference<double[]>();
         context.runOnClient(client->{try{
             var screen=(CosmeticsScreen)ClientUiAccess.screen(client);
@@ -455,12 +433,12 @@ public final class PartyGameTest implements FabricClientGameTest{
             var port=(com.customcosmetics.gui.PinkUi.Field)ClientUiAccess.screen(client).children().stream().filter(child->child instanceof com.customcosmetics.gui.PinkUi.Field field&&field.getMessage().getString().equals("P2P UDP Port")).findFirst().orElseThrow();
             port.setValue("65536");if(ConfigManager.getSyncP2pPort()!=45566)throw new AssertionError("Out-of-range P2P port was applied");
             port.setValue("abc");if(ConfigManager.getSyncP2pPort()!=45566)throw new AssertionError("Non-numeric P2P port was applied");port.setValue("45566");
+            port.setValue("");if(ConfigManager.getSyncP2pPort()!=0)throw new AssertionError("Blank P2P port did not restore automatic allocation");
         });context.takeScreenshot("sync-dev-fixed-p2p-port");
         context.takeScreenshot("sync-dev-connections");
         context.getInput().resizeWindow(854,480);context.waitTicks(3);context.takeScreenshot("sync-dev-connections-compact");
         context.runOnClient(client->{connectionStatus=null;ConfigManager.syncP2pPort=0;});
         System.out.println("SYNC_DEV_NATIVE_P2P_PORT_INPUT_BOUNDS_AND_AUTOMATIC_DEFAULT_OK");
-        System.out.println("SYNC_DEV_INVERTED_P2P_SWITCH_AND_MULTILINE_PROTOCOL_COUNTS_OK");
     }
     private static void checkNametagModes(ClientGameTestContext context){
         context.runOnClient(client->{try{

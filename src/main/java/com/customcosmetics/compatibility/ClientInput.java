@@ -8,6 +8,7 @@ public final class ClientInput {
     public static final int NUMPAD_ENTER = value("KEY_NUMPADENTER");
     public static final int SPACE = value("KEY_SPACE");
     public static final int ESCAPE = value("KEY_ESCAPE");
+    public static final int TAB = value("KEY_TAB"), C = value("KEY_C");
     public static final int LEFT = value("KEY_LEFT"), RIGHT = value("KEY_RIGHT");
     public static final int UP = value("KEY_UP"), DOWN = value("KEY_DOWN");
     public static final int PAGE_UP = value("KEY_PAGEUP"), PAGE_DOWN = value("KEY_PAGEDOWN");

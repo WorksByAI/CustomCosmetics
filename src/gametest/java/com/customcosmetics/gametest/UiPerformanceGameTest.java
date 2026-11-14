@@ -6,7 +6,6 @@ import com.customcosmetics.config.*;
 import com.customcosmetics.gui.CosmeticsScreen;
 import com.customcosmetics.gui.PinkUi;
 import com.customcosmetics.gui.UiFonts;
-import com.customcosmetics.sync.ExperimentalAccess;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.google.gson.*;
 import java.lang.management.ManagementFactory;
@@ -53,14 +52,10 @@ public final class UiPerformanceGameTest implements FabricClientGameTest {
                 List<String> phases = fontPath == null ? List.of("CLOSED","MAIN","ANIMATIONS","DAMAGE","THEME","CLOSED_AFTER")
                     : List.of("CLOSED_VANILLA", "FONTS_VANILLA", "FONTS_APPLY", "FONTS_LOCAL", "CLOSED_LOCAL", "CLOSED_RESTORED");
                 if (fontPath != null) {
-                    var access = ExperimentalAccess.class.getDeclaredField("status");
-                    access.setAccessible(true);
                     context.runOnClient(client -> {
-                        ConfigManager.checkExperimentalAccess = false;
-                        ConfigManager.offlineMode = false;
+                        ConfigManager.offlineMode = true;
                         ConfigManager.useFontInGame = true;
-                        try { access.set(null, ExperimentalAccess.Status.GRANTED); }
-                        catch (IllegalAccessException error) { throw new AssertionError(error); }
+
                     });
                     world.getServer().runCommand("gamemode creative @a");
                     world.getServer().runCommand("fill -4 84 -3 4 84 8 minecraft:stone");

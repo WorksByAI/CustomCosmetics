@@ -54,7 +54,7 @@ public final class Skyboxify {
     };}
     public static void replace(List<Skybox> loaded){skies=loaded;preparedSkies=null;failed=false;}
     public static List<Skybox> skies(){return skies;}
-    public static boolean enabled(){return !EXTERNAL&&!failed&&ConfigManager.customSkyEnabled&&com.customcosmetics.sync.ExperimentalAccess.allowed()&&FeatureModules.enabled(FeatureModules.Feature.SKYBOX);}
+    public static boolean enabled(){return !EXTERNAL&&!failed&&ConfigManager.customSkyEnabled&&FeatureModules.enabled(FeatureModules.Feature.SKYBOX);}
     public static boolean debug(){return ConfigManager.customSkyDebug;}
     public static boolean fallback(){return ConfigManager.customSkyFallback;}
     public static boolean active(ClientLevel level){

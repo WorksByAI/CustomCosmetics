@@ -254,3 +254,71 @@ HUD extraction and scoped styling are adapted from HUD Manager 4.1.1
 (590f5e77), copyright 2025 i5wear, MIT (LICENSES/HUD-Manager-MIT.txt).
 https://github.com/i5wear/HUD-Manager
 Modified in November 2026 for CustomCosmetics settings and selected item names.
+
+Athen and Nebulune
+------------------
+Portions of Lobby Marker, Missing Enchants, Player Spin, Kuudra phase detection, Kuudra alerts and waypoints, Block Perks, Cocoon Alert,
+Item Tweaks and Render Optimiser are adapted from Athen (https://github.com/skies-starred/Athen), copyright 2025-2026 Starred.
+Auto Harp, Auto Experiments, Trevor Helper, Dagger Swap, Kuudra Peek, Auto Pearl, Crystal
+Hollows World Scanner, and corpse, pest and Safari target identification
+adapt Nebulune (https://github.com/Gaeritag/Nebulune),
+copyright 2025 Starred. Pest texture hashes originated in Skyblocker, LGPL-3.0,
+and are attributed to the Skyblocker contributors. Only texture identifiers are
+included. The LGPL-3.0 text is in LICENSES/Baity-LGPL-3.0.txt.
+Both BSD 3-Clause license texts are in LICENSES/.
+Slayer miniboss names also derive from SkyblockAPI (https://github.com/SkyblockAPI/SkyblockAPI),
+under the MIT License in LICENSES/SkyblockAPI-MIT.txt.
+
+Quoi
+----
+F7 devices, Auto Leap, Fast Leap, Secret Aura, Auto Close Chest, Auto GFS, Auto Book Combine, Auto Clicker,
+Trajectories, Slayer tools, Dojo, Mirrorverse, Chocolate Factory, Auto Carnival, Great Spook, and portions of
+gameplay target detection are adapted from Quoi at 1640208feeb94e7095873f36c6ad31ecf9721a1e,
+by jcnlk and contributors. The port uses Minecraft's client APIs and project
+configuration. The derived portions are licensed under GPL-3.0-only, with the text in
+LICENSES/GPL-3.0.txt. Distribution of this combined work is allowed by GPLv3
+section 13. See the upstream source for additional contributor attributions.
+Quoi's Chocolate Factory is based on OdinLegacy, copyright (c) 2023-2026
+odtheking (BSD-3-Clause, see LICENSES/Odin-BSD-3-Clause.txt).
+https://github.com/odtheking/OdinLegacy
+Quoi credits SkyHanni-REPO for Lava Maze, Lava Parkour and Tiny Dancer data.
+https://git.jcnlk.com/jcnlk/quoi
+
+Natural Motion Blur
+-------------------
+The Natural Motion Blur 1.4.5 rendering, shader and recording sources by Pasi
+and contributors are included in the client source. CustomSkyBlock supplies the
+settings screen, config persistence, keybind and command registration. Each
+Minecraft version uses the matching upstream renderer. The Windows Spout
+libraries are from the upstream 1.4.5 distribution. The port is LGPL-3.0-only.
+SpoutLibrary is based on Spout2 by Lynn Jarvis, under the BSD 2-Clause license.
+See LICENSES/Spout2-BSD-2-Clause.txt and https://github.com/leadedge/Spout2.
+https://github.com/ItsPasi/natural-motionblur-fabric/tree/34564a0c
+https://github.com/ItsPasi/natural-motionblur-fabric/tree/d73e6de3
+https://github.com/ItsPasi/natural-motionblur-fabric/tree/dee5abe7
+
+The LGPL v3 and GPL v3 texts are in LICENSES/Baity-LGPL-3.0.txt and LICENSES/GPL-3.0.txt.
+
+Additional QoL and SkyBlock references
+--------------------------------------
+Bobby by Johni0702 is included as source. Its cache, rendering hooks and
+commands are based on the upstream version for each Minecraft release.
+CustomSkyBlock supplies the settings screen and reads the existing bobby.conf.
+Bobby is licensed under LGPL-3.0-or-later. See LICENSES/Bobby-LGPL-3.0.txt
+and LICENSES/GPL-3.0.txt. Original corresponding source:
+https://github.com/Johni0702/bobby/tree/d3eaa2e328b3e6e9687d95153dc7fe7add48423d
+https://github.com/Johni0702/bobby/tree/47868a67f24f2dc2670cbbb22fd3e3363cb152a1
+https://github.com/Johni0702/bobby/tree/07a0129c2ce251926e4694bb331aaaf599ca8034
+
+Zoomify is a behavior reference for the zoom feature.
+https://github.com/isXander/Zoomify
+
+The Seymour Analyzer Fabric color catalog is from version 1.4.5 (90d5d56), by
+Schnerry and contributors, under GPL-3.0-or-later. It is included unmodified at
+assets/customcosmetics/gameplay/seymour-colors.json, with the license text in
+LICENSES/GPL-3.0.txt.
+https://github.com/schnerry/SeymourAnalyzerFabric
+
+Hit Color overlay settings and presets are adapted from HitColor X 1.2.0 by
+Contt. Its MIT notice is in LICENSES/HitColorX-MIT.txt.
+https://modrinth.com/mod/hitcolorx

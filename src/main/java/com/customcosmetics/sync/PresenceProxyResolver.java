@@ -25,7 +25,7 @@ import java.util.List;
 
 @Environment(EnvType.CLIENT)
 public final class PresenceProxyResolver {
-    private static final Logger LOGGER = LoggerFactory.getLogger("CustomCosmetics/PresenceProxy");
+    private static final Logger LOGGER = LoggerFactory.getLogger("CustomSkyBlock/PresenceProxy");
     private static final int CONNECT_TIMEOUT_MS = 10_000;
     private static final int READ_TIMEOUT_MS = 10_000;
     private static final int[] PROBE_PORTS = new int[]{7892, 7891, 7890};

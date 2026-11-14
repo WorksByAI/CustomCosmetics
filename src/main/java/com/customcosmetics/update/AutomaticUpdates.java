@@ -27,7 +27,7 @@ public final class AutomaticUpdates {
             for(var raw:release.getAsJsonArray("assets")){
                 var a=raw.getAsJsonObject();String name=a.get("name").getAsString(),lower=name.toLowerCase(Locale.ROOT),digest=a.has("digest")&&!a.get("digest").isJsonNull()?a.get("digest").getAsString():"";
                 long size=a.get("size").getAsLong();URI url=URI.create(a.get("browser_download_url").getAsString());
-                if(!lower.startsWith("customcosmetics-")||!lower.endsWith(".jar")||lower.contains("sources")||lower.contains("javadoc")||size<=0||size>LIMIT||!digest.matches("sha256:[0-9a-f]{64}"))continue;
+                if(!(lower.startsWith("customskyblock-") || lower.startsWith("customcosmetics-"))||!lower.endsWith(".jar")||lower.contains("sources")||lower.contains("javadoc")||size<=0||size>LIMIT||!digest.matches("sha256:[0-9a-f]{64}"))continue;
                 if(lower.contains("-nofont"))continue;
                 if(!"https".equals(url.getScheme())||!"github.com".equalsIgnoreCase(url.getHost())||url.getUserInfo()!=null||!url.getPath().startsWith("/WorksByAI/CustomCosmetics/releases/download/"))continue;
                 assets.add(new Asset(version,name,url,size,digest.substring(7)));
@@ -37,7 +37,7 @@ public final class AutomaticUpdates {
     }
     private static HttpURLConnection connect(URI uri)throws IOException{
         if(!RemoteAccess.online())throw new IOException("Offline");
-        var c=RemoteAccess.manage((HttpURLConnection)uri.toURL().openConnection());c.setConnectTimeout(10000);c.setReadTimeout(20000);c.setInstanceFollowRedirects(false);c.setUseCaches(false);c.setRequestProperty("User-Agent","CustomCosmetics-Updater");return c;
+        var c=RemoteAccess.manage((HttpURLConnection)uri.toURL().openConnection());c.setConnectTimeout(10000);c.setReadTimeout(20000);c.setInstanceFollowRedirects(false);c.setUseCaches(false);c.setRequestProperty("User-Agent","CustomSkyBlock-Updater");return c;
     }
     public static CompletableFuture<Prepared> download(String installed){return CompletableFuture.supplyAsync(()->{
         try{

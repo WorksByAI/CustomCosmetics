@@ -32,8 +32,8 @@ public final class SyncDebug {
     public static List<String> report(){
         var lines=new ArrayList<String>();
         String version=FabricLoader.getInstance().getModContainer("customcosmetics").map(m->m.getMetadata().getVersion().getFriendlyString()).orElse("unknown");
-        lines.add("CustomCosmetics "+version+" sync debug");
-        lines.add("Mode: "+(RemoteAccess.online()?"online":"offline")+"; transport="+ConfigManager.syncBlockingTransport+"; P2P="+(ConfigManager.partyP2pEnabled?"enabled":"disabled"));
+        lines.add("CustomSkyBlock "+version+" sync debug");
+        lines.add("Mode: "+(RemoteAccess.online()?"online":"offline")+"; transport="+ConfigManager.syncBlockingTransport+"; P2P=enabled");
         var roster=PartyFeatures.roster();lines.add(roster.title()+" "+roster.sourceLabel());
         lines.add("Position sharing="+PartyFeatures.sharingPositions()+"; blocking sharing="+(ConfigManager.swordBlockingEnabled&&ConfigManager.swordBlockingSyncEnabled&&ConfigManager.syncEnabled));
         if(roster.empty())lines.add("P2P requires a detected party for party position sharing.");
