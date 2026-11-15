@@ -1763,5 +1763,8 @@
   "customcosmetics.ui.e3cc3ee5e8a4": "仅支持 Windows。在 OBS 中添加 Spout2 捕获源。",
   "customcosmetics.ui.f6cb02457ee8": "动感模糊需要使用游戏内置渲染器。",
   "customcosmetics.ui.823a58540c68": "1.8 手持头颅",
-  "customcosmetics.ui.86165a98ea52": "第一人称手持玩家头颅时，使用 1.8 的大小、位置和朝向。"
+  "customcosmetics.ui.86165a98ea52": "第一人称手持玩家头颅时，使用 1.8 的大小、位置和朝向。",
+  "customcosmetics.ui.window_title": "窗口标题",
+  "customcosmetics.ui.apply_window_title": "应用窗口标题",
+  "customcosmetics.ui.window_title_default": "留空即可恢复游戏默认标题。"
 }

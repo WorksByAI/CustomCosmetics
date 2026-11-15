@@ -31,6 +31,9 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
     public void onInitializeClient() {
         CosmeticsConfigDir.init();
         ConfigManager.loadConfig();
+        ClientLifecycleEvents.CLIENT_STARTED.register(client -> {
+            if (!ConfigManager.windowTitle.isEmpty()) client.updateTitle();
+        });
         ModErrors.run(ModErrors.Key.MOTION_BLUR, com.customcosmetics.features.motionblur.MotionBlurPort::init);
         ModErrors.run(ModErrors.Key.BOBBY, com.customcosmetics.features.gameplay.BobbyIntegration::init);
         com.customcosmetics.gui.UiFonts.init();

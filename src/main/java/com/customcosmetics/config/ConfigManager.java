@@ -44,6 +44,7 @@ public final class ConfigManager {
     public static boolean freecamEnabled = false, freecamCollision = false, freecamExitOnDamage = true;
     public static double freecamSpeed = 12, freecamVerticalSpeed = 12;
     public static String fullscreenStyle = "vanilla";
+    public static String windowTitle = "";
     public static boolean hitColorEnabled = false;
     public static int hitColor = 0xFF5555;
     public static float hitOpacity = 0.5f;
@@ -358,6 +359,7 @@ public final class ConfigManager {
                     && java.nio.file.Path.of(uiFontPath).getFileName() == null) uiFontPath = ""; }
             catch (java.nio.file.InvalidPathException invalid) { uiFontPath = ""; }
             fullscreenStyle = "borderless".equals(fullscreenStyle) ? "borderless" : "vanilla";
+            windowTitle = com.customcosmetics.features.window.WindowTitle.normalize(windowTitle);
             freecamSpeed = com.customcosmetics.features.map.Freecam.validSpeed(freecamSpeed);
             freecamVerticalSpeed = com.customcosmetics.features.map.Freecam.validSpeed(freecamVerticalSpeed);
             hitColor &= 0xFFFFFF;

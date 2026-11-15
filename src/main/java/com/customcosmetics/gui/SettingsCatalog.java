@@ -74,7 +74,7 @@ public final class SettingsCatalog {
         add(entries, "QOL", "DROP_2D", "Camera-facing dropped item sprites", "2D Drop");
         add(entries, "Optifine Skies", "SKYBOX", "Custom skies", "Optifine Skies");
         add(entries, "HUD Manager", "HUD_LAYOUT", "HUD positioning", "HUD Manager");
-        add(entries, "Windowed Fullscreen", "WINDOW", "Window mode borderless", "Windowed Fullscreen");
+        add(entries, "Windowed Fullscreen", "WINDOW", "Window mode borderless window title", "Windowed Fullscreen");
         add(entries, "Fast IP Ping", "FAST_PING", "Numeric addresses", "Fast IP Ping");
         add(entries, "Command Tooltips", "COMMAND_TOOLTIPS", "Show command on hover", "Command Tooltips");
         add(entries, "Snaplook", "SNAPLOOK", "Camera perspective", "Snaplook|Snaplook View|Snaplook Keybind…");

@@ -18,6 +18,7 @@
     "FastIpPingMixin",
     "BorderlessWindowMixin$Legacy",
     "BorderlessWindowMixin$Modern",
+    "WindowTitleMixin",
     "HitColorMixin",
     "HitColorLayersMixin$Equipment",
     "HitColorLayersMixin$Cape",

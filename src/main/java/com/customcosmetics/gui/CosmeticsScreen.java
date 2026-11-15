@@ -7,6 +7,7 @@ import com.customcosmetics.features.hud.HudLayout;
 import com.customcosmetics.features.pack.HypixelPackDisabler;
 import com.customcosmetics.features.pack.TextColorOverrides;
 import com.customcosmetics.features.text.TextReplacements;
+import com.customcosmetics.features.window.WindowTitle;
 import com.customcosmetics.config.PlayerBlocklist;
 import com.customcosmetics.sync.PresenceSync;
 import com.customcosmetics.utils.NickRenderUtils;
@@ -1373,6 +1374,8 @@ public final class CosmeticsScreen extends ThemedScreen {
         label("/csb freecam", contentX + 6, row(20) + 4, DIM, contentWidth - 12);
     }
 
+    private String windowTitleDraft = ConfigManager.windowTitle;
+
     private void windowMode() {
         var options = List.of(new OptionDropdown.Option("vanilla", "Game Default"),
             new OptionDropdown.Option("borderless", "Borderless Fullscreen"));
@@ -1383,6 +1386,16 @@ public final class CosmeticsScreen extends ThemedScreen {
         rowY += 32;
         label(choice.active ? "Applies the next time you enter fullscreen." : "Cubes Without Borders handles window modes.",
             contentX + 6, row(20) + 4, DIM, contentWidth - 12);
+
+        var title = fieldRow("Window Title", "Window Title", windowTitleDraft, 2 * WindowTitle.MAX_LENGTH,
+            "Leave blank to use the game title.", 270, value -> windowTitleDraft = value);
+        fullButton("Apply Window Title", () -> {
+            windowTitleDraft = WindowTitle.normalize(windowTitleDraft);
+            title.setValue(windowTitleDraft);
+            ConfigManager.windowTitle = windowTitleDraft;
+            minecraft.updateTitle();
+            changed();
+        }, false);
     }
 
     private void hitColor() {

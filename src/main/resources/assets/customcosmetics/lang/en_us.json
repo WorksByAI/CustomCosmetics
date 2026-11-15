@@ -1763,5 +1763,8 @@
   "customcosmetics.ui.e3cc3ee5e8a4": "Windows only. Add a Spout2 Capture source in OBS.",
   "customcosmetics.ui.f6cb02457ee8": "Natural Motion Blur requires the game's built-in renderer.",
   "customcosmetics.ui.823a58540c68": "1.8 Held Skull",
-  "customcosmetics.ui.86165a98ea52": "Use the 1.8 size, position and rotation for first-person player heads."
+  "customcosmetics.ui.86165a98ea52": "Use the 1.8 size, position and rotation for first-person player heads.",
+  "customcosmetics.ui.window_title": "Window Title",
+  "customcosmetics.ui.apply_window_title": "Apply Window Title",
+  "customcosmetics.ui.window_title_default": "Leave blank to use the game title."
 }
