@@ -15,6 +15,8 @@ class AutomaticUpdatesTest {
     @Test void eachEditionSelectsOnlyItsOwnAsset() throws Exception {
         String legit = ClientEdition.LEGIT.assetName("2.1.0");
         String cheating = ClientEdition.CHEATING.assetName("2.1.0");
+        assertEquals("CustomSkyBlock-2.1.0-legit.jar", legit);
+        assertEquals("CustomSkyBlock-2.1.0-cheating.jar", cheating);
         String legitAsset = asset(legit, DOWNLOAD + legit, HASH);
         String cheatingAsset = asset(cheating, DOWNLOAD + cheating, HASH);
         String both = release(cheatingAsset + "," + legitAsset);
@@ -26,6 +28,22 @@ class AutomaticUpdatesTest {
         assertThrows(IOException.class, () -> AutomaticUpdates.asset(release(asset(legacy, DOWNLOAD + legacy, HASH)), "2.0.1", ClientEdition.LEGIT));
         assertTrue(GitHubUpdateCheck.newerRelease(release(legitAsset).replace("v2.1.0","v2.0.1"),"2.0.1-nofont+mc26.1-26.3").isEmpty());
         assertTrue(GitHubUpdateCheck.newerRelease(release(legitAsset).replace("v2.1.0","v2.0.1-nofont"),"2.0.1").isEmpty());
+    }
+    @Test void acceptsOldEditionNamesAndPrefersTheShortName() throws Exception {
+        String oldLegit = "CustomSkyBlock-Legit-2.1.0+mc26.1-26.3.jar";
+        String oldAsset = asset(oldLegit, DOWNLOAD + oldLegit.replace("+", "%2B"), HASH);
+        String current = "CustomSkyBlock-2.1.0-legit.jar";
+        assertEquals(oldLegit, AutomaticUpdates.asset(release(oldAsset), "2.0.1", ClientEdition.LEGIT).name());
+        assertThrows(IOException.class, () -> AutomaticUpdates.asset(release(oldAsset), "2.0.1", ClientEdition.CHEATING));
+        assertEquals(current, AutomaticUpdates.asset(release(oldAsset + "," + asset(current, DOWNLOAD + current, HASH)),
+            "2.0.1", ClientEdition.LEGIT).name());
+    }
+
+    @Test void installed301CanSelectTheNextShortLegitRelease() throws Exception {
+        String name = "CustomSkyBlock-3.0.2-legit.jar";
+        String next = release(asset(name, DOWNLOAD + name, HASH)).replace("v2.1.0", "v3.0.2");
+        assertEquals(name, AutomaticUpdates.asset(next, "3.0.1", ClientEdition.LEGIT).name());
+        assertThrows(IOException.class, () -> AutomaticUpdates.asset(next, "3.0.1", ClientEdition.CHEATING));
     }
     @TempDir Path directory;
     private static String release(String asset){return "{\"draft\":false,\"prerelease\":false,\"tag_name\":\"v2.1.0\",\"assets\":["+asset+"]}";}

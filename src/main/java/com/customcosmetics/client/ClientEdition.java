@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package com.customcosmetics.client;
 
+import java.util.List;
 import net.fabricmc.loader.api.FabricLoader;
 
 public enum ClientEdition {
@@ -9,15 +10,19 @@ public enum ClientEdition {
     public static final String METADATA_KEY = "customcosmetics:edition";
     private final String id;
     public static final String MOD_NAME = "CustomSkyBlock";
-    private final String assetLabel;
+    private final String previousAssetLabel;
 
-    ClientEdition(String id, String assetLabel) { this.id = id; this.assetLabel = assetLabel; }
+    ClientEdition(String id, String previousAssetLabel) { this.id = id; this.previousAssetLabel = previousAssetLabel; }
 
     public String id() { return id; }
     public String displayName() { return MOD_NAME; }
 
     public String assetName(String version) {
-        return MOD_NAME + "-" + assetLabel + "-" + version + "+mc26.1-26.3.jar";
+        return MOD_NAME + "-" + version + "-" + id + ".jar";
+    }
+
+    public List<String> releaseAssetNames(String version) {
+        return List.of(assetName(version), MOD_NAME + "-" + previousAssetLabel + "-" + version + "+mc26.1-26.3.jar");
     }
 
     public static ClientEdition installed() { return Installed.EDITION; }

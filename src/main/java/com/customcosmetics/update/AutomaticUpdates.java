@@ -26,18 +26,19 @@ public final class AutomaticUpdates {
             String version = GitHubUpdateCheck.newerRelease(json, installed).orElseThrow();
             var release = JsonParser.parseString(json).getAsJsonObject();
             var assets = release.getAsJsonArray("assets");
-            String name = edition.assetName(version);
-            String path = "/WorksByAI/CustomCosmetics/releases/download/" + release.get("tag_name").getAsString() + "/" + name;
-            if (assets != null) for (var raw : assets) {
-                var candidate = raw.getAsJsonObject();
-                if (!name.equals(candidate.get("name").getAsString())) continue;
-                var hash = candidate.get("digest");
-                String digest = hash == null || hash.isJsonNull() ? "" : hash.getAsString();
-                long size = candidate.get("size").getAsLong();
-                var url = URI.create(candidate.get("browser_download_url").getAsString());
-                if (size <= 0 || size > LIMIT || !digest.matches("sha256:[0-9a-f]{64}")) continue;
-                if (!trustedDownload(url) || !"github.com".equals(url.getHost()) || !path.equals(url.getPath())) continue;
-                return new Asset(version, name, url, size, digest.substring(7));
+            String path = "/WorksByAI/CustomCosmetics/releases/download/" + release.get("tag_name").getAsString() + "/";
+            if (assets != null) for (String name : edition.releaseAssetNames(version)) {
+                for (var raw : assets) {
+                    var candidate = raw.getAsJsonObject();
+                    if (!name.equals(candidate.get("name").getAsString())) continue;
+                    var hash = candidate.get("digest");
+                    String digest = hash == null || hash.isJsonNull() ? "" : hash.getAsString();
+                    long size = candidate.get("size").getAsLong();
+                    var url = URI.create(candidate.get("browser_download_url").getAsString());
+                    if (size <= 0 || size > LIMIT || !digest.matches("sha256:[0-9a-f]{64}")) continue;
+                    if (!trustedDownload(url) || !"github.com".equals(url.getHost()) || !(path + name).equals(url.getPath())) continue;
+                    return new Asset(version, name, url, size, digest.substring(7));
+                }
             }
         } catch (RuntimeException malformed) {
             throw new IOException("No compatible stable release", malformed);

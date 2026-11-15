@@ -6,8 +6,7 @@ import java.lang.classfile.constantpool.Utf8Entry
 
 def edition = providers.gradleProperty('client_edition').getOrElse('cheating')
 if (!(edition in ['cheating', 'legit'])) throw new GradleException('client_edition must be cheating or legit')
-def assetLabel = edition == 'legit' ? 'Legit' : 'Cheating'
-tasks.named('jar', Jar) { archiveFileName = "CustomSkyBlock-${assetLabel}-${project.version}+mc26.1-26.3.jar" }
+tasks.named('jar', Jar) { archiveFileName = "CustomSkyBlock-${project.version}-${edition}.jar" }
 
 if (edition == 'legit') {
     def cheatingMixins = 'customcosmetics-cheating.mixins.json'
