@@ -4,19 +4,23 @@ import net.minecraft.network.protocol.game.ServerboundInteractPacket
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.entity.decoration.ArmorStand
 import net.minecraft.world.phys.EntityHitResult
+import quoi.api.events.SkyblockPlayerEvent
 import quoi.api.events.TickEvent
+import quoi.api.events.WorldEvent
+import quoi.api.events.core.Event
+import quoi.api.events.core.EventDispatcher
 import quoi.api.events.core.on
 import quoi.api.skyblock.dungeon.Dungeon
 import quoi.api.skyblock.dungeon.enums.Phase
+import quoi.api.skyblock.dungeon.terminals.TerminalUtils
 import quoi.api.skyblock.location.Island
 import quoi.api.skyblock.location.invoke
 import quoi.module.Module
-import quoi.module.settings.UIComponent.Companion.childOf
+import quoi.module.settings.Setting.Companion.json
 import quoi.module.settings.UIComponent.Companion.visibleIf
 import quoi.utils.EntityUtils
 import quoi.utils.isWithinFov
 import quoi.utils.minFovDot
-import quoi.utils.skyblock.player.LeapManager
 
 @Suppress("UNNECESSARY_SAFE_CALL")
 object Terminals : Module(
@@ -29,20 +33,17 @@ object Terminals : Module(
     private val delay by slider("Delay", 750, 0, 2000, 50, unit = "ms")
     private val auraFov by slider("Aura FOV", 360, 10, 360, 1, unit = "°").visibleIf { mode.selected == "Aura" }
     private val groundOnly by switch("Ground only")
-    private val leapDelayEnabled by switch("Leap delay", desc = "Delays opening terminals for x seconds after leap")
-    private val leapDelay by slider("Leap delay time", 0.5, 0.1, 5.0, 0.1, unit = "s").childOf(::leapDelayEnabled)
+    private val leapDelay by slider("Leap delay", 10, 0, 100, 1, unit = "t",
+        desc = "Server ticks to wait before opening a terminal after a Spirit Leap.").json("Leap delay ticks")
 
     private var lastClick = 0L
+    private var lastLeapTick: Int? = null
 
     init {
         on<TickEvent.Start> {
-            if (Dungeon.inTerminal || Dungeon.isDead || quoi.compat.GameAccess.screen() != null) return@on
+            if (TerminalUtils.inTerminal || Dungeon.isDead || quoi.compat.GameAccess.screen() != null) return@on
             if (System.currentTimeMillis() - lastClick < delay) return@on
-
-            if (leapDelayEnabled) {
-                val delayMs = (leapDelay * 1000.0).toLong()
-                if (System.currentTimeMillis() - LeapManager.lastLeap < delayMs) return@on
-            }
+            if (waitingAfterLeap()) return@on
 
             if (groundOnly && !player.onGround()) return@on
 
@@ -85,5 +86,20 @@ object Terminals : Module(
                 break
             }
         }
+
+        on<SkyblockPlayerEvent.Leap> { lastLeapTick = EventDispatcher.totalTicks }
+        on<WorldEvent.Change> { lastLeapTick = null }
+    }
+
+    private fun waitingAfterLeap(): Boolean =
+        lastLeapTick?.let { EventDispatcher.totalTicks - it < leapDelay } ?: false
+
+    override fun shouldHandle(event: Event): Boolean = when (event) {
+        is SkyblockPlayerEvent.Leap, is WorldEvent.Change -> true
+        else -> super.shouldHandle(event)
+    }
+
+    override fun onDisable() {
+        lastLeapTick = null
     }
 }

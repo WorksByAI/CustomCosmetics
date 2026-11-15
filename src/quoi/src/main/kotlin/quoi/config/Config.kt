@@ -7,8 +7,11 @@ import quoi.api.events.GameEvent
 import quoi.api.events.core.EventListener
 import quoi.api.events.core.once
 import quoi.module.ModuleManager
+import quoi.module.impl.dungeon.autoclear.impl.InteractiveMap
+import quoi.module.impl.floor7.Terminals
 import quoi.module.settings.Saving
 import java.io.File
+import kotlin.math.roundToInt
 
 /**
  * This class handles loading and saving Modules and their settings.
@@ -45,12 +48,15 @@ object Config : EventListener {
 
                 val jsonElement = JsonParser.parseString(this)
                 val jsonArray = if (jsonElement.isJsonArray) jsonElement.asJsonArray else return
+                migrateMapAppearance(jsonArray)
 
                 for (modules in jsonArray) {
                     val moduleObj = modules?.asJsonObject ?: continue
-                    val module = ModuleManager.getModuleByName(moduleObj.get("name").asString) ?: continue
+                    val name = moduleObj.get("name").asString
+                    val module = if (name == DungeonOptions.name) DungeonOptions else ModuleManager.getModuleByName(name) ?: continue
                     if (moduleObj.get("enabled").asBoolean != module.enabled) module.toggle()
                     val settingsElement = moduleObj.get("settings") ?: continue
+                    if (module === Terminals) migrateTerminalLeapDelay(settingsElement)
 
                     when {
                         settingsElement.isJsonArray -> {
@@ -78,6 +84,32 @@ object Config : EventListener {
         }
     }
 
+    private fun migrateMapAppearance(modules: JsonArray) {
+        val legacy = modules.filterIsInstance<JsonObject>()
+            .firstOrNull { it.get("name")?.asString == "Dungeon Map" } ?: return
+        val settings = legacy.get("settings") as? JsonObject ?: return
+        val hud = settings.get("Dungeon map") as? JsonObject ?: return
+        for ((name, value) in hud.entrySet()) {
+            (InteractiveMap.getSettingByName("Map appearance.$name") as? Saving)?.read(value)
+        }
+    }
+
+    private fun migrateTerminalLeapDelay(settings: JsonElement) {
+        val values = when {
+            settings.isJsonObject -> settings.asJsonObject.asMap()
+            settings.isJsonArray -> settings.asJsonArray.filterIsInstance<JsonObject>()
+                .flatMap { it.entrySet() }.associate { it.key to it.value }
+            else -> return
+        }
+        if ("Leap delay ticks" in values) return
+        val enabled = values["Leap delay"] as? JsonPrimitive ?: return
+        if (!enabled.isBoolean) return
+        val seconds = (values["Leap delay time"] as? JsonPrimitive)
+            ?.takeIf { it.isNumber }?.asDouble?.takeIf { it.isFinite() } ?: 0.5
+        val ticks = if (enabled.asBoolean) (seconds * 20).coerceIn(0.0, 100.0).roundToInt() else 0
+        (Terminals.getSettingByName("Leap delay ticks") as? Saving)?.read(JsonPrimitive(ticks))
+    }
+
     fun save() {
         if (!loaded) return
         try {
@@ -85,7 +117,7 @@ object Config : EventListener {
             // using like a custom serializer leaves 'null' in settings that don't save
             // code looks hideous tho, but it fully works
             val jsonArray = JsonArray().apply {
-                for (module in ModuleManager.modules) {
+                for (module in ModuleManager.modules + DungeonOptions) {
                     add(JsonObject().apply {
                         add("name", JsonPrimitive(module.name))
                         add("enabled", JsonPrimitive(module.enabled))

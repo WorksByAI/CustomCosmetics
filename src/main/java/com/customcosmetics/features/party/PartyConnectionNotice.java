@@ -9,7 +9,7 @@ import java.util.function.LongSupplier;
 
 /** A roster refresh or a transport reconnect is not another party join. */
 public final class PartyConnectionNotice {
-    public static final String SETTINGS_COMMAND = "/customcosmetics party";
+    public static final String SETTINGS_COMMAND = "/csb party";
     private boolean inParty;
     private boolean announced;
     private boolean failed;

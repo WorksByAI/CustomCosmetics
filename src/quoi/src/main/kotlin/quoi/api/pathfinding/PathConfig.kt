@@ -1,6 +1,6 @@
 package quoi.api.pathfinding
 
-import quoi.module.impl.render.clickgui.impl.PathSettings
+import quoi.config.PathSettings
 
 data class PathConfig(
     val yawStep: Float = PathSettings.yawStep,

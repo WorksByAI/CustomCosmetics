@@ -5,7 +5,6 @@ import quoi.api.events.core.EventListener
 import quoi.api.skyblock.location.Area
 import quoi.api.skyblock.location.Location
 import quoi.module.Module
-import quoi.module.impl.render.clickgui.ClickGui
 import quoi.module.settings.Setting
 import quoi.module.settings.Setting.Companion.json
 import quoi.module.settings.SettingsDSL
@@ -18,7 +17,7 @@ import kotlin.reflect.KProperty0
 
 /**
  * A [SettingGroup] acts as a logical and visual container for related settings
- * rendering them as a collapsible dropdown within the [ClickGui].
+ * rendering them as a collapsible group in the settings menu.
  *
  * It's purely organisational and for categorising settings.
  *

@@ -32,7 +32,7 @@ import quoi.api.events.core.on
 import quoi.api.skyblock.Pet
 import quoi.api.skyblock.PetRarity
 import quoi.api.skyblock.location.Location
-import quoi.module.impl.render.clickgui.impl.Data
+import quoi.config.DungeonData
 import quoi.utils.ChatUtils.modMessage
 import quoi.utils.Shortcuts
 import quoi.utils.skyblock.item.ItemUtils.extraAttributes
@@ -74,7 +74,7 @@ object PetUtils : EventListener, Shortcuts {
         }.description("Shows the currently tracked pet data.")
 
         on<GameEvent.Load> {
-            trackedPet = decodePet(Data.currentPet)
+            trackedPet = decodePet(DungeonData.currentPet)
             persistPet(trackedPet)
         }
 
@@ -300,7 +300,7 @@ object PetUtils : EventListener, Shortcuts {
         }
 
     private fun persistPet(pet: Pet?) {
-        Data.currentPet = pet?.let(::encodePet).orEmpty()
+        DungeonData.currentPet = pet?.let(::encodePet).orEmpty()
     }
 
     private fun encodePet(pet: Pet): String = buildJsonObject {

@@ -96,9 +96,9 @@ public final class PackDisablerCommands {
     private static int help() {
         return message("""
             Hover a SkyBlock item and press %s to toggle its Hypixel model.
-            /ccos pack reload | textcolors | whitelist [id]
-            /ccos pack replace set <vanilla item> | remove | list | export | import
-            /ccos pack glint set <on|off> | remove | list
+            /csb pack reload | textcolors | whitelist [id]
+            /csb pack replace set <vanilla item> | remove | list | export | import
+            /csb pack glint set <on|off> | remove | list
             Replace and glint apply to the held item's SkyBlock ID.
             """.formatted(whitelistKey.getTranslatedKeyMessage().getString()).stripTrailing());
     }

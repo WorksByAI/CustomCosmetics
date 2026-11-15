@@ -1,5 +1,6 @@
 package quoi.init
 
+import com.google.gson.JsonParser
 import net.fabricmc.api.EnvType
 import net.fabricmc.loader.api.FabricLoader
 import org.objectweb.asm.tree.ClassNode
@@ -14,20 +15,12 @@ import java.util.TreeSet
 // based on: https://github.com/Noamm9/NoammAddons/blob/26.1.2/src/main/kotlin/com/github/noamm9/init/AutoMixinDiscovery.kt
 class AutoMixinDiscovery : IMixinConfigPlugin {
     private var mixins = emptyList<String>()
-    private val dungeonHooks = setOf(
-        "AbstractContainerScreenMixin", "BlockBehaviourMixin", "BossEventMixin", "ButtonBlockMixin",
-        "ChestBlockMixin", "ClientLevelMixin", "ClientPacketListenerMixin", "ConnectionMixin",
-        "EntityMixin", "EntityOverlaySubmitMixin", "EntityRendererMixin", "GuiMixin",
-        "KeyboardHandlerMixin", "KeyboardInputMixin", "KeyMappingMixin", "LerpingBossEventMixin",
-        "LevelChunkMixin", "LeverBlockMixin", "LivingEntityRenderStateMixin", "LocalPlayerMixin",
-        "MinecraftMixin", "MouseHandlerMixin", "MultiPlayerGameModeMixin", "MushroomBlockMixin",
-        "NoRotateMixin", "OverlayLevelRendererMixin", "OverlayQuadSortingMixin",
-        "OverlaySubmitNodeCollectionMixin", "PacketProcessorListenerMixin", "PlayerMixin",
-        "ScreenMixin", "ServerboundUseItemPacketMixin", "SkullBlockMixin", "WallSkullBlockMixin"
-    )
 
     override fun onLoad(mixinPackage: String) {
         if (FabricLoader.getInstance().environmentType != EnvType.CLIENT) return
+        val dungeonHooks = javaClass.getResourceAsStream("/dungeon-mixins.json")!!.bufferedReader().use {
+            JsonParser.parseReader(it).asJsonArray.map { hook -> hook.asString }.toSet()
+        }
         val basePath = mixinPackage.replace('.', '/')
         val result = TreeSet<String>()
 

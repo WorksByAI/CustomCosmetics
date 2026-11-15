@@ -11,8 +11,6 @@ import quoi.api.abobaui.events.AbobaEvent
 import quoi.api.abobaui.transforms.impl.Alpha
 import quoi.api.animations.Animation
 import quoi.api.input.CursorShape
-import quoi.module.impl.render.clickgui.ClickGui
-import quoi.module.impl.render.clickgui.ClickGui.description
 import quoi.module.settings.impl.SelectorComponent
 import quoi.utils.ThemeManager.theme
 import quoi.utils.ui.cursor
@@ -31,8 +29,14 @@ abstract class UIComponent<T>(
     private var isParent = { children.isNotEmpty() }
     private var onValueChanged: (old: T, new: T) -> Unit = { _, _ -> }
 
-    private val isLocallyVisible: Boolean
+    val isLocallyVisible: Boolean
         get() = (visibilityDependency?.invoke() ?: true) && !hidden
+
+    fun editFromMenu(change: () -> Unit) {
+        val previous = value
+        change()
+        onValueChanged(previous, value)
+    }
 
     private val isVisible: Boolean
         get() = isLocallyVisible && (parent?.let { !it.collapsed && it.isVisible } ?: true)
@@ -48,7 +52,7 @@ abstract class UIComponent<T>(
     val valueUpdated = ValueUpdated()
 
     /**
-     * Hides the component from the [ClickGui]
+     * Hides the setting from menus.
      */
     open fun hide() = apply {
         hidden = true
@@ -157,14 +161,13 @@ abstract class UIComponent<T>(
                                 }
                             }
 
-                            child.render(this, !child.isParent.invoke()).description(child.description)
+                            child.render(this, !child.isParent.invoke())
                         }
                     }
                 }
             }
         } else {
             scope.draw(asSub).apply {
-                description(description)
             }
         }
 
@@ -240,7 +243,7 @@ abstract class UIComponent<T>(
         }
 
         /**
-         * Set a dependency which determines if the component is visible in the [ClickGui]
+         * Sets a visibility dependency for the setting.
          */
         fun <K : UIComponent<T>, T> K.visibleIf(condition: () -> Boolean) = apply {
             addVisibility(condition)

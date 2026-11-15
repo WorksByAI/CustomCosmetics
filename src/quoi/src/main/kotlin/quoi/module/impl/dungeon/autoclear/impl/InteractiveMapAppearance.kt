@@ -1,24 +1,17 @@
-package quoi.module.impl.dungeon
+package quoi.module.impl.dungeon.autoclear.impl
 
 import quoi.api.colour.Colour
-import quoi.api.skyblock.location.Island
-import quoi.api.skyblock.dungeon.odonscanning.MapRenderer.MapConfig
-import quoi.api.skyblock.dungeon.odonscanning.MapRenderer.renderMap
-import quoi.api.skyblock.location.invoke
 import quoi.module.Module
 import quoi.module.settings.Setting.Companion.json
 import quoi.module.settings.UIComponent.Companion.childOf
+import quoi.module.settings.group.SettingGroup
 import quoi.utils.ui.hud.impl.TextHud
 
-object DungeonMap : Module(
-    "Dungeon Map",
-    area = Island.Dungeon(inClear = true),
-    tag = Tag.BETA
-) {
+class InteractiveMapAppearance(parent: Module) : SettingGroup(parent, "Map appearance") {
     val shadow by switch("Shadow", true).asParent()
     val font by segmented("Font", TextHud.HudFont.Minecraft).asParent()
     val fontScale by slider("Font scale", 1f, 0.5f, 3f, 0.05f)
-    val showInfo by switch("Map info", true, desc = "Shows found secrets / secrets needed for 300 / total secrets, score, deaths and bonuses.")
+    val showInfo by switch("Map info", true, desc = "Shows found secrets, crypts, deaths and miniboss status.")
     val checkmarkStyle by selector(
         "Checkmark style", "Room Name",
         listOf("Checkmarks", "Secrets", "Room Name", "Room Name + Secrets", "Secrets + Puzzle Name"),
@@ -66,17 +59,4 @@ object DungeonMap : Module(
     val showNames by switch("Show names", true)
     val whenLeap by switch("Only when leap", true).childOf(::showNames)
     val nameScale by slider("Name scale", 0.8f, 0.1f, 3.0f, 0.1f).childOf(::showNames)
-
-    @Suppress("unused")
-    private val map by hud("Dungeon map", toggleable = false) {
-        renderMap(config = MapConfig())
-    }.withSettings(
-        ::shadow, ::font, ::fontScale, ::showInfo, ::checkmarkStyle, ::limitRoomNameSize, ::checkmarkScale,
-        ::roomRadius, ::darkenMultiplier,
-        ::bgColour, ::border, ::borderThickness, ::borderColour,
-        ::roomColour, ::normalRoom, ::entranceRoom, ::puzzleRoom, ::trapRoom, ::miniRoom, ::bloodRoom, ::fairyRoom, ::rareRoom, ::mimicRoom, ::unknownRoom,
-        ::doorColour, ::normalDoor, ::witherDoor, ::bloodDoor, ::entranceDoor,
-        ::showHeads, ::showOwnHead, ::iconScale, ::iconBorder, ::classColour, ::iconBorderColour, ::iconBorderThickness,
-        ::showNames, ::whenLeap, ::nameScale
-    ).setting()
 }

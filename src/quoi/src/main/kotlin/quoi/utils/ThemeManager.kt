@@ -5,7 +5,7 @@ import quoi.api.abobaui.dsl.px
 import quoi.api.colour.Colour
 import quoi.api.colour.colour
 import quoi.api.colour.toHSB
-import quoi.module.impl.render.clickgui.impl.VisualsSettings
+import quoi.config.VisualsSettings
 import quoi.utils.ui.rendering.UIRenderer.image
 
 // https://m3.material.io/styles/color

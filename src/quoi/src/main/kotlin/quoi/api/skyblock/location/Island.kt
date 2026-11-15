@@ -4,7 +4,7 @@ import quoi.api.skyblock.dungeon.Dungeon
 import quoi.api.skyblock.dungeon.Floor7
 import quoi.api.skyblock.dungeon.enums.Phase
 import quoi.api.skyblock.dungeon.enums.Stage
-import quoi.module.impl.render.clickgui.ClickGui
+import quoi.config.DungeonOptions
 
 enum class Island(val displayName: String, val command: String? = null) : Area {
     // general
@@ -56,7 +56,7 @@ enum class Island(val displayName: String, val command: String? = null) : Area {
 
     // global
     Skyblock("Skyblock") {
-        override fun inBase(): Boolean = Location.inSkyblock || ClickGui.forceSkyblock
+        override fun inBase(): Boolean = Location.inSkyblock || DungeonOptions.forceSkyblock
     },
 
     // other
@@ -65,7 +65,7 @@ enum class Island(val displayName: String, val command: String? = null) : Area {
 
     override fun inBase(): Boolean {
         if (Location.currentArea == SinglePlayer) return this == SinglePlayer
-        if (this == Dungeon && (ClickGui.forceDungeons || Location.onP3Sim)) return true
+        if (this == Dungeon && (DungeonOptions.forceDungeons || Location.onP3Sim)) return true
         return Location.currentArea == this
     }
 
@@ -73,7 +73,7 @@ enum class Island(val displayName: String, val command: String? = null) : Area {
 
     fun isArea(area: Island): Boolean {
         if (this == SinglePlayer) return area == SinglePlayer
-        if (area == Dungeon && (ClickGui.forceDungeons || Location.onP3Sim)) return true
+        if (area == Dungeon && (DungeonOptions.forceDungeons || Location.onP3Sim)) return true
         return this == area
     }
 

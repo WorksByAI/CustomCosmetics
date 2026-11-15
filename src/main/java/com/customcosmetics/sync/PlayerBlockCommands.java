@@ -12,7 +12,7 @@ import java.util.*;
 public final class PlayerBlockCommands {
     private PlayerBlockCommands(){}
     public static LiteralArgumentBuilder<FabricClientCommandSource> command(){
-        var root=ClientCommands.literal("block").executes(context->{MessageUtils.sendMessage("Usage: /customcosmetics block <add|remove> <accessories|nick|cape|skin> <nickname or account>");return 1;});
+        var root=ClientCommands.literal("block").executes(context->{MessageUtils.sendMessage("Usage: /csb block <add|remove> <accessories|nick|cape|skin> <nickname or account>");return 1;});
         for(boolean add:new boolean[]{true,false}){
             var action=ClientCommands.literal(add?"add":"remove");
             for(var kind:PlayerBlocks.Kind.values()){

@@ -7,10 +7,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.PacketListener;
 import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.PacketUtils;
 import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
 import net.minecraft.network.protocol.game.ClientboundSetEquipmentPacket;
-import net.minecraft.network.protocol.ping.ClientboundPongResponsePacket;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -42,11 +40,6 @@ public class ClientPacketListenerMixin {
         if (EventDispatcher.onPacketReceived(packet)) return;
         original.call(packet, listener);
         new PacketEvent.ReceivedPost(packet).post();
-    }
-
-    @Inject(method = "handlePongResponse", at = @At("HEAD"))
-    private void quoi$queuePongResponse(ClientboundPongResponsePacket packet, CallbackInfo ci) {
-        PacketUtils.ensureRunningOnSameThread(packet, (ClientPacketListener) (Object) this, Minecraft.getInstance().packetProcessor());
     }
 
     @Inject(

@@ -52,7 +52,6 @@ public final class ConfigManager {
     public static boolean seymourEnabled, seymourFadeDyes = true;
     public static boolean tooltipHideGearScore, tooltipHideVanillaEnchants, tooltipShowAge, tooltipShowHex;
     public static boolean tooltipColorHex, tooltipColorBox = true, tooltipCakeYears, tooltipItemStars;
-    public static boolean kuudraPeekCheckHeight = true, kuudraPeekFirstOnly;
     public static int tooltipStarColor = 0xFF5555;
     public static String tooltipAgeStyle = "&7Age: &c#age &8(#time)", tooltipHexStyle = "<gray>Color: #hex";
     public static boolean zoomEnabled, zoomToggle, zoomHands;
@@ -181,7 +180,6 @@ public final class ConfigManager {
     public static int doorRetryMs = 500;
     public static boolean doorSwing = true, doorInMenus, doorAura;
     public static double doorAuraRange = 5;
-    public static boolean slayerSpawnTime = true, slayerKillTime = true;
     public static boolean mirrorverseLavaMaze = false, mirrorverseLavaParkour = false, mirrorverseTubulator = false;
     public static boolean mirrorverseRedGreen = false, mirrorverseTinyDancer = false, mirrorverseShowMobs = true, mirrorverseShowRecipes = true;
     public static int mirrorverseRedGreenActionDelay = 3, mirrorverseRedGreenInteractDelay = 0;
@@ -196,29 +194,6 @@ public final class ConfigManager {
     public static int dojoControlPrediction = 5, dojoMasteryAmount = 3, dojoMasteryOffset = 500, dojoSwiftnessRotation = 150;
     public static int dojoSwiftnessCurve = 0;
     public static double dojoSwiftnessLead = .3, dojoSwiftnessTurnDistance = 9;
-    public static boolean slayerBossOutline = true, slayerBossFill = true, slayerBossTracer = false;
-    public static int slayerBossColor = 0xFFFFFF, slayerBossWidth = 2;
-    public static boolean kuudraManaIgnoreZero = true;
-    public static int kuudraRequeueDelay = 20, kuudraPearlDelay = 1;
-    public static int kuudraTeammateColor = 0xA6E3A1, kuudraTeammateWidth = 2;
-    public static boolean kuudraSupplyDropOff = true, kuudraSupplyPickup = true, kuudraFuel = true;
-    public static boolean kuudraSupplyProximity = true, kuudraSupplyMessages = true;
-    public static int kuudraDropOffColor = 0xA6E3A1, kuudraPickupColor = 0x94E2D5, kuudraFuelColor = 0x89B4FA, kuudraNearbyColor = 0xFAB387;
-    public static String kuudraSupplyMessage = "➤ #user recovered a supply in #time (#cur/#max)";
-    public static boolean kuudraSupplyHud = true, kuudraDropAlert = true, kuudraPickupAlert;
-    public static String kuudraTitleFormat = "[#bars#total - #perc%]", kuudraTitleFilled = "|", kuudraTitleEmpty = "·";
-    public static String kuudraDropText = "Dropped supply!", kuudraPickupText = "Picked up supply!";
-    public static int kuudraTitleBars = 20;
-    public static float kuudraSupplyHudX = .42f, kuudraSupplyHudY = .4f;
-    public static boolean kuudraSpawnTimer = true, kuudraBuildTimer = true;
-    public static String kuudraSpawnFormat = "Supply in: #time", kuudraBuildFormat = "Build in: #time";
-    public static float kuudraSpawnHudX = .42f, kuudraSpawnHudY = .34f, kuudraBuildHudX = .42f, kuudraBuildHudY = .29f;
-    public static boolean kuudraHighlightPods = true, kuudraHighlightExactPod, kuudraPodDepth = true, kuudraBlockPickobulus = true;
-    public static boolean kuudraStunCloseMenu;
-    public static int kuudraStunCloseDelay = 1, kuudraPod = 0, kuudraBlockWhen = 2, kuudraPodColor = 0x74C7EC;
-    public static boolean cocoonAlert = true, cocoonTimer = true;
-    public static String cocoonAlertText = "Boss cocooned!", cocoonAlertSound = "";
-    public static float cocoonHudX = .02f, cocoonHudY = .20f;
     public static boolean trevorEsp, trevorTracer, trevorAutoCall, trevorAutoAccept, trevorCooldownAlert;
     public static boolean trevorCooldownTimer = true;
     public static int trevorCallDelay = 1, trevorAcceptDelay = 1;
@@ -230,12 +205,6 @@ public final class ConfigManager {
     public static double secretAuraRange = 6.2, secretAuraSkullRange = 4.7, secretAuraBossRange = 5.7;
     public static int secretAuraDelay = 150, secretAuraFov = 360, secretAuraSwap = 1, secretAuraSlot = 1;
     public static boolean secretAuraSwapBack = true, secretAuraSwing, secretAuraInBoss = true, secretAuraInContainer;
-    public static boolean minibossChatDetection, minibossChatAlert = true, minibossVanillaMessage, minibossTitle = true;
-    public static int minibossDistance = 10;
-    public static String minibossAlertText = "Miniboss spawned!", minibossSpecialText = "Big boi spawned!";
-    public static boolean beaconOutline = true, beaconFill, beaconDepth, beaconTracer = true;
-    public static int beaconColor = 0x56E9E2, beaconFillColor = 0x56E9E2, beaconTracerColor = 0x56E9E2;
-    public static int beaconLineWidth = 2, beaconTracerWidth = 2;
     public static int lapisCorpseColor = 0x306BFF, tungstenCorpseColor = 0xAAAAAA,
         umberCorpseColor = 0xB56222, vanguardCorpseColor = 0xF224B8;
     public static boolean lapisCorpse = true, tungstenCorpse = true, umberCorpse = true, vanguardCorpse = true;
@@ -250,10 +219,7 @@ public final class ConfigManager {
     public static java.util.EnumMap<com.customcosmetics.features.gameplay.WorldScannerSettings.Target, com.customcosmetics.features.gameplay.WorldScannerSettings.Options> scannerOptions =
         new java.util.EnumMap<>(com.customcosmetics.features.gameplay.WorldScannerSettings.Target.class);
     public static boolean scannerShowJasperCount = true;
-    public static boolean kuudraHideBlockedPerks = true;
-    public static Set<String> kuudraBlockedPerks = com.customcosmetics.features.gameplay.KuudraPerks.DEFAULT;
     public static double scannerJasperBackground = .5;
-    public static int daggerSwapDelay = 1, daggerSwapVariance = 2;
     public static boolean chocolateClick, chocolateTower, chocolateUpgrade, chocolateStrays, chocolateMute, chocolateEggs;
     public static int chocolateDelay = 150, chocolateUpgradeDelay = 500, carnivalShotDelay = 100;
     public static boolean spookMath, spookSpeaking, spookCommitment, spookTitle, spookDungeon;
@@ -268,7 +234,6 @@ public final class ConfigManager {
     public static boolean refillPearls, refillSuperboom, refillJerries, refillLeaps;
     public static boolean refillTimed, refillDungeonsOnly;
     public static int refillPercent = 50, refillIntervalSeconds = 5;
-    public static float freshHudX = .02f, freshHudY = .14f;
     public static String fastLeapTarget = "";
     public static Set<String> fastLeapTriggers = Set.of();
     public static java.util.Map<String, String> fastLeapNames = java.util.Map.of("p1", "P1");
@@ -277,7 +242,7 @@ public final class ConfigManager {
     public static Set<String> autoLeapTriggers = Set.of();
     public static java.util.Map<String, String> autoLeapNames = java.util.Map.of("p1", "P1");
     public static java.util.Map<String, String> autoLeapClasses = java.util.Map.of();
-    public static java.util.Map<String, com.customcosmetics.features.gameplay.AutoLeap.Preset> autoLeapPresets = java.util.Map.of();
+    public static java.util.Map<String, com.customcosmetics.features.gameplay.AutoLeapPreset> autoLeapPresets = java.util.Map.of();
     public static boolean autoLeapByName, autoLeapSwapBack, autoLeapGate, autoLeapMelody, autoLeapAfterBlood;
     public static int autoLeapDelay = 1;
     public static boolean secretSwapItem, secretSwapBack;
@@ -432,9 +397,10 @@ public final class ConfigManager {
             creatureModel=com.customcosmetics.features.creature.CreatureModels.parse(creatureModel).id;
             syncRefreshIntervalSeconds = getSyncRefreshIntervalSeconds();
             syncP2pPort=getSyncP2pPort();
-            Set<String> retiredModules = Set.of("HEALTH_MANA", "AUTO_SELL", "AUTO_KICK");
+            Set<String> availableModules = java.util.Arrays.stream(com.customcosmetics.features.gameplay.GameplayModule.values())
+                .map(Enum::name).collect(java.util.stream.Collectors.toUnmodifiableSet());
             gameplayModules = gameplayModules == null ? Set.of() : gameplayModules.stream()
-                .filter(name -> name != null && !retiredModules.contains(name))
+                .filter(name -> name != null && availableModules.contains(name))
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
             if (gameplayHudScales == null) gameplayHudScales = new float[0];
             if (trevorColors == null) trevorColors = java.util.Map.of();
@@ -448,14 +414,11 @@ public final class ConfigManager {
             secretAuraDelay = Math.clamp(secretAuraDelay, 100, 4000);
             secretAuraSlot = Math.clamp(secretAuraSlot, 1, 9);
             secretAuraSwap = Math.clamp(secretAuraSwap, 0, 2);
-            daggerSwapDelay = Math.clamp(daggerSwapDelay, 0, 10);
             chocolateDelay = Math.clamp(chocolateDelay, 50, 1500);
             chocolateUpgradeDelay = Math.clamp(chocolateUpgradeDelay, 300, 2000);
             carnivalShotDelay = Math.clamp(carnivalShotDelay, 50, 500);
             spookDelay = Math.clamp(spookDelay, 0, 10);
-            daggerSwapVariance = Math.clamp(daggerSwapVariance, 0, 10);
             if (scannerOptions == null) scannerOptions = new java.util.EnumMap<>(com.customcosmetics.features.gameplay.WorldScannerSettings.Target.class);
-            if (kuudraBlockedPerks == null) kuudraBlockedPerks = com.customcosmetics.features.gameplay.KuudraPerks.DEFAULT;
             gameplayKeybinds = com.customcosmetics.features.gameplay.GameplayKeybinds.normalize(gameplayKeybinds);
             autoLeapTriggers = autoLeapTriggers == null ? Set.of() : Set.copyOf(autoLeapTriggers);
             autoLeapNames = autoLeapNames == null ? java.util.Map.of() : java.util.Map.copyOf(autoLeapNames);
@@ -469,16 +432,6 @@ public final class ConfigManager {
             secretInteractDelay = Math.clamp(secretInteractDelay, 0, 5);
             refillPercent = Math.clamp(refillPercent, 5, 95);
             refillIntervalSeconds = Math.clamp(refillIntervalSeconds, 1, 60);
-            kuudraRequeueDelay = Math.clamp(kuudraRequeueDelay, 0, 100);
-            kuudraPearlDelay = Math.clamp(kuudraPearlDelay, 1, 2);
-            kuudraTeammateWidth = Math.clamp(kuudraTeammateWidth, 1, 10);
-            kuudraTitleBars = Math.clamp(kuudraTitleBars, 5, 30);
-            kuudraStunCloseDelay = Math.clamp(kuudraStunCloseDelay, 0, 5);
-            kuudraPod = Math.clamp(kuudraPod, 0, 2);
-            kuudraBlockWhen = Math.clamp(kuudraBlockWhen, 0, 2);
-            minibossDistance = Math.clamp(minibossDistance, 1, 15);
-            beaconLineWidth = Math.clamp(beaconLineWidth, 1, 10);
-            beaconTracerWidth = Math.clamp(beaconTracerWidth, 1, 10);
             trajectoryTicks = Math.clamp(trajectoryTicks, 1, 120);
             trajectoryLineWidth = Math.clamp(trajectoryLineWidth, .1, 5);
             trajectoryBoxSize = Math.clamp(trajectoryBoxSize, .5, 3);

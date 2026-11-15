@@ -14,7 +14,7 @@ final class UpdateNotificationGameTest {
     static void check(ClientGameTestContext context) throws ReflectiveOperationException {
         var field = UpdateChecker.class.getDeclaredField("check"); field.setAccessible(true);
         Object original = field.get(null);
-        var fixture = new GitHubUpdateCheck("1.0.0");
+        var fixture = new GitHubUpdateCheck("1.0.0", com.customcosmetics.client.ClientEdition.installed(), () -> true);
         var start = GitHubUpdateCheck.class.getDeclaredMethod("start", Supplier.class, Executor.class); start.setAccessible(true);
         start.invoke(fixture, (Supplier<Optional<String>>)() -> Optional.of("1.0.1"), (Executor)Runnable::run);
         if (fixture.poll(false) != null) throw new AssertionError("Update appeared before a world was ready");
@@ -33,9 +33,9 @@ final class UpdateNotificationGameTest {
                 int count = 0;
                 for (Object line : (java.util.List<?>)messages.get(ClientUiAccess.chat(client))) {
                     var content = (net.minecraft.network.chat.Component)line.getClass().getMethod("content").invoke(line);
-                    if (content.getString().startsWith("[CustomCosmetics] Update available:")) {
+                    if (content.getString().startsWith("[CSB] Update available:")) {
                         count++;
-                        if (!content.getString().equals("[CustomCosmetics] Update available: 1.0.1 (installed: 1.0.0). [View Release]"))
+                        if (!content.getString().equals("[CSB] Update available: 1.0.1 (installed: 1.0.0). [View Release]"))
                             throw new AssertionError("Wrong update chat message");
                         content.visit((style,text) -> {
                             if (style.getColor() == null || style.getColor().getValue() != 0xFFA8CA)

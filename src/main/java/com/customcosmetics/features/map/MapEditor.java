@@ -201,7 +201,7 @@ public final class MapEditor {
         }return best;
     }
     public static boolean click(int button){var client=Minecraft.getInstance();if(!editing||!enabled)return false;if(busy()||MapRegionFill.busy())return true;
-        if(!allowed(client)){long now=System.currentTimeMillis();if(now>=nextRestrictionNotice){nextRestrictionNotice=now+3000;notice("Map Editor: Catacombs or Kuudra not detected. Enable Force Dungeon / Force Kuudra in Map Editor, or use /customcosmetics map status.");}return true;}
+        if(!allowed(client)){long now=System.currentTimeMillis();if(now>=nextRestrictionNotice){nextRestrictionNotice=now+3000;notice("Map Editor: Catacombs or Kuudra not detected. Enable Force Dungeon / Force Kuudra in Map Editor, or use /csb map status.");}return true;}
         var hit=target();if(hit==null)return true;
         if(button==2){var edit=DATA.snapshot().get(position(hit.getBlockPos()));String id=edit==null?BuiltInRegistries.BLOCK.getKey(realState(hit.getBlockPos()).getBlock()).toString():edit.material();if(selectable(id)){material=id;save();}return true;}
         // Keyboard events precede the next body input tick; detached cameras can also suppress body sneak.

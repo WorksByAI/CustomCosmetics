@@ -16,8 +16,8 @@
   "icon": "assets/quoi/icon.png",
   "environment": "client",
   "entrypoints": {
-    "csb-dungeon-screen": [
-      { "adapter": "kotlin", "value": "quoi.compat.DungeonScreen" }
+    "csb-dungeon-menu": [
+      { "adapter": "kotlin", "value": "quoi.compat.CsbDungeonMenu" }
     ],
     "client": [
       {

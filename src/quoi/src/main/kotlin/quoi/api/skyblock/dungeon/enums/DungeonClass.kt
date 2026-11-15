@@ -1,7 +1,7 @@
 package quoi.api.skyblock.dungeon.enums
 
 import quoi.api.colour.Colour
-import quoi.module.impl.render.clickgui.impl.VisualsSettings.classColors
+import quoi.config.VisualsSettings.classColors
 
 /**
  * from OdinFabric (BSD 3-Clause)

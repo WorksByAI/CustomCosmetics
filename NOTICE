@@ -290,6 +290,8 @@ https://git.jcnlk.com/jcnlk/quoi
 Dungeon and Floor 7 integration uses GPL-3.0-only Quoi source at
 c5be4172e82cc65c1928cc6b40f121f3c7307191. Modified 2026-11-15 for the CustomSkyBlock
 client, with the game font and compatibility adaptations for Minecraft 26.1–26.3.
+The leap cooldowns, terminal delay and Goldor trigger incorporate Quoi fixes through
+21a26828c70d4d6e29a225cefa24e6f27657448b, adapted 2026-11-16.
 See src/quoi/LICENSE and the original per-file credit notices.
 
 

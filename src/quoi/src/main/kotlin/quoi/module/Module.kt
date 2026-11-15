@@ -50,12 +50,14 @@ abstract class Module(
 
     open fun onKeybind() {
         if (quoi.compat.GameAccess.screen() != null) return
-        toggle()
-        toggleMessage()
+        toggleByUser()
     }
 
-    fun toggleMessage() {
-        modMessage("$name ${if (enabled) "§aenabled" else "§cdisabled"}§r.", name.hashCode())
+    fun toggleByUser() {
+        toggle()
+        if (!quoi.compat.CsbDungeonMenu.notifyToggle(name, enabled)) {
+            modMessage("$name ${if (enabled) "§aenabled" else "§cdisabled"}§r.", name.hashCode())
+        }
     }
 
     fun toggle() {

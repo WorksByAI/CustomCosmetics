@@ -1,4 +1,53 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import groovy.json.JsonSlurper
+import groovy.json.JsonOutput
+import java.lang.classfile.ClassFile
+import java.lang.classfile.constantpool.Utf8Entry
+
+def edition = providers.gradleProperty('client_edition').getOrElse('cheating')
+if (!(edition in ['cheating', 'legit'])) throw new GradleException('client_edition must be cheating or legit')
+def assetLabel = edition == 'legit' ? 'Legit' : 'Cheating'
+tasks.named('jar', Jar) { archiveFileName = "CustomSkyBlock-${assetLabel}-${project.version}+mc26.1-26.3.jar" }
+
+if (edition == 'legit') {
+    def cheatingMixins = 'customcosmetics-cheating.mixins.json'
+    tasks.named('processResources', ProcessResources) {
+        inputs.property('client_edition', edition)
+        exclude cheatingMixins, 'assets/customcosmetics/gameplay/critter-textures.json',
+            'assets/customcosmetics/gameplay/crystal-hollows-structures.json'
+        doLast {
+            File file = new File(destinationDir, 'fabric.mod.json')
+            def metadata = new JsonSlurper().parse(file, 'UTF-8')
+            metadata.custom['customcosmetics:edition'] = edition
+            metadata.remove('jars')
+            metadata.mixins.remove(cheatingMixins)
+            metadata.entrypoints.keySet().removeIf { it.startsWith('csb-dungeon-') }
+            metadata.depends.keySet().removeIf { it.startsWith('customskyblock-dungeon') || it == 'fabric-language-kotlin' }
+            file.setText(JsonOutput.prettyPrint(JsonOutput.toJson(metadata)), 'UTF-8')
+        }
+    }
+    // Keep config data types to preserve saved settings when players switch editions.
+    def sharedGameplay = ['BobbyIntegration', 'NaturalMotionBlurIntegration', 'LobbyMarker', 'MissingEnchants',
+        'SeymourColors', 'TooltipTweaks', 'GameplayModule', 'GameplayKeybinds', 'WorldScannerSettings', 'AutoLeapPreset'] as Set
+    tasks.named('jar', Jar) {
+        exclude { entry ->
+            String path = entry.path
+            if (!path.endsWith('.class')) return false
+            if (path.startsWith('com/customcosmetics/features/gameplay/')) {
+                return !(path.tokenize('/').last().split(/[.$]/)[0] in sharedGameplay)
+            }
+            return ['gui/CheatingScreen', 'gui/GameplayHudEditor', 'mixin/GameplayMixin',
+                'mixin/SecretChestMixin', 'mixin/RenderOptimiserMixin'].any { name ->
+                String base = 'com/customcosmetics/' + name
+                path == base + '.class' || path.startsWith(base + '$')
+            }
+        }
+    }
+    return
+}
+
+tasks.named('processResources', ProcessResources) { inputs.property('client_edition', edition) }
+
 def dungeonVariants = ['26.1.2', '26.2', '26.3']
 def dungeonDir = layout.buildDirectory.dir('dungeon')
 def dungeonVersion = project.version.toString()
@@ -14,15 +63,64 @@ def prepareDungeon = tasks.register('prepareDungeon') {
     outputs.dir(dungeonDir)
     doLast {
         def jars = [:]
+        def mixinConfigurations = [:]
         try {
             dungeonBuilds.each { mc, outputs -> jars[mc] = new java.util.zip.ZipFile(outputs) }
+            def packaged = jars.collectEntries { mc, jar ->
+                def metadata = { path -> jar.getInputStream(jar.getEntry(path)).withCloseable { new JsonSlurper().parse(it) } }
+                def hooks = metadata('dungeon-mixins.json')
+                def entrypoints = metadata('fabric.mod.json').entrypoints.values().flatten().collect { entry ->
+                    entry.value.replace('.', '/') + '.class'
+                }
+                def classes = jar.entries().findAll { it.name.startsWith('quoi/') && it.name.endsWith('.class') }
+                    .collectEntries { [(it.name): it] }
+                def registered = classes.keySet().findAll { name ->
+                    !name.contains('$') && (name.startsWith('quoi/mixins/accessors/') ||
+                        hooks.any { hook -> name == "quoi/mixins/${hook}.class" })
+                }
+                def mixinConfig = metadata('mixins.quoi.json')
+                mixinConfig.remove('plugin')
+                mixinConfig.mixins = registered.sort().collect { it.substring('quoi/mixins/'.length(), it.length() - 6).replace('/', '.') }
+                mixinConfigurations[mc] = JsonOutput.toJson(mixinConfig)
+                def pending = new ArrayDeque<String>(entrypoints)
+                pending.addAll(registered)
+                def reachable = new HashSet<String>()
+                def parser = ClassFile.of()
+                while (!pending.isEmpty()) {
+                    def path = pending.removeFirst()
+                    def entry = classes[path]
+                    if (entry == null || !reachable.add(path)) continue
+                    def bytes = jar.getInputStream(entry).withCloseable { it.bytes }
+                    // Descriptors, signatures, Kotlin metadata, and literal reflection names all use UTF-8 entries.
+                    for (def constant : parser.parse(bytes).constantPool()) {
+                        if (!(constant instanceof Utf8Entry)) continue
+                        def names = (constant.stringValue() =~ /quoi[\/.][\w$\/.]+/)
+                        while (names.find()) {
+                            def dependency = names.group().replace('.', '/') + '.class'
+                            if (classes.containsKey(dependency) && !reachable.contains(dependency)) pending.add(dependency)
+                        }
+                    }
+                }
+                // Omit assets from the unregistered Quoi mining and cat modules.
+                def paths = jar.entries().findAll { entry ->
+                    !entry.directory && !(entry.name in ['mixins.quoi.json', 'dungeon-mixins.json']) &&
+                        entry.name != 'assets/quoi/ui/images/crystalhollowsmap.png' &&
+                        entry.name != 'assets/quoi/glacite_tunnels_graph.json' &&
+                        !entry.name.startsWith('assets/quoi/ui/fallingkittens/') &&
+                        (!classes.containsKey(entry.name) || reachable.contains(entry.name))
+                }
+                    .collect { it.name }.toSet()
+                logger.lifecycle("Dungeon ${mc}: retained ${reachable.size()} of ${classes.size()} classes")
+                [(mc): paths]
+            }
             def base = jars.values().first()
+            def firstPaths = packaged.values().first()
             def common = new TreeSet(base.entries().findAll { entry ->
-                !entry.directory && (entry.name.startsWith('assets/quoi/') ||
+                firstPaths.contains(entry.name) && !entry.directory && (entry.name.startsWith('assets/quoi/') ||
                     (entry.name.startsWith('quoi/') && !entry.name.startsWith('quoi/mixins/'))) &&
-                    jars.values().every { other ->
+                    jars.every { mc, other ->
                         def candidate = other.getEntry(entry.name)
-                        candidate != null && candidate.size == entry.size && candidate.crc == entry.crc
+                        packaged[mc].contains(entry.name) && candidate != null && candidate.size == entry.size && candidate.crc == entry.crc
                     }
             }.collect { it.name })
 
@@ -47,7 +145,8 @@ def prepareDungeon = tasks.register('prepareDungeon') {
             }
             // Keep mixin discovery, Kotlin metadata and Fabric access wideners in each selected variant.
             jars.each { mc, jar ->
-                write("dungeon-${mc}.jar", jar, jar.entries().collect { it.name }.findAll { !common.contains(it) }, [:])
+                write("dungeon-${mc}.jar", jar, packaged[mc].findAll { !common.contains(it) },
+                    ['mixins.quoi.json': mixinConfigurations[mc]])
             }
             write('dungeon-common.jar', base, common.toList(), ['fabric.mod.json': groovy.json.JsonOutput.toJson([
                 schemaVersion: 1, id: 'customskyblock-dungeon-common', version: dungeonVersion,

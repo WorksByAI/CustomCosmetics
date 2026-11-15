@@ -58,7 +58,7 @@ public final class ShortcutsGameTest implements FabricClientGameTest {
                 ClientUiAccess.setScreen(client, null);
                 previousFocus.set(client.isWindowActive());
             });
-            for (String command : List.of("customcosmetics shortcuts", "ccos shortcuts")) {
+            for (String command : List.of("customskyblock shortcuts", "csb shortcuts")) {
                 context.runOnClient(client -> client.getConnection().sendCommand(command));
                 context.waitTicks(2);
                 context.runOnClient(client -> {
@@ -118,7 +118,7 @@ public final class ShortcutsGameTest implements FabricClientGameTest {
                         "The /v server command was not replaced with /visit");
                 boolean protectedOwnCommand = false;
                 try {
-                    next.add(new ShortcutRules.Entry("own", ShortcutRules.Kind.ARGUMENT, "/ccos", "/help", true));
+                    next.add(new ShortcutRules.Entry("own", ShortcutRules.Kind.ARGUMENT, "/csb", "/help", true));
                     save(new ShortcutStore.Data(true, next));
                 } catch (IllegalArgumentException expected) { protectedOwnCommand = true; }
                 check(protectedOwnCommand, "The shortcut manager command could be overridden");

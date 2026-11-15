@@ -14,12 +14,15 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.core.component.DataComponentGetter;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.Style;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -27,7 +30,8 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
+import java.util.HashSet;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
 public final class TooltipTweaks {
@@ -35,6 +39,7 @@ public final class TooltipTweaks {
     private static final Pattern TAG = Pattern.compile("<(#?[0-9A-Fa-f]{6}|[a-z_]+)>");
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm", Locale.US).withZone(ZoneId.systemDefault());
     private static final DateTimeFormatter LEGACY_DATE = DateTimeFormatter.ofPattern("M/d/yy h:mm a", Locale.US);
+    private static final List<String> ROMAN_LEVELS = List.of("", "I", "II", "III");
     private static KeyMapping hexKey;
     private static boolean hexHeld;
 
@@ -45,8 +50,7 @@ public final class TooltipTweaks {
             InputConstants.UNKNOWN.getValue(), KeyMapping.Category.register(net.minecraft.resources.Identifier
                 .fromNamespaceAndPath("customcosmetics", "tooltip_tweaks"))));
         ItemTooltipCallback.EVENT.register((stack, context, flags, lines) -> {
-            if ((ConfigManager.tooltipHideGearScore || ConfigManager.tooltipHideVanillaEnchants
-                    || ConfigManager.tooltipShowAge || ConfigManager.tooltipShowHex) && skyblock()) {
+            if ((ConfigManager.tooltipHideGearScore || ConfigManager.tooltipShowAge || ConfigManager.tooltipShowHex) && skyblock()) {
                 updateTooltip(stack, lines, System.currentTimeMillis(), hexKey.isUnbound() || (hexHeld && Minecraft.getInstance().isWindowActive()));
             }
         });
@@ -63,8 +67,8 @@ public final class TooltipTweaks {
         return PresenceWorld.isHypixel(client) && PresenceWorld.isSkyblock(client);
     }
 
-    private static CompoundTag attributes(ItemStack stack) {
-        var data = stack.get(DataComponents.CUSTOM_DATA);
+    private static CompoundTag attributes(DataComponentGetter components) {
+        var data = components.get(DataComponents.CUSTOM_DATA);
         if (data == null) return null;
         var tag = ((LegacyPackItems.CustomDataView) (Object) data).customcosmetics$readOnlyTag();
         return tag.getCompound("ExtraAttributes").orElse(tag);
@@ -72,14 +76,8 @@ public final class TooltipTweaks {
 
     static void updateTooltip(ItemStack stack, List<Component> lines, long now, boolean showHex) {
         if (lines.isEmpty()) return;
-        if (ConfigManager.tooltipHideGearScore || ConfigManager.tooltipHideVanillaEnchants) {
-            lines.removeIf(line -> {
-                String text = ChatFormatting.stripFormatting(line.getString());
-                if (ConfigManager.tooltipHideGearScore && text.startsWith("Gear Score: ")) return true;
-                if (!ConfigManager.tooltipHideVanillaEnchants || !(text.startsWith("Aqua Affinity") || text.startsWith("Depth Strider"))) return false;
-                return line.getString().contains("§7") || line.visit((style, run) -> !run.isBlank() && style.getColor() != null
-                    && style.getColor().getValue() == 0xAAAAAA ? Optional.of(true) : Optional.empty(), Style.EMPTY).isPresent();
-            });
+        if (ConfigManager.tooltipHideGearScore) {
+            lines.removeIf(line -> ChatFormatting.stripFormatting(line.getString()).startsWith("Gear Score: "));
         }
         if (ConfigManager.tooltipShowAge) {
             var data = attributes(stack);
@@ -101,6 +99,50 @@ public final class TooltipTweaks {
                 lines.add(Math.min(1, lines.size()), line);
             }
         }
+    }
+
+    public static Consumer<Component> vanillaEnchantTooltip(DataComponentGetter components, ItemEnchantments enchants,
+                                                             Consumer<Component> output) {
+        if (enchants.isEmpty()) return output;
+        var data = attributes(components);
+        if (data == null || data.getStringOr("id", "").isEmpty() || !skyblock()) return output;
+        return filterVanillaEnchants(components, enchants, output, ConfigManager.tooltipHideVanillaEnchants);
+    }
+
+    private static Consumer<Component> filterVanillaEnchants(DataComponentGetter components, ItemEnchantments enchants,
+                                                              Consumer<Component> output, boolean hide) {
+        var lore = components.get(DataComponents.LORE);
+        if (!hide && (lore == null || lore.lines().isEmpty())) return output;
+        HashSet<String> hidden = null;
+        for (var entry : enchants.entrySet()) {
+            var enchant = entry.getKey();
+            boolean aquaAffinity = enchant.is(Enchantments.AQUA_AFFINITY);
+            if (!aquaAffinity && !enchant.is(Enchantments.DEPTH_STRIDER)) continue;
+            int level = entry.getIntValue();
+            if (!hide && !loreContains(lore.lines(), aquaAffinity ? "Aqua Affinity" : "Depth Strider", level, aquaAffinity)) continue;
+            if (hidden == null) hidden = new HashSet<>(2);
+            hidden.add(Enchantment.getFullname(enchant, level).getString());
+        }
+        if (hidden == null) return output;
+        var names = hidden;
+        // This consumer receives only lines emitted by Minecraft's enchantment component.
+        return line -> {
+            if (!names.contains(line.getString())) output.accept(line);
+        };
+    }
+
+    private static boolean loreContains(List<Component> lore, String name, int level, boolean allowWithoutLevel) {
+        if (level <= 0 || level >= ROMAN_LEVELS.size()) return false;
+        String ranked = name + " " + ROMAN_LEVELS.get(level);
+        for (var line : lore) {
+            String text = ChatFormatting.stripFormatting(line.getString());
+            if (!text.contains(name)) continue;
+            for (String token : text.split(",")) {
+                String enchant = token.strip();
+                if (enchant.equals(ranked) || (allowWithoutLevel && level == 1 && enchant.equals(name))) return true;
+            }
+        }
+        return false;
     }
 
     private static long timestamp(CompoundTag data) {

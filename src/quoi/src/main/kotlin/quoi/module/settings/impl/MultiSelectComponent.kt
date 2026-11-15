@@ -48,8 +48,14 @@ class MultiSelectComponent<T>(
 
     fun any(predicate: (T) -> Boolean): Boolean = selected.any(predicate)
 
-    private fun nameOf(item: T) =
+    fun nameOf(item: T) =
         if (item is Enum<*>) item.name.replace(Regex("(?<=[a-z])(?=[A-Z])"), " ") else item.toString()
+
+    fun isSelected(index: Int) = options[index] in selected
+    fun toggle(index: Int) {
+        val option = options[index]
+        if (!selected.remove(option)) selected.add(option)
+    }
 
     private val selectedName: String
         get() = when (selected.size) {

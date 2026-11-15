@@ -35,7 +35,7 @@ import quoi.utils.ui.screens.UIScreen.Companion.open
  */
 object InteractiveMap : Module(
     "Interactive Map",
-    desc = "Automatically teleports to a specified target. Appearance is configured in Dungeon Map.",
+    desc = "Automatically teleports to a selected room, door, or route start.",
     area = Island.Dungeon(inClear = true),
     tag = Tag.BETA
 ) {
@@ -65,6 +65,7 @@ object InteractiveMap : Module(
         }
 
     private val visuals by text("Visuals")
+    val appearance = InteractiveMapAppearance(this).also { it.component.childOf(::visuals) }
     private val scale by slider("Map scale", 5f, 1f, 10f, 0.5f).childOf(::visuals)
     private val showHelp by switch("Show help", true, desc = "Shows the controls below the map.").childOf(::visuals)
     val roomInCol by colourPicker("Highlight colour", Colour.GREY.withAlpha(0.5f), allowAlpha = true, desc = "Room the player currently in colour.").childOf(::visuals)

@@ -73,9 +73,9 @@ public final class WaypointsGameTest implements FabricClientGameTest {
                     simulateSkyblockLocation(client, "unknown");
                 });
                 context.waitTicks(21);
-                command(context, "customcosmetics waypoint"); assertManager(context);
+                command(context, "csb waypoint"); assertManager(context);
                 context.runOnClient(client -> ClientUiAccess.setScreen(client, null));
-                command(context, "ccos waypoint"); assertManager(context);
+                command(context, "csb waypoint"); assertManager(context);
                 click(context, "New Group", PinkUi.Action.class);
                 type(context, "Name", "Waypoint Fixture Group");
                 click(context, "Bind to Current", PinkUi.Action.class);
@@ -150,7 +150,7 @@ public final class WaypointsGameTest implements FabricClientGameTest {
                 context.runOnClient(client -> {
                     for (var imported : List.copyOf(Waypoints.snapshot().groups()).subList(1, 3)) Waypoints.removeGroup(imported.id());
                 });
-                command(context, "ccos waypoint");
+                command(context, "csb waypoint");
                 context.getInput().resizeWindow(640, 480); context.waitTicks(4);
                 assertControlsInside(context); context.takeScreenshot("waypoint-manager-compact");
                 click(context, "Display Options", PinkUi.Action.class);
@@ -281,16 +281,16 @@ public final class WaypointsGameTest implements FabricClientGameTest {
                                     new Point("Route Third", 10, -60, 8, 0x2288ff, true))));
                 });
                 context.waitTicks(10);
-                command(context, "ccos waypoint ordered next");
+                command(context, "csb waypoint ordered next");
                 assertRoute(context, 1);
-                command(context, "customcosmetics waypoint ordered previous");
+                command(context, "csb waypoint ordered previous");
                 assertRoute(context, 0);
-                command(context, "ccos waypoint ordered next");
-                command(context, "customcosmetics waypoint ordered reset");
+                command(context, "csb waypoint ordered next");
+                command(context, "csb waypoint ordered reset");
                 assertRoute(context, 0);
                 context.takeScreenshot("waypoint-world-ordered-route");
                 context.runOnClient(client -> hideHud(client, false));
-                command(context, "ccos waypoint");
+                command(context, "csb waypoint");
                 click(context, "2. Route Next", PinkUi.Action.class);
                 click(context, "Delete", PinkUi.Action.class);
                 click(context, "Confirm Delete", PinkUi.Action.class);
@@ -319,7 +319,7 @@ public final class WaypointsGameTest implements FabricClientGameTest {
                 context.waitTicks(21);
                 context.runOnClient(client -> check(!Waypoints.currentScope().equals(saved.get().scope()), "Independent saves share the same waypoint scope"));
                 checkVisible(context, 0);
-                command(context, "ccos waypoint");
+                command(context, "csb waypoint");
                 context.runOnClient(client -> {
                     check(ClientUiAccess.screen(client).children().stream().filter(AbstractWidget.class::isInstance)
                             .map(AbstractWidget.class::cast).noneMatch(widget -> widget.active &&

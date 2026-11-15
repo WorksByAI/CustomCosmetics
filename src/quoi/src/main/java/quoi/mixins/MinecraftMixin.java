@@ -10,14 +10,25 @@ import net.minecraft.world.item.component.SwingAnimation;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import quoi.api.events.EntityEvent;
+import quoi.api.events.PlayerEvent;
 
 @Mixin(Minecraft.class)
 public class MinecraftMixin {
 
     @Unique
     private static boolean cancelSwing = false;
+
+    @Inject(method = "startUseItem", at = @At("HEAD"), cancellable = true)
+    private void quoi$onRightClick(CallbackInfo callback) {
+        Minecraft client = (Minecraft) (Object) this;
+        if (client.player == null || client.level == null) return;
+        if (new PlayerEvent.RightClick(client.player.getMainHandItem(), InteractionHand.MAIN_HAND, client.hitResult).post())
+            callback.cancel();
+    }
 
     @Redirect(
             method = "startAttack()Z",

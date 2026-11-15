@@ -102,9 +102,14 @@ class CosmeticsScreenTest {
     }
     @Test void sidebarHeaderAndPreviewUseRuntimeThemeAndNavigationIsGrouped() throws Exception {
         var screen = read(SCREEN);
-        var render = code(screen, "extractRenderState").stream().filter(ConstantInstruction.class::isInstance)
+        var renderCode = code(screen, "extractRenderState");
+        var render = renderCode.stream().filter(ConstantInstruction.class::isInstance)
             .map(ConstantInstruction.class::cast).map(ConstantInstruction::constantValue).toList();
-        assertTrue(render.contains("CustomSkyBlock"));
+        assertTrue(code(screen, "<init>").stream().filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast)
+            .anyMatch(call -> call.owner().name().stringValue().equals("com/customcosmetics/client/ClientEdition")
+                && call.name().stringValue().equals("displayName")));
+        assertTrue(renderCode.stream().filter(InvokeInstruction.class::isInstance).map(InvokeInstruction.class::cast)
+            .anyMatch(call -> call.name().stringValue().equals("getTitle")));
         assertFalse(render.contains("CUSTOM"));
         assertTrue(code(screen,"extractRenderState").stream().filter(FieldInstruction.class::isInstance)
             .map(FieldInstruction.class::cast).anyMatch(field -> field.owner().name().stringValue().equals("com/customcosmetics/gui/PinkUi") && field.name().stringValue().equals("TEXT")));

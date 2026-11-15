@@ -2,6 +2,7 @@
 package com.customcosmetics.update;
 
 import com.customcosmetics.compatibility.ClientUiAccess;
+import com.customcosmetics.client.ClientEdition;
 import com.customcosmetics.utils.MessageUtils;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
@@ -19,7 +20,7 @@ public final class UpdateChecker {
         String installed = FabricLoader.getInstance().getModContainer("customcosmetics").orElseThrow()
             .getMetadata().getVersion().getFriendlyString();
         automatic=com.customcosmetics.config.ConfigManager.updateOnNextLaunch;
-        check = new GitHubUpdateCheck(installed,()->com.customcosmetics.config.ConfigManager.updateCheckEnabled);
+        check = new GitHubUpdateCheck(installed, ClientEdition.installed(), ()->com.customcosmetics.config.ConfigManager.updateCheckEnabled);
         if (com.customcosmetics.sync.RemoteAccess.online()) check.start();
     }
     public static void tick(Minecraft client) {

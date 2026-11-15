@@ -43,27 +43,6 @@ public final class AutoLeap {
         }
     }
 
-    public record Preset(boolean byName, boolean swapBack, int clickDelay, boolean waitForGate, boolean melody,
-                         boolean stopAfterBlood, Set<String> triggers, java.util.Map<String, String> names,
-                         java.util.Map<String, String> classes, FastPreset fast) {
-        public Preset {
-            clickDelay = Math.clamp(clickDelay, 0, 10);
-            triggers = triggers == null ? Set.of() : Set.copyOf(triggers);
-            names = names == null ? java.util.Map.of() : java.util.Map.copyOf(names);
-            classes = classes == null ? java.util.Map.of() : java.util.Map.copyOf(classes);
-        }
-    }
-
-    public record FastPreset(String fallback, Set<String> triggers, java.util.Map<String, String> names,
-                             java.util.Map<String, String> classes, boolean stopAfterBlood, boolean melody) {
-        public FastPreset {
-            fallback = fallback == null || !fallback.matches("[A-Za-z0-9_]{1,16}") ? "" : fallback;
-            triggers = triggers == null ? Set.of() : Set.copyOf(triggers);
-            names = names == null ? java.util.Map.of() : java.util.Map.copyOf(names);
-            classes = classes == null ? java.util.Map.of() : java.util.Map.copyOf(classes);
-        }
-    }
-
     public static boolean preset(String input, boolean save) {
         String name = input.strip();
         if (name.isEmpty() || name.length() > 32) return false;
@@ -71,14 +50,14 @@ public final class AutoLeap {
         String key = saved.keySet().stream().filter(existing -> existing.equalsIgnoreCase(name)).findFirst().orElse(name);
         if (save) {
             var copy = new java.util.LinkedHashMap<>(saved);
-            copy.put(key, new Preset(ConfigManager.autoLeapByName, ConfigManager.autoLeapSwapBack, ConfigManager.autoLeapDelay,
+            copy.put(key, new AutoLeapPreset(ConfigManager.autoLeapByName, ConfigManager.autoLeapSwapBack, ConfigManager.autoLeapDelay,
                 ConfigManager.autoLeapGate, ConfigManager.autoLeapMelody, ConfigManager.autoLeapAfterBlood,
                 ConfigManager.autoLeapTriggers, ConfigManager.autoLeapNames, ConfigManager.autoLeapClasses,
-                new FastPreset(ConfigManager.fastLeapTarget, ConfigManager.fastLeapTriggers, ConfigManager.fastLeapNames,
+                new AutoLeapPreset.Fast(ConfigManager.fastLeapTarget, ConfigManager.fastLeapTriggers, ConfigManager.fastLeapNames,
                     ConfigManager.fastLeapClasses, ConfigManager.fastLeapAfterBlood, ConfigManager.fastLeapMelody)));
             ConfigManager.autoLeapPresets = java.util.Map.copyOf(copy);
         } else {
-            Preset value = saved.get(key);
+            AutoLeapPreset value = saved.get(key);
             if (value == null) return false;
             ConfigManager.autoLeapByName = value.byName();
             ConfigManager.autoLeapSwapBack = value.swapBack();

@@ -1,0 +1,11 @@
+[
+  "AbstractContainerScreenMixin", "BlockBehaviourMixin", "BossEventMixin", "ButtonBlockMixin",
+  "ChestBlockMixin", "ClientLevelMixin", "ClientPacketListenerMixin", "ConnectionMixin",
+  "EntityMixin", "EntityOverlaySubmitMixin", "EntityRendererMixin", "GuiMixin",
+  "KeyboardHandlerMixin", "KeyboardInputMixin", "KeyMappingMixin", "LerpingBossEventMixin",
+  "LevelChunkMixin", "LeverBlockMixin", "LivingEntityRenderStateMixin", "LocalPlayerMixin",
+  "MinecraftMixin", "MouseHandlerMixin", "MultiPlayerGameModeMixin", "MushroomBlockMixin",
+  "NoRotateMixin", "OverlayLevelRendererMixin", "OverlayQuadSortingMixin",
+  "OverlaySubmitNodeCollectionMixin", "PacketProcessorListenerMixin", "PlayerMixin",
+  "ScreenMixin", "ServerboundUseItemPacketMixin", "SkullBlockMixin", "WallSkullBlockMixin"
+]

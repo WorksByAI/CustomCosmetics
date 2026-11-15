@@ -128,6 +128,12 @@ class KeybindComponent(
 
     private fun isAllowed(key: Int) = if (includesOnly != null) key in includesOnly!! else key !in excludes
 
+    fun bindFromMenu(key: Int): Boolean {
+        if (!isAllowed(key)) return false
+        updateBind(key)
+        return true
+    }
+
     override fun ElementScope<*>.draw(asSub: Boolean): ElementScope<*> = row(size(w = Copying)) { // todo redesign
         text(
             string = name,

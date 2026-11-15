@@ -20,13 +20,14 @@ public class MessageUtils {
     
     private static final float PASTEL_SATURATION = 0.45f;
     private static final int MESSAGE_COLOR = com.customcosmetics.gui.PinkUi.PINK & 0xFFFFFF;
+    private static final String PREFIX = "[CSB] ";
 
     public static MutableComponent createMessageWithPrefix(String message) {
         return createMessageWithPrefix(com.customcosmetics.gui.UiText.component(message));
     }
     
     public static MutableComponent createMessageWithPrefix(MutableComponent message) {
-        return Component.literal("[CustomSkyBlock] ").withStyle(style -> style.withColor(MESSAGE_COLOR))
+        return Component.literal(PREFIX).withStyle(style -> style.withColor(MESSAGE_COLOR))
             .append(styleMessage(message));
     }
 
@@ -112,7 +113,7 @@ public class MessageUtils {
             MutableComponent stop = com.customcosmetics.gui.UiText.component("[stop notifications]")
                 .withStyle(style -> style
                     .withUnderlined(true)
-                    .withClickEvent(new ClickEvent.RunCommand("/customcosmetics notification off")));
+                    .withClickEvent(new ClickEvent.RunCommand("/csb notification off")));
             msg.append(Component.literal(" ")).append(stop);
         }
         return createMessageWithPrefix(msg);

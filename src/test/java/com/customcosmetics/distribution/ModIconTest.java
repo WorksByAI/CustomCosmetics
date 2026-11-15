@@ -11,8 +11,8 @@ class ModIconTest {
     @Test void publishedMetadataResolvesToADecodableSquareIcon()throws Exception{
         try(var jar=new ZipFile(System.getProperty("customcosmetics.binaryJar"))){
             var metadata=JsonParser.parseString(new String(jar.getInputStream(jar.getEntry("fabric.mod.json")).readAllBytes(),StandardCharsets.UTF_8)).getAsJsonObject();
-            String icon=metadata.get("icon").getAsString();assertEquals("assets/customcosmetics/icon.png",icon);assertNotNull(jar.getEntry(icon));
-            try(var input=jar.getInputStream(jar.getEntry(icon))){var image=ImageIO.read(input);assertNotNull(image);assertEquals(image.getWidth(),image.getHeight());assertTrue(image.getWidth()>=128);}
+            String icon=metadata.get("icon").getAsString();assertEquals("assets/customcosmetics/textures/gui/mod-logo.png",icon);assertNotNull(jar.getEntry(icon));
+            try(var input=jar.getInputStream(jar.getEntry(icon))){var image=ImageIO.read(input);assertNotNull(image);assertEquals(image.getWidth(),image.getHeight());assertTrue(image.getWidth()>=128);assertTrue(image.getColorModel().hasAlpha());}
         }
     }
 }

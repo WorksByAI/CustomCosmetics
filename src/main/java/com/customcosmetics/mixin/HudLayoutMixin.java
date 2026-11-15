@@ -25,7 +25,8 @@ public final class HudLayoutMixin {
     public abstract static class Hud {
         @Inject(method="extractRenderState", at=@At("TAIL"))
         private void gameplayHud(GuiGraphicsExtractor graphics, DeltaTracker tick, CallbackInfo callback) {
-            com.customcosmetics.features.gameplay.GameplayFeatures.drawHud(graphics, false);
+            if (com.customcosmetics.client.ClientEdition.hasCheating())
+                com.customcosmetics.features.gameplay.GameplayFeatures.drawHud(graphics, false);
         }
 
         @WrapMethod(method="extractOverlayMessage")

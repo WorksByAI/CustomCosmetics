@@ -35,10 +35,8 @@ object QuoiMod : ClientModInitializer, EventListener {
         quoi.api.skyblock.dungeon.Floor7
         quoi.api.skyblock.dungeon.terminals.TerminalUtils
         quoi.api.skyblock.SkyblockPlayer
-        quoi.api.ServerInfo
         quoi.utils.EntityUtils
         quoi.utils.skyblock.PartyUtils
-        quoi.utils.skyblock.SplitsManager
         quoi.utils.skyblock.player.SwapManager
         quoi.utils.skyblock.player.PetUtils
         quoi.utils.skyblock.player.LeapManager
@@ -57,9 +55,11 @@ object QuoiMod : ClientModInitializer, EventListener {
 
     private var initialized = false
 
+    @OptIn(quoi.annotations.Internal::class)
     fun ensureDungeonModules() {
         if (initialized || !allowed) return
         HudManager.init()
+        listOf(quoi.config.VisualsSettings, quoi.config.PathSettings, quoi.config.DungeonData)
         Config.load()
         initialized = true
     }

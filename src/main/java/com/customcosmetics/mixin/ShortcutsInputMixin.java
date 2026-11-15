@@ -2,6 +2,7 @@
 package com.customcosmetics.mixin;
 
 import com.customcosmetics.features.shortcuts.Shortcuts;
+import com.customcosmetics.client.ClientEdition;
 import com.customcosmetics.features.gameplay.GameplayKeybinds;
 import com.customcosmetics.features.gameplay.AutoClicker;
 import com.customcosmetics.features.gameplay.TooltipTweaks;
@@ -23,7 +24,7 @@ public final class ShortcutsInputMixin {
         private void customcosmetics$shortcut(long window, int action, KeyEvent event, CallbackInfo callback) {
             if (ConfigManager.tooltipShowHex) TooltipTweaks.keyEvent(window, action, InputConstants.getKey(event));
             if (Shortcuts.keyboard(window, action, event)) callback.cancel();
-            else if (GameplayKeybinds.acceptsInput(window, action)) GameplayKeybinds.press(InputConstants.getKey(event));
+            else if (ClientEdition.hasCheating() && GameplayKeybinds.acceptsInput(window, action)) GameplayKeybinds.press(InputConstants.getKey(event));
         }
     }
     @Mixin(MouseHandler.class)
@@ -32,7 +33,7 @@ public final class ShortcutsInputMixin {
         private void customcosmetics$shortcut(long window, MouseButtonInfo event, int action, CallbackInfo callback) {
             if (ConfigManager.tooltipShowHex) TooltipTweaks.keyEvent(window, action, InputConstants.Type.MOUSE.getOrCreate(event.button()));
             if (Shortcuts.mouse(window, event, action)) callback.cancel();
-            else {
+            else if (ClientEdition.hasCheating()) {
                 if (GameplayKeybinds.acceptsInput(window, action))
                     GameplayKeybinds.press(InputConstants.Type.MOUSE.getOrCreate(event.button()));
                 if (AutoClicker.mouse(window, event.button(), action)) callback.cancel();

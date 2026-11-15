@@ -1,5 +1,6 @@
 package com.customcosmetics.update;
 
+import com.customcosmetics.client.ClientEdition;
 import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -21,7 +22,7 @@ class GitHubUpdateCheckTest {
         assertEquals(Optional.of("1.5.5"),GitHubUpdateCheck.newerRelease(release("v1.5.5"),"1.5.4.1"));
     }
     @Test void disabledChecksDoNotQueueFetchAndQueuedWorkHonorsTheSwitch(){
-        var enabled=new java.util.concurrent.atomic.AtomicBoolean(false);var check=new GitHubUpdateCheck("1.0.0",enabled::get);var tasks=new ArrayList<Runnable>();
+        var enabled=new java.util.concurrent.atomic.AtomicBoolean(false);var check=new GitHubUpdateCheck("1.0.0",ClientEdition.LEGIT,enabled::get);var tasks=new ArrayList<Runnable>();
         check.start(()->{fail("Disabled check fetched a release");return Optional.empty();},tasks::add);assertTrue(tasks.isEmpty());
         enabled.set(true);check.start(()->{fail("Queued check ignored disabling");return Optional.empty();},tasks::add);enabled.set(false);tasks.removeFirst().run();assertNull(check.poll(true));
         enabled.set(true);check.start(()->Optional.of("1.0.1"),Runnable::run);enabled.set(false);assertNull(check.poll(true));enabled.set(true);assertNull(check.poll(true));
@@ -76,7 +77,7 @@ class GitHubUpdateCheckTest {
         assertTrue(GitHubUpdateCheck.newerRelease(json, "1.0.0").isEmpty());
     }
     @Test void checkRunsOnceOffTheCallingThreadAndQueuesOnlyOneWorldNotice() {
-        var check = new GitHubUpdateCheck("1.0.0");
+        var check = new GitHubUpdateCheck("1.0.0", ClientEdition.LEGIT, () -> true);
         var tasks = new ArrayList<Runnable>(); var calls = new AtomicInteger();
         check.start(() -> { calls.incrementAndGet(); return Optional.of("1.0.1"); }, tasks::add);
         check.start(() -> { fail("Second startup must not check again"); return Optional.empty(); }, tasks::add);
@@ -87,7 +88,7 @@ class GitHubUpdateCheckTest {
         assertNull(check.poll(false)); assertNull(check.poll(true)); // Reconnecting does not repeat it.
     }
     @Test void unavailableCheckDoesNotCrashOrProduceChatMessages() {
-        var check = new GitHubUpdateCheck("1.0.0");
+        var check = new GitHubUpdateCheck("1.0.0", ClientEdition.LEGIT, () -> true);
         assertDoesNotThrow(() -> check.start(() -> { throw new IllegalStateException("Network unavailable"); }, Runnable::run));
         assertNull(check.poll(true));
         assertTrue(GitHubUpdateCheck.newerRelease(release("2.0.0"), "development").isEmpty());
@@ -102,7 +103,12 @@ class GitHubUpdateCheckTest {
             assertNull(exchange.getRequestHeaders().getFirst("Cookie"));
             assertEquals("application/vnd.github+json", exchange.getRequestHeaders().getFirst("Accept"));
             assertEquals("2026-03-10", exchange.getRequestHeaders().getFirst("X-GitHub-Api-Version"));
-            byte[] response = release("v1.0.1").getBytes(StandardCharsets.UTF_8);
+            String tag = "v1.0.1";
+            String name = ClientEdition.LEGIT.assetName("1.0.1");
+            String json = release(tag).replace("}", ",\"assets\":[{\"name\":\"" + name + "\",\"size\":2048,\"digest\":\"sha256:"
+                + "a".repeat(64) + "\",\"browser_download_url\":\"https://github.com/WorksByAI/CustomCosmetics/releases/download/"
+                + tag + "/" + name + "\"}]}");
+            byte[] response = json.getBytes(StandardCharsets.UTF_8);
             exchange.sendResponseHeaders(200, response.length); exchange.getResponseBody().write(response); exchange.close();
         });
         server.createContext("/redirect", exchange -> {
@@ -116,10 +122,11 @@ class GitHubUpdateCheckTest {
         server.start();
         try {
             String base = "http://127.0.0.1:" + server.getAddress().getPort();
-            assertEquals(Optional.of("1.0.1"), GitHubUpdateCheck.fetch(URI.create(base + "/latest"), "1.0.0"));
-            assertEquals(1, requested.get());
+            assertEquals(Optional.of("1.0.1"), GitHubUpdateCheck.fetch(URI.create(base + "/latest"), "1.0.0", ClientEdition.LEGIT));
+            assertTrue(GitHubUpdateCheck.fetch(URI.create(base + "/latest"), "1.0.0", ClientEdition.CHEATING).isEmpty());
+            assertEquals(2, requested.get());
             for (String path : new String[]{"/redirect","/404","/429","/500","/large"})
-                assertTrue(GitHubUpdateCheck.fetch(URI.create(base + path),"1.0.0").isEmpty(),path);
+                assertTrue(GitHubUpdateCheck.fetch(URI.create(base + path),"1.0.0",ClientEdition.LEGIT).isEmpty(),path);
             assertEquals(0, redirected.get());
         } finally { server.stop(0); }
     }

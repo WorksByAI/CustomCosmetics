@@ -16,4 +16,6 @@ rootProject.name = 'CustomSkyBlock'
 org.apache.tools.ant.DirectoryScanner.removeDefaultExclude('**/.gitignore')
 org.apache.tools.ant.DirectoryScanner.removeDefaultExclude('**/.gitattributes')
 
-includeBuild('src/quoi') { name = 'customskyblock-dungeon' }
+if (providers.gradleProperty('client_edition').getOrElse('cheating') != 'legit') {
+    includeBuild('src/quoi') { name = 'customskyblock-dungeon' }
+}

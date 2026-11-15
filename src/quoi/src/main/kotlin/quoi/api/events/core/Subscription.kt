@@ -18,6 +18,14 @@ class Subscription<T : Event>(
     val acceptCancelled: Boolean = false,
     val callback: T.() -> Unit,
 ) {
+    private var lastFailureLog = 0L
+
+    internal fun shouldLogFailure(now: Long): Boolean {
+        if (lastFailureLog != 0L && now - lastFailureLog < 30_000_000_000L) return false
+        lastFailureLog = now
+        return true
+    }
+
     /**
      * Removes this subscription so it no longer receives events
      */

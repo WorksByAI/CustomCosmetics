@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.2
+
+- Ship CustomSkyBlock Legit and Cheating with edition-specific updates.
+- Use [CSB] notices and /csb or /customskyblock.
+- Update Quoi leap cooldowns, terminal timing, and the Goldor trigger.
+- Remove duplicate vanilla enchantment lines from SkyBlock tooltips.
+
 ## 3.0.1
 
 - The Dungeon cheating module now uses Quoi.

@@ -6,7 +6,7 @@ import quoi.QuoiMod.mc
 import quoi.api.colour.Colour
 import quoi.api.colour.multiply
 import quoi.api.skyblock.dungeon.odonscanning.ScanUtils
-import quoi.module.impl.dungeon.DungeonMap
+import quoi.module.impl.dungeon.autoclear.impl.InteractiveMap
 import quoi.api.vec.Vec2i
 import quoi.utils.equalsOneOf
 
@@ -40,14 +40,14 @@ class OdonDoor(val pos: Vec2i, var type: DoorType) {
 
     val colour: Colour get() {
         val col = when (type) {
-            DoorType.BLOOD  -> DungeonMap.bloodDoor
-            DoorType.WITHER if (mapLocked) -> DungeonMap.witherDoor
-            DoorType.ENTRANCE -> DungeonMap.entranceDoor
-            else -> DungeonMap.normalDoor
+            DoorType.BLOOD  -> InteractiveMap.appearance.bloodDoor
+            DoorType.WITHER if (mapLocked) -> InteractiveMap.appearance.witherDoor
+            DoorType.ENTRANCE -> InteractiveMap.appearance.entranceDoor
+            else -> InteractiveMap.appearance.normalDoor
         }
 
         return if (state == RoomState.UNDISCOVERED) {
-            Colour.RGB(col.rgb.multiply(1f - DungeonMap.darkenMultiplier))
+            Colour.RGB(col.rgb.multiply(1f - InteractiveMap.appearance.darkenMultiplier))
         } else col
     }
 

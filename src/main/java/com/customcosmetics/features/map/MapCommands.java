@@ -27,7 +27,7 @@ public final class MapCommands {
                 .executes(c->run(()->MaterialReplacement.start(StringArgumentType.getString(c,"from"),StringArgumentType.getString(c,"to"),MaterialReplacement.Scope.ROOM)))
                 .then(ClientCommands.literal("selection").executes(c->run(()->MaterialReplacement.start(StringArgumentType.getString(c,"from"),StringArgumentType.getString(c,"to"),MaterialReplacement.Scope.SELECTION)))))));
         root.then(ClientCommands.literal("clearroom").executes(c->run(MapEditor::clearRoomInteractive)));
-        root.then(ClientCommands.literal("guide").executes(c->run(()->MapEditor.notice("Map Editor: right-click places, left-click hides a real block or removes an edit, middle-click picks. Shift+right replaces a hidden block. /customcosmetics map blocks: searchable palette; right-click favorites. Room changes save automatically; /customcosmetics map clearroom resets this room."))));
+        root.then(ClientCommands.literal("guide").executes(c->run(()->MapEditor.notice("Map Editor: right-click places, left-click hides a real block or removes an edit, middle-click picks. Shift+right replaces a hidden block. /csb map blocks: searchable palette; right-click favorites. Room changes save automatically; /csb map clearroom resets this room."))));
         root.then(ClientCommands.literal("undo").executes(c->run(MapEditor::undoInteractive)));
         root.then(ClientCommands.literal("clear").executes(c->run(MapEditor::clearInteractive)));
         root.then(ClientCommands.literal("pos1").executes(c->run(()->MapEditor.mark(false))));

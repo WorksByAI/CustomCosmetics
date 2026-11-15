@@ -6,7 +6,7 @@ import net.minecraft.world.phys.Vec3
 import quoi.api.pathfinding.AbstractPathfinder
 import quoi.api.pathfinding.PathNode
 import quoi.api.pathfinding.context.WalkContext
-import quoi.module.impl.render.clickgui.impl.PathSettings
+import quoi.config.PathSettings
 import quoi.utils.ChatUtils.modMessage
 import quoi.utils.WorldUtils.airLike
 import quoi.utils.WorldUtils.collisionShape

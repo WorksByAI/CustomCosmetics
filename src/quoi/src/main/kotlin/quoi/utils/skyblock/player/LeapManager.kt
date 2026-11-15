@@ -1,9 +1,11 @@
 package quoi.utils.skyblock.player
 
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
+import net.minecraft.world.entity.player.Inventory
 import quoi.QuoiMod.mc
 import quoi.annotations.Init
 import quoi.api.events.ChatEvent
+import quoi.api.events.PlayerEvent
+import quoi.api.events.SkyblockPlayerEvent
 import quoi.api.events.TickEvent
 import quoi.api.events.WorldEvent
 import quoi.api.events.core.EventListener
@@ -17,15 +19,20 @@ import quoi.api.skyblock.dungeon.enums.DungeonClass
 import quoi.api.skyblock.dungeon.enums.DungeonPlayer
 import quoi.utils.ChatUtils.modMessage
 import quoi.utils.StringUtils.toFixed
+import quoi.utils.skyblock.item.ItemUtils.skyblockId
 import quoi.utils.skyblock.player.container.CONTAINER_MENU
 import quoi.utils.skyblock.player.container.ContainerUtils
 import quoi.utils.skyblock.player.container.IContainerSettings
 import quoi.utils.skyblock.player.container.task.*
+import kotlin.math.ceil
+import kotlin.math.roundToInt
 
-// TODO: redo?
 @Init
 object LeapManager : EventListener {
     private const val MENU_TIMEOUT_TICKS = 60
+    private const val SPIRIT_LEAP = "SPIRIT_LEAP"
+    private const val INFINITE_SPIRIT_LEAP = "INFINITE_SPIRIT_LEAP"
+    private val cooldowns = mutableMapOf<String, Int>()
 
     private data class LeapRequest(
         val target: DungeonPlayer,
@@ -38,16 +45,24 @@ object LeapManager : EventListener {
     private var task: ContainerTask? = null
     private var useInputSuppressed = false
 
-    var lastLeap = 0L
-        private set
-
-    var leapCD = 0.0
-        private set
-
     private val inProgress: Boolean
         get() = activeLeap != null
 
     init {
+        on<PlayerEvent.RightClick>(Priority.LOWEST) {
+            if (!inDungeons) return@on
+            val id = item.skyblockId
+            val baseTicks = when (id) {
+                SPIRIT_LEAP -> 107
+                INFINITE_SPIRIT_LEAP -> 47
+                else -> return@on
+            }
+            // Clicking again while the server is on cooldown does not restart it.
+            if ((cooldowns[id] ?: 0) > 0) return@on
+            val cooldownPercent = (getMageCooldownMultiplier() * 100).roundToInt()
+            cooldowns[id] = ceil(baseTicks * cooldownPercent / 100.0).toInt()
+        }
+
         on<ChatEvent.Packet> {
             if (unformatted != "You cannot use this in a solo dungeon!" &&
                 unformatted != "There are no other players to teleport to!"
@@ -62,6 +77,7 @@ object LeapManager : EventListener {
             pendingLeap = null
             task?.cancel()
             resetActiveLeap()
+            cooldowns.clear()
         }
 
         on<TickEvent.Start>(Priority.HIGHEST) {
@@ -81,9 +97,7 @@ object LeapManager : EventListener {
             }
         }
 
-        on<TickEvent.Server> {
-            if (leapCD > 0) leapCD -= 1
-        }
+        on<TickEvent.Server> { cooldowns.replaceAll { _, ticks -> (ticks - 1).coerceAtLeast(0) } }
     }
 
     fun leap(
@@ -119,7 +133,9 @@ object LeapManager : EventListener {
         teammate ?: return modMessage("&cFailed to leap! $formattedTarget &cnot found")
 
         val request = LeapRequest(teammate, settings, swapBack)
-        val openLeapMenu = (quoi.compat.GameAccess.screen() as? AbstractContainerScreen<*>)?.takeIf { it.title.string == "Spirit Leap" }
+        val openLeapMenu = ContainerUtils.current?.takeIf {
+            it.title == "Spirit Leap" && it.menu === mc.player?.containerMenu
+        }
 
         if (!inProgress && pendingLeap == null && openLeapMenu != null && ContainerManager.activeTask == null) {
             doLeap(request, preOpened = true)
@@ -137,17 +153,23 @@ object LeapManager : EventListener {
 
     private fun doLeap(leap: LeapRequest, preOpened: Boolean = false): LeapStartResult {
         if (inProgress) return LeapStartResult.Retry
-        if (leapCD > 0) {
-            modMessage("&cFailed to leap! On cooldown: ${(leapCD / 20.0).toFixed(1)}s")
+        val player = mc.player ?: run {
+            modMessage("&cFailed to leap: player unavailable")
+            return LeapStartResult.Rejected
+        }
+        val leapId = if (preOpened) null else selectLeapId(player.inventory) ?: run {
+            modMessage("&cFailed to leap: no leap found in hotbar")
+            return LeapStartResult.Rejected
+        }
+        val remaining = cooldowns[leapId] ?: 0
+        if (remaining > 0) {
+            modMessage("&cFailed to leap! On cooldown: ${(remaining / 20.0).toFixed(1)}s")
             return LeapStartResult.Rejected
         }
 
-        val previousSlot = if (!preOpened) {
-            val selectedSlot = mc.player?.inventory?.selectedSlot ?: run {
-                modMessage("&cFailed to leap: player unavailable")
-                return LeapStartResult.Rejected
-            }
-            val swap = SwapManager.swapById("INFINITE_SPIRIT_LEAP", "SPIRIT_LEAP")
+        val previousSlot = if (leapId != null) {
+            val selectedSlot = player.inventory.selectedSlot
+            val swap = SwapManager.swapById(leapId)
             if (swap == SwapResult.TOO_FAST) return LeapStartResult.Retry
             if (!swap.success) {
                 if (swap != SwapResult.NOT_FOUND) modMessage("&cFailed swapping to leap: ${swap.name}")
@@ -163,9 +185,9 @@ object LeapManager : EventListener {
             settings = leap.settings,
             reportErrors = false,
         ) {
-            if (!preOpened) {
+            if (leapId != null) {
                 check("could not select a Spirit Leap before use. Try again.") {
-                    SwapManager.swapById("INFINITE_SPIRIT_LEAP", "SPIRIT_LEAP").success
+                    (cooldowns[leapId] ?: 0) == 0 && SwapManager.swapById(leapId).success
                 }
                 action { PlayerUtils.interact() }
                 awaitContainer(
@@ -188,13 +210,27 @@ object LeapManager : EventListener {
         return LeapStartResult.Started
     }
 
+    private fun selectLeapId(inventory: Inventory): String? {
+        var best: String? = null
+        var bestCooldown = Int.MAX_VALUE
+        for (slot in 0..8) {
+            val id = inventory.getItem(slot).skyblockId
+            if (id != SPIRIT_LEAP && id != INFINITE_SPIRIT_LEAP) continue
+            val remaining = cooldowns[id] ?: 0
+            if (remaining < bestCooldown || (remaining == bestCooldown && id == INFINITE_SPIRIT_LEAP)) {
+                best = id
+                bestCooldown = remaining
+            }
+        }
+        return best
+    }
+
     private fun finishLeap(leap: LeapRequest, result: ContainerTaskResult, previousSlot: Int?) {
         if (activeLeap !== leap) return
 
         when (result) {
             ContainerTaskResult.Success -> {
-                lastLeap = System.currentTimeMillis()
-                leapCD = 48 * getMageCooldownMultiplier()
+                SkyblockPlayerEvent.Leap(leap.target).post()
                 modMessage("&aLeaping to ${formatName(leap.target)}")
             }
             ContainerTaskResult.Busy -> modMessage("&cFailed to leap: another container action is active")

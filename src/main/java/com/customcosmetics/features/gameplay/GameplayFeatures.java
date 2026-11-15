@@ -41,10 +41,6 @@ public final class GameplayFeatures {
     private static Component hudTimer = Component.empty();
     private static long phaseStarted, lastLeap, lastHarp;
     private static int phase = -1, harpNotes;
-    private static long freshStarted;
-    private static Component freshText = Component.empty();
-    private static long cocoonUntil;
-    private static Component cocoonText = Component.empty();
     private static int nextDoorTick;
     private static Object joinConnection;
     private static int joinTicks;
@@ -83,14 +79,6 @@ public final class GameplayFeatures {
     public static boolean requestLeap(Minecraft client, String target) {
         return ConfigManager.gameplayPanelConfirmed && PresenceWorld.isHypixel(client) && PresenceWorld.isSkyblock(client)
             && MapEditor.automaticDungeon(client) && AUTO_LEAP.request(client, target, AutoLeap.DungeonClass.parse(target) != null, true);
-    }
-
-    public static boolean useKuudraSupply(Minecraft client) {
-        return KuudraStunHelper.blockUse(client, KuudraTracker.highTierRun()) || KuudraTracker.useSupply(client);
-    }
-
-    public static boolean replaceKuudraSupplyTitle(Component title) {
-        return KuudraTracker.replaceSupplyTitle(Minecraft.getInstance(), title);
     }
 
     private GameplayFeatures() {}
@@ -134,11 +122,7 @@ public final class GameplayFeatures {
 
     public static void init() {
         AutoClicker.init();
-        KuudraStunHelper.init();
-        KuudraPerks.init();
         CrystalHollowsScanner.init();
-        ClientReceiveMessageEvents.ALLOW_GAME.register((message, overlay) -> overlay || KuudraTracker.allowMessage(Minecraft.getInstance(), message));
-        ClientReceiveMessageEvents.ALLOW_GAME.register((message, overlay) -> overlay || SlayerMinibossAlerts.allowMessage(Minecraft.getInstance(), message));
         ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
             if (overlay || !ConfigManager.gameplayPanelConfirmed || ConfigManager.gameplayModules.isEmpty()) return;
             var client = Minecraft.getInstance();
@@ -150,17 +134,9 @@ public final class GameplayFeatures {
             DojoGames.message(client, text);
             if (ConfigManager.terminalLeapDelay && text.startsWith("You have teleported to ")) AUTO_LEAP.noteLeap();
             InventoryAutomation.message(text);
-            SlayerSplits.message(client, text);
-            if (GameplayModule.COCOON_ALERT.enabled() && text.strip().equals("YOU COCOONED YOUR SLAYER BOSS")) cocoon(client);
             TrevorHelper.message(message, text);
             CorpseHighlight.message(client, text);
-            KuudraTracker.message(client, text);
             if (GameplayModule.AUTO_LEAP.enabled() || GameplayModule.FAST_LEAP.enabled()) AUTO_LEAP.message(client, text);
-            if (GameplayModule.FRESH_TOOLS.enabled()
-                && text.equals("Your Fresh Tools Perk bonus doubles your building speed for the next 10 seconds!")
-                && MapEditor.automaticKuudra(client)) {
-                freshStarted = System.nanoTime();
-            }
             if (!GameplayModule.F7_TIMER.enabled() || !MapEditor.automaticDungeon(client) || !isFloorSeven()) return;
             for (int i = BOSS.length - 1; i > phase; i--) {
                 if (text.startsWith("[BOSS] " + BOSS[i] + ":")) {
@@ -173,10 +149,6 @@ public final class GameplayFeatures {
         LevelRenderEvents.COLLECT_SUBMITS.register(Trajectories::render);
         LevelRenderEvents.COLLECT_SUBMITS.register(CorpseHighlight::render);
         LevelRenderEvents.COLLECT_SUBMITS.register(EntityHighlights::render);
-        LevelRenderEvents.COLLECT_SUBMITS.register(KuudraTracker::render);
-        LevelRenderEvents.COLLECT_SUBMITS.register(KuudraStunHelper::render);
-        LevelRenderEvents.COLLECT_SUBMITS.register(SlayerBeaconHighlight::render);
-        LevelRenderEvents.COLLECT_SUBMITS.register(SlayerSplits::render);
         LevelRenderEvents.COLLECT_SUBMITS.register(CrystalHollowsScanner::render);
         LevelRenderEvents.COLLECT_SUBMITS.register(FloorSevenDevices::renderSimon);
         LevelRenderEvents.COLLECT_SUBMITS.register(ChocolateFactory::render);
@@ -203,8 +175,6 @@ public final class GameplayFeatures {
             hudTimer = Component.empty();
             starred = List.of();
             harpScreen = null;
-            freshStarted = 0;
-            cocoonUntil = 0;
             AutoClicker.reset(client);
             nextDoorTick = 0;
             InventoryAutomation.worldChanged();
@@ -212,13 +182,8 @@ public final class GameplayFeatures {
             FloorSevenDevices.reset();
             SecretTriggerbot.reset();
             AUTO_LEAP.reset(client);
-            SlayerSplits.reset();
-            SlayerMinibossAlerts.reset();
-            SlayerBeaconHighlight.reset();
-            KuudraTracker.reset();
             EntityHighlights.reset();
             TrevorHelper.reset();
-            DaggerSwap.reset();
             SeasonalGames.reset();
             ChocolateFactory.reset();
             Mirrorverse.reset();
@@ -241,14 +206,10 @@ public final class GameplayFeatures {
             AutoClicker.reset(client);
             if (wasInSkyblock) {
                 AUTO_LEAP.reset(client);
-                SlayerBeaconHighlight.reset();
-                SlayerSplits.reset();
                 SecretTriggerbot.reset();
                 CrystalHollowsScanner.reset();
-                KuudraTracker.reset();
                 EntityHighlights.reset();
                 TrevorHelper.reset();
-                DaggerSwap.reset();
                 SeasonalGames.reset();
                 ChocolateFactory.reset();
                 Mirrorverse.reset();
@@ -280,12 +241,9 @@ public final class GameplayFeatures {
                 FloorSevenDevices.reset();
                 SecretTriggerbot.reset();
                 AUTO_LEAP.reset(client);
-                KuudraTracker.reset();
                 CrystalHollowsScanner.reset();
                 CorpseHighlight.reset();
-                SlayerSplits.reset();
                 TrevorHelper.reset();
-                DaggerSwap.reset();
                 SeasonalGames.reset();
                 ChocolateFactory.reset();
                 Mirrorverse.reset();
@@ -313,12 +271,10 @@ public final class GameplayFeatures {
         if (GameplayModule.AUTO_HARP.enabled()) harp(client);
         else harpScreen = null;
         AUTO_LEAP.tick(client);
-        KuudraTracker.tickActions(client);
         FloorSevenDevices.tick(client);
         SecretTriggerbot.tick(client);
         SecretAura.tick(client);
         TrevorHelper.tick(client);
-        DaggerSwap.tick(client);
         SeasonalGames.tick(client);
         ChocolateFactory.tick(client);
         Mirrorverse.tick(client);
@@ -326,23 +282,9 @@ public final class GameplayFeatures {
         EntityHighlights.tickPests(client);
         if (GameplayModule.AUTO_DOOR.enabled()) openDoor(client);
         if (client.player.tickCount % 5 != 0) return;
-        SlayerSplits.tick(client);
-        SlayerMinibossAlerts.tick(client);
-        SlayerBeaconHighlight.tick(client);
-        KuudraTracker.tick(client);
         EntityHighlights.tick(client);
         CorpseHighlight.tick(client);
 
-        if (freshStarted != 0) {
-            double remaining = 10 - (System.nanoTime() - freshStarted) / 1_000_000_000.0;
-            if (remaining <= 0) freshStarted = 0;
-            else freshText = Component.literal(String.format(Locale.ROOT, "Fresh Tools %.1fs", remaining));
-        }
-        if (cocoonUntil != 0) {
-            double remaining = (cocoonUntil - System.nanoTime()) / 1_000_000_000.0;
-            if (remaining <= 0 || !GameplayModule.COCOON_ALERT.enabled() || !ConfigManager.cocoonTimer) cocoonUntil = 0;
-            else cocoonText = cocoonLabel(remaining);
-        }
         if (phase >= 0 && GameplayModule.F7_TIMER.enabled()) {
             double time = (System.nanoTime() - phaseStarted) / 1_000_000_000.0;
             hudTimer = Component.literal(BOSS[phase] + "  " + (ConfigManager.f7TimerTicks ? (int) (time * 20) + "t"
@@ -484,78 +426,50 @@ public final class GameplayFeatures {
     }
 
     public static int hudX(int id, int width) {
-        float position = switch (id) { case 0 -> ConfigManager.f7HudX; case 1 -> ConfigManager.freshHudX;
-            case 2 -> ConfigManager.cocoonHudX; case 3 -> ConfigManager.kuudraSupplyHudX;
-            case 4 -> ConfigManager.kuudraSpawnHudX; case 5 -> ConfigManager.kuudraBuildHudX;
-            default -> ConfigManager.trevorHudX; };
+        float position = id == 0 ? ConfigManager.f7HudX : ConfigManager.trevorHudX;
         return Math.min(Math.max(0, width - 100), Math.round(width * position));
     }
 
     public static int hudY(int id, int height) {
-        float position = switch (id) { case 0 -> ConfigManager.f7HudY; case 1 -> ConfigManager.freshHudY;
-            case 2 -> ConfigManager.cocoonHudY; case 3 -> ConfigManager.kuudraSupplyHudY;
-            case 4 -> ConfigManager.kuudraSpawnHudY; case 5 -> ConfigManager.kuudraBuildHudY;
-            default -> ConfigManager.trevorHudY; };
+        float position = id == 0 ? ConfigManager.f7HudY : ConfigManager.trevorHudY;
         return Math.min(Math.max(0, height - 22), Math.round(height * position));
     }
 
     public static void drawHud(GuiGraphicsExtractor graphics, boolean preview) {
         boolean timer = GameplayModule.F7_TIMER.enabled() && phase >= 0;
-        boolean fresh = GameplayModule.FRESH_TOOLS.enabled() && freshStarted != 0;
-        boolean cocoon = GameplayModule.COCOON_ALERT.enabled() && ConfigManager.cocoonTimer && cocoonUntil != 0;
-        Component supply = preview ? HUD_PREVIEWS[3] : KuudraTracker.supplyHud();
-        Component spawn = preview ? HUD_PREVIEWS[4] : KuudraTracker.phaseTimer(false);
-        Component build = preview ? HUD_PREVIEWS[5] : KuudraTracker.phaseTimer(true);
-        Component trevor = preview ? HUD_PREVIEWS[6] : TrevorHelper.hud();
-        if (!preview && !timer && !fresh && !cocoon && supply == null && spawn == null && build == null && trevor == null) return;
+        Component trevor = preview ? HUD_PREVIEWS[1] : TrevorHelper.hud();
+        if (!preview && !timer && trevor == null) return;
         var client = Minecraft.getInstance();
         if (!preview && (client.player == null || !PresenceWorld.isSkyblock(client))) return;
         if (!preview && ClientUiAccess.screen(client) instanceof com.customcosmetics.gui.GameplayHudEditor) return;
         if (preview || timer) draw(graphics, preview ? HUD_PREVIEWS[0] : hudTimer, 0);
-        if (preview || fresh) draw(graphics, preview ? HUD_PREVIEWS[1] : freshText, 1);
-        if (preview || cocoon) draw(graphics, preview ? HUD_PREVIEWS[2] : cocoonText, 2);
-        if (supply != null) draw(graphics, supply, 3);
-        if (spawn != null) draw(graphics, spawn, 4);
-        if (build != null) draw(graphics, build, 5);
-        if (trevor != null) draw(graphics, trevor, 6);
+        if (trevor != null) draw(graphics, trevor, 1);
     }
 
-    // Athen's Cocoon Alert, including its six-second timer and separate sound and title controls.
-    private static void cocoon(Minecraft client) {
-        if (ConfigManager.cocoonTimer) {
-            cocoonUntil = System.nanoTime() + 6_000_000_000L;
-            cocoonText = cocoonLabel(6);
-        }
-        if (ConfigManager.cocoonAlert) ClientUiAccess.title(client,
-            Component.literal(ConfigManager.cocoonAlertText).withStyle(net.minecraft.ChatFormatting.RED), Component.empty());
-        var sound = net.minecraft.resources.Identifier.tryParse(ConfigManager.cocoonAlertSound);
-        if (!ConfigManager.cocoonAlertSound.isBlank() && sound != null) client.getSoundManager().play(
-            net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvent.createVariableRangeEvent(sound), 1, 1));
-    }
+    private static final Component[] HUD_PREVIEWS = {
+        Component.literal("Storm  12.5s"), TrevorHelper.cooldownLabel(124)
+    };
 
-    private static Component cocoonLabel(double seconds) {
-        return Component.literal("Cocoon: ").append(Component.literal(String.format(Locale.ROOT, "%.1fs", seconds))
-            .withStyle(net.minecraft.ChatFormatting.RED));
-    }
-
-    private static final Component[] HUD_PREVIEWS = {Component.literal("Storm  12.5s"), Component.literal("Fresh Tools  6.5s"),
-        cocoonLabel(4.6), KuudraTracker.supplyLabel(67), KuudraTracker.timerLabel(false, 4.5),
-        KuudraTracker.timerLabel(true, 4.5), TrevorHelper.cooldownLabel(124)};
+    // Keep Trevor's existing saved scale at index 6.
+    private static int hudScaleSlot(int id) { return id == 0 ? 0 : 6; }
 
     public static int hudCount() { return HUD_PREVIEWS.length; }
     public static Component hudPreview(int id) { return HUD_PREVIEWS[id]; }
 
     public static float hudScale(int id) {
         var scales = ConfigManager.gameplayHudScales;
-        float scale = id < scales.length ? scales[id] : 0;
+        int slot = hudScaleSlot(id);
+        float scale = slot < scales.length ? scales[slot] : 0;
         return scale > 0 && Float.isFinite(scale) ? Math.clamp(scale, .2f, 5f) : 1f;
     }
 
     public static void scaleHud(int id, double scroll) {
         float scale = Math.clamp(Math.round((hudScale(id) + Math.signum(scroll) * .1) * 10) / 10f, .2f, 5f);
         if (scale == hudScale(id)) return;
-        var scales = java.util.Arrays.copyOf(ConfigManager.gameplayHudScales, hudCount());
-        scales[id] = scale;
+        int slot = hudScaleSlot(id);
+        var saved = ConfigManager.gameplayHudScales;
+        var scales = java.util.Arrays.copyOf(saved, Math.max(saved.length, slot + 1));
+        scales[slot] = scale;
         ConfigManager.gameplayHudScales = scales;
         ConfigManager.requestSave();
     }

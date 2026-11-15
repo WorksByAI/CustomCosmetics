@@ -12,10 +12,8 @@ import quoi.api.abobaui.elements.impl.Text.Companion.string
 import quoi.api.animations.Animation
 import quoi.api.colour.*
 import quoi.api.skyblock.dungeon.Dungeon
-import quoi.api.skyblock.dungeon.ScoreCalculation
 import quoi.api.skyblock.dungeon.odonscanning.tiles.*
 import quoi.api.vec.Vec2i
-import quoi.module.impl.dungeon.DungeonMap
 import quoi.module.impl.dungeon.autoclear.impl.InteractiveMap
 import quoi.module.impl.dungeon.autoclear.pathToDoor
 import quoi.module.impl.dungeon.autoclear.pathToRoom
@@ -45,10 +43,10 @@ object MapRenderer {
 
         return block(
             size(mapHeight.px, config.height.px),
-            colour = DungeonMap.bgColour,
+            colour = InteractiveMap.appearance.bgColour,
             (radius * 1.5f).radius()
         ) {
-            if (DungeonMap.border) outline(DungeonMap.borderColour, thickness = DungeonMap.borderThickness.px)
+            if (InteractiveMap.appearance.border) outline(InteractiveMap.appearance.borderColour, thickness = InteractiveMap.appearance.borderThickness.px)
 
             val viewport = group(constrain(y = 0.px, w = Copying, h = mapHeight.px))
             val content = viewport.group(constrain(Centre, Centre, 0.px, 0.px))
@@ -61,7 +59,7 @@ object MapRenderer {
             var previousScale = Float.NaN
             var previousOverlay: OverlaySettings? = null
 
-            if (DungeonMap.showInfo) renderInfo(config, mapHeight)
+            if (InteractiveMap.appearance.showInfo) renderInfo(config, mapHeight)
 
             watch({ layoutRevision to OverlaySettings() }, immediate = true) { (_, overlay) ->
                 val overlayChanged = previousOverlay != overlay
@@ -163,16 +161,15 @@ object MapRenderer {
         else UIRenderer.textWidth(line.noControlCodes, size, font)
 
     private fun infoLines(): List<String> {
-        val secrets = "§6Secrets: §b${Dungeon.secretCount}§f/§b${ScoreCalculation.secretsUntil300}§f/§e${ScoreCalculation.totalSecrets}"
+        val secrets = "§6Secrets: §b${Dungeon.secretCount}"
         val crypts = "${if (Dungeon.cryptCount >= 5) "§a" else "§c"}C${Dungeon.cryptCount}"
         val bats = "${if (Dungeon.batKilled) "§a" else "§c"}B${Dungeon.batCount}"
-        val score = Dungeon.score
         val deaths = "${if (Dungeon.deathCount == 0) "§a" else "§c"}${Dungeon.deathCount}"
         val mimic = "${if (Dungeon.mimicKilled) "§a" else "§c"}M §f| "
         val prince = "${if (Dungeon.princeKilled) "§a" else "§c"}P"
         return listOf(
             "$secrets    $crypts §f| $bats",
-            "§eScore: ${ScoreCalculation.colour(score)}$score   §cDeaths: $deaths   $mimic$prince"
+            "§cDeaths: $deaths   $mimic$prince"
         )
     }
 
@@ -183,9 +180,9 @@ object MapRenderer {
     }
 
     private data class OverlaySettings(
-        val style: String = DungeonMap.checkmarkStyle.selected,
-        val limitTextSize: Boolean = DungeonMap.limitRoomNameSize,
-        val checkmarkScale: Float = DungeonMap.checkmarkScale,
+        val style: String = InteractiveMap.appearance.checkmarkStyle.selected,
+        val limitTextSize: Boolean = InteractiveMap.appearance.limitRoomNameSize,
+        val checkmarkScale: Float = InteractiveMap.appearance.checkmarkScale,
     )
 
     private fun ElementScope<*>.renderDoor(config: MapConfig, door: OdonDoor): Element {
@@ -363,7 +360,7 @@ object MapRenderer {
         val (scale, _, font, fontScale, shadow) = config
         val bounds = MapTextLayout.roomBounds(room.tiles.map { it.placement })
         val preferredSize = 3.6f * fontScale * scale
-        val textSize = if (DungeonMap.limitRoomNameSize) {
+        val textSize = if (InteractiveMap.appearance.limitRoomNameSize) {
             MapTextLayout.fitSize(lines, preferredSize, bounds.x * scale, bounds.z * scale) { line, size ->
                 textWidth(line, size, font)
             }
@@ -389,7 +386,7 @@ object MapRenderer {
             RoomState.FAILED -> "cross.png"
             else -> return
         }
-        val size = 10f * config.scale * DungeonMap.checkmarkScale
+        val size = 10f * config.scale * InteractiveMap.appearance.checkmarkScale
         val placement = room.textPlacement
         image(
             "dungeonmap/$texture".image(),
@@ -401,27 +398,27 @@ object MapRenderer {
 
     data class MapConfig(
         val scale: Float = 3f,
-        val radius: Float = DungeonMap.roomRadius,
-        val font: Font = DungeonMap.font.selected.get(),
-        val fontScale: Float = DungeonMap.fontScale,
-        val shadow: Boolean = DungeonMap.shadow,
+        val radius: Float = InteractiveMap.appearance.roomRadius,
+        val font: Font = InteractiveMap.appearance.font.selected.get(),
+        val fontScale: Float = InteractiveMap.appearance.fontScale,
+        val shadow: Boolean = InteractiveMap.appearance.shadow,
         val icons: Boolean = true,
         val icon: IconConfig = IconConfig(),
         val autoClear: Boolean = false,
     ) {
-        val height: Float get() = (128f + if (DungeonMap.showInfo) 15f else 0f) * scale
+        val height: Float get() = (128f + if (InteractiveMap.appearance.showInfo) 15f else 0f) * scale
     }
 
     data class IconConfig(
-        val scale: Float = DungeonMap.iconScale,
-        val heads: Boolean = DungeonMap.showHeads,
-        val ownHead: Boolean = DungeonMap.showOwnHead,
-        val border: Boolean = DungeonMap.iconBorder,
-        val borderColour: Colour = DungeonMap.iconBorderColour,
-        val classColour: Boolean = DungeonMap.classColour,
-        val thickness: Int = DungeonMap.iconBorderThickness,
-        val name: Boolean = DungeonMap.showNames,
-        val whenLeap: Boolean = DungeonMap.whenLeap,
-        val nameScale: Float = DungeonMap.nameScale,
+        val scale: Float = InteractiveMap.appearance.iconScale,
+        val heads: Boolean = InteractiveMap.appearance.showHeads,
+        val ownHead: Boolean = InteractiveMap.appearance.showOwnHead,
+        val border: Boolean = InteractiveMap.appearance.iconBorder,
+        val borderColour: Colour = InteractiveMap.appearance.iconBorderColour,
+        val classColour: Boolean = InteractiveMap.appearance.classColour,
+        val thickness: Int = InteractiveMap.appearance.iconBorderThickness,
+        val name: Boolean = InteractiveMap.appearance.showNames,
+        val whenLeap: Boolean = InteractiveMap.appearance.whenLeap,
+        val nameScale: Float = InteractiveMap.appearance.nameScale,
     )
 }

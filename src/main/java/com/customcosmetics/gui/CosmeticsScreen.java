@@ -109,7 +109,7 @@ public final class CosmeticsScreen extends ThemedScreen {
     private record Placement(AbstractWidget widget, int y) {}
 
     public CosmeticsScreen(Screen parent, Page page) {
-        super(Component.literal("CustomSkyBlock"));
+        super(Component.literal(com.customcosmetics.client.ClientEdition.installed().displayName()));
         this.parent = parent;
         if (page == Page.MAIN) {
             var remembered = SESSION.open(System.currentTimeMillis());
@@ -135,11 +135,12 @@ public final class CosmeticsScreen extends ThemedScreen {
         panelX = layout.x(); panelY = layout.y(); sideWidth = layout.sidebarWidth();
         contentX = layout.contentX(); contentWidth = layout.contentWidth();
         viewTop = layout.contentTop(); viewBottom = layout.contentBottom();
+        boolean cheating = com.customcosmetics.client.ClientEdition.hasCheating();
         int cheatingY = layout.navigationBottom() - CHEATING_BUTTON_HEIGHT;
-        navTop = layout.navigationTop(); navBottom = cheatingY - 7;
+        navTop = layout.navigationTop(); navBottom = cheating ? cheatingY - 7 : layout.navigationBottom();
         rowY = viewTop;
         buildNavigation();
-        navigation.add(addWidget(new PinkUi.Action(panelX + 8, cheatingY, sideWidth - 18, CHEATING_BUTTON_HEIGHT,
+        if (cheating) navigation.add(addWidget(new PinkUi.Action(panelX + 8, cheatingY, sideWidth - 18, CHEATING_BUTTON_HEIGHT,
             "Cheating", false, () -> CheatingScreen.open(this)).leftAligned()));
         navigation.add(addWidget(new RepositoryButton(panelX + 12, panelY + panelHeight - 42)));
         navigation.add(addWidget(new PinkUi.Action(panelX+47,panelY+panelHeight-42,sideWidth-55,30,"Settings",false,()->open(Page.SYNC)).selected(()->page==Page.SYNC)));
@@ -443,7 +444,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         packColorPreview();
         fullButton("Reload Hypixel Pack", com.customcosmetics.features.pack.PackDisablerCommands::reload, false);
         paragraph("Hover an inventory item and press the Pack Disabler whitelist key to toggle its model.", MUTED);
-        paragraph("/ccos pack help", MUTED);
+        paragraph("/csb pack help", MUTED);
     }
 
     private void packColorPreview() {
@@ -667,7 +668,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         fullButton("Interface",()->open(Page.THEME),false);
         fullButton("Module Manager",()->open(Page.MODULES),false);
         section("Command tools", "");
-        paragraph("/ccos waypoint    /ccos shortcuts",MUTED);
+        paragraph("/csb waypoint    /csb shortcuts",MUTED);
     }
 
     private void theme() {
@@ -1327,12 +1328,25 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
 
     private void modules(){
-        fullButton("Enable All Modules",()->{int before=ConfigManager.disabledModules;com.customcosmetics.config.FeatureModules.all(true);moduleChanged(before);},false);
-        fullButton("Disable All Modules",()->{int before=ConfigManager.disabledModules;com.customcosmetics.config.FeatureModules.all(false);moduleChanged(before);},false);
+        fullButton("Enable All Modules",()->toggleAllModules(true),false);
+        fullButton("Disable All Modules",()->toggleAllModules(false),false);
         for(var feature:com.customcosmetics.config.FeatureModules.Feature.values()) {
             if (feature == com.customcosmetics.config.FeatureModules.Feature.HUD_LAYOUT || feature == com.customcosmetics.config.FeatureModules.Feature.SKYBOX) continue;
-            toggleRow(feature.label,"Master switch; keeps your detailed settings.",()->com.customcosmetics.config.FeatureModules.enabled(feature),value->{int before=ConfigManager.disabledModules;com.customcosmetics.config.FeatureModules.set(feature,value);moduleChanged(before);});
+            toggleRow(feature.label,"Master switch; keeps your detailed settings.",()->com.customcosmetics.config.FeatureModules.enabled(feature),value->{
+                int before=ConfigManager.disabledModules;
+                com.customcosmetics.config.FeatureModules.set(feature,value);
+                moduleChanged(before);
+                ModuleNotifications.show(feature.label,value);
+            });
         }
+    }
+
+    private void toggleAllModules(boolean enabled) {
+        int before=ConfigManager.disabledModules;
+        com.customcosmetics.config.FeatureModules.all(enabled);
+        if (before==ConfigManager.disabledModules) return;
+        moduleChanged(before);
+        ModuleNotifications.showAll(enabled);
     }
     private void moduleChanged(int before){
         changed();int difference=before^ConfigManager.disabledModules;
@@ -1356,7 +1370,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             new NumericSetting("Vertical Speed", () -> ConfigManager.freecamVerticalSpeed, 1, 40, .5, 12, v -> ConfigManager.freecamVerticalSpeed = v, "")));
         fullButton("Freecam Keybind…", () -> ClientUiAccess.setScreen(minecraft,
             new net.minecraft.client.gui.screens.options.controls.KeyBindsScreen(this, minecraft.options)), false);
-        label("/ccos freecam", contentX + 6, row(20) + 4, DIM, contentWidth - 12);
+        label("/csb freecam", contentX + 6, row(20) + 4, DIM, contentWidth - 12);
     }
 
     private void windowMode() {
@@ -1476,7 +1490,7 @@ public final class CosmeticsScreen extends ThemedScreen {
 
     private void tooltipTweaks() {
         toggleRow("Remove Gear Score", "", () -> ConfigManager.tooltipHideGearScore, v -> ConfigManager.tooltipHideGearScore = v);
-        toggleRow("Remove Vanilla Enchant Lines", "Hide the gray Aqua Affinity and Depth Strider lines.",
+        toggleRow("Remove Vanilla Enchant Lines", "Also hide Aqua Affinity and Depth Strider when absent from SkyBlock lore.",
             () -> ConfigManager.tooltipHideVanillaEnchants, v -> ConfigManager.tooltipHideVanillaEnchants = v);
         toggleRow("Missing Enchants", "",
             () -> ConfigManager.missingEnchantsEnabled, v -> ConfigManager.missingEnchantsEnabled = v);
@@ -1786,7 +1800,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         fullButton("Clear Current Edits",()->com.customcosmetics.features.map.MapEditor.clearInteractive());
         toggleRow("Automatically Restore Rooms","Automatically applies saved rooms and aligns them from blocks.",()->com.customcosmetics.features.map.MapEditor.autoRooms,v->{com.customcosmetics.features.map.MapEditor.autoRooms=v;com.customcosmetics.features.map.MapEditor.save();});
         fullButton("Preset Manager",()->com.customcosmetics.compatibility.ClientUiAccess.setScreen(minecraft,new MapPresetScreen(this)));
-        label("Region: /customcosmetics map pos1, pos2, fill",contentX,rowY+5,MUTED,contentWidth);rowY+=24;
+        label("Region: /csb map pos1, pos2, fill",contentX,rowY+5,MUTED,contentWidth);rowY+=24;
     }
 
     private void connectionStatus(){
@@ -2113,7 +2127,8 @@ public final class CosmeticsScreen extends ThemedScreen {
             rounded(g,panelX+1,panelY+1,sideWidth,panelHeight-2,4,SIDEBAR);
             g.fill(panelX + sideWidth, panelY + 1, panelX + sideWidth + 1, panelY + panelHeight - 1, BORDER);
             g.blit(MOD_LOGO,panelX+10,panelY+16,panelX+38,panelY+44,0f,1f,0f,1f);
-            g.pose().pushMatrix();g.pose().translate(panelX+44,panelY+18);float brandScale=Math.min(1,(sideWidth-50)/(float)Math.max(1,font.width("CustomSkyBlock")));g.pose().scale(brandScale,brandScale);g.text(font,"CustomSkyBlock",0,0,TEXT,false);g.pose().popMatrix();
+            String brand = getTitle().getString();
+            g.pose().pushMatrix();g.pose().translate(panelX+44,panelY+18);float brandScale=Math.min(1,(sideWidth-50)/(float)Math.max(1,font.width(brand)));g.pose().scale(brandScale,brandScale);g.text(font,brand,0,0,TEXT,false);g.pose().popMatrix();
             text(g,font,DISPLAY_VERSION,panelX+44,panelY+34,DIM,sideWidth-50);
             UiFonts.drawTitle(g,UiText.tr(pageTitle()),contentX,panelY+21,TEXT,contentWidth-28);
             g.fill(contentX, panelY + 83, contentX + contentWidth, panelY + 84, BORDER);

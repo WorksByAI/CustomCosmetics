@@ -24,16 +24,6 @@ public final class GameplayHudEditor extends ThemedScreen {
         addRenderableWidget(new PinkUi.Action(width / 2 - 80, height - 32, 76, 22, "Reset", false, () -> {
             ConfigManager.f7HudX = .02f;
             ConfigManager.f7HudY = .08f;
-            ConfigManager.freshHudX = .02f;
-            ConfigManager.freshHudY = .14f;
-            ConfigManager.cocoonHudX = .02f;
-            ConfigManager.cocoonHudY = .20f;
-            ConfigManager.kuudraSupplyHudX = .42f;
-            ConfigManager.kuudraSupplyHudY = .4f;
-            ConfigManager.kuudraSpawnHudX = .42f;
-            ConfigManager.kuudraSpawnHudY = .34f;
-            ConfigManager.kuudraBuildHudX = .42f;
-            ConfigManager.kuudraBuildHudY = .29f;
             ConfigManager.trevorHudX = .02f;
             ConfigManager.trevorHudY = .26f;
             ConfigManager.gameplayHudScales = new float[0];
@@ -87,21 +77,6 @@ public final class GameplayHudEditor extends ThemedScreen {
         if (selected == 0) {
             ConfigManager.f7HudX = x;
             ConfigManager.f7HudY = y;
-        } else if (selected == 1) {
-            ConfigManager.freshHudX = x;
-            ConfigManager.freshHudY = y;
-        } else if (selected == 2) {
-            ConfigManager.cocoonHudX = x;
-            ConfigManager.cocoonHudY = y;
-        } else if (selected == 3) {
-            ConfigManager.kuudraSupplyHudX = x;
-            ConfigManager.kuudraSupplyHudY = y;
-        } else if (selected == 4) {
-            ConfigManager.kuudraSpawnHudX = x;
-            ConfigManager.kuudraSpawnHudY = y;
-        } else if (selected == 5) {
-            ConfigManager.kuudraBuildHudX = x;
-            ConfigManager.kuudraBuildHudY = y;
         } else {
             ConfigManager.trevorHudX = x;
             ConfigManager.trevorHudY = y;

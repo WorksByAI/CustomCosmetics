@@ -14,7 +14,7 @@ import quoi.api.events.DungeonEvent
 import quoi.api.skyblock.dungeon.odonscanning.MapRenderer
 import quoi.api.skyblock.dungeon.odonscanning.ScanUtils
 import quoi.api.vec.MutableVec3
-import quoi.module.impl.dungeon.DungeonMap
+import quoi.module.impl.dungeon.autoclear.impl.InteractiveMap
 import quoi.api.vec.Vec2i
 import quoi.utils.equalsOneOf
 import quoi.utils.mutable
@@ -41,7 +41,7 @@ class OdonRoom(
             MapRenderer.refresh()
         }
 
-    val colour: Colour get() = if (this === ScanUtils.mimicRoom) data.colour.mix(DungeonMap.mimicRoom) else data.colour
+    val colour: Colour get() = if (this === ScanUtils.mimicRoom) data.colour.mix(InteractiveMap.appearance.mimicRoom) else data.colour
 
     fun getRelativeCoords(pos: BlockPos) = pos.subtract(clayPos.atY(0)).rotateToNorth(rotation)
     fun getRelativeCoords(vec: Vec3) = vec.subtract(clayPos.x.toDouble(), 0.0, clayPos.z.toDouble()).rotateToNorth(rotation)
@@ -126,19 +126,19 @@ data class RoomData(
 ) {
     val colour: Colour get() {
         val base = when (type) {
-            RoomType.ENTRANCE -> DungeonMap.entranceRoom
-            RoomType.BLOOD    -> DungeonMap.bloodRoom
-            RoomType.FAIRY    -> DungeonMap.fairyRoom
-            RoomType.PUZZLE   -> DungeonMap.puzzleRoom
-            RoomType.TRAP     -> DungeonMap.trapRoom
-            RoomType.CHAMPION -> DungeonMap.miniRoom
-            RoomType.RARE     -> DungeonMap.rareRoom
-            RoomType.UNKNOWN  -> DungeonMap.unknownRoom
-            else              -> DungeonMap.normalRoom
+            RoomType.ENTRANCE -> InteractiveMap.appearance.entranceRoom
+            RoomType.BLOOD    -> InteractiveMap.appearance.bloodRoom
+            RoomType.FAIRY    -> InteractiveMap.appearance.fairyRoom
+            RoomType.PUZZLE   -> InteractiveMap.appearance.puzzleRoom
+            RoomType.TRAP     -> InteractiveMap.appearance.trapRoom
+            RoomType.CHAMPION -> InteractiveMap.appearance.miniRoom
+            RoomType.RARE     -> InteractiveMap.appearance.rareRoom
+            RoomType.UNKNOWN  -> InteractiveMap.appearance.unknownRoom
+            else              -> InteractiveMap.appearance.normalRoom
         }
 
         return if (state.equalsOneOf(RoomState.UNDISCOVERED, RoomState.UNOPENED)) {
-            Colour.RGB(base.rgb.multiply(1f - DungeonMap.darkenMultiplier))
+            Colour.RGB(base.rgb.multiply(1f - InteractiveMap.appearance.darkenMultiplier))
         } else base
     }
 }

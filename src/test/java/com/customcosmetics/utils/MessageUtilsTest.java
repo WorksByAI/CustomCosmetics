@@ -22,10 +22,10 @@ import static org.junit.jupiter.api.Assertions.*;
 class MessageUtilsTest {
     @ParameterizedTest
     @CsvSource({
-        "true, false, '[CustomSkyBlock] Succeeded to sync remote data!'",
-        "false, false, '[CustomSkyBlock] Failed to sync remote data.'",
-        "true, true, '[CustomSkyBlock] Succeeded to sync remote data! [stop notifications]'",
-        "false, true, '[CustomSkyBlock] Failed to sync remote data. [stop notifications]'"
+        "true, false, '[CSB] Succeeded to sync remote data!'",
+        "false, false, '[CSB] Failed to sync remote data.'",
+        "true, true, '[CSB] Succeeded to sync remote data! [stop notifications]'",
+        "false, true, '[CSB] Failed to sync remote data. [stop notifications]'"
     })
     void syncResultsHaveCleanTextAndTheGuiPinkColor(boolean success, boolean notification, String expected) {
         Component result = MessageUtils.createSyncResult(success, notification);
@@ -44,7 +44,7 @@ class MessageUtilsTest {
         if (notification) {
             assertEquals(1, clickable.size());
             assertEquals("[stop notifications]", clickable.getFirst().getString());
-            assertEquals(new ClickEvent.RunCommand("/customcosmetics notification off"),
+            assertEquals(new ClickEvent.RunCommand("/csb notification off"),
                 clickable.getFirst().getStyle().getClickEvent());
         } else {
             assertTrue(clickable.isEmpty());
@@ -53,7 +53,7 @@ class MessageUtilsTest {
 
     @Test
     void otherChatMessagesUseTheUpdatedDisplayName() {
-        assertEquals("[CustomSkyBlock] Example", MessageUtils.createMessageWithPrefix("Example").getString());
+        assertEquals("[CSB] Example", MessageUtils.createMessageWithPrefix("Example").getString());
     }
 
     @ParameterizedTest
@@ -64,19 +64,19 @@ class MessageUtilsTest {
     })
     void allCommandMessagesUsePinkForBothPrefixAndBody(String text) {
         Component message = MessageUtils.createMessageWithPrefix(text);
-        assertEquals("[CustomSkyBlock] " + text, message.getString());
+        assertEquals("[CSB] " + text, message.getString());
         assertEntirelyPink(message);
     }
 
     @Test
     void recolorsNestedSpansWithoutChangingActionsOrTheOriginalMessage() {
-        var action = new ClickEvent.RunCommand("/customcosmetics notification off");
+        var action = new ClickEvent.RunCommand("/csb notification off");
         var child = Component.literal("[stop notifications]")
             .withStyle(style -> style.withColor(0xFF00FF).withUnderlined(true).withClickEvent(action));
         var original = Component.literal("Example ").withStyle(style -> style.withColor(0xFFFFFF).withBold(true))
             .append(Component.empty().withStyle(style -> style.withColor(0x00FF00)).append(child));
         Component message = MessageUtils.createMessageWithPrefix(original);
-        assertEquals("[CustomSkyBlock] Example [stop notifications]", message.getString());
+        assertEquals("[CSB] Example [stop notifications]", message.getString());
         assertEntirelyPink(message);
         List<Component> clickable = new ArrayList<>();
         collectClickable(message, clickable);
@@ -96,12 +96,12 @@ class MessageUtilsTest {
     void detailedFailuresKeepTheGuiPinkAndNotificationAction(SyncFailure.Reason reason) {
         var failure = SyncFailure.of(reason, SyncFailure.Stage.UPLOAD);
         var message = MessageUtils.createSyncResult(false, true, failure);
-        assertEquals("[CustomSkyBlock] Failed to sync remote data: " + failure.description() + ". [stop notifications]", message.getString());
+        assertEquals("[CSB] Failed to sync remote data: " + failure.description() + ". [stop notifications]", message.getString());
         assertEntirelyPink(message);
         List<Component> clickable = new ArrayList<>();
         collectClickable(message, clickable);
         assertEquals(1, clickable.size());
-        assertEquals(new ClickEvent.RunCommand("/customcosmetics notification off"), clickable.getFirst().getStyle().getClickEvent());
+        assertEquals(new ClickEvent.RunCommand("/csb notification off"), clickable.getFirst().getStyle().getClickEvent());
     }
 
     @Test

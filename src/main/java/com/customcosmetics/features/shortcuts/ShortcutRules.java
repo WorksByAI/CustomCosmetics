@@ -11,7 +11,7 @@ public final class ShortcutRules {
     public record Entry(String id, Kind kind, String trigger, String command, boolean enabled) {}
     public static final int MAX_ENTRIES = 256, MAX_COMMAND = 256;
     private static final Pattern PLACEHOLDER = Pattern.compile("\\$(\\*|[1-9][0-9]?)");
-    private static final Set<String> OWN_COMMANDS = Set.of("customskyblock", "csb", "ccos", "customcosmetics");
+    private static final Set<String> OWN_COMMANDS = Set.of("customskyblock", "csb");
     private final Map<String, Entry> aliases, arguments;
 
     public ShortcutRules(List<Entry> entries) {

@@ -1,14 +1,12 @@
-package quoi.module.impl.render.clickgui.impl
+package quoi.config
 
 import quoi.api.colour.Colour
-import quoi.module.impl.render.clickgui.ClickGui
-import quoi.module.impl.render.clickgui.ClickGui.reopen
 import quoi.module.settings.group.SettingGroup
 import quoi.module.settings.impl.SelectorComponent
 
 object VisualsSettings : SettingGroup(
-    ClickGui,
-    SelectorComponent("Visuals", "Dark", arrayListOf("Light", "Dark", "Onyx")).onValueChanged { _, _ -> reopen() }
+    DungeonOptions,
+    SelectorComponent("Visuals", "Dark", arrayListOf("Light", "Dark", "Onyx"))
 ) {
     val selectedTheme get() = (component as SelectorComponent<*>).selected
     val colour by colourPicker("Colour", Colour.CYAN).asParent()

@@ -2,15 +2,15 @@
 package com.customcosmetics.features.gameplay;
 
 import com.customcosmetics.client.ModErrors;
-import com.customcosmetics.compatibility.ClientUiAccess;
 import com.customcosmetics.config.ConfigManager;
 import com.customcosmetics.features.animations.PresenceWorld;
-import java.util.function.BiFunction;
+import com.customcosmetics.features.gameplay.dungeonapi.DungeonMenu;
+import com.customcosmetics.gui.ModuleNotifications;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
 
 public final class QuoiDungeon {
+    private static DungeonMenu menu;
     private QuoiDungeon() {}
 
     public static boolean allowed() {
@@ -21,13 +21,13 @@ public final class QuoiDungeon {
         return PresenceWorld.isHypixel(Minecraft.getInstance());
     }
 
-    @SuppressWarnings("unchecked")
-    public static void open(Screen parent, boolean hudEditor) {
-        if (!allowed()) return;
-        ModErrors.run(ModErrors.Key.DUNGEON, () -> {
-            var factory = (BiFunction<Screen, Boolean, Screen>) FabricLoader.getInstance()
-                .getEntrypoints("csb-dungeon-screen", BiFunction.class).getFirst();
-            ClientUiAccess.setScreen(Minecraft.getInstance(), factory.apply(parent, hudEditor));
+    public static DungeonMenu menu() {
+        if (!allowed()) return null;
+        if (menu == null) ModErrors.run(ModErrors.Key.DUNGEON, () -> {
+            var entrypoint = FabricLoader.getInstance().getEntrypoints("csb-dungeon-menu", DungeonMenu.class).getFirst();
+            entrypoint.setToggleNotifier(ModuleNotifications::show);
+            menu = entrypoint;
         });
+        return menu;
     }
 }

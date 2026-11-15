@@ -18,7 +18,7 @@ class PartyChatPrefixTest {
         assertTrue(PartyChatRules.intercept("hello everyone",true,""));
         assertEquals("hello everyone",PartyChatRules.body("hello everyone",""));
         assertFalse(PartyChatRules.intercept("/p list",true,""));
-        assertFalse(PartyChatRules.intercept("/customcosmetics party",true,""));
+        assertFalse(PartyChatRules.intercept("/csb party",true,""));
         assertFalse(PartyChatRules.intercept("/pc original channel",true,"/"));
         assertFalse(PartyChatRules.intercept("hello everyone",false,""));
     }

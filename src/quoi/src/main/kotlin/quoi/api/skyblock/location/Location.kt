@@ -12,7 +12,7 @@ import quoi.api.events.WorldEvent
 import quoi.api.events.core.EventListener
 import quoi.api.events.core.Priority
 import quoi.api.events.core.on
-import quoi.module.impl.render.clickgui.ClickGui
+import quoi.config.DungeonOptions
 import quoi.utils.StringUtils.noControlCodes
 import quoi.utils.StringUtils.startsWithOneOf
 import quoi.utils.equalsOneOf
@@ -72,7 +72,7 @@ object Location : EventListener {
                 }
 
                 is ClientboundSetObjectivePacket ->
-                    if (!inSkyblock) inSkyblock = onHypixel && packet.objectiveName == "SBScoreboard" || ClickGui.forceSkyblock || onP3Sim
+                    if (!inSkyblock) inSkyblock = onHypixel && packet.objectiveName == "SBScoreboard" || DungeonOptions.forceSkyblock || onP3Sim
 
                 is ClientboundSetPlayerTeamPacket -> {
                     val team = packet.parameters.orElse(null) ?: return@on
@@ -94,7 +94,7 @@ object Location : EventListener {
 
         on<WorldEvent.Change>(Priority.LOW) {
             currentArea = Island.Unknown
-            inSkyblock = ClickGui.forceSkyblock
+            inSkyblock = DungeonOptions.forceSkyblock
             AreaEvent.Main(currentArea).post()
 
             if (subarea == null) return@on

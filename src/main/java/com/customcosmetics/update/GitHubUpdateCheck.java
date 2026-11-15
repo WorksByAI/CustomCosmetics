@@ -2,6 +2,7 @@
 package com.customcosmetics.update;
 
 import com.google.gson.JsonParser;
+import com.customcosmetics.client.ClientEdition;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URI;
@@ -22,18 +23,22 @@ public final class GitHubUpdateCheck {
     public static final URI RELEASE_PAGE = URI.create("https://github.com/WorksByAI/CustomCosmetics/releases/latest");
     private static final int MAX_RESPONSE = 65_536;
     private final String installed;
+    private final ClientEdition edition;
     private final BooleanSupplier enabled;
     private final AtomicBoolean started = new AtomicBoolean();
     private volatile boolean completed;
     public boolean settled(){return completed&&started.get()&&pending.get()==null;}
     private final AtomicReference<String> pending = new AtomicReference<>();
 
-    public GitHubUpdateCheck(String installed) { this(installed,()->true); }
-    public GitHubUpdateCheck(String installed,BooleanSupplier enabled) { this.installed = installed;this.enabled=enabled; }
+    public GitHubUpdateCheck(String installed, ClientEdition edition, BooleanSupplier enabled) {
+        this.installed = installed;
+        this.edition = edition;
+        this.enabled = enabled;
+    }
     public String installed() { return installed; }
     public void start() {
         start(() -> {
-            try { return fetch(API, installed); }
+            try { return fetch(API, installed, edition); }
             catch (IOException | RuntimeException unavailable) { return Optional.empty(); }
         }, ForkJoinPool.commonPool());
     }
@@ -49,7 +54,7 @@ public final class GitHubUpdateCheck {
     }
     public String poll(boolean worldReady) { if(!enabled.getAsBoolean()){pending.set(null);return null;}return worldReady ? pending.getAndSet(null) : null; }
 
-    static Optional<String> fetch(URI endpoint, String installed) throws IOException {
+    static Optional<String> fetch(URI endpoint, String installed, ClientEdition edition) throws IOException {
         HttpURLConnection connection = com.customcosmetics.sync.RemoteAccess.manage((HttpURLConnection) endpoint.toURL().openConnection());
         connection.setConnectTimeout(5000); connection.setReadTimeout(5000);
         connection.setInstanceFollowRedirects(false); connection.setUseCaches(false);
@@ -61,7 +66,8 @@ public final class GitHubUpdateCheck {
             try (var input = connection.getInputStream()) {
                 byte[] bytes = input.readNBytes(MAX_RESPONSE + 1);
                 if (bytes.length > MAX_RESPONSE) return Optional.empty();
-                return newerRelease(new String(bytes, StandardCharsets.UTF_8), installed);
+                try { return Optional.of(AutomaticUpdates.asset(new String(bytes, StandardCharsets.UTF_8), installed, edition).version()); }
+                catch (IOException noMatchingAsset) { return Optional.empty(); }
             }
         } finally { connection.disconnect(); }
     }

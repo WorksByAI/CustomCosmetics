@@ -51,17 +51,16 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
         ModErrors.run(ModErrors.Key.WAYPOINTS, com.customcosmetics.features.waypoint.Waypoints::init);
         ModErrors.run(ModErrors.Key.SHORTCUTS, com.customcosmetics.features.shortcuts.Shortcuts::init);
         ModErrors.run(ModErrors.Key.COMMANDS, com.customcosmetics.features.pack.PackDisablerCommands::init);
-        ModErrors.run(ModErrors.Key.GAMEPLAY,com.customcosmetics.features.gameplay.GameplayFeatures::init);
+        if (ClientEdition.hasCheating()) ModErrors.run(ModErrors.Key.GAMEPLAY,com.customcosmetics.features.gameplay.GameplayFeatures::init);
         ModErrors.run(ModErrors.Key.GAMEPLAY,com.customcosmetics.features.gameplay.MissingEnchants::init);
         ModErrors.run(ModErrors.Key.GAMEPLAY, com.customcosmetics.features.gameplay.SeymourColors::init);
         ModErrors.run(ModErrors.Key.GAMEPLAY, com.customcosmetics.features.gameplay.TooltipTweaks::init);
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) -> ModErrors.attempt(ModErrors.Key.COMMANDS,()->SyncCommands.register(dispatcher)));
         // Callback objects are built once; ordinary ticks do not allocate guard lambdas.
-        TickStep[] steps={
+        var steps = new java.util.ArrayList<>(java.util.List.of(
             new TickStep(ModErrors.Key.CREATURE,com.customcosmetics.features.creature.CreatureModels::tick),
             new TickStep(ModErrors.Key.WORLD,c->{if(com.customcosmetics.sync.RemoteAccess.online())com.customcosmetics.features.animations.PresenceWorld.init();}),
             new TickStep(ModErrors.Key.CONFIG,c->ConfigManager.flushPendingSave()),
-            new TickStep(ModErrors.Key.GAMEPLAY,com.customcosmetics.features.gameplay.GameplayFeatures::tick),
             new TickStep(ModErrors.Key.GAMEPLAY,com.customcosmetics.features.gameplay.LobbyMarker::tick),
             new TickStep(ModErrors.Key.SIZE,com.customcosmetics.features.smolpeople.SmolPlayers::tick),
             new TickStep(ModErrors.Key.MAP,com.customcosmetics.features.map.MapEditor::tick),
@@ -80,7 +79,8 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
             new TickStep(ModErrors.Key.ANIMATIONS,com.customcosmetics.features.animations.ViewModelAnimations::tick),
             new TickStep(ModErrors.Key.BLOCKHIT,com.customcosmetics.features.blocking.VisualBlockhit::tick),
             new TickStep(ModErrors.Key.PACK,com.customcosmetics.features.pack.HypixelPackDisabler::tick)
-        };
+        ));
+        if (ClientEdition.hasCheating()) steps.add(3, new TickStep(ModErrors.Key.GAMEPLAY,com.customcosmetics.features.gameplay.GameplayFeatures::tick));
         ClientTickEvents.END_CLIENT_TICK.register(client->{
             for(var step:steps)ModErrors.tick(step.key(),client,step.action());
             if(openGuiNextTick){

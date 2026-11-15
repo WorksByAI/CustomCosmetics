@@ -7,9 +7,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import net.minecraft.client.renderer.culling.Frustum;
-import net.minecraft.client.renderer.entity.player.AvatarRenderer;
-import net.minecraft.client.renderer.entity.state.AvatarRenderState;
-import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -33,7 +30,6 @@ public final class GameplayMixin {
         @Inject(method = "attack", at = @At("HEAD"), cancellable = true)
         private void csb$attunement(net.minecraft.world.entity.player.Player player, Entity target, CallbackInfo ci) {
             if (GameplayFeatures.dojoBlocksAttack(target)) ci.cancel();
-            else com.customcosmetics.features.gameplay.DaggerSwap.attack(player, target);
         }
 
         @Inject(method = "useItemOn", at = @At("HEAD"))
@@ -45,7 +41,7 @@ public final class GameplayMixin {
     }
 
     @Mixin(net.minecraft.client.gui.screens.inventory.AbstractContainerScreen.class)
-    public static class BlockPerks {
+    public static class ContainerTools {
         @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
         private void csb$experimentClick(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick,
                                         CallbackInfoReturnable<Boolean> callback) {
@@ -58,24 +54,10 @@ public final class GameplayMixin {
             GameplayFeatures.gameplayRecipes(graphics, (net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>) (Object) this);
         }
 
-        @Inject(method = "slotClicked(Lnet/minecraft/world/inventory/Slot;IILnet/minecraft/world/inventory/ContainerInput;)V",
-            at = @At("HEAD"), cancellable = true)
-        private void csb$blockPerk(net.minecraft.world.inventory.Slot slot, int index, int button,
-                                  net.minecraft.world.inventory.ContainerInput input, CallbackInfo ci) {
-            if (com.customcosmetics.features.gameplay.KuudraPerks.blocked(
-                    (net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>) (Object) this, slot)) ci.cancel();
-        }
-
-        @Inject(method = "extractSlot", at = @At("HEAD"), cancellable = true)
-        private void csb$hidePerk(net.minecraft.client.gui.GuiGraphicsExtractor graphics, net.minecraft.world.inventory.Slot slot,
-                                 int x, int y, CallbackInfo ci) {
-            if (ConfigManager.kuudraHideBlockedPerks && com.customcosmetics.features.gameplay.KuudraPerks.blocked(
-                    (net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>) (Object) this, slot)) ci.cancel();
-        }
     }
 
     @Mixin(net.minecraft.client.multiplayer.ClientPacketListener.class)
-    public static class KuudraTitles {
+    public static class GameplayPackets {
         @Inject(method = {"handleContainerSetSlot", "handleContainerContent"}, at = @At("TAIL"))
         private void customcosmetics$experimentBoard(CallbackInfo callback) {
             com.customcosmetics.features.gameplay.AutoExperiments.updated(Minecraft.getInstance());
@@ -108,12 +90,6 @@ public final class GameplayMixin {
             GameplayFeatures.gameplayEquipment(packet.getEntity());
         }
 
-        @Inject(method = "setTitleText", at = @At(value = "INVOKE", target =
-            "Lnet/minecraft/network/protocol/game/ClientboundSetTitleTextPacket;text()Lnet/minecraft/network/chat/Component;"),
-            cancellable = true)
-        private void customcosmetics$kuudraSupply(net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket packet, CallbackInfo callback) {
-            if (GameplayFeatures.replaceKuudraSupplyTitle(packet.text())) callback.cancel();
-        }
     }
 
     @Mixin(net.minecraft.client.gui.components.BossHealthOverlay.class)
@@ -140,7 +116,6 @@ public final class GameplayMixin {
         private void observe(net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.state.BlockState state,
                              int flags, CallbackInfo callback) {
             com.customcosmetics.features.gameplay.FloorSevenDevices.blockChanged(pos, state);
-            com.customcosmetics.features.gameplay.SlayerBeaconHighlight.blockChanged(pos, state);
         }
     }
 
@@ -157,10 +132,6 @@ public final class GameplayMixin {
             if (GameplayFeatures.startLeap((Minecraft) (Object) this)) callback.setReturnValue(false);
         }
 
-        @Inject(method = "startUseItem", at = @At("HEAD"), cancellable = true)
-        private void useSupply(CallbackInfo callback) {
-            if (GameplayFeatures.useKuudraSupply((Minecraft) (Object) this)) callback.cancel();
-        }
     }
 
     @Mixin(EntityRenderDispatcher.class)
@@ -178,16 +149,4 @@ public final class GameplayMixin {
         }
     }
 
-    @Mixin(AvatarRenderer.class)
-    public static class PlayerSpin {
-        // Adapted from Athen PlayerSpin (BSD-3-Clause).
-        @Inject(method = "extractRenderState(Lnet/minecraft/world/entity/Avatar;Lnet/minecraft/client/renderer/entity/state/AvatarRenderState;F)V", at = @At("TAIL"))
-        private void rotate(net.minecraft.world.entity.Avatar entity, AvatarRenderState avatar, float partial, CallbackInfo callback) {
-            if (!(ConfigManager.spinHeadEnabled || ConfigManager.spinBodyEnabled)
-                || !(entity instanceof LocalPlayer player)) return;
-            float time = (player.tickCount + partial) / 20f;
-            if (ConfigManager.spinBodyEnabled) avatar.bodyRot = Mth.wrapDegrees(time * ConfigManager.spinBodySpeed * 360f);
-            if (ConfigManager.spinHeadEnabled) avatar.yRot = Mth.wrapDegrees(time * ConfigManager.spinHeadSpeed * 360f) - avatar.bodyRot;
-        }
-    }
 }

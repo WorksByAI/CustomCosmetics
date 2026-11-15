@@ -31,6 +31,7 @@ import kotlin.math.atan2
  * original: https://github.com/odtheking/Odin/blob/main/src/main/kotlin/com/odtheking/odin/features/impl/dungeon/puzzlesolvers/TPMazeSolver.kt
  */
 object TeleportMazeSolver : SettingGroup(PuzzleSolvers, "Teleport maze") { // todo cleanup/recode auto
+    private const val EXIT_DELAY_NANOS = 1_000_000_000L
     private val solver by switch("Solver", desc = "Shows the solution for the TP maze puzzle.")
     private val colourOne by colourPicker("Colour for one", Colour.MINECRAFT_GREEN.withAlpha(0.5f), true, desc = "Colour for when there is a single solution.").childOf(::solver)
     private val colourMultiple by colourPicker("Colour for multiple", Colour.MINECRAFT_GOLD.withAlpha(0.5f), true, desc = "Colour for when there are multiple solutions.").childOf(::solver)
@@ -46,7 +47,7 @@ object TeleportMazeSolver : SettingGroup(PuzzleSolvers, "Teleport maze") { // to
 
     private var walking = false
     private var movingToFrame = false
-    private var solutionReached = false
+    private var solutionReachedAt: Long? = null
     private var endWalkStarted = false
     private var nextMove = false
     private var realCells = listOf<Set<BlockPos>>()
@@ -83,13 +84,14 @@ object TeleportMazeSolver : SettingGroup(PuzzleSolvers, "Teleport maze") { // to
                 Scheduler.scheduleTask { nextMove = true }
                 return@on
             }
+            if (solutionReachedAt != null) return@on
 
             val (x, y, z) = packet.change.position
             val destination = Dungeon.currentRoom?.getRelativeCoords(BlockPos.containing(x, y, z))
             if (destination != null && destination.x in 12..18 && destination.y in 68..70 && destination.z in 14..20) {
-                solutionReached = true
+                solutionReachedAt = System.nanoTime()
                 stop()
-                Scheduler.scheduleTask { nextMove = true }
+                nextMove = true
                 return@on
             }
 
@@ -131,13 +133,16 @@ object TeleportMazeSolver : SettingGroup(PuzzleSolvers, "Teleport maze") { // to
             if (PuzzleSolvers.screenBlocksAuto) return@on stop()
 
             if (nextMove) {
+                val arrivedAt = solutionReachedAt
                 if (endWalkStarted) {
                     movementTask { input ->
                         input.forward = true
                         false
                     }
                     walking = true
-                } else if (solutionReached) {
+                } else if (arrivedAt != null) {
+                    // Stay in the reward area while Secret Aura has time to open the chest.
+                    if (System.nanoTime() - arrivedAt < EXIT_DELAY_NANOS) return@on
                     endPad?.let { target ->
                         endWalkStarted = true
                         movingToFrame = true
@@ -236,12 +241,14 @@ object TeleportMazeSolver : SettingGroup(PuzzleSolvers, "Teleport maze") { // to
 
     private fun reset() {
         stop()
+        tpPads = emptySet()
+        realCells = emptyList()
         correctPortals = emptySet()
         visited.clear()
         best = null
         nextMove = false
         endPad = null
-        solutionReached = false
+        solutionReachedAt = null
         endWalkStarted = false
     }
 

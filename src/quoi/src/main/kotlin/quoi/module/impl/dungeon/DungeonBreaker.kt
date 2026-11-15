@@ -47,10 +47,10 @@ object DungeonBreaker : Module(
 ) {
     @Suppress("unused")
     private val chargesHud by textHud("Charges display") {
-        visibleIf { player.mainHandItem.skyblockId == "DUNGEONBREAKER" }
+        visibleIf { mc.player?.mainHandItem?.skyblockId == "DUNGEONBREAKER" }
         textPair(
             string = "Charges:",
-            supplier = { getBreakerCharges(player.mainHandItem) },
+            supplier = { mc.player?.mainHandItem?.let(::getBreakerCharges) ?: 0 },
             labelColour = colour,
             shadow = shadow,
             font = font

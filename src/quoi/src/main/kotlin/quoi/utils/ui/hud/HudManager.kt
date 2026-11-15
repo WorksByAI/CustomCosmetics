@@ -27,7 +27,6 @@ import quoi.api.events.core.EventListener
 import quoi.api.events.core.on
 import quoi.api.input.Keybinds
 import quoi.config.Config
-import quoi.module.impl.render.clickgui.ClickGui.clickGui
 import quoi.module.settings.UIComponent
 import quoi.module.settings.impl.ColourPickerComponent
 import quoi.utils.Scheduler.scheduleTask
@@ -125,7 +124,7 @@ object HudManager : EventListener {
 
     var hudSettings: Popup? = null
 
-    fun editor(fromMain: Boolean = false) = aboba("Dungeon HUD Editor") {
+    fun editor() = aboba("Dungeon HUD Editor") {
         var hoverInfo: Popup? = null
 
         object : Element(copies()) {
@@ -142,7 +141,6 @@ object HudManager : EventListener {
         onRemove {
             scheduleTask { Config.save() }
             reinit()
-            if (fromMain) open(clickGui)
         }
 
         onClick {

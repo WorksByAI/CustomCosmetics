@@ -25,9 +25,7 @@ import quoi.api.skyblock.dungeon.terminals.TerminalType
 import quoi.api.skyblock.dungeon.terminals.TerminalUtils
 import quoi.api.skyblock.location.Island
 import quoi.api.skyblock.location.Location
-import quoi.api.skyblock.location.Location.onAlpha
-import quoi.module.impl.dungeon.LeapMenu
-import quoi.module.impl.render.clickgui.ClickGui
+import quoi.config.DungeonOptions
 import quoi.utils.*
 import quoi.utils.EntityUtils.getEntities
 import quoi.utils.StringUtils.noControlCodes
@@ -103,9 +101,6 @@ object Dungeon : EventListener, Shortcuts {
     val allTeammatesNoSelf: List<String>
         get() = allTeammates.filter { it != player.name.string }
 
-    var leapTeammates: List<DungeonPlayer> = ArrayList(4)
-        private set
-
     inline val currentDungeonPlayer: DungeonPlayer
         get() = dungeonTeammates.find { it.name == player.name.string } ?: DungeonPlayer(player.name.string, DungeonClass.Unknown, 0, null)
 
@@ -130,8 +125,6 @@ object Dungeon : EventListener, Shortcuts {
     inline val currentRoom: OdonRoom?
         get() = ScanUtils.currentRoom
 
-    val isPaul: Boolean
-        get() = ScoreCalculation.isPaul
 
     inline val bloodDone: Boolean
         get() = dungeonStats.bloodDone
@@ -139,14 +132,7 @@ object Dungeon : EventListener, Shortcuts {
     inline val bloodOpen: Boolean
         get() = dungeonStats.bloodOpen
 
-    inline val score: Int
-        get() = ScoreCalculation.score.total
 
-    inline val warpCooldown: Long
-        get() = (enterTime - System.currentTimeMillis()).coerceAtLeast(0L)
-
-    var enterTime = 0L
-        private set
 
     var dungeonStats = DungeonStats()
         private set
@@ -163,10 +149,8 @@ object Dungeon : EventListener, Shortcuts {
 
         on<DungeonEvent.Start> {
             hasStarted = true
-            ScoreCalculation.updateMayor()
         }
 
-        on<DungeonEvent.Enter> { ScoreCalculation.updateMayor() }
 
         on<WorldEvent.Change> {
             hasStarted = false
@@ -177,11 +161,10 @@ object Dungeon : EventListener, Shortcuts {
             expectingBloodUpdate = false
             chatDeaths = 0
             batKillers.clear()
-            leapTeammates = emptyList()
             dungeonTeammates.clear()
             Puzzle.entries.forEach { it.status = null }
             puzzles.clear()
-            floor = if (ClickGui.forceDungeons) ClickGui.dungeonFloor.selected
+            floor = if (DungeonOptions.forceDungeons) DungeonOptions.dungeonFloor.selected
             else if (Location.onP3Sim) Floor.F7
             else null
         }
@@ -250,7 +233,6 @@ object Dungeon : EventListener, Shortcuts {
                         if (overlay()) return@on
                         val message = content.string.noControlCodes
                         if (expectingBloodRegex.matches(message)) expectingBloodUpdate = true
-                        if (enterRegex.matches(message) && warpCooldown == 0L) enterTime = System.currentTimeMillis() + if (onAlpha) 5_000L else 30_000L
                         doorOpenRegex.matchEntire(message)?.let { match ->
                             val opener = match.groupValues[1]
                             dungeonStats.doorOpener = opener
@@ -454,27 +436,6 @@ object Dungeon : EventListener, Shortcuts {
     private fun updateDungeonTeammates(tabList: List<Pair<String, Colour>>) {
         dungeonTeammates = getDungeonTeammates(dungeonTeammates, tabList)
         dungeonTeammatesNoSelf = dungeonTeammates.filter { it.name != player.name.string }
-
-        leapTeammates =
-            when (LeapMenu.sorting.selected) {
-                "Class" -> dungeonTeammatesNoSelf.sortedWith(compareBy({ it.clazz.ordinal }, { it.name }))
-                "Name" -> dungeonTeammatesNoSelf.sortedBy { it.name }
-                "Custom" -> {
-                    if (LeapMenu.fillEmpty) {
-                        val remaining = dungeonTeammatesNoSelf.toMutableList()
-                        LeapMenu.customOrder.map { entry ->
-                            if (entry == "_") DungeonPlayer.EMPTY
-                            else remaining.firstOrNull { it.name.lowercase().equals(entry, true) }?.also { remaining.remove(it) } ?: DungeonPlayer.EMPTY
-                        }.map { if (it == DungeonPlayer.EMPTY && remaining.isNotEmpty()) remaining.removeAt(0) else it }
-                    } else {
-                        LeapMenu.customOrder.map { entry ->
-                            if (entry == "_") DungeonPlayer.EMPTY
-                            else dungeonTeammatesNoSelf.firstOrNull { it.name.lowercase().equals(entry, true) } ?: DungeonPlayer.EMPTY
-                        }
-                    }
-                }
-                else -> dungeonTeammatesNoSelf
-            }
     }
 
     val dungeonItemDrops = setOf(
@@ -519,7 +480,6 @@ object Dungeon : EventListener, Shortcuts {
 
     val BLOOD_START_REGEX = Regex("^\\[BOSS] The Watcher: (Congratulations, you made it through the Entrance\\.|Ah, you've finally arrived\\.|Ah, we meet again\\.\\.\\.|So you made it this far\\.\\.\\. interesting\\.|You've managed to scratch and claw your way here, eh\\?|I'm starting to get tired of seeing you around here\\.\\.\\.|Oh\\.\\. hello\\?|Things feel a little more roomy now, eh\\?)$")
 
-    private val enterRegex = Regex("^-*\\n\\[[^]]+] (\\w+) entered (?:MM )?\\w+ Catacombs, Floor (\\w+)!\\n-*$")
     private val puzzleRegex = Regex("^ (\\w+(?: \\w+)*|\\?\\?\\?): \\[([✖✔✦])] ?(?:\\((\\w+)\\))?$")
     private val expectingBloodRegex = Regex("^\\[BOSS] The Watcher: You have proven yourself. You may pass.")
     private val doorOpenRegex = Regex("^(?:\\[\\w+] )?(\\w+) opened a (?:WITHER|Blood) door!")

@@ -40,8 +40,9 @@ object EventManager {
                 @Suppress("UNCHECKED_CAST")
                 (sub.callback as T.() -> Unit).invoke(event)
             } catch (e: Exception) {
-                logger.error("Err in ${sub.listener::class.simpleName} ${event::class.simpleName}", e)
-                e.printStackTrace()
+                if (sub.shouldLogFailure(System.nanoTime())) {
+                    logger.error("Err in ${sub.listener::class.simpleName} ${event::class.simpleName}", e)
+                }
             }
         }
 

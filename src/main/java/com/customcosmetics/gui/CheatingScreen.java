@@ -6,11 +6,11 @@ import com.customcosmetics.compatibility.ClientUiAccess;
 import com.customcosmetics.config.ConfigManager;
 import com.customcosmetics.features.gameplay.GameplayModule;
 import com.customcosmetics.features.gameplay.QuoiDungeon;
+import com.customcosmetics.features.gameplay.dungeonapi.DungeonMenu;
 import com.customcosmetics.features.gameplay.GameplayKeybinds;
 import com.customcosmetics.features.gameplay.AutoClicker;
 import com.customcosmetics.features.gameplay.SafariSpecies;
 import com.customcosmetics.features.gameplay.TrevorHelper;
-import com.customcosmetics.features.gameplay.KuudraPerks;
 import com.customcosmetics.features.gameplay.WorldScannerSettings;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.Minecraft;
@@ -24,18 +24,28 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.HashSet;
+import java.util.stream.Stream;
 import static com.customcosmetics.gui.PinkUi.*;
 
-final class CheatingScreen extends ThemedScreen {
+public final class CheatingScreen extends ThemedScreen {
+    private static final ScreenSession SESSION = new ScreenSession(GameplayModule.Category.GENERAL.name());
+    private static final String ENABLED_PAGE = "ENABLED";
     private static final GameplayModule[] MODULES = Arrays.stream(GameplayModule.values())
         .filter(module -> module.category != GameplayModule.Category.DUNGEON)
         .sorted(Comparator.comparing(module -> module.label)).toArray(GameplayModule[]::new);
     private final Screen parent;
     private final ArrayList<Card> cards = new ArrayList<>();
     private GameplayModule.Category category = GameplayModule.Category.GENERAL;
-    private GameplayModule editing;
+    private MenuEntry editing;
+    private DungeonMenu dungeonMenu;
+    private DungeonMenu.Key dungeonKey;
+    private boolean dungeonDirty;
+    private final HashSet<DungeonMenu.Control> openGroups = new HashSet<>();
     private StudioLayout layout;
     private String query = "";
+    private boolean enabledOnly;
     private PinkUi.Field search;
     private int scroll, cardsTop, cardsBottom;
     private int detailsTop, detailsY, detailsHeight;
@@ -48,20 +58,27 @@ final class CheatingScreen extends ThemedScreen {
     private net.minecraft.client.KeyMapping recordedMapping;
     private SafariSpecies.Biome safariBiome = SafariSpecies.Biome.FOREST;
     private WorldScannerSettings.Target scannerTarget = WorldScannerSettings.Target.FAIRY_GROTTO;
-    private KuudraPerks.Group kuudraPerkGroup = KuudraPerks.Group.BASIC;
 
-    private record Card(GameplayModule module, PinkUi.Action toggle, PinkUi.Action settings, int y) {}
+    private record MenuEntry(GameplayModule local, DungeonMenu.Entry dungeon) {
+        String label() { return local != null ? local.label : dungeon.name(); }
+        GameplayModule.Category category() { return local != null ? local.category : GameplayModule.Category.DUNGEON; }
+        boolean enabled() { return local != null ? local.enabled() : dungeon.enabled() != null && dungeon.enabled().getAsBoolean(); }
+    }
+    private record Card(MenuEntry module, PinkUi.Action toggle, PinkUi.Action settings, int y) {}
     private record Detail(net.minecraft.client.gui.components.AbstractWidget widget, int y) {}
     private record DetailLabel(String title, int y) {}
 
     static void open(Screen parent) {
-        var client = Minecraft.getInstance();
-        if (ConfigManager.gameplayPanelConfirmed) {
-            ClientUiAccess.setScreen(client, new CheatingScreen(parent));
-            return;
-        }
-        long deadline = System.nanoTime() + 3_000_000_000L;
-        ClientUiAccess.setScreen(client, new Confirmation(parent, deadline));
+        ClientUiAccess.setScreen(Minecraft.getInstance(), create(parent));
+    }
+
+    public static void requestOpen() {
+        com.customcosmetics.client.CustomCosmeticsClient.requestScreen(() -> create(null));
+    }
+
+    private static Screen create(Screen parent) {
+        return ConfigManager.gameplayPanelConfirmed ? new CheatingScreen(parent)
+            : new Confirmation(parent, System.nanoTime() + 3_000_000_000L);
     }
 
     private static final class Confirmation extends ThemedScreen {
@@ -123,6 +140,23 @@ final class CheatingScreen extends ThemedScreen {
         this.parent = parent;
     }
 
+    @Override public void added() {
+        super.added();
+        long now = System.currentTimeMillis();
+        if (SESSION.expired(now)) {
+            query = "";
+            editing = null;
+            openGroups.clear();
+            recording = false;
+            recordedMapping = null;
+            dungeonKey = null;
+        }
+        var remembered = SESSION.open(now);
+        enabledOnly = ENABLED_PAGE.equals(remembered.page());
+        if (!enabledOnly) category = GameplayModule.Category.valueOf(remembered.page());
+        scroll = (int) remembered.scroll();
+    }
+
     @Override protected void init() {
         layout = StudioLayout.of(width, height);
         cards.clear();
@@ -133,26 +167,23 @@ final class CheatingScreen extends ThemedScreen {
         int row = layout.y() + 44;
         int categoryStep = Math.clamp((layout.height() - 86) / GameplayModule.Category.values().length, 12, 26);
         for (var option : GameplayModule.Category.values()) {
-            var button = addRenderableWidget(new PinkUi.Action(layout.x() + 9, row, layout.sidebarWidth() - 18, categoryStep - 2,
+            addRenderableWidget(new PinkUi.Action(layout.x() + 9, row, layout.sidebarWidth() - 18, categoryStep - 2,
                 option.label, false, () -> {
-                    if (option == GameplayModule.Category.DUNGEON) {
-                        QuoiDungeon.open(this, false);
-                        return;
-                    }
                     category = option;
+                    enabledOnly = false;
                     query = "";
                     editing = null;
+                    openGroups.clear();
+                    dungeonKey = null;
+                    recording = false;
                     scroll = 0;
                     rebuildWidgets();
-                }).leftAligned().selected(() -> option == category));
-            button.active = option != GameplayModule.Category.KUUDRA;
+                }).leftAligned().selected(() -> !enabledOnly && option == category));
             row += categoryStep;
         }
-        addRenderableWidget(new PinkUi.Action(layout.x() + 9, layout.y() + layout.height() - 35,
-            layout.sidebarWidth() - 18, 24, "HUD Editor", false, () -> {
-                ClientUiAccess.setScreen(minecraft, new GameplayHudEditor(this));
-            }));
-        search = new PinkUi.Field(font, layout.contentX(), layout.y() + 42, layout.contentWidth(), "Search modules…", 23);
+        addRenderableWidget(disabledHudButton(layout.x() + 9, layout.y() + layout.height() - 35, layout.sidebarWidth() - 18, 24));
+        int enabledWidth = Math.min(112, layout.contentWidth() / 2);
+        search = new PinkUi.Field(font, layout.contentX(), layout.y() + 42, layout.contentWidth() - enabledWidth - 6, "Search modules…", 23);
         search.setMaxLength(64);
         search.setHint(UiText.component("Search modules…"));
         search.setValue(query);
@@ -161,6 +192,8 @@ final class CheatingScreen extends ThemedScreen {
             editing = null;
             recording = false;
             recordedMapping = null;
+            dungeonKey = null;
+            openGroups.clear();
             scroll = 0;
             rebuildWidgets();
             setFocused(search);
@@ -168,6 +201,17 @@ final class CheatingScreen extends ThemedScreen {
             search.moveCursorToEnd(false);
         });
         addRenderableWidget(search);
+        addRenderableWidget(new PinkUi.Action(layout.contentX() + layout.contentWidth() - enabledWidth, layout.y() + 42,
+            enabledWidth, 23, "Enabled Modules", false, () -> {
+                enabledOnly = !enabledOnly;
+                editing = null;
+                openGroups.clear();
+                dungeonKey = null;
+                recordedMapping = null;
+                recording = false;
+                scroll = 0;
+                rebuildWidgets();
+            }).selected(() -> enabledOnly));
         cardsTop = layout.y() + 73;
         cardsBottom = layout.contentBottom();
         String filter = query.strip().toLowerCase(Locale.ROOT);
@@ -177,20 +221,37 @@ final class CheatingScreen extends ThemedScreen {
         int count = 0;
         editingRow = -1;
         detailsHeight = 0;
-        for (var module : MODULES) {
-            if (filter.isEmpty() ? module.category != category
-                : !module.label.toLowerCase(Locale.ROOT).contains(filter) && !UiText.zh(module.label).contains(filter)) continue;
+        dungeonMenu = QuoiDungeon.menu();
+        Stream<MenuEntry> entries = Arrays.stream(MODULES).map(module -> new MenuEntry(module, null));
+        if (dungeonMenu != null && (enabledOnly || category == GameplayModule.Category.DUNGEON || !filter.isEmpty())) {
+            entries = Stream.concat(entries, dungeonMenu.modules().stream().map(module -> new MenuEntry(null, module)));
+        }
+        for (var module : entries.sorted(Comparator.comparing(MenuEntry::label, String.CASE_INSENSITIVE_ORDER)).toList()) {
+            if (enabledOnly && !module.enabled()) continue;
+            if (filter.isEmpty() ? !enabledOnly && module.category() != category
+                : !module.label().toLowerCase(Locale.ROOT).contains(filter) && !UiText.zh(module.label()).contains(filter)) continue;
             int x = layout.contentX() + count % 3 * (column + gap);
             int y = cardsTop + count / 3 * 39;
-            var toggle = new PinkUi.Action(x, y, column - settingsWidth, 34, module.label, false, module::toggle)
+            boolean expanded = module.equals(editing);
+            var toggle = new PinkUi.Action(x, y, column - settingsWidth, 34, module.label(), false, () -> {
+                if (module.local() != null) module.local().toggle();
+                else if (module.dungeon().toggle() != null) {
+                    module.dungeon().toggle().run();
+                    dungeonDirty = true;
+                } else showSettings(module);
+                if (enabledOnly) {
+                    if (module.equals(editing)) editing = null;
+                    rebuildWidgets();
+                }
+            })
                 .selected(module::enabled);
-            toggle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.component(module.label)));
-            var settings = new PinkUi.Action(x + column - settingsWidth, y, settingsWidth, 34, editing == module ? "⌃" : "⚙", false,
-                () -> showSettings(module)).selected(() -> editing == module);
+            tooltip(toggle, module.dungeon() == null || module.dungeon().description().isEmpty() ? module.label() : module.dungeon().description());
+            var settings = new PinkUi.Action(x + column - settingsWidth, y, settingsWidth, 34, expanded ? "⌃" : "⚙", false,
+                () -> showSettings(module)).selected(() -> module.equals(editing));
             addWidget(toggle);
             addWidget(settings);
             cards.add(new Card(module, toggle, settings, y));
-            if (module == editing) editingRow = y;
+            if (expanded) editingRow = y;
             count++;
         }
         if (editingRow != -1) addDetails();
@@ -200,12 +261,14 @@ final class CheatingScreen extends ThemedScreen {
         positionCards();
     }
 
-    private void showSettings(GameplayModule module) {
+    private void showSettings(MenuEntry module) {
         recording = false;
         recordedMapping = null;
-        editing = editing == module ? null : module;
+        dungeonKey = null;
+        openGroups.clear();
+        editing = Objects.equals(editing, module) ? null : module;
         if (editing != null) {
-            for (var card : cards) if (card.module() == module && card.toggle().getBottom() + 70 > cardsBottom) {
+            for (var card : cards) if (card.module().equals(module) && card.toggle().getBottom() + 70 > cardsBottom) {
                 revealRow = card.y();
                 break;
             }
@@ -216,6 +279,11 @@ final class CheatingScreen extends ThemedScreen {
     private void addDetails() {
         detailsTop = editingRow + 39;
         detailsY = detailsTop + 7;
+        if (editing.dungeon() != null) {
+            addDungeonControls(editing.dungeon().settings().get());
+            detailsHeight = detailsY - detailsTop + 7;
+            return;
+        }
         int x = layout.contentX() + 7, y = detailsY, w = detailWidth();
         int clearWidth = Math.min(68, w / 3);
         keyButton = new PinkUi.Action(x, y, w - clearWidth - 6, 20,
@@ -228,7 +296,7 @@ final class CheatingScreen extends ThemedScreen {
         addDetail(new PinkUi.Action(x + w - clearWidth, y, clearWidth, 20, "Clear", false,
             () -> finishRecording(InputConstants.UNKNOWN)));
         y = detailsY;
-        switch (editing) {
+        switch (editing.local()) {
             case FAST_LEAP -> fastLeapSettings();
             case AUTO_CLICKER -> autoClickerSettings();
             case AUTO_EXPERIMENTS -> {
@@ -292,103 +360,6 @@ final class CheatingScreen extends ThemedScreen {
                 option("Disable After Combining", () -> ConfigManager.bookCombineDisableAfterFinish, v -> ConfigManager.bookCombineDisableAfterFinish = v);
                 option("Close Anvil After Combining", () -> ConfigManager.bookCombineCloseAfterFinish, v -> ConfigManager.bookCombineCloseAfterFinish = v);
             }
-            case KUUDRA_PEEK -> {
-                option("Check Y Level", () -> ConfigManager.kuudraPeekCheckHeight, v -> ConfigManager.kuudraPeekCheckHeight = v);
-                option("Only Show First Peek", () -> ConfigManager.kuudraPeekFirstOnly, v -> ConfigManager.kuudraPeekFirstOnly = v);
-            }
-            case MANA_USED_ALERT -> option("Ignore if 0 Players", () -> ConfigManager.kuudraManaIgnoreZero,
-                v -> ConfigManager.kuudraManaIgnoreZero = v);
-            case KUUDRA_REQUEUE -> slider("Requeue Delay (ticks)", ConfigManager.kuudraRequeueDelay, 0, 100, 1,
-                v -> ConfigManager.kuudraRequeueDelay = (int) v);
-            case KUUDRA_AUTO_PEARL -> slider("Pearl Click Delay (ticks)", ConfigManager.kuudraPearlDelay, 1, 2, 1,
-                v -> ConfigManager.kuudraPearlDelay = (int) v);
-            case KUUDRA_TEAMMATES -> {
-                slider("Line Width", ConfigManager.kuudraTeammateWidth, 1, 10, 1, v -> ConfigManager.kuudraTeammateWidth = (int) v);
-                color("Highlight Color", ConfigManager.kuudraTeammateColor, v -> ConfigManager.kuudraTeammateColor = v);
-            }
-            case KUUDRA_SUPPLY_WAYPOINTS -> {
-                option("Drop Off", () -> ConfigManager.kuudraSupplyDropOff, v -> ConfigManager.kuudraSupplyDropOff = v);
-                color("Drop Off Color", ConfigManager.kuudraDropOffColor, v -> ConfigManager.kuudraDropOffColor = v);
-                option("Pick Up", () -> ConfigManager.kuudraSupplyPickup, v -> ConfigManager.kuudraSupplyPickup = v);
-                color("Pick Up Color", ConfigManager.kuudraPickupColor, v -> ConfigManager.kuudraPickupColor = v);
-                option("Fuel", () -> ConfigManager.kuudraFuel, v -> ConfigManager.kuudraFuel = v);
-                color("Fuel Color", ConfigManager.kuudraFuelColor, v -> ConfigManager.kuudraFuelColor = v);
-                option("Detect Player Proximity", () -> ConfigManager.kuudraSupplyProximity, v -> ConfigManager.kuudraSupplyProximity = v);
-                color("Nearby Color", ConfigManager.kuudraNearbyColor, v -> ConfigManager.kuudraNearbyColor = v);
-                option("Custom Supply Messages", () -> ConfigManager.kuudraSupplyMessages, v -> ConfigManager.kuudraSupplyMessages = v);
-                textSetting("Supply Text Style", ConfigManager.kuudraSupplyMessage, v -> ConfigManager.kuudraSupplyMessage = v);
-            }
-            case KUUDRA_TITLES -> {
-                option("Supply Progress HUD", () -> ConfigManager.kuudraSupplyHud, v -> ConfigManager.kuudraSupplyHud = v);
-                textSetting("Supply Progress Format", ConfigManager.kuudraTitleFormat, v -> ConfigManager.kuudraTitleFormat = v);
-                textSetting("Filled Bar Character", ConfigManager.kuudraTitleFilled, v -> ConfigManager.kuudraTitleFilled = v);
-                textSetting("Empty Bar Character", ConfigManager.kuudraTitleEmpty, v -> ConfigManager.kuudraTitleEmpty = v);
-                slider("Number of Bars", ConfigManager.kuudraTitleBars, 5, 30, 1, v -> ConfigManager.kuudraTitleBars = (int) v);
-                option("Drop Alert", () -> ConfigManager.kuudraDropAlert, v -> ConfigManager.kuudraDropAlert = v);
-                textSetting("Drop Alert Message", ConfigManager.kuudraDropText, v -> ConfigManager.kuudraDropText = v);
-                option("Pickup Alert", () -> ConfigManager.kuudraPickupAlert, v -> ConfigManager.kuudraPickupAlert = v);
-                textSetting("Pickup Alert Message", ConfigManager.kuudraPickupText, v -> ConfigManager.kuudraPickupText = v);
-                addDetail(new PinkUi.Action(x, detailsY, detailWidth(), 23, "HUD Editor", false,
-                    () -> ClientUiAccess.setScreen(minecraft, new GameplayHudEditor(this))));
-            }
-            case KUUDRA_TIMERS -> {
-                option("Supply Spawn Timer", () -> ConfigManager.kuudraSpawnTimer, v -> ConfigManager.kuudraSpawnTimer = v);
-                textSetting("Supply Timer Format", ConfigManager.kuudraSpawnFormat, v -> ConfigManager.kuudraSpawnFormat = v);
-                option("Build Start Timer", () -> ConfigManager.kuudraBuildTimer, v -> ConfigManager.kuudraBuildTimer = v);
-                textSetting("Build Timer Format", ConfigManager.kuudraBuildFormat, v -> ConfigManager.kuudraBuildFormat = v);
-                addDetail(new PinkUi.Action(x, detailsY, detailWidth(), 23, "HUD Editor", false,
-                    () -> ClientUiAccess.setScreen(minecraft, new GameplayHudEditor(this))));
-            }
-            case KUUDRA_STUN_HELPER -> {
-                option("Highlight Pods", () -> ConfigManager.kuudraHighlightPods, v -> ConfigManager.kuudraHighlightPods = v);
-                option("Highlight Exact Block", () -> ConfigManager.kuudraHighlightExactPod, v -> ConfigManager.kuudraHighlightExactPod = v);
-                cycle("Exact Pod", java.util.List.of("Left", "Middle", "Right"), () -> ConfigManager.kuudraPod, v -> ConfigManager.kuudraPod = v);
-                color("Pod Color", ConfigManager.kuudraPodColor, v -> ConfigManager.kuudraPodColor = v);
-                option("Depth Check", () -> ConfigManager.kuudraPodDepth, v -> ConfigManager.kuudraPodDepth = v);
-                option("Block Pickaxe Ability", () -> ConfigManager.kuudraBlockPickobulus, v -> ConfigManager.kuudraBlockPickobulus = v);
-                cycle("Block When", java.util.List.of("Outside Belly", "Wrong Aim Inside Belly", "Both"),
-                    () -> ConfigManager.kuudraBlockWhen, v -> ConfigManager.kuudraBlockWhen = v);
-                clickKey("Block Override Key", com.customcosmetics.features.gameplay.KuudraStunHelper.overrideKey());
-                option("Auto Close Perk Menu", () -> ConfigManager.kuudraStunCloseMenu, v -> ConfigManager.kuudraStunCloseMenu = v);
-                slider("Close Delay (ticks)", ConfigManager.kuudraStunCloseDelay, 0, 5, 1, v -> ConfigManager.kuudraStunCloseDelay = (int) v);
-            }
-            case KUUDRA_BLOCK_PERKS -> {
-                option("Hide Blocked Perks", () -> ConfigManager.kuudraHideBlockedPerks, value -> ConfigManager.kuudraHideBlockedPerks = value);
-                clickKey("Override Key", KuudraPerks.overrideKey());
-                var groups = KuudraPerks.Group.values();
-                cycle("Blocked Perks", java.util.Arrays.stream(groups).map(group -> group.title).toList(),
-                    () -> kuudraPerkGroup.ordinal(), value -> kuudraPerkGroup = groups[value]);
-                for (String perk : kuudraPerkGroup.perks) option(perk, () -> ConfigManager.kuudraBlockedPerks.contains(perk),
-                    value -> ConfigManager.kuudraBlockedPerks = membership(ConfigManager.kuudraBlockedPerks, perk, value));
-            }
-            case COCOON_ALERT -> {
-                option("Show Alert", () -> ConfigManager.cocoonAlert, v -> ConfigManager.cocoonAlert = v);
-                textSetting("Cocoon Alert Message", ConfigManager.cocoonAlertText, v -> ConfigManager.cocoonAlertText = v);
-                textSetting("Cocoon Sound ID", ConfigManager.cocoonAlertSound, v -> ConfigManager.cocoonAlertSound = v);
-                option("Cocoon Timer", () -> ConfigManager.cocoonTimer, v -> ConfigManager.cocoonTimer = v);
-                addDetail(new PinkUi.Action(x, detailsY, detailWidth(), 23, "HUD Editor", false,
-                    () -> ClientUiAccess.setScreen(minecraft, new GameplayHudEditor(this))));
-            }
-            case SLAYER_MINIBOSS_ALERT -> {
-                option("Detect From Chat", () -> ConfigManager.minibossChatDetection, v -> ConfigManager.minibossChatDetection = v);
-                option("Send Message", () -> ConfigManager.minibossChatAlert, v -> ConfigManager.minibossChatAlert = v);
-                option("Keep Original Chat Message", () -> ConfigManager.minibossVanillaMessage, v -> ConfigManager.minibossVanillaMessage = v);
-                option("Show Title", () -> ConfigManager.minibossTitle, v -> ConfigManager.minibossTitle = v);
-                slider("Maximum Distance", ConfigManager.minibossDistance, 1, 15, 1, v -> ConfigManager.minibossDistance = (int) v);
-                textSetting("Alert Text", ConfigManager.minibossAlertText, v -> ConfigManager.minibossAlertText = v);
-                textSetting("Special Text", ConfigManager.minibossSpecialText, v -> ConfigManager.minibossSpecialText = v);
-            }
-            case BEACON_ESP -> {
-                option("Show Outline", () -> ConfigManager.beaconOutline, v -> ConfigManager.beaconOutline = v);
-                option("Show Fill", () -> ConfigManager.beaconFill, v -> ConfigManager.beaconFill = v);
-                option("Depth Check", () -> ConfigManager.beaconDepth, v -> ConfigManager.beaconDepth = v);
-                option("Show Tracer", () -> ConfigManager.beaconTracer, v -> ConfigManager.beaconTracer = v);
-                color("Outline Color", ConfigManager.beaconColor, v -> ConfigManager.beaconColor = v);
-                color("Fill Color", ConfigManager.beaconFillColor, v -> ConfigManager.beaconFillColor = v);
-                color("Tracer Color", ConfigManager.beaconTracerColor, v -> ConfigManager.beaconTracerColor = v);
-                slider("Line Width", ConfigManager.beaconLineWidth, 1, 10, 1, v -> ConfigManager.beaconLineWidth = (int) v);
-                slider("Tracer Width", ConfigManager.beaconTracerWidth, 1, 10, 1, v -> ConfigManager.beaconTracerWidth = (int) v);
-            }
             case TRAJECTORIES -> trajectorySettings();
             case AUTO_GFS -> {
                 option("Ender Pearls", () -> ConfigManager.refillPearls, v -> ConfigManager.refillPearls = v);
@@ -409,21 +380,6 @@ final class CheatingScreen extends ThemedScreen {
                 option("Swing Hand", () -> ConfigManager.doorSwing, v -> ConfigManager.doorSwing = v);
                 option("Run in Menus", () -> ConfigManager.doorInMenus, v -> ConfigManager.doorInMenus = v);
                 slider("Retry Delay (ms)", ConfigManager.doorRetryMs, 100, 2000, 50, v -> ConfigManager.doorRetryMs = (int) v);
-            }
-            case SLAYER_SPLITS -> {
-                option("Spawn Time", () -> ConfigManager.slayerSpawnTime, v -> ConfigManager.slayerSpawnTime = v);
-                option("Kill Time", () -> ConfigManager.slayerKillTime, v -> ConfigManager.slayerKillTime = v);
-            }
-            case SLAYER_BOSS_HIGHLIGHT -> {
-                option("Outline", () -> ConfigManager.slayerBossOutline, v -> ConfigManager.slayerBossOutline = v);
-                option("Fill", () -> ConfigManager.slayerBossFill, v -> ConfigManager.slayerBossFill = v);
-                option("Tracer", () -> ConfigManager.slayerBossTracer, v -> ConfigManager.slayerBossTracer = v);
-                color("Highlight Color", ConfigManager.slayerBossColor, v -> ConfigManager.slayerBossColor = v);
-                slider("Line Width", ConfigManager.slayerBossWidth, 1, 10, 1, v -> ConfigManager.slayerBossWidth = (int) v);
-            }
-            case DAGGER_SWAP -> {
-                slider("Delay (ticks)", ConfigManager.daggerSwapDelay, 0, 10, 1, value -> ConfigManager.daggerSwapDelay = (int) value);
-                slider("Delay Variance (ticks)", ConfigManager.daggerSwapVariance, 0, 10, 1, value -> ConfigManager.daggerSwapVariance = (int) value);
             }
             case CORPSE_ESP -> {
                 option("Show Outline", () -> ConfigManager.corpseOutline, v -> ConfigManager.corpseOutline = v);
@@ -453,8 +409,6 @@ final class CheatingScreen extends ThemedScreen {
             case SAFARI_ESP -> safariSettings();
             case RENDER_OPTIMISER -> renderOptimiserSettings();
             case WORLD_SCANNER -> scannerSettings();
-            case FRESH_TOOLS -> addDetail(new PinkUi.Action(x, y, w, 23,
-                "HUD Editor", false, () -> ClientUiAccess.setScreen(minecraft, new GameplayHudEditor(this))));
             case AUTO_HARP -> slider("Harp Click Delay", ConfigManager.harpClickDelay, 0, 5, 1, v -> ConfigManager.harpClickDelay = (int) v);
             case HIDE_PLAYERS -> {
                 option("Hide All Players", () -> ConfigManager.hideAllPlayers, v -> ConfigManager.hideAllPlayers = v);
@@ -469,6 +423,108 @@ final class CheatingScreen extends ThemedScreen {
             default -> {}
         }
         detailsHeight = detailsY - detailsTop + 7;
+    }
+
+    private void addDungeonControls(java.util.List<DungeonMenu.Control> controls) {
+        for (var control : controls) {
+            if (!control.visible().getAsBoolean()) continue;
+            String label = control.name();
+            int start = details.size();
+            switch (control.input()) {
+                case DungeonMenu.Toggle toggle -> option(label, toggle.value(), ignored -> {
+                    toggle.toggle().run();
+                    dungeonDirty = true;
+                    rebuildWidgets();
+                });
+                case DungeonMenu.Number number -> slider(label, number.value().getAsDouble(), number.min(), number.max(), number.step(), value -> {
+                    number.set().accept(value);
+                    dungeonDirty = true;
+                });
+                case DungeonMenu.Choice choice -> {
+                    if (!choice.options().isEmpty()) cycle(label, choice.options(), choice.index(), value -> {
+                        choice.set().accept(value);
+                        dungeonDirty = true;
+                    });
+                }
+                case DungeonMenu.Text text -> {
+                    detailLabels.add(new DetailLabel(UiText.tr(label), detailsY));
+                    detailsY += 13;
+                    var field = new PinkUi.Field(font, layout.contentX() + 7, detailsY, detailWidth(), label, 20);
+                    field.setMaxLength(text.length() > 0 ? text.length() : Integer.MAX_VALUE);
+                    field.setHint(UiText.component(text.placeholder()));
+                    field.setValue(text.value().get());
+                    field.setResponder(value -> {
+                        text.set().accept(value);
+                        dungeonDirty = true;
+                    });
+                    addDetail(field);
+                }
+                case DungeonMenu.Color tint -> {
+                    color(label, tint.argb().getAsInt() & 0xffffff, value -> {
+                        tint.set().accept((tint.argb().getAsInt() & 0xff000000) | value);
+                        dungeonDirty = true;
+                    });
+                    if (tint.alpha()) slider(label + " Opacity", tint.argb().getAsInt() >>> 24, 0, 255, 1, value -> {
+                        tint.set().accept(((int) value << 24) | (tint.argb().getAsInt() & 0xffffff));
+                        dungeonDirty = true;
+                    });
+                    option(label + " Rainbow", tint.rainbow(), ignored -> {
+                        tint.toggleRainbow().run();
+                        dungeonDirty = true;
+                        rebuildWidgets();
+                    });
+                }
+                case DungeonMenu.Key key -> dungeonKeyControl(label, key);
+                case DungeonMenu.Button button -> dungeonAction(label, () -> {
+                    dungeonDirty = true;
+                    button.action().run();
+                });
+                case DungeonMenu.Group ignored -> {
+                    if (control.children().isEmpty() && !label.isBlank()) {
+                        detailLabels.add(new DetailLabel(UiText.tr(label), detailsY));
+                        detailsY += 15;
+                    }
+                }
+            }
+            for (int i = start; i < details.size(); i++) tooltip(details.get(i).widget(), control.description());
+            if (control.children().stream().anyMatch(child -> child.visible().getAsBoolean())) {
+                boolean expanded = openGroups.contains(control);
+                String header = (expanded ? "− " : "+ ") + UiText.tr(label)
+                    + (control.input() instanceof DungeonMenu.Group ? "" : " · " + UiText.tr("Settings"));
+                dungeonAction(header, () -> {
+                    if (!openGroups.add(control)) openGroups.remove(control);
+                    rebuildWidgets();
+                });
+                if (expanded) addDungeonControls(control.children());
+            }
+        }
+    }
+
+    private void dungeonAction(String label, Runnable action) {
+        addDetail(new PinkUi.Action(layout.contentX() + 7, detailsY, detailWidth(), 22, label, false, action).leftAligned());
+    }
+
+    private void dungeonKeyControl(String label, DungeonMenu.Key key) {
+        int x = layout.contentX() + 7, y = detailsY, w = detailWidth();
+        int clearWidth = Math.min(68, w / 3);
+        var button = new PinkUi.Action[1];
+        button[0] = new PinkUi.Action(x, y, w - clearWidth - 6, 20,
+            UiText.tr(label) + ": " + key.name().get(), false, () -> {
+                dungeonKey = key;
+                recording = true;
+                button[0].setMessage(UiText.component("Press a key or mouse button…"));
+            }).rawLabel().leftAligned();
+        addDetail(button[0]);
+        addDetail(new PinkUi.Action(x + w - clearWidth, y, clearWidth, 20, "Clear", false, () -> {
+            key.clear().run();
+            dungeonDirty = true;
+            rebuildWidgets();
+        }));
+    }
+
+    private static void tooltip(net.minecraft.client.gui.components.AbstractWidget widget, String description) {
+        if (!description.isBlank())
+            widget.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.component(description)));
     }
 
     private void dojoSettings() {
@@ -523,13 +579,18 @@ final class CheatingScreen extends ThemedScreen {
         textSetting("Alert Message", ConfigManager.trevorAlertMessage, v -> ConfigManager.trevorAlertMessage = v);
         textSetting("Alert Sound ID", ConfigManager.trevorAlertSound, v -> ConfigManager.trevorAlertSound = v);
         option("Cooldown Timer", () -> ConfigManager.trevorCooldownTimer, v -> ConfigManager.trevorCooldownTimer = v);
-        addDetail(new PinkUi.Action(layout.contentX() + 7, detailsY, detailWidth(), 23, "HUD Editor", false,
-            () -> ClientUiAccess.setScreen(minecraft, new GameplayHudEditor(this))));
+        addDetail(disabledHudButton(layout.contentX() + 7, detailsY, detailWidth(), 23));
         for (var rarity : TrevorHelper.Rarity.values()) color(rarity.label, rarity.color(), value -> {
             var colors = new java.util.HashMap<>(ConfigManager.trevorColors);
             colors.put(rarity.name(), value);
             ConfigManager.trevorColors = java.util.Map.copyOf(colors);
         });
+    }
+
+    private static PinkUi.Action disabledHudButton(int x, int y, int width, int height) {
+        var button = new PinkUi.Action(x, y, width, height, "HUD Editor", false, () -> {});
+        button.active = false;
+        return button;
     }
 
     private void secretAuraSettings() {
@@ -595,7 +656,7 @@ final class CheatingScreen extends ThemedScreen {
     }
 
     private String keyLabel() {
-        var key = GameplayKeybinds.key(editing);
+        var key = GameplayKeybinds.key(editing.local());
         return UiText.tr("Keybind") + ": " + (key.equals(InputConstants.UNKNOWN)
             ? UiText.tr("Unassigned") : key.getDisplayName().getString());
     }
@@ -810,7 +871,7 @@ final class CheatingScreen extends ThemedScreen {
     }
 
     private void deviceSettings() {
-        switch (editing) {
+        switch (editing.local()) {
             case CRYSTAL_PICKUP -> {
                 option("Look at Target", () -> ConfigManager.crystalLookOnly, v -> ConfigManager.crystalLookOnly = v);
                 option("Run in Menus", () -> ConfigManager.crystalInMenus, v -> ConfigManager.crystalInMenus = v);
@@ -928,6 +989,15 @@ final class CheatingScreen extends ThemedScreen {
     }
     private void finishRecording(InputConstants.Key key) {
         recording = false;
+        if (dungeonKey != null) {
+            if (key != null) {
+                int code = key.getType() == InputConstants.Type.MOUSE ? key.getValue() - 100 : key.getValue();
+                dungeonDirty |= dungeonKey.bind().test(code);
+            }
+            dungeonKey = null;
+            rebuildWidgets();
+            return;
+        }
         if (recordedMapping != null) {
             if (key != null) {
                 recordedMapping.setKey(key);
@@ -938,7 +1008,7 @@ final class CheatingScreen extends ThemedScreen {
             rebuildWidgets();
             return;
         }
-        var conflict = key == null ? null : GameplayKeybinds.bind(editing, key);
+        var conflict = key == null ? null : GameplayKeybinds.bind(editing.local(), key);
         keyButton.setMessage(Component.literal(conflict == null ? keyLabel()
             : UiText.tr("Already assigned to: ") + UiText.tr(conflict.label)));
     }
@@ -1014,10 +1084,11 @@ final class CheatingScreen extends ThemedScreen {
         graphics.fill(layout.x() + layout.sidebarWidth(), layout.y() + 1, layout.x() + layout.sidebarWidth() + 1,
             layout.y() + layout.height() - 1, BORDER);
         UiFonts.drawTitle(graphics, UiText.tr("Cheating"), layout.x() + 12, layout.y() + 19, TEXT, layout.sidebarWidth() - 20);
-        UiFonts.drawTitle(graphics, UiText.tr(category.label), layout.contentX(), layout.y() + 19, TEXT, layout.contentWidth() - 24);
+        UiFonts.drawTitle(graphics, UiText.tr(enabledOnly ? "Enabled Modules" : category.label), layout.contentX(), layout.y() + 19, TEXT, layout.contentWidth() - 24);
         graphics.nextStratum();
         super.extractRenderState(graphics, x, y, delta);
-        if (cards.isEmpty()) uiText(graphics, font, "No modules found", layout.contentX() + 5, cardsTop + 8, DIM, layout.contentWidth());
+        if (cards.isEmpty()) uiText(graphics, font, enabledOnly && query.isBlank() ? "No modules enabled" : "No modules found",
+            layout.contentX() + 5, cardsTop + 8, DIM, layout.contentWidth());
         if (cardsBottom <= cardsTop) return;
         int left = layout.contentX(), right = left + layout.contentWidth();
         graphics.enableScissor(left, cardsTop, right, cardsBottom);
@@ -1048,5 +1119,11 @@ final class CheatingScreen extends ThemedScreen {
     }
 
     @Override public boolean isPauseScreen() { return false; }
+    @Override public void removed() {
+        SESSION.interact(enabledOnly ? ENABLED_PAGE : category.name(), scroll, System.currentTimeMillis());
+        if (dungeonDirty && dungeonMenu != null) dungeonMenu.save();
+        dungeonDirty = false;
+        super.removed();
+    }
     @Override public void onClose() { ClientUiAccess.setScreen(minecraft, parent); }
 }

@@ -109,7 +109,8 @@ object ServerInfo : EventListener {
                 rebalanceHeaps()
             }
 
-            if (t - lastBeat > 2_000L) connection.send(ServerboundPingRequestPacket(System.nanoTime()))
+            // The vanilla ping chart subtracts the echoed timestamp from Util.getMillis().
+            if (t - lastBeat > 2_000L) connection.send(ServerboundPingRequestPacket(Util.getMillis()))
         }
     }
 

@@ -7,10 +7,11 @@
  */
 package com.customcosmetics.sync;
 
-import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.customcosmetics.client.ClientEdition;
 import com.customcosmetics.config.ConfigManager;
 import com.customcosmetics.utils.MessageUtils;
+import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
@@ -22,13 +23,15 @@ public final class SyncCommands {
     }
 
     public static void register(CommandDispatcher<FabricClientCommandSource> dispatcher) {
+        register(dispatcher, ClientEdition.installed());
+    }
+
+    static void register(CommandDispatcher<FabricClientCommandSource> dispatcher, ClientEdition edition) {
         LiteralArgumentBuilder<FabricClientCommandSource> root = ClientCommands.literal("customskyblock")
             .executes(context -> {
                 com.customcosmetics.client.CustomCosmeticsClient.requestGui(com.customcosmetics.gui.CosmeticsScreen.Page.MAIN);
                 return 1;
             });
-
-
 
         root.then(
             ClientCommands.literal("notification")
@@ -57,7 +60,6 @@ public final class SyncCommands {
             .then(ClientCommands.literal("off").executes(context->SyncDebug.setEnabled(false)))
             .then(ClientCommands.literal("status").executes(context->SyncDebug.status())));
         root.then(PlayerBlockCommands.command());
-        root.then(com.customcosmetics.features.gameplay.AutoClicker.command());
         root.then(ClientCommands.literal("armortrace").executes(context->com.customcosmetics.features.items.ArmorTrace.start()));
         root.then(com.customcosmetics.features.map.MapCommands.command());
         root.then(ClientCommands.literal("freecam").executes(context -> com.customcosmetics.features.map.MapCommands.run(com.customcosmetics.features.map.Freecam::toggleGeneral)));
@@ -77,11 +79,7 @@ public final class SyncCommands {
         waypoint.then(ordered);
         root.then(waypoint);
         root.then(ClientCommands.literal("shortcuts").executes(context -> com.customcosmetics.features.shortcuts.Shortcuts.openNextTick()));
-        root.then(ClientCommands.literal("leap").then(ClientCommands.argument("target", com.mojang.brigadier.arguments.StringArgumentType.word())
-            .suggests((context, builder) -> net.minecraft.commands.SharedSuggestionProvider.suggest(
-                java.util.stream.Stream.of("Healer", "Mage", "Berserk", "Archer", "Tank"), builder))
-            .executes(context -> com.customcosmetics.features.gameplay.GameplayFeatures.requestLeap(net.minecraft.client.Minecraft.getInstance(),
-                com.mojang.brigadier.arguments.StringArgumentType.getString(context, "target")) ? 1 : 0)));
+        if (edition == ClientEdition.CHEATING) registerCheating(root);
         if (!net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("contts-hitcolorx")) {
             root.then(com.customcosmetics.features.hitcolor.HitColorCommands.command("hitcolor"));
             dispatcher.register(com.customcosmetics.features.hitcolor.HitColorCommands.command("hitcolorx"));
@@ -91,9 +89,20 @@ public final class SyncCommands {
             dispatcher.register(com.customcosmetics.features.pack.PackDisablerCommands.command("packdisabler"));
         }
         var registered = dispatcher.register(root);
-        for (String alias : new String[]{"csb", "ccos", "customcosmetics"}) {
-            dispatcher.register(ClientCommands.literal(alias).executes(registered.getCommand()).redirect(registered));
-        }
+        dispatcher.register(ClientCommands.literal("csb").executes(registered.getCommand()).redirect(registered));
+    }
+
+    private static void registerCheating(LiteralArgumentBuilder<FabricClientCommandSource> root) {
+        root.then(ClientCommands.literal("cheating").executes(context -> {
+            com.customcosmetics.gui.CheatingScreen.requestOpen();
+            return 1;
+        }));
+        root.then(com.customcosmetics.features.gameplay.AutoClicker.command());
+        root.then(ClientCommands.literal("leap").then(ClientCommands.argument("target", com.mojang.brigadier.arguments.StringArgumentType.word())
+            .suggests((context, builder) -> net.minecraft.commands.SharedSuggestionProvider.suggest(
+                java.util.stream.Stream.of("Healer", "Mage", "Berserk", "Archer", "Tank"), builder))
+            .executes(context -> com.customcosmetics.features.gameplay.GameplayFeatures.requestLeap(net.minecraft.client.Minecraft.getInstance(),
+                com.mojang.brigadier.arguments.StringArgumentType.getString(context, "target")) ? 1 : 0)));
     }
 
     private static int showNotificationState() {

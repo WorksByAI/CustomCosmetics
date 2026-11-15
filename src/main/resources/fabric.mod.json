@@ -3,7 +3,7 @@
   "id": "customcosmetics",
   "version": "${version}",
   "name": "CustomSkyBlock",
-  "icon": "assets/customcosmetics/icon.png",
+  "icon": "assets/customcosmetics/textures/gui/mod-logo.png",
   "description": "A QOL mod for Hypixel SkyBlock.",
   "license": "AGPL-3.0-or-later",
   "authors": ["CustomSkyBlock contributors"],
@@ -14,10 +14,12 @@
   },
   "mixins": [
     "customcosmetics.mixins.json",
+    "customcosmetics-cheating.mixins.json",
     "csb-bobby-261.mixins.json", "csb-bobby-262.mixins.json", "csb-bobby-263.mixins.json",
     "csb-motionblur-261.mixins.json", "csb-motionblur-262.mixins.json", "csb-motionblur-263.mixins.json"
   ],
   "environment": "client",
+  "custom": {"customcosmetics:edition": "cheating"},
   "jars": [
     {"file": "META-INF/dungeon/dungeon-common.jar"},
     {"file": "META-INF/dungeon/dungeon-26.1.2.jar"},

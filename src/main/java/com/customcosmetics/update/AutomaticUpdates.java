@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package com.customcosmetics.update;
 import com.google.gson.*;
+import com.customcosmetics.client.ClientEdition;
 import com.customcosmetics.config.CosmeticsConfigDir;
 import com.customcosmetics.sync.RemoteAccess;
 import net.fabricmc.loader.api.*;
@@ -20,20 +21,28 @@ public final class AutomaticUpdates {
     public static void cancelArmed(){var helper=armed;armed=null;if(helper!=null&&helper.isAlive())helper.destroy();}
     private static final long LIMIT=64L*1024*1024;
     private AutomaticUpdates(){}
-    public static Asset asset(String json,String installed,String minecraft)throws IOException{
-        try{
-            String version=GitHubUpdateCheck.newerRelease(json,installed).orElseThrow();var release=JsonParser.parseString(json).getAsJsonObject();
-            var assets=new ArrayList<Asset>();
-            for(var raw:release.getAsJsonArray("assets")){
-                var a=raw.getAsJsonObject();String name=a.get("name").getAsString(),lower=name.toLowerCase(Locale.ROOT),digest=a.has("digest")&&!a.get("digest").isJsonNull()?a.get("digest").getAsString():"";
-                long size=a.get("size").getAsLong();URI url=URI.create(a.get("browser_download_url").getAsString());
-                if(!(lower.startsWith("customskyblock-") || lower.startsWith("customcosmetics-"))||!lower.endsWith(".jar")||lower.contains("sources")||lower.contains("javadoc")||size<=0||size>LIMIT||!digest.matches("sha256:[0-9a-f]{64}"))continue;
-                if(lower.contains("-nofont"))continue;
-                if(!"https".equals(url.getScheme())||!"github.com".equalsIgnoreCase(url.getHost())||url.getUserInfo()!=null||!url.getPath().startsWith("/WorksByAI/CustomCosmetics/releases/download/"))continue;
-                assets.add(new Asset(version,name,url,size,digest.substring(7)));
+    public static Asset asset(String json, String installed, ClientEdition edition) throws IOException {
+        try {
+            String version = GitHubUpdateCheck.newerRelease(json, installed).orElseThrow();
+            var release = JsonParser.parseString(json).getAsJsonObject();
+            var assets = release.getAsJsonArray("assets");
+            String name = edition.assetName(version);
+            String path = "/WorksByAI/CustomCosmetics/releases/download/" + release.get("tag_name").getAsString() + "/" + name;
+            if (assets != null) for (var raw : assets) {
+                var candidate = raw.getAsJsonObject();
+                if (!name.equals(candidate.get("name").getAsString())) continue;
+                var hash = candidate.get("digest");
+                String digest = hash == null || hash.isJsonNull() ? "" : hash.getAsString();
+                long size = candidate.get("size").getAsLong();
+                var url = URI.create(candidate.get("browser_download_url").getAsString());
+                if (size <= 0 || size > LIMIT || !digest.matches("sha256:[0-9a-f]{64}")) continue;
+                if (!trustedDownload(url) || !"github.com".equals(url.getHost()) || !path.equals(url.getPath())) continue;
+                return new Asset(version, name, url, size, digest.substring(7));
             }
-            assets.sort(Comparator.comparingInt(a->a.name().contains(minecraft)?0:1));if(assets.isEmpty())throw new IOException("No verifiable release asset");return assets.getFirst();
-        }catch(RuntimeException malformed){throw new IOException("No compatible stable release",malformed);}
+        } catch (RuntimeException malformed) {
+            throw new IOException("No compatible stable release", malformed);
+        }
+        throw new IOException("No verifiable release asset for " + edition.id());
     }
     private static HttpURLConnection connect(URI uri)throws IOException{
         if(!RemoteAccess.online())throw new IOException("Offline");
@@ -47,8 +56,9 @@ public final class AutomaticUpdates {
             Path current=paths.getFirst().toRealPath();if(!Files.isWritable(current)||!Files.isWritable(current.getParent()))throw new IOException("Installation is read-only");String oldHash=UpdateInstaller.digest(current),json;
             var connection=connect(GitHubUpdateCheck.API);connection.setRequestProperty("Accept","application/vnd.github+json");
             try{if(connection.getResponseCode()!=200)throw new IOException("Release unavailable");try(var in=connection.getInputStream()){byte[] bytes=in.readNBytes(262145);if(bytes.length>262144)throw new IOException("Release metadata too large");json=new String(bytes,StandardCharsets.UTF_8);}}finally{connection.disconnect();}
-            var asset=asset(json,installed,loader.getModContainer("minecraft").orElseThrow().getMetadata().getVersion().getFriendlyString());
-            Path directory=CosmeticsConfigDir.getCosmeticsConfigDir().resolve("updates").resolve(asset.version());Files.createDirectories(directory);Path jar=directory.resolve("verified-update.jar"),partial=directory.resolve("download.part");
+            var edition = ClientEdition.installed();
+            var asset=asset(json,installed,edition);
+            Path directory=CosmeticsConfigDir.getCosmeticsConfigDir().resolve("updates").resolve(asset.version()).resolve(edition.id());Files.createDirectories(directory);Path jar=directory.resolve("verified-update.jar"),partial=directory.resolve("download.part");
             URI uri=asset.url();boolean done=false;
             try{
                 for(int redirects=0;redirects<6;redirects++){
@@ -59,17 +69,21 @@ public final class AutomaticUpdates {
                     }finally{download.disconnect();}
                 }
                 if(!done||!UpdateInstaller.digest(partial).equals(asset.sha256()))throw new IOException("Download checksum mismatch");
-                validate(partial,asset.version(),id->loader.getModContainer(id).map(m->m.getMetadata().getVersion().getFriendlyString()).orElse(null));
+                validate(partial,asset.version(),edition,id->loader.getModContainer(id).map(m->m.getMetadata().getVersion().getFriendlyString()).orElse(null));
                 Files.move(partial,jar,StandardCopyOption.REPLACE_EXISTING);return new Prepared(jar,current,directory,oldHash,asset.sha256());
             }finally{Files.deleteIfExists(partial);}
         }catch(Exception failure){throw new CompletionException(new IOException("Automatic update could not be prepared. The installed mod is unchanged."));}
     });}
-    public static boolean trustedDownload(URI uri){return "https".equals(uri.getScheme())&&(uri.getPort()==-1||uri.getPort()==443)&&uri.getUserInfo()==null&&Set.of("github.com","release-assets.githubusercontent.com","objects.githubusercontent.com").contains(uri.getHost());}
-    public static void validate(Path jar,String expected,java.util.function.Function<String,String> installed)throws IOException{
+    public static boolean trustedDownload(URI uri){return "https".equals(uri.getScheme())&&(uri.getPort()==-1||uri.getPort()==443)&&uri.getUserInfo()==null&&uri.getHost()!=null&&Set.of("github.com","release-assets.githubusercontent.com","objects.githubusercontent.com").contains(uri.getHost());}
+    public static void validate(Path jar,String expected,ClientEdition edition,java.util.function.Function<String,String> installed)throws IOException{
         try(var zip=new ZipFile(jar.toFile())){
             var entry=zip.getEntry("fabric.mod.json");if(entry==null)throw new IOException("Not a Fabric mod");byte[] bytes;try(var in=zip.getInputStream(entry)){bytes=in.readNBytes(65537);}if(bytes.length>65536)throw new IOException("Invalid metadata");
             var metadata=JsonParser.parseString(new String(bytes,StandardCharsets.UTF_8)).getAsJsonObject();
             if(!"customcosmetics".equals(metadata.get("id").getAsString())||SemanticVersion.parse(metadata.get("version").getAsString()).compareTo(SemanticVersion.parse(expected))!=0)throw new IOException("Wrong mod or version");
+            var custom = metadata.getAsJsonObject("custom");
+            var declared = custom == null ? null : custom.get(ClientEdition.METADATA_KEY);
+            if (declared == null || !declared.isJsonPrimitive() || !declared.getAsJsonPrimitive().isString()
+                || !edition.id().equals(declared.getAsString())) throw new IOException("Wrong client edition");
             for(var dependency:metadata.getAsJsonObject("depends").entrySet()){
                 String current=installed.apply(dependency.getKey());if(current==null)throw new IOException("Missing dependency");
                 var rules=new ArrayList<String>();if(dependency.getValue().isJsonArray())for(var r:dependency.getValue().getAsJsonArray())rules.add(r.getAsString());else rules.add(dependency.getValue().getAsString());

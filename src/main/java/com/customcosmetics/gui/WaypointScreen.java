@@ -10,7 +10,7 @@ import net.minecraft.network.chat.Component;
 import static com.customcosmetics.features.waypoint.WaypointData.*;
 import static com.customcosmetics.gui.PinkUi.*;
 
-/** Standalone manager reached through /customcosmetics waypoint or /ccos waypoint. */
+/** Standalone manager reached through /csb waypoint or /csb waypoint. */
 public final class WaypointScreen extends ThemedScreen {
     private final Screen parent;
     private String selected = "", message = "", here = "", island = "";
@@ -164,7 +164,7 @@ public final class WaypointScreen extends ThemedScreen {
         String feedback = !Waypoints.status().isEmpty() ? Waypoints.status() : message;
         uiText(g, font, feedback,
                 x + 12, y + h - 41, feedback.isEmpty() ? MUTED : PINK, w - 24);
-        uiText(g, font, "Ordered routes: /ccos waypoint ordered next | previous | reset", x + 12, y + h - 25, DIM, w - 24);
+        uiText(g, font, "Ordered routes: /csb waypoint ordered next | previous | reset", x + 12, y + h - 25, DIM, w - 24);
         super.extractRenderState(g, mx, my, dt);
     }
     @Override public boolean isPauseScreen() { return false; }

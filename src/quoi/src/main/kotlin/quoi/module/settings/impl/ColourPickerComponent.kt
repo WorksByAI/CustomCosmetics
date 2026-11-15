@@ -23,7 +23,7 @@ import com.google.gson.JsonPrimitive
 class ColourPickerComponent(
     name: String,
     colour: Colour,
-    private var allowAlpha: Boolean = false,
+    val allowAlpha: Boolean = false,
     desc: String = ""
 ) : UIComponent<Colour.HSB>(name, desc), Saving {
 
@@ -58,6 +58,8 @@ class ColourPickerComponent(
                 value = storedValue.copy()
             }
         }
+
+    fun toggleRainbow() { rainbow = !rainbow }
 
     override fun reset() {
         storedValue = default.copy()

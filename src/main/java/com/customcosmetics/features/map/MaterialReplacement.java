@@ -25,7 +25,7 @@ public final class MaterialReplacement {
         if(!MapEditor.allowed(client))throw new IllegalStateException("Join an allowed world before replacing materials");
         var source=MapEditor.state(from);var target=MapEditor.state(to);if(source==null||source.isAir())throw new IllegalArgumentException("Choose a valid non-air source block");if(target==null)throw new IllegalArgumentException("Choose a valid replacement material");
         String id=BuiltInRegistries.BLOCK.getKey(source.getBlock()).toString();String material=to.contains(":")?to:"minecraft:"+to;
-        var bounds=scope==Scope.SELECTION?MapEditor.selection():null;if(scope==Scope.SELECTION&&bounds==null)throw new IllegalStateException("Set both corners with /customcosmetics map pos1 and pos2 first");
+        var bounds=scope==Scope.SELECTION?MapEditor.selection():null;if(scope==Scope.SELECTION&&bounds==null)throw new IllegalStateException("Set both corners with /csb map pos1 and pos2 first");
         DungeonRooms.context(client);if(scope==Scope.ROOM)DungeonRooms.scan();var room=scope==Scope.ROOM?MapEditor.currentRoom():null;if(scope==Scope.ROOM&&room==null)throw new IllegalStateException("No recognized room here. Use a pos1 / pos2 selection instead.");
         if(id.equals(material)&&MapEditor.DATA.snapshot().isEmpty()){status="Source and replacement are identical. No changes were applied.";return;}
         job=new Job(client,source.getBlock(),id,material,room,bounds);status="Scanning loaded blocks...";

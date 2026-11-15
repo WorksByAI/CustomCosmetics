@@ -18,6 +18,7 @@ val archivesBaseName = providers.gradleProperty("archives_base_name").get()
 val usesSharedSources = sc.current.isActive
 
 sourceSets.named("main") {
+    java.srcDir(rootProject.file("../../src/main/java/com/customcosmetics/features/gameplay/dungeonapi"))
     val unrelatedMixins = listOf(
         "ChatComponentMixin", "ChatScreenMixin", "GuiGraphicsMixin", "HudMixin",
         "PreparedTextBuilderMixin"
@@ -100,6 +101,7 @@ loom {
 }
 
 tasks {
+    named<Jar>("jar") { exclude("com/customcosmetics/features/gameplay/dungeonapi/**") }
     test {
         useJUnitPlatform()
     }

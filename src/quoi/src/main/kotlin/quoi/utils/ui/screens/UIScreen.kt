@@ -76,10 +76,7 @@ class UIScreen(val instance: AbobaUI.Instance, val background: Boolean = true, p
     }
 
     override fun onClose() {
-        val previous = if (parent is UIScreen && title.string == "Dungeon HUD Editor")
-            UIScreen(quoi.module.impl.render.clickgui.ClickGui.clickGui, parent = parent.parent)
-        else parent
-        quoi.compat.GameAccess.setScreen(previous)
+        quoi.compat.GameAccess.setScreen(parent)
     }
 
     override fun isPauseScreen() = false
