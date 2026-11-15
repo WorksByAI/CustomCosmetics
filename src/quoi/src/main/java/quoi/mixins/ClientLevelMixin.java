@@ -1,0 +1,80 @@
+package quoi.mixins;
+
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.particles.ParticleOptions;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.world.entity.Entity;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import quoi.api.events.EntityEvent;
+import quoi.api.skyblock.dungeon.Floor7;
+import quoi.api.skyblock.dungeon.enums.Phase;
+import quoi.api.skyblock.location.Island;
+import quoi.api.skyblock.location.Location;
+import quoi.module.impl.render.RenderOptimiser;
+
+@Mixin(ClientLevel.class)
+public class ClientLevelMixin {
+
+    @Inject(
+            method = "addEntity",
+            at = @At("TAIL")
+    )
+    private void quoi$onAddEntity(Entity entity, CallbackInfo ci) {
+        new EntityEvent.Spawn(entity).post();
+    }
+
+    @Inject(
+            method = "addParticle(Lnet/minecraft/core/particles/ParticleOptions;DDDDDD)V",
+            at = @At("HEAD"),
+            cancellable = true
+    )
+    private void quoi$hideParticle(ParticleOptions particle, double x, double y, double z, double vx, double vy, double vz, CallbackInfo ci) {
+        if (RenderOptimiser.should(RenderOptimiser.getHideParticles()) &&
+                !Location.INSTANCE.getCurrentArea().isArea(Island.Garden) &&
+                Floor7.INSTANCE.getPhaseAt() != Phase.P5 ||
+                RenderOptimiser.should(RenderOptimiser.getHidePotionBubbles()) &&
+                particle.getType() == ParticleTypes.ENTITY_EFFECT) ci.cancel();
+    }
+
+    @Inject(
+            method = "addParticle(Lnet/minecraft/core/particles/ParticleOptions;ZZDDDDDD)V",
+            at = @At("HEAD"),
+            cancellable = true
+    )
+    private void quoi$hideParticle(ParticleOptions particle, boolean overrideLimiter, boolean alwaysShow, double x, double y, double z, double vx, double vy, double vz, CallbackInfo ci) {
+        if (RenderOptimiser.should(RenderOptimiser.getHideParticles()) &&
+                !Location.INSTANCE.getCurrentArea().isArea(Island.Garden) &&
+                Floor7.INSTANCE.getPhaseAt() != Phase.P5  ||
+                RenderOptimiser.should(RenderOptimiser.getHidePotionBubbles()) &&
+                particle.getType() == ParticleTypes.ENTITY_EFFECT) ci.cancel();
+    }
+
+    @Inject(
+            method = "addAlwaysVisibleParticle(Lnet/minecraft/core/particles/ParticleOptions;DDDDDD)V",
+            at = @At("HEAD"),
+            cancellable = true
+    )
+    private void quoi$hideAlwaysVisibleParticle(ParticleOptions particle, double x, double y, double z, double vx, double vy, double vz, CallbackInfo ci) {
+        if (RenderOptimiser.should(RenderOptimiser.getHideParticles()) &&
+                !Location.INSTANCE.getCurrentArea().isArea(Island.Garden) &&
+                Floor7.INSTANCE.getPhaseAt() != Phase.P5  ||
+                RenderOptimiser.should(RenderOptimiser.getHidePotionBubbles()) &&
+                particle.getType() == ParticleTypes.ENTITY_EFFECT) ci.cancel();
+    }
+
+    @Inject(
+            method = "addAlwaysVisibleParticle(Lnet/minecraft/core/particles/ParticleOptions;ZDDDDDD)V",
+            at = @At("HEAD"),
+            cancellable = true
+    )
+    private void quoi$hideAlwaysVisibleParticle(ParticleOptions particle, boolean overrideLimiter, double x, double y, double z, double vx, double vy, double vz, CallbackInfo ci) {
+        if (RenderOptimiser.should(RenderOptimiser.getHideParticles()) &&
+                !Location.INSTANCE.getCurrentArea().isArea(Island.Garden) &&
+                Floor7.INSTANCE.getPhaseAt() != Phase.P5  ||
+                RenderOptimiser.should(RenderOptimiser.getHidePotionBubbles()) &&
+                particle.getType() == ParticleTypes.ENTITY_EFFECT) ci.cancel();
+    }
+}

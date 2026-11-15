@@ -15,3 +15,5 @@ rootProject.name = 'CustomSkyBlock'
 // Preserve these explicitly allowlisted source inputs; keep .git and all other exclusions.
 org.apache.tools.ant.DirectoryScanner.removeDefaultExclude('**/.gitignore')
 org.apache.tools.ant.DirectoryScanner.removeDefaultExclude('**/.gitattributes')
+
+includeBuild('src/quoi') { name = 'customskyblock-dungeon' }

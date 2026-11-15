@@ -13,3 +13,4 @@ replay_*.log
 *.hprof
 .DS_Store
 __pycache__/
+.kotlin/

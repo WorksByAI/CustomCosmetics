@@ -562,3 +562,5 @@ if (providers.gradleProperty('long_sign_text_game_only').getOrElse('false').toBo
         filesMatching('customcosmetics-test.mixins.json') { filter { line -> line.contains('"client":') ? '  "client": ["UpdateCheckOfflineMixin", "OfflineStartupMixin"],' : line } }
     }
 }
+
+apply from: 'gradle/dungeon.gradle'

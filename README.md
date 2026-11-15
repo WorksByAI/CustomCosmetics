@@ -4,7 +4,7 @@
 
 This is a private mod. Quality and stability are not guaranteed.
 
-v3.0.0。面向 Hypixel SkyBlock 的 Fabric 客户端模组，支持 26.1～26.3，部分外观可在玩家间同步。设置可切换中英文。QOL 中可为整个游戏或模组菜单选择系统字体和本地字体。
+v3.0.1。面向 Hypixel SkyBlock 的 Fabric 客户端模组，支持 26.1～26.3，部分外观可在玩家间同步。设置可切换中英文。QOL 中可为整个游戏或模组菜单选择系统字体和本地字体。
 
 新版不内置字体。从 v2.0.1 升级需手动替换一次 JAR。
 
@@ -26,12 +26,12 @@ v3.0.0。面向 Hypixel SkyBlock 的 Fabric 客户端模组，支持 26.1～26.3
 - **Offline Mode**：断开所有远程同步连接，不使用共享功能，也无法看见别人的装饰品。
 - 模块：Settings → Module Manager。
 
-用 `/csb`、`/customskyblock` 或 `/ccos` 打开设置。`/csb waypoint`、`/csb shortcuts` 打开工具。需要 Java 25、Fabric Loader 0.19.5+ 和匹配的 Fabric API。
+用 `/csb`、`/customskyblock` 或 `/ccos` 打开设置。`/csb waypoint`、`/csb shortcuts` 打开工具。需要 Java 25、Fabric Loader 0.19.5+、匹配的 Fabric API 和 Fabric Language Kotlin 1.14.2+。
 共享功能需安装 [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api)。
 
 ## English
 
-v3.0.0. Choose English or Simplified Chinese in Settings. QOL font controls support system and local fonts for the whole game or just mod menus.
+v3.0.1. Choose English or Simplified Chinese in Settings. QOL font controls support system and local fonts for the whole game or just mod menus.
 
 New builds omit bundled fonts. Replace the v2.0.1 JAR manually once.
 
@@ -55,7 +55,7 @@ Features ([√] visible to other mod users):
 - **Offline Mode**: Disconnect all remote synchronization connections. Sharing is disabled, and other players' cosmetics are not shown.
 - Modules: Settings → Module Manager.
 
-Use `/csb`, `/customskyblock` or `/ccos` for settings. Use `/csb waypoint` and `/csb shortcuts` for the tools. Requires Java 25, Fabric Loader 0.19.5+ and matching Fabric API.
+Use `/csb`, `/customskyblock` or `/ccos` for settings. Use `/csb waypoint` and `/csb shortcuts` for the tools. Requires Java 25, Fabric Loader 0.19.5+, matching Fabric API, and Fabric Language Kotlin 1.14.2+.
 Sharing modules requires [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api).
 
 采用 / Licensed under **AGPL-3.0-or-later**。部分代码移植自 / Portions ported from [Baity](https://github.com/raueyhs/Baity), originally authored by raueyhs. See [LICENSE](https://github.com/WorksByAI/CustomCosmetics/blob/main/LICENSE) and [NOTICE](https://github.com/WorksByAI/CustomCosmetics/blob/main/NOTICE).

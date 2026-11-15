@@ -16,6 +16,7 @@ public final class ItemModelVisibility {
     public interface Layer {
         List<Identifier> customcosmetics$textures();
         boolean customcosmetics$special();
+        boolean customcosmetics$playerHead();
         Identifier customcosmetics$particle();
     }
     private ItemModelVisibility() {}

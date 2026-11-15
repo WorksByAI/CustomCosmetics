@@ -1,0 +1,342 @@
+package quoi.config
+
+import quoi.api.customtriggers.triggers.Trigger
+import quoi.api.customtriggers.actions.TriggerAction
+import quoi.api.customtriggers.conditions.TriggerCondition
+import com.google.gson.*
+import com.google.gson.internal.Streams
+import com.google.gson.reflect.TypeToken
+import com.google.gson.stream.JsonReader
+import com.google.gson.stream.JsonWriter
+import net.minecraft.core.BlockPos
+import net.minecraft.world.phys.Vec3
+import quoi.QuoiMod.logger
+import quoi.api.autoroutes.RouteAwait
+import quoi.api.autoroutes.RouteRegistry
+import quoi.api.autoroutes.RouteNode
+import quoi.utils.ChatUtils
+import quoi.utils.ChatUtils.modMessage
+import java.io.File
+import java.lang.reflect.Type
+import kotlin.properties.ReadOnlyProperty
+import kotlin.reflect.KClass
+import kotlin.reflect.full.createInstance
+import kotlin.reflect.full.findAnnotation
+
+// https://github.com/Noamm9/CatgirlAddons/blob/main/src/main/kotlin/catgirlroutes/utils/ConfigSystem.kt
+val configPath = File("config/customcosmetics/dungeon")
+object ConfigSystem {
+    @PublishedApi
+    internal val failedLoads = mutableSetOf<File>()
+
+    val gson: Gson = GsonBuilder()
+        .registerTypeHierarchyAdapter(Vec3::class.java, Vec3Adapter())
+        .registerTypeHierarchyAdapter(BlockPos::class.java, BlockPosAdapter())
+        .registerTypeAdapterFactory(typeAdapter<TriggerAction>())
+        .registerTypeAdapterFactory(typeAdapter<TriggerCondition>())
+        .registerTypeAdapterFactory(typeAdapter<Trigger>())
+        .registerTypeAdapterFactory(routeNodeAdapter<RouteNode>(RouteRegistry._nodeTypes))
+        .registerTypeAdapterFactory(routeNodeAdapter<RouteAwait>(RouteRegistry.awaitTypes))
+        .setPrettyPrinting()
+        .create()
+
+    inline fun <reified T : Any> load(file: File, default: () -> T): T {
+        val key = file.absoluteFile.normalize()
+        if (!file.exists()) {
+            file.parentFile.mkdirs()
+            val initial = default()
+            failedLoads.remove(key)
+            save(file, initial)
+            return initial
+        }
+        return try {
+            val loaded = file.reader().use { gson.fromJson<T>(it, object : TypeToken<T>() {}.type) }
+                ?: throw JsonParseException("Config is empty or null.")
+            failedLoads.remove(key)
+            loaded
+        } catch (error: Exception) {
+            failedLoads.add(key)
+            logger.error("Could not load ${file.absolutePath}. Saving is blocked until the file is successfully reloaded.", error)
+            default()
+        }
+    }
+
+    fun save(file: File, data: Any) = runCatching {
+        check(file.absoluteFile.normalize() !in failedLoads) {
+            "Saving ${file.absolutePath} is blocked because loading failed. Fix the config and reload it first."
+        }
+        writeConfigAtomically(file) { gson.toJson(data, it) }
+    }.onFailure {
+        modMessage(
+            ChatUtils.button(
+                "&cError occurred while saving the config ${file.name} &7(click to copy)",
+                command = "/quoidev copy ${it.stackTraceToString()}",
+                hoverText = "Click to copy"
+            )
+        )
+        it.printStackTrace()
+    }
+}
+
+class ConfigList<E>(
+    private val list: MutableList<E>,
+    private val onMutation: () -> Unit,
+    private val onReload: () -> Unit
+) : AbstractMutableList<E>() {
+
+    fun save() = onMutation()
+    fun reload() = onReload()
+
+    override val size: Int get() = list.size
+    override fun get(index: Int): E = list[index]
+
+    private inline fun <R> modify(block: () -> R): R {
+        val result = block()
+        onMutation()
+        return result
+    }
+
+    override fun add(index: Int, element: E)    = modify { list.add(index, element) }
+    override fun removeAt(index: Int): E        = modify { list.removeAt(index) }
+    override fun set(index: Int, element: E): E = modify { list.set(index, element) }
+
+    override fun addAll(index: Int, elements: Collection<E>) = modify { list.addAll(index, elements) }
+    override fun addAll(elements: Collection<E>)             = modify { list.addAll(elements) }
+    override fun removeAll(elements: Collection<E>)          = modify { list.removeAll(elements) }
+    override fun retainAll(elements: Collection<E>)          = modify { list.retainAll(elements) }
+    override fun clear()                                     = modify { list.clear() }
+}
+
+inline fun <reified T : Any> configList(name: String): ReadOnlyProperty<Any?, ConfigList<T>> {
+    val file = File(configPath, name)
+    val loaded = ConfigSystem.load<MutableList<T>>(file) { mutableListOf() }
+
+    val wrapper = ConfigList(loaded, {
+        ConfigSystem.save(file, loaded)
+    }, {
+        val new = ConfigSystem.load<MutableList<T>>(file) { loaded.toMutableList() }
+        loaded.clear()
+        loaded.addAll(new)
+    })
+
+    return ReadOnlyProperty { _, _ -> wrapper }
+}
+
+class ConfigMap<K, V>(
+    private val map: MutableMap<K, V>,
+    private val onMutation: () -> Unit,
+    private val onReload: () -> Unit
+) : AbstractMutableMap<K, V>() {
+
+    fun save() = onMutation()
+    fun reload() = onReload()
+
+    override val size: Int get() = map.size
+    override val entries: MutableSet<MutableMap.MutableEntry<K, V>> = object : AbstractMutableSet<MutableMap.MutableEntry<K, V>>() {
+        override val size: Int get() = map.size
+
+        override fun iterator(): MutableIterator<MutableMap.MutableEntry<K, V>> {
+            val iterator = map.entries.iterator()
+            return object : MutableIterator<MutableMap.MutableEntry<K, V>> {
+                override fun hasNext() = iterator.hasNext()
+
+                override fun next(): MutableMap.MutableEntry<K, V> {
+                    val entry = iterator.next()
+                    return object : MutableMap.MutableEntry<K, V> by entry {
+                        override fun setValue(newValue: V): V = modify { entry.setValue(newValue) }
+                        override fun equals(other: Any?) = entry == other
+                        override fun hashCode() = entry.hashCode()
+                        override fun toString() = entry.toString()
+                    }
+                }
+
+                override fun remove() = modify { iterator.remove() }
+            }
+        }
+
+        override fun add(element: MutableMap.MutableEntry<K, V>): Boolean = throw UnsupportedOperationException()
+        override fun clear() = this@ConfigMap.clear()
+    }
+
+    private inline fun <R> modify(block: () -> R): R {
+        val result = block()
+        onMutation()
+        return result
+    }
+
+    override fun put(key: K, value: V): V? = modify { map.put(key, value) }
+    override fun remove(key: K): V? = modify { map.remove(key) }
+    override fun putAll(from: Map<out K, V>) = modify { map.putAll(from) }
+    override fun clear() = modify { map.clear() }
+}
+
+inline fun <reified K : Any, reified V : Any> configMap(name: String): ReadOnlyProperty<Any?, ConfigMap<K, V>> {
+    val file = File(configPath, name)
+    val loaded = ConfigSystem.load<MutableMap<K, V>>(file) { mutableMapOf() }
+
+    val wrapper = ConfigMap(loaded, {
+        ConfigSystem.save(file, loaded)
+    }, {
+        val new = ConfigSystem.load<MutableMap<K, V>>(file) { loaded.toMutableMap() }
+        loaded.clear()
+        loaded.putAll(new)
+    })
+
+    return ReadOnlyProperty { _, _ -> wrapper }
+}
+
+
+interface TypeNamed
+
+@Target(AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class TypeName(val value: String)
+
+inline fun <reified T> typeAdapter(
+    discriminator: String = "type"
+): TypeAdapterFactory where T : Any, T : TypeNamed {
+    if (!T::class.isSealed) {
+        return object : TypeAdapterFactory {
+            override fun <R> create(gson: Gson, type: TypeToken<R>): TypeAdapter<R>? = null
+        }
+    }
+
+    val subtypesByName = T::class.sealedSubclasses.associate { subclass ->
+        val typeName = subclass.java.getAnnotation(TypeName::class.java)?.value
+            ?: error("seally subclass ${subclass.simpleName} gotta be annotated with @TypeName")
+        typeName to subclass.java
+    }
+
+    return object : TypeAdapterFactory {
+        override fun <R> create(gson: Gson, type: TypeToken<R>): TypeAdapter<R>? {
+            if (type.rawType != T::class.java) return null
+
+            return object : TypeAdapter<R>() {
+                override fun write(out: JsonWriter, value: R) {
+                    val json = gson.toJsonTree(value).asJsonObject
+                    json.addProperty(discriminator, (value as TypeNamed).typeName)
+                    Streams.write(json, out)
+                }
+
+                override fun read(reader: JsonReader): R {
+                    val json = Streams.parse(reader).asJsonObject
+                    val label = json.get(discriminator)?.asString
+                        ?: error("no discriminator '$discriminator'")
+                    val javaType = subtypesByName[label]
+                        ?: error("unknow type label: $label")
+                    @Suppress("UNCHECKED_CAST")
+                    return gson.fromJson(json, javaType) as R
+                }
+            }.nullSafe()
+        }
+    }
+}
+
+inline fun <reified T> typedEntries(): List<Pair<String, () -> T>> where T : Any, T : TypeNamed {
+    return T::class.sealedSubclasses
+        .filter { !it.isAbstract }
+        .map { kClass ->
+            val name = kClass.findAnnotation<TypeName>()?.value ?: error("this should never happen")
+
+            val instance = {
+                runCatching {
+                    kClass.createInstance()
+                }.getOrNull() ?: error("no good. ensure all constructors have default params (x: Int = 0, etc)")
+            }
+
+            name to instance
+        }
+}
+
+val TypeNamed.typeName: String
+    get() = this::class.java.getAnnotation(TypeName::class.java)?.value
+        ?: error("class ${this::class.simpleName} must be annotated with @TypeName")
+
+
+inline fun <reified T : TypeNamed> routeNodeAdapter(
+    subclasses: List<KClass<out T>>
+) : TypeAdapterFactory {
+
+    val subtypesByName = subclasses.associate { subclass ->
+        val typeName = subclass.findAnnotation<TypeName>()?.value ?: error("No @TypeName")
+        typeName to subclass.java
+    }
+
+    return object : TypeAdapterFactory {
+        override fun <R> create(gson: Gson, type: TypeToken<R>): TypeAdapter<R>? {
+            if (!T::class.java.isAssignableFrom(type.rawType)) return null
+
+            val factory = this
+
+            return object : TypeAdapter<R>() {
+                override fun write(out: JsonWriter, value: R) {
+                    if (value == null) error("stupid")
+                    val delegate = gson.getDelegateAdapter(factory, TypeToken.get(value.javaClass))
+                    val delegateJson = delegate.toJsonTree(value).asJsonObject
+                    val json = JsonObject()
+                    json.addProperty("type", (value as TypeNamed).typeName)
+                    for (entry in delegateJson.entrySet()) {
+                        json.add(entry.key, entry.value)
+                    }
+                    Streams.write(json, out)
+                }
+
+                override fun read(reader: JsonReader): R {
+                    val json = Streams.parse(reader).asJsonObject
+                    val label = json.get("type")?.asString
+                    val javaType = subtypesByName[label] ?: error("unknow type: $label")
+                    val delegate = gson.getDelegateAdapter(factory, TypeToken.get(javaType))
+                    @Suppress("UNCHECKED_CAST")
+                    return delegate.fromJsonTree(json) as R
+                }
+            }.nullSafe()
+        }
+    }
+}
+
+
+class Vec3Adapter : JsonSerializer<Vec3>, JsonDeserializer<Vec3> {
+
+    override fun serialize(src: Vec3?, typeOfSrc: Type?, context: JsonSerializationContext?): JsonElement {
+        if (src == null) return JsonNull.INSTANCE
+        val obj = JsonObject()
+        obj.addProperty("x", src.x)
+        obj.addProperty("y", src.y)
+        obj.addProperty("z", src.z)
+        return obj
+    }
+
+    override fun deserialize(json: JsonElement?, typeOfT: Type?, context: JsonDeserializationContext?): Vec3? {
+        if (json == null || json.isJsonNull) return null
+        val obj = json.asJsonObject
+
+        val x = obj.get("x")?.asDouble ?: 0.0 // todo figure whatever obf shit it had
+        val y = obj.get("y")?.asDouble ?: 0.0
+        val z = obj.get("z")?.asDouble ?: 0.0
+
+        return Vec3(x, y, z)
+    }
+}
+
+class BlockPosAdapter : JsonSerializer<BlockPos>, JsonDeserializer<BlockPos> {
+
+    override fun serialize(src: BlockPos?, typeOfSrc: Type?, context: JsonSerializationContext?): JsonElement {
+        if (src == null) return JsonNull.INSTANCE
+        val obj = JsonObject()
+        obj.addProperty("x", src.x)
+        obj.addProperty("y", src.y)
+        obj.addProperty("z", src.z)
+        return obj
+    }
+
+    override fun deserialize(json: JsonElement?, typeOfT: Type?, context: JsonDeserializationContext?): BlockPos? {
+        if (json == null || json.isJsonNull) return null
+        val obj = json.asJsonObject
+
+        val x = (obj.get("x") ?: obj.get("field_11175"))?.asInt ?: 0
+        val y = (obj.get("y") ?: obj.get("field_11174"))?.asInt ?: 0
+        val z = (obj.get("z") ?: obj.get("field_11173"))?.asInt ?: 0
+
+        return BlockPos(x, y, z)
+    }
+}

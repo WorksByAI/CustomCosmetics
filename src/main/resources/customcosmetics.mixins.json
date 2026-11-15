@@ -157,6 +157,7 @@
     "ItemModelVisibilityMixin$State",
     "ItemModelVisibilityMixin$Legacy",
     "ItemModelVisibilityMixin$Modern",
+    "LegacyHeldSkullMixin",
     "SwingAnimationMixin$Legacy",
     "SwingAnimationMixin$Modern",
     "SwordBlockingMixin$FirstPerson",

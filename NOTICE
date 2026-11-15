@@ -95,6 +95,9 @@ License: CC0-1.0; complete text in LICENSES/NoammAddons-CC0.txt.
 Source: https://github.com/Noamm9/NoammAddons/tree/e8f1a596268030a830002c667a0d890c77a6a960
 Reimplemented 2026-10-11 for our GUI, compatible renderers and a separate
 cosmetic swing clock; game input, attack timing and entity use state are not modified.
+
+Legacy held skull rendering was adapted from NoammAddons (CC0-1.0).
+Source: https://github.com/Noamm9/NoammAddons/tree/1536e34772d9dc3e2eb2c720abcba0aa4169367c
 Our modifications are AGPL-3.0-or-later.
 Swing duration and Ignore Haste were ported from NoammAddons MixinLivingEntity
 at 44e447abbe2f3a1c0678c6388abd3a3b0b2287d8 on 2026-10-11. The calculation
@@ -283,6 +286,12 @@ odtheking (BSD-3-Clause, see LICENSES/Odin-BSD-3-Clause.txt).
 https://github.com/odtheking/OdinLegacy
 Quoi credits SkyHanni-REPO for Lava Maze, Lava Parkour and Tiny Dancer data.
 https://git.jcnlk.com/jcnlk/quoi
+
+Dungeon and Floor 7 integration uses GPL-3.0-only Quoi source at
+c5be4172e82cc65c1928cc6b40f121f3c7307191. Modified 2026-11-15 for the CustomSkyBlock
+client, with the game font and compatibility adaptations for Minecraft 26.1–26.3.
+See src/quoi/LICENSE and the original per-file credit notices.
+
 
 Natural Motion Blur
 -------------------

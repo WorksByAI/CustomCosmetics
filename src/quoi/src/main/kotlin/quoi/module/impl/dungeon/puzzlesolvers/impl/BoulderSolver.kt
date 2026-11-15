@@ -1,0 +1,146 @@
+package quoi.module.impl.dungeon.puzzlesolvers.impl
+
+import com.google.gson.GsonBuilder
+import com.google.gson.reflect.TypeToken
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext
+import net.minecraft.core.BlockPos
+import net.minecraft.world.InteractionHand
+import net.minecraft.world.phys.AABB
+import net.minecraft.world.phys.Vec3
+import quoi.QuoiMod.logger
+import quoi.api.colour.Colour
+import quoi.api.colour.withAlpha
+import quoi.api.events.DungeonEvent
+import quoi.api.events.RenderEvent
+import quoi.api.events.TickEvent
+import quoi.api.events.UseItemOnPostEvent
+import quoi.api.events.WorldEvent
+import quoi.api.events.core.Event
+import quoi.api.events.core.on
+import quoi.api.skyblock.dungeon.Dungeon
+import quoi.api.skyblock.dungeon.odonscanning.tiles.OdonRoom
+import quoi.api.skyblock.dungeon.odonscanning.tiles.RoomState
+import quoi.module.impl.dungeon.puzzlesolvers.PuzzleSolvers
+import quoi.module.settings.UIComponent.Companion.childOf
+import quoi.module.settings.group.SettingGroup
+import quoi.utils.WorldUtils.state
+import quoi.utils.render.drawStyledBox
+import quoi.utils.skyblock.player.MovementUtils.cancelMovementTask
+import quoi.utils.skyblock.player.MovementUtils.moveTo
+import quoi.utils.skyblock.player.MovementUtils.resetInput
+import java.io.InputStreamReader
+import java.nio.charset.StandardCharsets
+
+/**
+ * modified OdinFabric (BSD 3-Clause)
+ * copyright (c) 2025-2026 odtheking
+ * original: https://github.com/odtheking/Odin/blob/main/src/main/kotlin/com/odtheking/odin/features/impl/dungeon/puzzlesolvers/BoulderSolver.kt
+ */
+object BoulderSolver : SettingGroup(PuzzleSolvers, "Boulder") {
+    private val solver by switch("Solver", desc = "Shows the solution for the boulder puzzle.")
+    private val showAll by switch("Show all clicks", desc = "Shows all clicks instead of only the next click.").childOf(::solver)
+    private val style by selector("Style", "Box", arrayListOf("Box", "Filled box", "Filled"), desc = "Render style to be used.").childOf(::solver)
+    private val colour by colourPicker("Colour", Colour.MINECRAFT_GREEN.withAlpha(0.5f), true, desc = "Colour for the boulder solver.").childOf(::solver)
+    private val auto by switch("Auto", desc = "Runs to the Boulder chest and back.").asParent()
+    private val triggerbot by switch("Triggerbot", desc = "Clicks the next button in the solution when you look at it.").asParent()
+
+    private data class BoxPosition(val render: AABB, val click: BlockPos)
+
+    private val gson = GsonBuilder().setPrettyPrinting().create()
+    private val isr = this::class.java.getResourceAsStream("/assets/quoi/puzzles/boulderSolutions.json")?.let { InputStreamReader(it, StandardCharsets.UTF_8) }
+    private var solutions: Map<String, List<List<Int>>>
+    private var currentPositions = mutableListOf<BoxPosition>()
+    private var walking = false
+
+    init {
+        try {
+            val text = isr?.readText()
+            solutions = gson.fromJson(text, object : TypeToken<Map<String, List<List<Int>>>>() {}.type)
+            isr?.close()
+        } catch (e: Exception) {
+            logger.error("Error loading boulder solutions", e)
+            solutions = emptyMap()
+        }
+
+        on<DungeonEvent.Room.Enter> {
+            onRoomEnter(room)
+        }
+
+        on<RenderEvent.World> {
+            if (solver) onRenderWorld(ctx, showAll, style.selected, colour)
+        }
+
+        on<UseItemOnPostEvent> {
+            if ((solver || triggerbot) && hand == InteractionHand.MAIN_HAND && interactionResult.consumesAction()) onInteract(hitResult.blockPos)
+        }
+
+        on<TickEvent.End> {
+            if (!triggerbot) return@on
+            val pos = currentPositions.firstOrNull()?.click ?: return@on
+            PuzzleSolvers.triggerBlock(pos)
+        }
+
+        on<WorldEvent.Change> {
+            reset()
+        }
+    }
+
+    override fun shouldHandle(event: Event): Boolean {
+        if (event is WorldEvent.Change) return true
+        if (!super.shouldHandle(event)) return false
+        if (event is DungeonEvent.Room.Enter) return true
+        return Dungeon.currentRoom?.name == "Boulder"
+    }
+
+    fun onRoomEnter(room: OdonRoom?) = with(room) {
+        if (this?.name != "Boulder") return@with reset()
+
+        var identifier = ""
+        for (z in 24 downTo 9 step 3) {
+            for (x in 24 downTo 6 step 3) {
+                identifier += if (getRealCoords(BlockPos(x, 66, z)).state.isAir) "0" else "1"
+            }
+        }
+
+        currentPositions = solutions[identifier]?.map { solution ->
+            val render = getRealCoords(BlockPos(solution[0], 65, solution[1]))
+            val click = getRealCoords(BlockPos(solution[2], 65, solution[3]))
+            BoxPosition(AABB(render), click)
+        }?.toMutableList() ?: mutableListOf()
+
+        if (auto && !walking && data.state != RoomState.GREEN) {
+            runTo(this, 27.5) { runTo(this, 0.0) }
+        }
+    }
+
+    fun onRenderWorld(ctx: LevelRenderContext, showAllClicks: Boolean, style: String, colour: Colour) {
+        if (Dungeon.currentRoom?.name != "Boulder" || currentPositions.isEmpty()) return
+
+        if (showAllClicks) currentPositions.forEach {
+            ctx.drawStyledBox(style, it.render, colour, depth = false)
+        } else currentPositions.firstOrNull()?.let {
+            ctx.drawStyledBox(style, it.render, colour, depth = false)
+        }
+    }
+
+    fun onInteract(pos: BlockPos) {
+        currentPositions.remove(currentPositions.firstOrNull { it.click == pos })
+    }
+
+    fun reset() {
+        if (walking) {
+            cancelMovementTask()
+            mc.player?.resetInput()
+            walking = false
+        }
+        currentPositions = mutableListOf()
+    }
+
+    private fun runTo(room: OdonRoom, z: Double, onArrival: () -> Unit = {}) {
+        walking = true
+        player.moveTo(room.getRealCoords(Vec3(15.0, player.y, z))) {
+            walking = false
+            if (auto && Dungeon.currentRoom === room) onArrival()
+        }
+    }
+}

@@ -1,0 +1,193 @@
+package quoi.utils
+
+import net.minecraft.client.multiplayer.ClientLevel
+import net.minecraft.client.multiplayer.MultiPlayerGameMode
+import net.minecraft.client.multiplayer.PlayerInfo
+import net.minecraft.client.multiplayer.prediction.PredictiveAction
+import net.minecraft.client.player.LocalPlayer
+import net.minecraft.core.BlockPos
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.world.level.GameType
+import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.chunk.status.ChunkStatus
+import net.minecraft.world.phys.Vec3
+import net.minecraft.world.phys.shapes.Shapes
+import net.minecraft.world.phys.shapes.VoxelShape
+import quoi.QuoiMod.mc
+import quoi.utils.skyblock.item.TeleportUtils.isValidEtherwarpBlock
+import quoi.utils.skyblock.player.simulation.PlayerSimulation
+import kotlin.math.floor
+
+/**
+ * modified Stella (LGPL-3.0) (c) Eclipse-5214
+ * original: https://github.com/Eclipse-5214/stella/blob/main/src/main/kotlin/co/stellarskys/stella/utils/WorldUtils.kt
+ */
+object WorldUtils { // todo cleanup
+    inline val BlockPos.state: BlockState
+        get() = mc.level?.getBlockState(this) ?: Blocks.AIR.defaultBlockState()
+
+    inline val BlockPos.collisionShape: VoxelShape
+        get() = mc.level?.let { this.state.getCollisionShape(it, this) } ?: Shapes.empty()
+
+    inline val BlockPos.shape: VoxelShape
+        get() = mc.level?.let { this.state.getShape(it, this) } ?: Shapes.empty()
+
+    inline val BlockPos.solid: Boolean
+        get() = !this.collisionShape.isEmpty
+
+    inline val BlockPos.airLike: Boolean
+        get() = /*!solid &&*/ state.block in BlockTypes.AirLike
+
+    inline val BlockPos.walkable: Boolean
+        get() = this.airLike && this.above().airLike
+
+    inline val BlockPos.etherwarpable: Boolean
+        get() {
+            val level = mc.level ?: return false
+            return isValidEtherwarpBlock(level, this)
+        }
+
+    val Block.registryName: String
+        get() {
+            val registry = BuiltInRegistries.BLOCK.getKey(this)
+            return "${registry.namespace}:${registry.path}"
+        }
+
+    fun MultiPlayerGameMode.startPrediction(action: PredictiveAction) {
+        val level = mc.level ?: return
+        startPrediction(level, action)
+    }
+
+    fun LocalPlayer.blocksAtFeet(offset: Number = 0.0): Iterable<BlockPos> {
+        val box = boundingBox
+        val y = floor(box.minY + offset.toDouble()).toInt()
+
+        val minX = floor(box.minX).toInt()
+        val minZ = floor(box.minZ).toInt()
+        val maxX = floor(box.maxX).toInt()
+        val maxZ = floor(box.maxZ).toInt()
+
+        return BlockPos.betweenClosed(minX, y, minZ, maxX, y, maxZ)
+    }
+
+    fun LocalPlayer.blocksAtFeet(offset: Number = 0.0, predicate: (BlockPos, BlockState) -> Boolean) =
+        blocksAtFeet(offset).iterator().asSequence().mapNotNull { pos ->
+            val state = pos.state
+            if (predicate(pos, state)) pos.immutable() to state else null
+        }
+
+    fun LocalPlayer.blocksAtFeet(offset: Number = 0.0, predicate: (BlockPos) -> Boolean) =
+        blocksAtFeet(offset).iterator().asSequence().mapNotNull { pos ->
+            if (predicate(pos)) pos.immutable() else null
+        }
+
+    fun ticksUntilCollision(pos: BlockPos): Double? {
+        val snapshots = PlayerSimulation.simulation.getSnapshotsBetween(1.0..3.0, 0.5)
+        val box = pos.aabb
+
+        var error = 0.1
+
+        snapshots.forEachIndexed { i, snapshot ->
+            val p = snapshot.pos
+            val tick = i * 0.5
+
+            if (box.intersects(
+                    p.x - error,
+                    p.y,
+                    p.z - error,
+                    p.x + error,
+                    p.y + 1.8 + error,
+                    p.z + error
+                )
+            ) return tick
+
+            error += 0.1
+
+        }
+
+        return null
+    }
+
+    fun worldToMap(n: Number, inMin: Number, inMax: Number, outMin: Number, outMax: Number): Double = (n.toDouble() - inMin.toDouble()) * (outMax.toDouble() - outMin.toDouble()) / (inMax.toDouble() - inMin.toDouble()) + outMin.toDouble()
+
+    private val tabListComparator: Comparator<PlayerInfo> = compareBy(
+        { it.gameMode == GameType.SPECTATOR },
+        { it.team?.name ?: "" },
+        { it.profile.name.lowercase() }
+    )
+
+    @JvmStatic
+    val tablist: List<PlayerInfo>
+        get() = connection
+            .listedOnlinePlayers
+            .sortedWith(tabListComparator)
+
+    @JvmStatic
+    val players: List<PlayerInfo>
+        get() = tablist.filter { it.profile.id.version() == 4 }
+
+    val ClientLevel.day get() = this.defaultClockTime / 24000
+
+    fun getBlockEntityList(): List<BlockPos> {
+        val renderDistance = mc.options.renderDistance().get()
+        val pX = player.chunkPosition().x
+        val pZ = player.chunkPosition().z
+
+        return buildList {
+            for (x in (pX - renderDistance)..(pX + renderDistance)) {
+                for (z in (pZ - renderDistance)..(pZ + renderDistance)) {
+                    val chunk = level.getChunk(x, z, ChunkStatus.FULL, false) ?: continue
+                    addAll(chunk.blockEntitiesPos)
+                }
+            }
+        }
+    }
+
+    inline fun Vec3.nearbyBlocks(radius: Float, predicate: (BlockPos) -> Boolean = { true }): List<BlockPos> {
+        val res = mutableListOf<BlockPos>()
+        val mut = BlockPos.MutableBlockPos()
+
+        CachedSphere.forEachInRadius(
+            floor(this.x).toInt(),
+            floor(this.y).toInt(),
+            floor(this.z).toInt(),
+            radius
+        ) { x, y, z ->
+            mut.set(x, y, z)
+            if (predicate(mut)) {
+                res.add(mut.immutable())
+            }
+        }
+        return res
+    }
+
+    inline fun BlockPos.nearbyBlocks(radius: Float, predicate: (BlockPos) -> Boolean = { true }): List<BlockPos> {
+        val res = mutableListOf<BlockPos>()
+        val mut = BlockPos.MutableBlockPos()
+
+        CachedSphere.forEachInRadius(this.x, this.y, this.z, radius) { x, y, z ->
+            mut.set(x, y, z)
+            if (predicate(mut)) {
+                res.add(mut.immutable())
+            }
+        }
+        return res
+    }
+
+    /**
+     * Returns the first match in the same distance and tie order as [nearbyBlocks]
+     */
+    inline fun BlockPos.firstNearbyBlock(radius: Float, predicate: (BlockPos) -> Boolean): BlockPos? {
+        val mut = BlockPos.MutableBlockPos()
+        CachedSphere.forEachInRadius(x, y, z, radius) { x, y, z ->
+            mut.set(x, y, z)
+            if (predicate(mut)) return mut.immutable()
+        }
+        return null
+    }
+
+    inline fun Vec3.firstNearbyBlock(radius: Float, predicate: (BlockPos) -> Boolean): BlockPos? =
+        BlockPos.containing(this).firstNearbyBlock(radius, predicate)
+}

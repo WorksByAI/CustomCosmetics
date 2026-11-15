@@ -1,0 +1,235 @@
+package quoi.api.skyblock
+
+import net.minecraft.world.entity.ai.attributes.Attributes
+import quoi.annotations.Init
+import quoi.api.events.ChatEvent
+import quoi.api.events.TickEvent
+import quoi.api.events.WorldEvent
+import quoi.api.events.core.EventListener
+import quoi.api.events.core.on
+import quoi.api.skyblock.dungeon.Dungeon
+import quoi.api.skyblock.dungeon.Dungeon.getMageCooldownMultiplier
+import quoi.api.skyblock.dungeon.odonscanning.ScanUtils
+import quoi.utils.Scheduler.scheduleLoop
+import quoi.utils.Shortcuts
+import quoi.utils.StringUtils.capitaliseFirst
+import quoi.utils.StringUtils.toFixed
+import quoi.utils.skyblock.item.ItemUtils.lore
+import quoi.utils.skyblock.player.PetUtils
+import kotlin.math.floor
+import kotlin.math.roundToInt
+
+@Init
+object SkyblockPlayer : EventListener, Shortcuts {
+    inline val health: Int
+        get() = player.let { (maxHealth * it.health / it.maxHealth).toInt() }
+    var maxHealth: Int = 0
+        private set
+    var absorption: Int = 0
+        private set
+
+    var defence: Int = 0
+        private set
+
+    var mana: Int = 0
+        private set
+    var maxMana: Int = 0
+        private set
+
+    var vitality: Int = 0
+        private set
+    var maxVitality: Int = 0
+        private set
+
+    var overflowMana: Int = 0
+        private set
+    var stacks: String = ""
+        private set
+    var salvation: Int = 0
+        private set
+
+    var effectiveHealth: Int = 0
+        private set
+    inline val speed: Int
+        get() = floor(
+            (player.getAttribute(Attributes.MOVEMENT_SPEED)?.baseValue?.toFloat() ?: 0f) * 1000f
+        ).toInt()
+
+    var manaUsage: String = ""
+        private set
+
+    var currentSecrets: Int = -1
+        private set
+    var maxSecrets: Int = -1
+        private set
+
+    var currentMask: Mask = Mask.NONE
+        private set
+
+    inline val canUseCommands get() = commandsTick <= 0
+
+    var commandsTick = -1
+        private set
+
+    val HP_REGEX = Regex("§[c6]([\\d,]+)/([\\d,]+)[\uE010❤]") // §c1389/1390❤ , §62181/1161❤
+    val DEF_REGEX = Regex("""§a([\d,]+)[❈]?( Defense)?""")
+    val MANA_REGEX = Regex("§b([\\d,]+)/([\\d,]+)[\uE003✎]( Mana)?") // §b550/550✎ Mana§r
+
+    val OVERFLOW_REGEX = Regex("§3([\\d,]+)[\\uE017ʬ]") // §3100ʬ
+    val STACKS_REGEX = Regex("§6([0-9]+[ᝐ⁑Ѫ])") // §610⁑
+    val SALVATION_REGEX = Regex("T([1-3])!") // no idea
+    val VITALITY_REGEX = Regex("§4([\\d.,]+)/([\\d,.]+)[♨\uE028]( Vitality)?") // https://regex101.com/r/tLHZYG/1 // https://github.com/Noamm9/NoammAddons/blob/fd000be897fd2facf1b8dfbfd28416206c544860/src/main/kotlin/com/github/noamm9/utils/ActionBarParser.kt#L25
+
+    val MANA_USAGE_REGEX = Regex("§b-[\\d,]+ Mana \\(§6.+?§b\\)|§c§lNOT ENOUGH MANA") // §b-50 Mana (§6Speed Boost§b) , §c§lNOT ENOUGH MANA
+    val SECRETS_REGEX = Regex("\\s*§7(\\d+)/(\\d+) Secrets") // §76/10 Secrets§r
+
+    init {
+        on<ChatEvent.ActionBar> {
+            val message = message.replace(",", "")
+
+            HP_REGEX.find(message)?.destructured?.let { (abs, max) ->
+                maxHealth = max.toInt()
+                absorption = (abs.toInt() - max.toInt()).coerceAtLeast(0)
+            }
+
+            defence = DEF_REGEX.find(message)?.groupValues?.get(1)?.toIntOrNull() ?: defence
+            effectiveHealth = (maxHealth * (1 + defence / 100.0)).roundToInt()
+
+            MANA_REGEX.find(message)?.destructured?.let { (mana, maxMana) ->
+                this@SkyblockPlayer.mana = mana.toInt()
+                this@SkyblockPlayer.maxMana = maxMana.toInt()
+            }
+
+            VITALITY_REGEX.find(message)?.destructured?.let { (vitality, maxVitality) ->
+                this@SkyblockPlayer.vitality = vitality.toInt()
+                this@SkyblockPlayer.maxVitality = maxVitality.toInt()
+            } ?: run {
+                vitality = 0
+                maxVitality = 0
+            }
+
+            overflowMana = OVERFLOW_REGEX.find(message)?.destructured?.component1()?.toInt() ?: 0
+
+            stacks = STACKS_REGEX.find(message)?.destructured?.component1() ?: ""
+
+            salvation = SALVATION_REGEX.find(message)?.destructured?.component1()?.toInt() ?: 0
+
+            manaUsage = MANA_USAGE_REGEX.find(message)?.value ?: ""
+
+            SECRETS_REGEX.find(message)?.destructured?.let { (current, max) ->
+                currentSecrets = current.toInt()
+                maxSecrets = max.toInt()
+                if (Dungeon.inClear) {
+                    val room = ScanUtils.getRoomFromPos(player.x, player.z)
+                    if (room != null && room.data.secrets == maxSecrets) room.secretsFound = currentSecrets
+                }
+            } ?: run {
+                currentSecrets = -1
+                maxSecrets = -1
+            }
+        }
+
+        on<ChatEvent.Packet> {
+            InvincibilityType.fromMessage(unformatted)?.proc()
+        }
+
+        on<ChatEvent.Sent> {
+            if (isCommand) commandsTick = 4
+        }
+
+        on<TickEvent.Server> {
+            InvincibilityType.entries.forEach { it.tick() }
+            if (commandsTick > 0) commandsTick--
+        }
+
+        on<WorldEvent.Change> {
+            InvincibilityType.entries.forEach { it.reset() }
+            commandsTick = 80
+        }
+
+        scheduleLoop {
+            val name = player.inventory.getItem(39).displayName.string
+            currentMask = when {
+                name.contains("Bonzo") -> Mask.BONZO
+                name.contains("Spirit") -> Mask.SPIRIT
+                else -> Mask.NONE
+            }
+        }
+    }
+
+    /**
+     * modified OdinFabric (BSD 3-Clause)
+     * copyright (c) 2025-2026 odtheking
+     * original: https://github.com/odtheking/OdinFabric/blob/main/src/main/kotlin/com/odtheking/odin/features/impl/dungeon/InvincibilityTimer.kt
+     */
+    enum class InvincibilityType(
+        val regex: Regex,
+        val cooldownTime: Int
+    ) {
+        BONZO(Regex("^Your (?:. )?Bonzo's Mask saved your life!$"), 3600),
+        SPIRIT(Regex("^Second Wind Activated! Your Spirit Mask saved your life!$"), 600),
+        PHOENIX(Regex("^Your Phoenix Pet saved you from certain death!$"), 1200);
+
+        companion object {
+            private val BONZO_COOLDOWN_REGEX = Regex("^Cooldown: ([\\d.]+)s$")
+
+            fun fromMessage(message: String): InvincibilityType? = entries.firstOrNull { it.regex.matches(message) }
+        }
+
+        val displayName = name.capitaliseFirst()
+
+        var currentCooldown = 0
+            private set
+
+        fun proc(customCooldown: Int = defaultCooldown()) {
+            val multiplier = getMageCooldownMultiplier()
+            currentCooldown = when (this) {
+                BONZO, SPIRIT -> (customCooldown * multiplier).toInt()
+                PHOENIX -> customCooldown
+            }
+        }
+
+        private fun defaultCooldown(): Int {
+            if (this != BONZO) return cooldownTime
+
+            return player.inventory.getItem(39).lore
+                ?.firstNotNullOfOrNull { line ->
+                    BONZO_COOLDOWN_REGEX.matchEntire(line.trim())
+                        ?.groupValues?.get(1)?.toDoubleOrNull()
+                }
+                ?.let { (it * 20).roundToInt() }
+                ?: cooldownTime
+        }
+
+        fun tick() {
+            currentCooldown = (currentCooldown - 1).coerceAtLeast(0)
+        }
+
+        fun reset() {
+            currentCooldown = 0
+        }
+
+        fun getTime(): String {
+            val highlight = PetUtils.currentPet?.matches("Phoenix") == true && when(this) {
+                BONZO -> currentMask == Mask.BONZO && PHOENIX.currentCooldown <= 0
+                SPIRIT -> currentMask == Mask.SPIRIT && PHOENIX.currentCooldown <= 0
+                PHOENIX -> (currentMask == Mask.SPIRIT && SPIRIT.currentCooldown <= 0)
+                        || (currentMask == Mask.BONZO && BONZO.currentCooldown <= 0)
+            }
+
+            val col = if (!highlight && currentCooldown <= 0) "&a" else "&c"
+            val time = if (currentCooldown <= 0) "✔" else (currentCooldown / 20.0).toFixed(1)
+            return "$col$time"
+        }
+
+        fun shouldDot(): Boolean = when (this) {
+            BONZO -> currentMask == Mask.BONZO
+            SPIRIT -> currentMask == Mask.SPIRIT
+            PHOENIX -> PetUtils.currentPet?.matches("Phoenix") == true
+        }
+    }
+
+    enum class Mask {
+        BONZO, SPIRIT, NONE;
+    }
+}

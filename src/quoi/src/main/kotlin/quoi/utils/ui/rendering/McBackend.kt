@@ -1,0 +1,647 @@
+//~ texture_resources
+//~ gui_pipeline
+
+package quoi.utils.ui.rendering
+
+import com.mojang.blaze3d.pipeline.RenderPipeline
+import com.mojang.blaze3d.systems.RenderSystem
+import com.mojang.blaze3d.textures.FilterMode
+import com.mojang.blaze3d.vertex.VertexConsumer
+import it.unimi.dsi.fastutil.floats.FloatArrayList
+import it.unimi.dsi.fastutil.ints.IntArrayList
+import kotlin.math.ceil
+import kotlin.math.floor
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.round
+import kotlin.math.sqrt
+import net.minecraft.client.gui.GuiGraphicsExtractor
+import net.minecraft.client.gui.navigation.ScreenRectangle
+import net.minecraft.client.gui.render.TextureSetup
+import net.minecraft.client.renderer.RenderPipelines
+import net.minecraft.client.renderer.state.gui.GuiElementRenderState
+import net.minecraft.client.renderer.texture.DynamicTexture
+import org.joml.Matrix3x2f
+import org.joml.Vector2f
+import quoi.QuoiMod.mc
+import quoi.mixins.accessors.GuiGraphicsExtractorAccessor
+import quoi.utils.ui.data.Gradient
+
+/**
+ * Minecraft-native [RendererBackend]: tessellates all primitives CPU-side ([UIGeometry])
+ * and submits them as custom [GuiElementRenderState]s through the vanilla 26.2 GUI
+ * extraction pipeline (`RenderPipelines.GUI` / `GUI_TEXTURED`), which renders identically
+ * on the OpenGL and Vulkan RenderDevice backends. No direct GL/VK calls.
+ *
+ * Coordinates are physical window pixels; a base pose scales them into gui space.
+ * Transform/alpha state follows NanoVG semantics (saved by [push], restored by [pop]);
+ * the scissor stack is explicit ([pushScissor]/[popScissor]) and applied in the current
+ * transform space as an axis-aligned bounds approximation, like `nvgScissor`.
+ *
+ * Consecutive primitives sharing pipeline + texture + scissor are merged into a single
+ * render state, preserving painter's order within the batch; overlapping batches are
+ * ordered by the vanilla GuiRenderState bounds-stacking.
+ */
+class McBackend : RendererBackend {
+
+    val fonts = McFonts()
+    val images = McImages()
+
+    private var ctx: GuiGraphicsExtractor? = null
+    private var basePose = Matrix3x2f()
+    private var invGuiScale = 1f
+    private var inheritedScissor: ScreenRectangle? = null
+
+    private class DrawState(val pose: Matrix3x2f = Matrix3x2f(), var alpha: Float = 1f) {
+        fun set(other: DrawState) {
+            pose.set(other.pose)
+            alpha = other.alpha
+        }
+    }
+
+    private val stateStack = ArrayList<DrawState>()
+    private var stateDepth = 0
+    private val state = DrawState()
+
+    /** window-space scissor rects as (x, y, maxX, maxY), already intersected. */
+    private class ScissorEntry(val rect: FloatArray, val screenRect: ScreenRectangle?)
+
+    private val scissorStack = ArrayList<ScissorEntry>()
+
+    // pending batch
+    private val pendingVerts = FloatArrayList() // x, y, u, v per vertex
+    private val pendingCols = IntArrayList()
+    private var pendingPipeline: RenderPipeline? = null
+    private var pendingTexture: DynamicTexture? = null
+    private var pendingScissor: ScissorEntry? = null
+    private var pendingMinX = Float.MAX_VALUE
+    private var pendingMinY = Float.MAX_VALUE
+    private var pendingMaxX = -Float.MAX_VALUE
+    private var pendingMaxY = -Float.MAX_VALUE
+
+    private val tmpVec = Vector2f()
+
+    override fun frame(ctx: GuiGraphicsExtractor, content: () -> Unit) {
+        check(this.ctx == null) { "[McBackend] frame() reentered" }
+        this.ctx = ctx
+        invGuiScale = 1f / max(1, mc.window.guiScale)
+        basePose.set(ctx.pose()).scale(invGuiScale, invGuiScale)
+        inheritedScissor = ctx.scissorStack.peek()
+
+        stateDepth = 0
+        state.pose.identity()
+        state.alpha = 1f
+        scissorStack.clear()
+        resetBatch()
+
+        try {
+            content()
+            flush()
+            fonts.flushUploads()
+        } finally {
+            this.ctx = null
+        }
+    }
+
+    override fun push() {
+        val saved = if (stateDepth < stateStack.size) stateStack[stateDepth] else DrawState().also { stateStack.add(it) }
+        saved.set(state)
+        stateDepth++
+    }
+
+    override fun pop() {
+        if (stateDepth == 0) return
+        state.set(stateStack[--stateDepth])
+    }
+
+    override fun translate(x: Float, y: Float) {
+        state.pose.translate(x, y)
+    }
+
+    override fun scale(x: Float, y: Float) {
+        state.pose.scale(x, y)
+    }
+
+    override fun rotate(radians: Float) {
+        state.pose.rotate(radians)
+    }
+
+    override fun globalAlpha(amount: Float) {
+        state.alpha = amount.coerceIn(0f, 1f)
+    }
+
+    override fun pushScissor(x: Float, y: Float, w: Float, h: Float) {
+        // like nvgScissor: rect specified in current transform space, kept as window-space AABB
+        val rect = transformedAabb(x, y, x + w, y + h)
+        val intersected = scissorStack.lastOrNull()?.rect?.let { prev ->
+            UIGeometry.intersect(prev[0], prev[1], prev[2], prev[3], rect[0], rect[1], rect[2], rect[3])
+        } ?: rect
+        scissorStack.add(ScissorEntry(intersected, toScreenRect(intersected)))
+    }
+
+    override fun popScissor() {
+        scissorStack.removeLastOrNull()
+    }
+
+    override fun line(x1: Float, y1: Float, x2: Float, y2: Float, thickness: Float, color: Int) {
+        if (thickness > 0f) {
+            // NanoVG transforms the path before stroking. Stroke width follows the
+            // average transform scale; the AA fringe stays one device pixel wide.
+            val start = state.pose.transformPosition(x1, y1, Vector2f())
+            val end = state.pose.transformPosition(x2, y2, Vector2f())
+            val strokeWidth = (thickness * averageTransformScale()).coerceIn(0f, 200f)
+            val fringe = AA_FRINGE / devicePixelRatio()
+            val width = strokeWidth.coerceAtLeast(fringe)
+            val coverage = (strokeWidth / fringe).coerceAtMost(1f)
+            val strokeColor = (((color ushr 24) * coverage * coverage).toInt() shl 24) or (color and 0xffffff)
+            val inner = UIGeometry.lineQuad(start.x, start.y, end.x, end.y, width - fringe)
+            val outer = UIGeometry.lineQuad(start.x, start.y, end.x, end.y, width + fringe)
+            val savedPose = Matrix3x2f(state.pose)
+            state.pose.identity()
+            try {
+                emitQuads(inner, strokeColor)
+                emitQuadEdgeFade(inner, outer, strokeColor)
+            } finally {
+                state.pose.set(savedPose)
+            }
+        }
+    }
+
+    override fun rect(x: Float, y: Float, w: Float, h: Float, color: Int, tl: Float, bl: Float, br: Float, tr: Float) {
+        // Axis-aligned sharp rectangles already land exactly on the pixel grid. Keep
+        // them exactly inside their element bounds; scissor conversion rounds outwards
+        // separately, so no geometry overdraw is needed to avoid clipped edge pixels.
+        if (tl <= 0f && bl <= 0f && br <= 0f && tr <= 0f) {
+            // the historical renderer extended fills by half a pixel vertically
+            val outline = UIGeometry.dedupeClosedOutline(
+                UIGeometry.roundedRectOutline(x, y, w, h + 0.5f, tl, bl, br, tr)
+            )
+            emitQuads(UIGeometry.fanToQuads(outline), color)
+            return
+        }
+        val inner = roundedRectContour(x, y, w, h + 0.5f, tl, bl, br, tr, -AA_FRINGE * 0.5f)
+        val outer = roundedRectContour(x, y, w, h + 0.5f, tl, bl, br, tr, AA_FRINGE * 0.5f)
+        emitQuads(UIGeometry.fanToQuads(inner), color)
+        emitBandFade(inner, outer, color, color and 0xFFFFFF)
+    }
+
+    override fun hollowRect(x: Float, y: Float, w: Float, h: Float, thickness: Float, color: Int, tl: Float, bl: Float, br: Float, tr: Float) {
+        val half = thickness * 0.5f
+        val coreHalf = (half - AA_FRINGE * 0.5f).coerceAtLeast(0f)
+        val transparent = color and 0xFFFFFF
+        val outerCore = roundedRectContour(x, y, w, h, tl, bl, br, tr, coreHalf)
+        val innerCore = roundedRectContour(x, y, w, h, tl, bl, br, tr, -coreHalf)
+        emitQuads(UIGeometry.bandToQuads(innerCore, outerCore), color)
+        emitBandFade(
+            outerCore,
+            roundedRectContour(x, y, w, h, tl, bl, br, tr, half + AA_FRINGE * 0.5f),
+            color, transparent,
+        )
+        // The inner fringe runs towards the shape interior. Swap both contours and
+        // colours so bandToQuads keeps its outward winding and survives GUI backface culling.
+        emitBandFade(
+            roundedRectContour(x, y, w, h, tl, bl, br, tr, -half - AA_FRINGE * 0.5f),
+            innerCore,
+            transparent, color,
+        )
+    }
+
+    override fun gradientRect(x: Float, y: Float, w: Float, h: Float, color1: Int, color2: Int, direction: Gradient, tl: Float, bl: Float, br: Float, tr: Float) {
+        val inner = roundedRectContour(x, y, w, h, tl, bl, br, tr, -AA_FRINGE * 0.5f)
+        val outer = roundedRectContour(x, y, w, h, tl, bl, br, tr, AA_FRINGE * 0.5f)
+        val quads = UIGeometry.fanToQuads(inner)
+        // vertex colours sampled from the linear gradient at each vertex: exact for a
+        // linear function under barycentric interpolation
+        emitQuads(quads) { vx, vy ->
+            val t = when (direction) {
+                Gradient.LeftToRight -> if (w != 0f) ((vx - x) / w) else 0f
+                Gradient.TopToBottom -> if (h != 0f) ((vy - y) / h) else 0f
+            }.coerceIn(0f, 1f)
+            lerpColor(color1, color2, t)
+        }
+        emitGradientFringe(inner, outer, x, y, w, h, color1, color2, direction)
+    }
+
+    override fun dropShadow(x: Float, y: Float, width: Float, height: Float, blur: Float, spread: Float, radius: Float, colour: Int) {
+        // NanoVG box gradient: linear falloff over [spread - blur/2, spread + blur/2]
+        // measured from the base rectangle, solid inside that, hollow under the rectangle.
+        // Offset rounded-rect outlines are exact iso-distance curves, so banding between
+        // them reproduces the gradient; only the falloff stays linear instead of feathered.
+        val outerExtent = spread + blur * 0.5f
+        if (outerExtent <= 0f) return
+        val solidExtent = (spread - blur * 0.5f).coerceAtLeast(0f)
+
+        val outerSize = 2 * outerExtent
+        val segments = IntArray(4) {
+            UIGeometry.segmentsFor(radius + outerExtent, width + outerSize, height + outerSize)
+        }
+
+        fun ring(amount: Float): FloatArray = UIGeometry.roundedRectOutlineFixedSegments(
+            x - amount, y - amount, width + 2 * amount, height + 2 * amount,
+            radius + amount, radius + amount, radius + amount, radius + amount,
+            segments,
+        )
+
+        val transparent = colour and 0xFFFFFF
+
+        if (blur <= 0f) {
+            // hard-edged shadow: solid ring out to the spread box
+            if (spread > 0f) emitQuads(UIGeometry.bandToQuads(ring(0f), ring(spread)), colour)
+            return
+        }
+
+        if (solidExtent > 0f) {
+            emitQuads(UIGeometry.bandToQuads(ring(0f), ring(solidExtent)), colour)
+            emitBandFade(ring(solidExtent), ring(outerExtent), colour, transparent)
+        } else {
+            // solid ring collapsed: the rectangle edge sits inside the falloff already
+            val edgeAlpha = ((spread + blur * 0.5f) / blur).coerceIn(0f, 1f)
+            val edgeColour = (((colour ushr 24) * edgeAlpha).toInt().coerceIn(0, 255) shl 24) or transparent
+            emitBandFade(ring(0f), ring(outerExtent), edgeColour, transparent)
+        }
+    }
+
+    override fun circle(x: Float, y: Float, radius: Float, color: Int) {
+        val segments = max(8, UIGeometry.arcSegments(radius + AA_FRINGE * 0.5f) * 4)
+        val inner = UIGeometry.circleOutlineFixedSegments(
+            x, y, (radius - AA_FRINGE * 0.5f).coerceAtLeast(0f), segments
+        )
+        val outer = UIGeometry.circleOutlineFixedSegments(x, y, radius + AA_FRINGE * 0.5f, segments)
+        emitQuads(UIGeometry.fanToQuads(inner), color)
+        emitBandFade(inner, outer, color, color and 0xFFFFFF)
+    }
+
+    override fun text(text: String, x: Float, y: Float, size: Float, color: Int, font: Font) {
+        if (text.isEmpty() || size <= 0f) return
+        if (font === UIRenderer.minecraftFont) {
+            val graphics = ctx ?: return
+            val scale = size / mc.font.lineHeight
+            flush()
+            val clip = scissorStack.lastOrNull()?.screenRect
+            if (clip != null) graphics.enableScissor(clip.left(), clip.top(), clip.right(), clip.bottom())
+            val pose = graphics.pose()
+            pose.pushMatrix()
+            try {
+                pose.set(basePose).mul(state.pose).translate(x, y).scale(scale)
+                val alpha = (((color ushr 24) * state.alpha).toInt()).coerceIn(0, 255)
+                if (alpha != 0) graphics.text(mc.font, text, 0, 0, (alpha shl 24) or (color and 0xffffff), false)
+            } finally {
+                pose.popMatrix()
+                if (clip != null) graphics.disableScissor()
+            }
+            return
+        }
+        fonts.layout(font, text, x, y + 0.5f, size, textRasterScale()) { glyph ->
+            emitTexturedQuad(
+                glyph.texture,
+                glyph.x0, glyph.y0, glyph.x1, glyph.y1,
+                glyph.u0, glyph.v0, glyph.u1, glyph.v1,
+                color,
+            )
+        }
+    }
+
+    /** Mirrors NanoVG's quantized average transform scale times its device pixel ratio. */
+    private fun textRasterScale(): Float {
+        val transformScale = (round(averageTransformScale() * 100f) / 100f).coerceAtMost(4f)
+        return (transformScale * devicePixelRatio()).coerceAtLeast(0.01f)
+    }
+
+    private fun averageTransformScale(): Float {
+        val sx = sqrt(state.pose.m00() * state.pose.m00() + state.pose.m10() * state.pose.m10())
+        val sy = sqrt(state.pose.m01() * state.pose.m01() + state.pose.m11() * state.pose.m11())
+        return (sx + sy) * 0.5f
+    }
+
+    private fun devicePixelRatio(): Float {
+        val screenWidth = mc.window.screenWidth
+        return if (screenWidth == 0) 1f else mc.window.width.toFloat() / screenWidth
+    }
+
+    /** Exact concentric rounded-rect contour; avoids miter noise on tiny pill controls. */
+    private fun roundedRectContour(
+        x: Float, y: Float, w: Float, h: Float,
+        tl: Float, bl: Float, br: Float, tr: Float,
+        amount: Float,
+    ): FloatArray {
+        val segments = intArrayOf(
+            UIGeometry.segmentsFor(tl, w, h),
+            UIGeometry.segmentsFor(tr, w, h),
+            UIGeometry.segmentsFor(br, w, h),
+            UIGeometry.segmentsFor(bl, w, h),
+        )
+        val contourWidth = (w + amount * 2f).coerceAtLeast(0f)
+        val contourHeight = (h + amount * 2f).coerceAtLeast(0f)
+        return UIGeometry.roundedRectOutlineFixedSegments(
+            x + (w - contourWidth) * 0.5f, y + (h - contourHeight) * 0.5f,
+            contourWidth, contourHeight,
+            tl + amount, bl + amount, br + amount, tr + amount,
+            segments,
+        )
+    }
+
+    override fun textWidth(text: String, size: Float, font: Font): Float =
+        if (font === UIRenderer.minecraftFont) mc.font.width(text) * size / mc.font.lineHeight
+        else fonts.width(font, text, size, textRasterScale())
+
+    override fun image(image: Image, x: Float, y: Float, w: Float, h: Float, tl: Float, bl: Float, br: Float, tr: Float, color: Int?) {
+        val entry = images.entry(image)
+        val tint = color ?: -1
+
+        if (tl == 0f && bl == 0f && br == 0f && tr == 0f) {
+            emitTexturedQuad(entry.texture, x, y, x + w, y + h, 0f, 0f, 1f, 1f, tint)
+            return
+        }
+
+        val inner = roundedRectContour(x, y, w, h, tl, bl, br, tr, -AA_FRINGE * 0.5f)
+        val outer = roundedRectContour(x, y, w, h, tl, bl, br, tr, AA_FRINGE * 0.5f)
+        beginBatch(RenderPipelines.GUI_TEXTURED, entry.texture, scissorStack.lastOrNull())
+        fun emit(quads: FloatArray, fringe: Boolean) {
+            var i = 0
+            while (i < quads.size) {
+                val vx = quads[i]
+                val vy = quads[i + 1]
+                val u = if (w != 0f) (vx - x) / w else 0f
+                val v = if (h != 0f) (vy - y) / h else 0f
+                val color = if (fringe && i % 8 >= 4) tint and 0xffffff else tint
+                addVertex(vx, vy, u, v, multiplyAlpha(color))
+                i += 2
+            }
+        }
+        emit(UIGeometry.fanToQuads(inner), false)
+        emit(UIGeometry.bandToQuads(inner, outer), true)
+    }
+
+    override fun registerImage(image: Image) = images.register(image)
+
+    override fun deleteImage(image: Image): Boolean = images.delete(image)
+
+    // ---------------------------------------------------------------- batching internals
+
+    private fun emitQuads(quads: FloatArray, color: Int) {
+        if (quads.isEmpty()) return
+        beginBatch(RenderPipelines.GUI, null, scissorStack.lastOrNull())
+        val col = multiplyAlpha(color)
+        var i = 0
+        while (i < quads.size) {
+            addVertex(quads[i], quads[i + 1], 0f, 0f, col)
+            i += 2
+        }
+    }
+
+    private inline fun emitQuads(quads: FloatArray, color: (Float, Float) -> Int) {
+        if (quads.isEmpty()) return
+        beginBatch(RenderPipelines.GUI, null, scissorStack.lastOrNull())
+        var i = 0
+        while (i < quads.size) {
+            val vx = quads[i]
+            val vy = quads[i + 1]
+            addVertex(vx, vy, 0f, 0f, multiplyAlpha(color(vx, vy)))
+            i += 2
+        }
+    }
+
+    /** Band between two outlines with the inner edge at [innerColor] and outer at [outerColor]. */
+    private fun emitBandFade(inner: FloatArray, outer: FloatArray, innerColor: Int, outerColor: Int) {
+        val quads = UIGeometry.bandToQuads(inner, outer)
+        if (quads.isEmpty()) return
+        beginBatch(RenderPipelines.GUI, null, scissorStack.lastOrNull())
+        val ic = multiplyAlpha(innerColor)
+        val oc = multiplyAlpha(outerColor)
+        // bandToQuads vertex order: inner[i], inner[j], outer[j], outer[i]
+        var i = 0
+        while (i < quads.size) {
+            addVertex(quads[i], quads[i + 1], 0f, 0f, ic)
+            addVertex(quads[i + 2], quads[i + 3], 0f, 0f, ic)
+            addVertex(quads[i + 4], quads[i + 5], 0f, 0f, oc)
+            addVertex(quads[i + 6], quads[i + 7], 0f, 0f, oc)
+            i += 8
+        }
+    }
+
+    /** AA fringe for a line quad; corresponding corners are paired directly. */
+    private fun emitQuadEdgeFade(inner: FloatArray, outer: FloatArray, color: Int) {
+        if (inner.size != 8 || outer.size != 8) return
+        emitBandFade(inner, outer, color, color and 0xFFFFFF)
+    }
+
+    private fun emitGradientFringe(
+        inner: FloatArray, outer: FloatArray,
+        x: Float, y: Float, w: Float, h: Float,
+        color1: Int, color2: Int, direction: Gradient,
+    ) {
+        val quads = UIGeometry.bandToQuads(inner, outer)
+        if (quads.isEmpty()) return
+        beginBatch(RenderPipelines.GUI, null, scissorStack.lastOrNull())
+        var i = 0
+        while (i < quads.size) {
+            for (vertex in 0 until 4) {
+                val vx = quads[i + vertex * 2]
+                val vy = quads[i + vertex * 2 + 1]
+                val t = when (direction) {
+                    Gradient.LeftToRight -> if (w != 0f) ((vx - x) / w) else 0f
+                    Gradient.TopToBottom -> if (h != 0f) ((vy - y) / h) else 0f
+                }.coerceIn(0f, 1f)
+                var col = lerpColor(color1, color2, t)
+                if (vertex >= 2) col = col and 0xFFFFFF
+                addVertex(vx, vy, 0f, 0f, multiplyAlpha(col))
+            }
+            i += 8
+        }
+    }
+
+    private fun emitTexturedQuad(
+        texture: DynamicTexture,
+        x0: Float, y0: Float, x1: Float, y1: Float,
+        u0: Float, v0: Float, u1: Float, v1: Float,
+        color: Int,
+    ) {
+        beginBatch(RenderPipelines.GUI_TEXTURED, texture, scissorStack.lastOrNull())
+        val col = multiplyAlpha(color)
+        addVertex(x0, y0, u0, v0, col)
+        addVertex(x0, y1, u0, v1, col)
+        addVertex(x1, y1, u1, v1, col)
+        addVertex(x1, y0, u1, v0, col)
+    }
+
+    private fun beginBatch(pipeline: RenderPipeline, texture: DynamicTexture?, scissor: ScissorEntry?) {
+        if (pipeline !== pendingPipeline || texture !== pendingTexture || scissor !== pendingScissor) {
+            flush()
+            pendingPipeline = pipeline
+            pendingTexture = texture
+            pendingScissor = scissor
+        }
+    }
+
+    private fun addVertex(x: Float, y: Float, u: Float, v: Float, color: Int) {
+        // pre-transform by the local pose so transform changes don't break batches
+        tmpVec.set(x, y)
+        state.pose.transformPosition(tmpVec)
+        pendingVerts.add(tmpVec.x)
+        pendingVerts.add(tmpVec.y)
+        pendingVerts.add(u)
+        pendingVerts.add(v)
+        pendingCols.add(color)
+        if (tmpVec.x < pendingMinX) pendingMinX = tmpVec.x
+        if (tmpVec.y < pendingMinY) pendingMinY = tmpVec.y
+        if (tmpVec.x > pendingMaxX) pendingMaxX = tmpVec.x
+        if (tmpVec.y > pendingMaxY) pendingMaxY = tmpVec.y
+    }
+
+    private fun flush() {
+        if (pendingVerts.isEmpty) {
+            resetBatch()
+            return
+        }
+        val ctx = this.ctx ?: run { resetBatch(); return }
+
+        val scissor = pendingScissor
+        val localScissor = scissor?.screenRect
+        val screenScissor = inheritedScissor?.let { inherited ->
+            if (localScissor == null) inherited else inherited.intersection(localScissor) ?: EMPTY_SCISSOR
+        } ?: localScissor
+        var bounds = toScreenRectOuter(pendingMinX, pendingMinY, pendingMaxX, pendingMaxY)
+        if (screenScissor != null && bounds != null) {
+            bounds = screenScissor.intersection(bounds)
+        }
+
+        if (bounds != null && bounds.width > 0 && bounds.height > 0) {
+            val clipRect = scissor?.rect
+            val clipped = if (clipRect != null &&
+                (pendingMinX < clipRect[0] || pendingMinY < clipRect[1] || pendingMaxX > clipRect[2] || pendingMaxY > clipRect[3])
+            ) UIGeometry.clipQuads(pendingVerts.elements(), pendingCols.elements(), clipRect, pendingCols.size)
+            else pendingVerts.toFloatArray() to pendingCols.toIntArray()
+            if (clipped.first.isEmpty()) { resetBatch(); return }
+            val textureSetup = pendingTexture?.let {
+                TextureSetup.singleTexture(it.textureView, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR))
+            } ?: TextureSetup.noTexture()
+
+            (ctx as GuiGraphicsExtractorAccessor).`quoi$getGuiRenderState`().addGuiElement(
+                UIDrawState(
+                    pendingPipeline ?: RenderPipelines.GUI,
+                    textureSetup,
+                    Matrix3x2f(basePose),
+                    clipped.first,
+                    clipped.second,
+                    pendingTexture != null,
+                    screenScissor,
+                    bounds,
+                )
+            )
+        }
+        resetBatch()
+    }
+
+    private fun resetBatch() {
+        pendingVerts.clear()
+        pendingCols.clear()
+        pendingPipeline = null
+        pendingTexture = null
+        pendingScissor = null
+        pendingMinX = Float.MAX_VALUE
+        pendingMinY = Float.MAX_VALUE
+        pendingMaxX = -Float.MAX_VALUE
+        pendingMaxY = -Float.MAX_VALUE
+    }
+
+    // ---------------------------------------------------------------- helpers
+
+    private fun multiplyAlpha(color: Int): Int {
+        val alpha = state.alpha
+        if (alpha >= 1f) return color
+        val a = ((color ushr 24) * alpha).toInt().coerceIn(0, 255)
+        return (a shl 24) or (color and 0xFFFFFF)
+    }
+
+    private fun lerpColor(c1: Int, c2: Int, t: Float): Int {
+        val a = ((c1 ushr 24) + (((c2 ushr 24) - (c1 ushr 24)) * t)).toInt().coerceIn(0, 255)
+        val r = (((c1 shr 16) and 0xFF) + ((((c2 shr 16) and 0xFF) - ((c1 shr 16) and 0xFF)) * t)).toInt().coerceIn(0, 255)
+        val g = (((c1 shr 8) and 0xFF) + ((((c2 shr 8) and 0xFF) - ((c1 shr 8) and 0xFF)) * t)).toInt().coerceIn(0, 255)
+        val b = ((c1 and 0xFF) + (((c2 and 0xFF) - (c1 and 0xFF)) * t)).toInt().coerceIn(0, 255)
+        return (a shl 24) or (r shl 16) or (g shl 8) or b
+    }
+
+    /** AABB of (x0,y0)-(x1,y1) after applying [pose]. */
+    private fun transformedAabb(x0: Float, y0: Float, x1: Float, y1: Float, pose: Matrix3x2f = state.pose): FloatArray {
+        var minX = Float.MAX_VALUE
+        var minY = Float.MAX_VALUE
+        var maxX = -Float.MAX_VALUE
+        var maxY = -Float.MAX_VALUE
+        val xs = floatArrayOf(x0, x1, x0, x1)
+        val ys = floatArrayOf(y0, y0, y1, y1)
+        for (i in 0 until 4) {
+            tmpVec.set(xs[i], ys[i])
+            pose.transformPosition(tmpVec)
+            minX = min(minX, tmpVec.x)
+            minY = min(minY, tmpVec.y)
+            maxX = max(maxX, tmpVec.x)
+            maxY = max(maxY, tmpVec.y)
+        }
+        return floatArrayOf(minX, minY, maxX, maxY)
+    }
+
+    /**
+     * Window-px clip → GUI-pixel ScreenRectangle. Round outwards: nearest rounding can
+     * move a clip edge inward by up to half a GUI pixel (1.5 physical px at scale 3),
+     * visibly shaving category edges and rounded top/bottom caps. flush() clips the
+     * vertex geometry at the precise window-pixel boundary before submission.
+     */
+    private fun toScreenRect(rect: FloatArray): ScreenRectangle? {
+        // GuiRenderer only clamps the right and bottom edges before forwarding the
+        // scissor to RenderPass. Negative or completely off-screen rectangles therefore
+        // fail RenderPass's strict bounds validation instead of merely clipping content.
+        val transformed = toScreenRectOuter(rect[0], rect[1], rect[2], rect[3]) ?: return EMPTY_SCISSOR
+        val screen = ScreenRectangle(0, 0, ceil(mc.window.width * invGuiScale).toInt(), ceil(mc.window.height * invGuiScale).toInt())
+        return transformed.intersection(screen) ?: EMPTY_SCISSOR
+    }
+
+    /** Window-px AABB → gui-space ScreenRectangle, rounded outwards (for bounds). */
+    private fun toScreenRectOuter(minX: Float, minY: Float, maxX: Float, maxY: Float): ScreenRectangle? {
+        if (maxX <= minX || maxY <= minY) return null
+        // Bounds and GPU scissors must use the same extractor pose as the vertices.
+        val rect = transformedAabb(minX, minY, maxX, maxY, basePose)
+        val left = floor(rect[0]).toInt()
+        val top = floor(rect[1]).toInt()
+        val right = ceil(rect[2]).toInt()
+        val bottom = ceil(rect[3]).toInt()
+        if (right <= left || bottom <= top) return null
+        return ScreenRectangle(left, top, right - left, bottom - top)
+    }
+
+    private class UIDrawState(
+        private val pipeline: RenderPipeline,
+        private val textureSetup: TextureSetup,
+        private val pose: Matrix3x2f,
+        private val verts: FloatArray,
+        private val cols: IntArray,
+        private val textured: Boolean,
+        private val scissor: ScreenRectangle?,
+        private val boundsRect: ScreenRectangle,
+    ) : GuiElementRenderState {
+
+        override fun buildVertices(consumer: VertexConsumer) {
+            var i = 0
+            var c = 0
+            while (i < verts.size) {
+                val vertex = consumer.addVertexWith2DPose(pose, verts[i], verts[i + 1])
+                if (textured) vertex.setUv(verts[i + 2], verts[i + 3])
+                vertex.setColor(cols[c++])
+                i += 4
+            }
+        }
+
+        override fun pipeline(): RenderPipeline = pipeline
+
+        override fun textureSetup(): TextureSetup = textureSetup
+
+        override fun scissorArea(): ScreenRectangle? = scissor
+
+        override fun bounds(): ScreenRectangle = boundsRect
+    }
+
+    private companion object {
+        const val AA_FRINGE = 1f
+        /** Fully clipped: 0-sized scissors still need an object so content stays hidden. */
+        val EMPTY_SCISSOR = ScreenRectangle(0, 0, 0, 0)
+    }
+}

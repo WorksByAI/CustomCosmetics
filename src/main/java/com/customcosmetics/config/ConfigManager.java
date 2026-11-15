@@ -327,6 +327,7 @@ public final class ConfigManager {
     public static double animationRotationX = 0, animationRotationY = 0, animationRotationZ = 0;
     public static double animationSwingX = 1, animationSwingY = 1, animationSwingZ = 1;
     public static double animationSwingSpeed = 0;
+    public static boolean legacyHeldSkull;
     public static boolean animationDisableHandMove = false, animationDisableEquip = false;
     public static boolean animationDisableSwing = false, animationTerminatorOnly = false, animationIgnoreHaste = false;
 

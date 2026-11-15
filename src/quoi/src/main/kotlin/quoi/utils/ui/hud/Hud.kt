@@ -1,0 +1,239 @@
+package quoi.utils.ui.hud
+
+import quoi.api.abobaui.constraints.Constraint
+import quoi.api.abobaui.constraints.impl.measurements.Undefined
+import quoi.api.abobaui.constraints.impl.measurements.Pixel
+import quoi.api.abobaui.constraints.impl.size.Bounding
+import quoi.api.abobaui.dsl.constrain
+import quoi.api.abobaui.dsl.px
+import quoi.api.abobaui.dsl.percent
+import quoi.api.abobaui.elements.Element
+import quoi.api.abobaui.elements.ElementScope
+import quoi.api.abobaui.elements.impl.Group
+import quoi.api.abobaui.transforms.impl.Scale
+import quoi.module.Module
+import quoi.module.settings.Setting
+import quoi.module.settings.UIComponent
+import quoi.module.settings.UIComponent.Companion.childOf
+import quoi.module.settings.impl.TextComponent
+import quoi.module.settings.impl.SliderComponent
+import quoi.utils.inGame
+import quoi.utils.ui.inHudEditor
+import quoi.utils.ui.settingFromK0
+import quoi.utils.ui.watch
+import kotlin.math.roundToInt
+import kotlin.reflect.KProperty0
+
+open class Hud(
+    val name: String,
+    val module: Module,
+    val toggleable: Boolean,
+    open val builder: Scope.() -> Unit = {}
+) {
+    var enabled: Boolean = false
+
+    val x = SliderComponent("x", 0.0f, 0.0f, 100.0f).hide()
+    val y = SliderComponent("y", 0.0f, 0.0f, 100.0f).hide()
+    var scale = SliderComponent("scale", 1.0f, 0.3f, 5f, 0.1f).hide()
+
+    private val dummy = TextComponent("dummy").hide()
+
+    val settings = arrayListOf<Setting<*>>(dummy, x, y, scale)
+
+    var inContainer = false
+        private set
+
+    var element: Element? = null
+    var scope: Scope? = null
+
+    init {
+        check(!HudManager.stupid) { "ABOBA | too late $name" }
+        HudManager.huds.add(this)
+    }
+
+    fun rebuild() {
+        scope?.let { element?.rebuild(it) }
+    }
+
+    fun container(): Hud {
+        inContainer = true
+        return this
+    }
+
+    fun withSettings(vararg settings: UIComponent<*>): Hud {
+        val list = settings.toList()
+        list.forEach { addSetting(it, list) }
+        return this
+    }
+
+    fun withSettings(vararg settings: KProperty0<*>): Hud {
+        val list = settings.map { settingFromK0(it) }
+        list.forEach { addSetting(it, list) }
+        return this
+    }
+
+    fun getSettingByName(name: String?): Setting<*>? {
+        for (setting in settings) {
+            if (setting.jsonName.equals(name, true) /*|| setting.name.equals(name, true)*/) {
+                return setting
+            }
+        }
+        return null
+    }
+
+    open fun savePosition(element: Element, screenWidth: Float, screenHeight: Float) {
+        val targetX = ((element.constraints.x as? Pixel)?.pixels ?: element.internalX).roundToInt().toFloat()
+        val targetY = ((element.constraints.y as? Pixel)?.pixels ?: element.internalY).roundToInt().toFloat()
+        x.value = (targetX / screenWidth) * 100f
+        y.value = (targetY / screenHeight) * 100f
+    }
+
+    private fun addSetting(setting: UIComponent<*>, adding: List<UIComponent<*>> = emptyList()) {
+        if (setting in module.settings) {
+            if (setting.parent != null && setting.parent as UIComponent !in this.settings && setting.parent !in adding) {
+                setting.parent?.children?.remove(setting)
+                setting.parent = null
+            }
+
+            if (setting.parent == null && !setting.forceParent) {
+                dummy.childOf(setting)
+            }
+
+            module.settings.remove(setting)
+        }
+
+        settings.add(setting)
+    }
+
+    inner class Element : Group(constrain(x.value.percent, y.value.percent, IsolatedBounding, IsolatedBounding)) {
+
+        override var enabled: Boolean = true
+            get() =
+                field &&
+                (if (inHudEditor) this@Hud.module.running else this@Hud.module.active) &&
+                (this@Hud.enabled || !this@Hud.toggleable)
+
+        override var usingCtx: Boolean = true
+
+        // text changes here should not relayout other HUDs
+        override val isLayoutBoundary: Boolean get() = true
+
+        var scaleTransformation by Scale(this@Hud.scale.value, centered = false).also {
+            addTransform(it)
+        }
+
+        init {
+            scaleX = this@Hud.scale.value
+            scaleY = this@Hud.scale.value
+        }
+
+        override fun getDefaultPositions() = Pair(Undefined, Undefined)
+
+        override fun prePosition() {
+            if (constraints.width.reliesOnChildren()) {
+                width = constraints.width.calculateSize(this, true)
+            }
+            if (constraints.height.reliesOnChildren()) {
+                height = constraints.height.calculateSize(this, false)
+            }
+
+            parent?.let { p ->
+                this.internalX = this.constraints.x.calculatePos(this, true).roundToInt().toFloat()
+                this.internalY = this.constraints.y.calculatePos(this, false).roundToInt().toFloat()
+                this.x = this.internalX + p.x
+                this.y = this.internalY + p.y
+            }
+            super.prePosition()
+        }
+
+        override fun postPosition() {
+            width = Bounding.calculateSize(this, true)
+            height = Bounding.calculateSize(this, false)
+            parent?.let { p ->
+                this.renders = this.intersects(p) && !(this.width == 0f && this.height == 0f)
+            }
+            super.postPosition()
+        }
+
+        fun rebuild(scope: Scope) {
+            this.constraints.x = this@Hud.x.value.percent
+            this.constraints.y = this@Hud.y.value.percent
+            removeAll()
+            builder.invoke(scope)
+            scaleTransformation = this@Hud.scale.value
+            redraw = true
+        }
+
+        fun clampToParent(): Boolean {
+            val p = parent ?: return false
+            val (minX, maxX) = xBounds()
+            val (minY, maxY) = yBounds()
+            val clampedX = x.coerceIn(minX, maxX)
+            val clampedY = y.coerceIn(minY, maxY)
+            if (clampedX == x && clampedY == y) return false
+
+            constraints.x = clampedX.px
+            constraints.y = clampedY.px
+            internalX = clampedX
+            internalY = clampedY
+            x = clampedX + p.x
+            y = clampedY + p.y
+            redraw()
+            return true
+        }
+
+        fun ensurePixelPosition() {
+            if (constraints.x !is Pixel) {
+                constraints.x = x.px
+                constraints.y = y.px
+            }
+        }
+
+        fun hasPixelPosition() = constraints.x is Pixel && constraints.y is Pixel
+
+        fun xBounds(): Pair<Float, Float> {
+            val p = parent ?: return 0f to 0f
+            return axisBounds(p.width, screenWidth())
+        }
+
+        fun yBounds(): Pair<Float, Float> {
+            val p = parent ?: return 0f to 0f
+            return axisBounds(p.height, screenHeight())
+        }
+
+        private fun axisBounds(parentSize: Float, elementSize: Float): Pair<Float, Float> {
+            val max = parentSize - elementSize
+            return if (max >= 0f) 0f to max else max to 0f
+        }
+    }
+
+    open class Scope(element: Element, val preview: Boolean) : ElementScope<Element>(element) {
+
+        init {
+            watch({ element.enabled }) {
+                element.redraw()
+            }
+        }
+
+        inline fun ElementScope<*>.visibleIf(crossinline block: () -> Boolean) {
+            if (!preview) {
+                operation {
+                    if (inGame) element.enabled = block()
+                    false
+                }
+            }
+        }
+
+        fun rebuildHuds() {
+            element.rebuild(this)
+        }
+    }
+}
+
+private val IsolatedBounding = object : Constraint.Size {
+    override fun calculateSize(element: Element, horizontal: Boolean): Float {
+        return Bounding.calculateSize(element, horizontal)
+    }
+
+    override fun reliesOnChildren(): Boolean = true
+}

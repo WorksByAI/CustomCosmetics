@@ -1,0 +1,83 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+def dungeonVariants = ['26.1.2', '26.2', '26.3']
+def dungeonDir = layout.buildDirectory.dir('dungeon')
+def dungeonVersion = project.version.toString()
+def dungeonBuilds = dungeonVariants.collectEntries { mc ->
+    [(mc): file("src/quoi/versions/${mc}/build/libs/customskyblock-dungeon-${dungeonVersion}+${mc}.jar")]
+}
+
+def prepareDungeon = tasks.register('prepareDungeon') {
+    dungeonVariants.each { mc ->
+        dependsOn gradle.includedBuild('customskyblock-dungeon').task(":${mc}:jar")
+    }
+    inputs.files(dungeonBuilds.values())
+    outputs.dir(dungeonDir)
+    doLast {
+        def jars = [:]
+        try {
+            dungeonBuilds.each { mc, outputs -> jars[mc] = new java.util.zip.ZipFile(outputs) }
+            def base = jars.values().first()
+            def common = new TreeSet(base.entries().findAll { entry ->
+                !entry.directory && (entry.name.startsWith('assets/quoi/') ||
+                    (entry.name.startsWith('quoi/') && !entry.name.startsWith('quoi/mixins/'))) &&
+                    jars.values().every { other ->
+                        def candidate = other.getEntry(entry.name)
+                        candidate != null && candidate.size == entry.size && candidate.crc == entry.crc
+                    }
+            }.collect { it.name })
+
+            File output = dungeonDir.get().asFile
+            output.mkdirs()
+            def write = { String jarName, java.util.zip.ZipFile source, Collection<String> paths, Map<String, String> generated ->
+                file("${output}/${jarName}").withOutputStream { stream ->
+                    new java.util.zip.ZipOutputStream(stream).withCloseable { zip ->
+                        def add = { String name, Closure writeContents ->
+                            def entry = new java.util.zip.ZipEntry(name)
+                            entry.time = 0
+                            zip.putNextEntry(entry)
+                            writeContents(zip)
+                            zip.closeEntry()
+                        }
+                        paths.sort().each { path ->
+                            add(path) { sink -> source.getInputStream(source.getEntry(path)).withCloseable { it.transferTo(sink) } }
+                        }
+                        generated.each { name, content -> add(name) { it.write(content.getBytes('UTF-8')) } }
+                    }
+                }
+            }
+            // Keep mixin discovery, Kotlin metadata and Fabric access wideners in each selected variant.
+            jars.each { mc, jar ->
+                write("dungeon-${mc}.jar", jar, jar.entries().collect { it.name }.findAll { !common.contains(it) }, [:])
+            }
+            write('dungeon-common.jar', base, common.toList(), ['fabric.mod.json': groovy.json.JsonOutput.toJson([
+                schemaVersion: 1, id: 'customskyblock-dungeon-common', version: dungeonVersion,
+                name: 'CustomSkyBlock Dungeon Common', environment: 'client', license: 'GPL-3.0-only'
+            ])])
+        } finally {
+            jars.values().each { it.close() }
+        }
+    }
+}
+
+dependencies {
+    implementation 'net.fabricmc:fabric-language-kotlin:1.14.2+kotlin.2.4.21'
+}
+
+jar {
+    from(prepareDungeon) { into 'META-INF/dungeon' }
+}
+
+tasks.named('runClientGameTest') {
+    dependsOn prepareDungeon
+    doFirst {
+        def variant = project.minecraft_version.startsWith('26.1') ? '26.1.2' : project.minecraft_version
+        systemProperty 'fabric.addMods', files("build/dungeon/dungeon-${variant}.jar", 'build/dungeon/dungeon-common.jar').asPath
+    }
+}
+
+tasks.named('sourcesJar', Jar) {
+    from('src/quoi') {
+        include 'src/main/**', 'LICENSE', '*.kts', 'gradle.properties', 'versions/*/gradle.properties'
+        into 'src/quoi'
+    }
+}

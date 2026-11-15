@@ -154,7 +154,7 @@ class LicensePackagingTest {
                     metadata.getAsJsonObject("contact").get("sources").getAsString());
             }
             assertTrue(jar.stream().noneMatch(item -> item.getName().startsWith("net/minecraft/")
-                || item.getName().startsWith("net/fabricmc/") || item.getName().endsWith(".jar")),
+                || item.getName().startsWith("net/fabricmc/") || (item.getName().endsWith(".jar") && !item.getName().matches("META-INF/dungeon/dungeon-(?:common|26[.]1[.]2|26[.]2|26[.]3)[.]jar"))),
                 "The mod must not redistribute game binaries or dependencies");
             assertTrue(jar.stream().noneMatch(item -> item.getName().startsWith("com/customcosmetics/gametest/")),
                 "Game input automation belongs only in the isolated test mod");
@@ -297,8 +297,8 @@ class LicensePackagingTest {
         assertEquals("497c8c2a7e5031f6aa847f88104aa80a93532ec32ee17bdb8d1d2f67a194a9c7",
             HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(wrapper)));
         String properties = Files.readString(ROOT.resolve("gradle/wrapper/gradle-wrapper.properties"));
-        assertTrue(properties.contains("services.gradle.org/distributions/gradle-9.5.1-bin.zip"));
-        assertTrue(properties.contains("distributionSha256Sum=bafc141b619ad6350fd975fc903156dd5c151998cc8b058e8c1044ab5f7b031f"));
+        assertTrue(properties.contains("services.gradle.org/distributions/gradle-9.9.0-bin.zip"));
+        assertTrue(properties.contains("distributionSha256Sum=0b00b0ffe07c4d4789c12d4935a44a7057d55774b7540bd4a3f76f336deb177a"));
         assertTrue(properties.contains("validateDistributionUrl=true"));
         String mit = Files.readString(ROOT.resolve("LICENSES/Oklab-MIT.txt"));
         assertTrue(mit.contains("Copyright (c) 2020 Björn Ottosson") && mit.contains("Permission is hereby granted"));

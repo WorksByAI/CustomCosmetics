@@ -1031,6 +1031,8 @@ public final class CosmeticsScreen extends ThemedScreen {
             () -> ConfigManager.swordBlockingSyncEnabled, v -> ConfigManager.swordBlockingSyncEnabled = v);
         section("View model", "Position, scale and rotation of your held item.");
         toggleRow("View Model", "", () -> ConfigManager.animationsEnabled, v -> ConfigManager.animationsEnabled = v);
+        toggleRow("1.8 Held Skull", "Use the 1.8 size, position and rotation for first-person player heads.",
+            () -> ConfigManager.legacyHeldSkull, v -> ConfigManager.legacyHeldSkull = v);
         var numbers = new ArrayList<NumericSetting>(List.of(
             new NumericSetting("Item Scale", () -> ConfigManager.animationItemScale, 0.1, 2.5, 0.05, 1, v -> ConfigManager.animationItemScale = v),
             new NumericSetting("Position X", () -> ConfigManager.animationX, -2, 2, 0.01, 0, v -> ConfigManager.animationX = v),

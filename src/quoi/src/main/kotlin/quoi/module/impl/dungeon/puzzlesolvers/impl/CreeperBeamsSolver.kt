@@ -1,0 +1,321 @@
+package quoi.module.impl.dungeon.puzzlesolvers.impl
+
+import net.minecraft.core.BlockPos
+import net.minecraft.network.protocol.game.ClientboundSoundPacket
+import net.minecraft.world.level.ClipContext
+import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.phys.AABB
+import net.minecraft.world.phys.HitResult
+import net.minecraft.world.phys.Vec3
+import quoi.api.colour.Colour
+import quoi.api.colour.withAlpha
+import quoi.api.events.*
+import quoi.api.events.core.Event
+import quoi.api.events.core.on
+import quoi.api.skyblock.dungeon.Dungeon
+import quoi.api.skyblock.dungeon.odonscanning.tiles.OdonRoom
+import quoi.module.impl.dungeon.autoclear.executor.ClearExecutor
+import quoi.module.impl.dungeon.puzzlesolvers.PuzzleSolvers
+import quoi.module.impl.dungeon.puzzlesolvers.Repositionable
+import quoi.module.settings.Setting.Companion.json
+import quoi.module.settings.UIComponent.Companion.childOf
+import quoi.module.settings.group.SettingGroup
+import quoi.utils.*
+import quoi.utils.WorldUtils.state
+import quoi.utils.render.drawLine
+import quoi.utils.render.drawStyledBox
+import quoi.utils.skyblock.item.ItemUtils.isShortbow
+import quoi.utils.skyblock.item.ItemUtils.skyblockId
+import quoi.utils.skyblock.item.TeleportUtils.getEtherwarpDirection
+import quoi.utils.skyblock.player.PlayerUtils.useItem
+import kotlin.math.abs
+import kotlin.math.sqrt
+
+/**
+ * modified OdinFabric (BSD 3-Clause)
+ * copyright (c) 2025-2026 odtheking
+ * original: https://github.com/odtheking/Odin/blob/main/src/main/kotlin/com/odtheking/odin/features/impl/dungeon/puzzlesolvers/BeamsSolver.kt
+ */
+object CreeperBeamsSolver : SettingGroup(PuzzleSolvers, "Creeper beams"), Repositionable { // todo cleanup/recode auto
+
+    private val solver by switch("Solver", desc = "Shows the solution for the creeper beams puzzle.")
+    private val tracer by switch("Tracer").json("Beams tracer").childOf(::solver)
+    private val style by selector("Style", "Box", arrayListOf("Box", "Filled box"), desc = "Render style to be used.").childOf(::solver)
+    private val alpha by slider("Colour alpha", 0.7f, 0f, 1f, 0.05f).childOf(::solver)
+    private val announce by switch("Announce completion", desc = "Sends complete message.").asParent()
+    val auto by switch("Auto").asParent()
+    val triggerbot by switch("Triggerbot", desc = "Fires at a valid lantern you aim at, then at its matching lantern.").asParent()
+
+    private var lanternPairs: List<List<Int>> = PuzzleSolvers.loadSolution("creeperBeamsSolutions.json", emptyList())
+
+    private var activePair: LanternPair? = null
+    private var lastShotTime = 0L
+    private var waitingForUpdate = false
+    override var repositionTicker: Ticker? = null
+    private val progress = BeamsPairProgress()
+
+    init {
+        on<DungeonEvent.Room.Enter> {
+            if (room?.name != "Creeper Beams") return@on reset()
+            else recalculateLanternPairs(room)
+        }
+
+        on<RenderEvent.World> {
+            if (!solver || currentLanternPairs.isEmpty()) return@on
+
+            currentLanternPairs.entries.forEach { (pos1, pair) ->
+                val (pos2, col) = pair
+                val colour = col.withAlpha(alpha)
+
+                ctx.drawStyledBox(style.selected, AABB(pos1), colour, depth = true)
+                ctx.drawStyledBox(style.selected, AABB(pos2), colour, depth = true)
+
+                if (tracer)
+                    ctx.drawLine(listOf(pos1.center, pos2.center), colour = colour, depth = false)
+            }
+
+            activePair?.let {
+                val target = if (it.stage == 0) it.first else it.second
+                ctx.drawStyledBox("Box", AABB(target), Colour.RED, depth = false)
+            }
+        }
+
+        on<BlockEvent.Update> {
+            if (!solver && !auto && !triggerbot) return@on
+            if (
+                old.block.equalsOneOf(Blocks.PRISMARINE, Blocks.SEA_LANTERN) &&
+                updated.block.equalsOneOf(Blocks.PRISMARINE, Blocks.SEA_LANTERN)
+            ) {
+                val room = Dungeon.currentRoom ?: return@on
+                val world = mc.level
+                mc.schedule {
+                    if (!module.active || mc.level !== world || Dungeon.currentRoom !== room) return@schedule
+                    val previous = currentLanternPairs.keys.toSet()
+
+                    recalculateLanternPairs(room)
+
+                    completePairs(previous - currentLanternPairs.keys)
+                }
+
+                return@on
+            }
+        }
+
+        on<PacketEvent.Received, ClientboundSoundPacket> {
+            if (!auto && !triggerbot) return@on
+            val pair = activePair ?: return@on
+            if (packet.sound.registeredName != "minecraft:entity.elder_guardian.hurt") return@on
+
+            val pos = if (pair.stage == 0) pair.first else pair.second
+            if (!Vec3(pos).equal(Vec3(packet.x, packet.y, packet.z))) return@on
+
+            if (pair.stage == 0 && packet.pitch == 1.3968254f) {
+                pair.stage = 1
+                waitingForUpdate = false
+            } else if (pair.stage == 1 && packet.pitch == 2.0f) {
+                pair.stage = 2
+                waitingForUpdate = false
+                currentLanternPairs.remove(pair.key)
+                activePair = null
+                completePairs(listOf(pair.key))
+            }
+        }
+
+        on<TickEvent.End> {
+            if (!triggerbot || auto || ClearExecutor.active || quoi.compat.GameAccess.screen() != null || Dungeon.isDead || progress.solvedPairs >= 4 || currentLanternPairs.isEmpty()) return@on
+            if (!player.mainHandItem.isShortbow) return@on
+            val now = System.currentTimeMillis()
+            if (now - lastShotTime < PuzzleSolvers.shootCd) return@on
+            if (waitingForUpdate && now - lastShotTime <= PuzzleSolvers.missCd) return@on
+
+            val lantern = getArrowHit(player.yRot, player.xRot) ?: return@on
+            val pair = activePair ?: run {
+                val entry = currentLanternPairs.entries.firstOrNull { it.key == lantern || it.value.first == lantern } ?: return@on
+                val other = if (entry.key == lantern) entry.value.first else entry.key
+                LanternPair(lantern, other, key = entry.key)
+            }
+            if (lantern != if (pair.stage == 0) pair.first else pair.second) return@on
+            val room = Dungeon.currentRoom ?: return@on
+            if (isPathBlocked(player.eyePosition, lantern.center, room.getRealCoords(BlockPos(15, 74, 15)))) return@on
+            if (player.mainHandItem.skyblockId == "TERMINATOR") {
+                for (yaw in floatArrayOf(player.yRot - 5f, player.yRot + 5f)) {
+                    val sideHit = getArrowHit(yaw, player.xRot) ?: continue
+                    if (sideHit != lantern && sideHit.state.`is`(Blocks.SEA_LANTERN)) return@on
+                }
+            }
+
+            activePair = pair
+            player.useItem(player.yRot, player.xRot)
+            lastShotTime = now
+            waitingForUpdate = true
+        }
+
+        on<TickEvent.End> {
+            if (!auto || ClearExecutor.active || PuzzleSolvers.screenBlocksAuto || progress.solvedPairs >= 4 || currentLanternPairs.isEmpty()) return@on
+            val room = Dungeon.currentRoom ?: return@on
+
+            val start = room.getRealCoords(BlockPos(16, 74, 14))
+            if (start.state.isAir) return@on
+
+            repositionTicker?.let {
+                if (it.tick()) Scheduler.scheduleTask {
+                    repositionTicker = null
+                }
+                return@on
+            }
+
+            if (player.y != 75.0) return@on reposition(start)
+
+            if (activePair == null) {
+                val entry = currentLanternPairs.entries.firstOrNull() ?: return@on
+                activePair = LanternPair(entry.key, entry.value.first)
+            }
+            val pair = activePair ?: return@on
+            val lantern = if (pair.stage == 0) pair.first else pair.second
+            val lanternVec = Vec3.atCenterOf(lantern)
+
+            val creeper = room.getRealCoords(BlockPos(15, 74, 15))
+
+            if (isPathBlocked(player.eyePosition, lanternVec, creeper)) {
+                val spot = getPositionSpot(room, lanternVec, creeper)
+                if (spot != null) return@on reposition(spot)
+            }
+
+            val currentTime = System.currentTimeMillis()
+
+            if (waitingForUpdate) {
+                if (currentTime - lastShotTime > PuzzleSolvers.missCd)
+                    waitingForUpdate = false
+                else
+                    return@on
+            }
+
+            if (!player.mainHandItem.isShortbow) return@on
+            if (currentTime - lastShotTime < PuzzleSolvers.shootCd) return@on
+
+            val dir = getEtherwarpDirection(lantern) ?: getDirection(lanternVec)
+            player.useItem(dir)
+
+            lastShotTime = currentTime
+            waitingForUpdate = true
+        }
+
+        on<WorldEvent.Change> {
+            reset()
+        }
+    }
+
+    override fun shouldHandle(event: Event): Boolean {
+        if (event is WorldEvent.Change) return true
+        if (!super.shouldHandle(event)) return false
+
+        if (event is DungeonEvent.Room.Enter) return true
+
+        return Dungeon.currentRoom?.name == "Creeper Beams"
+    }
+
+    private val currentLanternPairs = mutableMapOf<BlockPos, Pair<BlockPos, Colour>>()
+
+    private fun completePairs(keys: Collection<BlockPos>) {
+        if (!progress.complete(keys)) return
+        if (announce) ChatUtils.command("pc Beams done!")
+        if (auto) mc.options.keyShift.isDown = false
+    }
+
+    private fun recalculateLanternPairs(room: OdonRoom) {
+        currentLanternPairs.clear()
+        lanternPairs.forEachIndexed { i, l ->
+            val pos = room.getRealCoords(BlockPos(l[0], l[1], l[2])).takeIf { it.state.block == Blocks.SEA_LANTERN } ?: return@forEachIndexed
+            val pos2 = room.getRealCoords(BlockPos(l[3], l[4], l[5])).takeIf { it.state.block == Blocks.SEA_LANTERN } ?: return@forEachIndexed
+
+            currentLanternPairs[pos] = pos2 to colours[i % colours.size]
+        }
+
+        val active = activePair ?: return
+        if (!currentLanternPairs.containsKey(active.key)) {
+            activePair = null
+            waitingForUpdate = false
+        }
+    }
+
+    private fun reset() {
+        currentLanternPairs.clear()
+        activePair = null
+        waitingForUpdate = false
+        lastShotTime = -1
+        repositionTicker = null
+        progress.reset()
+    }
+
+    private fun getArrowHit(yaw: Float, pitch: Float): BlockPos? {
+        var pos = getArrowOrigin(player.eyePosition, player.yRot, player.mainHandItem.skyblockId == "TERMINATOR")
+        var motion = getLook(yaw, pitch).scale(3.0)
+        repeat(60) {
+            val next = pos.add(motion)
+            val hit = level.clip(ClipContext(pos, next, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player))
+            if (hit.type == HitResult.Type.BLOCK) return hit.blockPos
+            pos = next
+            motion = motion.multiply(0.99, 0.99, 0.99).add(0.0, -0.05, 0.0)
+        }
+        return null
+    }
+
+    private fun isPathBlocked(from: Vec3, lantern: Vec3, creeper: BlockPos): Boolean {
+        val x = lantern.x - from.x
+        val z = lantern.z - from.z
+        val dist = x * x + z * z
+        if (dist < 0.1) return false
+
+        val cx = creeper.x + 0.5 - from.x
+        val cz = creeper.z + 0.5 - from.z
+
+        val dot = (cx * x + cz * z) / dist
+        if (dot !in 0.0..1.0) return false
+
+        val offset = abs(cx * z - cz * x) / sqrt(dist)
+
+        return offset < 1.0
+    }
+
+    private fun getPositionSpot(room: OdonRoom, lantern: Vec3, creeper: BlockPos) =
+        platformSpots.map { room.getRealCoords(it) }.firstOrNull { spot ->
+            !isPathBlocked(Vec3.atCenterOf(spot).add(0.0, 1.5, 0.0), lantern, creeper)
+        }
+
+    private val platformSpots = listOf(
+        BlockPos(14, 74, 14), BlockPos(14, 74, 15), BlockPos(14, 74, 16),
+        BlockPos(15, 74, 14), BlockPos(15, 74, 16),
+        BlockPos(16, 74, 14), BlockPos(16, 74, 15), BlockPos(16, 74, 16)
+    )
+
+    private val colours = listOf(
+        Colour.MINECRAFT_GOLD,
+        Colour.MINECRAFT_GREEN,
+        Colour.MINECRAFT_LIGHT_PURPLE,
+        Colour.MINECRAFT_DARK_AQUA,
+        Colour.MINECRAFT_YELLOW,
+        Colour.MINECRAFT_DARK_RED,
+        Colour.WHITE,
+        Colour.MINECRAFT_DARK_PURPLE
+    )
+
+    private data class LanternPair(
+        val first: BlockPos,
+        val second: BlockPos,
+        var stage: Int = 0, // 0 = not hit, 1 = first hit, 2 = both hit
+        val key: BlockPos = first
+    )
+}
+
+internal class BeamsPairProgress {
+    private val completed = mutableSetOf<BlockPos>()
+    val solvedPairs: Int get() = completed.size
+
+    fun complete(keys: Collection<BlockPos>): Boolean {
+        val previous = solvedPairs
+        completed.addAll(keys)
+        return previous < 4 && solvedPairs >= 4
+    }
+
+    fun reset() = completed.clear()
+}

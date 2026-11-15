@@ -5,6 +5,7 @@ import com.customcosmetics.compatibility.ClientInput;
 import com.customcosmetics.compatibility.ClientUiAccess;
 import com.customcosmetics.config.ConfigManager;
 import com.customcosmetics.features.gameplay.GameplayModule;
+import com.customcosmetics.features.gameplay.QuoiDungeon;
 import com.customcosmetics.features.gameplay.GameplayKeybinds;
 import com.customcosmetics.features.gameplay.AutoClicker;
 import com.customcosmetics.features.gameplay.SafariSpecies;
@@ -27,6 +28,7 @@ import static com.customcosmetics.gui.PinkUi.*;
 
 final class CheatingScreen extends ThemedScreen {
     private static final GameplayModule[] MODULES = Arrays.stream(GameplayModule.values())
+        .filter(module -> module.category != GameplayModule.Category.DUNGEON)
         .sorted(Comparator.comparing(module -> module.label)).toArray(GameplayModule[]::new);
     private final Screen parent;
     private final ArrayList<Card> cards = new ArrayList<>();
@@ -133,6 +135,10 @@ final class CheatingScreen extends ThemedScreen {
         for (var option : GameplayModule.Category.values()) {
             var button = addRenderableWidget(new PinkUi.Action(layout.x() + 9, row, layout.sidebarWidth() - 18, categoryStep - 2,
                 option.label, false, () -> {
+                    if (option == GameplayModule.Category.DUNGEON) {
+                        QuoiDungeon.open(this, false);
+                        return;
+                    }
                     category = option;
                     query = "";
                     editing = null;

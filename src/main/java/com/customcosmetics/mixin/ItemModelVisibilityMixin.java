@@ -28,6 +28,9 @@ public final class ItemModelVisibilityMixin {
             return quads.stream().map(quad -> quad.materialInfo().sprite().contents().name()).toList();
         }
         @Override public boolean customcosmetics$special() { return specialRenderer != null; }
+        @Override public boolean customcosmetics$playerHead() {
+            return specialRenderer instanceof net.minecraft.client.renderer.special.PlayerHeadSpecialRenderer;
+        }
         @Override public Identifier customcosmetics$particle() { return particleMaterial == null ? null : particleMaterial.sprite().contents().name(); }
     }
     @Mixin(ItemStackRenderState.LayerRenderState.class)
@@ -52,6 +55,9 @@ public final class ItemModelVisibilityMixin {
             } catch (ReflectiveOperationException error) { throw new IllegalStateException(error); }
         }
         @Override public boolean customcosmetics$special() { return specialRenderer != null; }
+        @Override public boolean customcosmetics$playerHead() {
+            return specialRenderer instanceof net.minecraft.client.renderer.special.PlayerHeadSpecialRenderer;
+        }
         @Override public Identifier customcosmetics$particle() { return particleMaterial == null ? null : particleMaterial.sprite().contents().name(); }
     }
 }

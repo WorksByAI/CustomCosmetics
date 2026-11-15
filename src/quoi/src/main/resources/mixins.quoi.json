@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "compatibilityLevel": "JAVA_25",
+  "minVersion": "0.8",
+  "package": "quoi.mixins",
+  "plugin": "quoi.init.AutoMixinDiscovery",
+  "injectors": {
+    "maxShiftBy": 5
+  },
+  "mixins": []
+}

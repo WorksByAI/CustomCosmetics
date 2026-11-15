@@ -1,0 +1,95 @@
+package quoi.utils.skyblock.player
+
+import net.minecraft.network.protocol.game.ClientboundSetHeldSlotPacket
+import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket
+import net.minecraft.world.item.ItemStack
+import quoi.annotations.Init
+import quoi.api.events.PacketEvent
+import quoi.api.events.TickEvent
+import quoi.api.events.WorldEvent
+import quoi.api.events.core.EventListener
+import quoi.api.events.core.Priority
+import quoi.api.events.core.on
+import quoi.utils.ChatUtils.modMessage
+import quoi.utils.Shortcuts
+import quoi.utils.StringUtils.noControlCodes
+import quoi.utils.skyblock.item.ItemUtils.loreString
+import quoi.utils.skyblock.item.ItemUtils.skyblockId
+
+@Init
+object SwapManager : EventListener, Shortcuts {
+    private var lastKnownServerSlot: Int = -1
+    private var hasSwappedThisTick: Boolean = false
+
+    init {
+        on<TickEvent.Start>(Priority.HIGHEST) { hasSwappedThisTick = false }
+
+        on<WorldEvent.Change> {
+            lastKnownServerSlot = -1
+            hasSwappedThisTick = false
+        }
+
+        on<PacketEvent.ReceivedPost, ClientboundSetHeldSlotPacket> {
+            lastKnownServerSlot = packet.slot()
+        }
+
+        on<PacketEvent.Sent, ServerboundSetCarriedItemPacket>(Priority.HIGHEST) {
+            if (packet.slot == lastKnownServerSlot) {
+                cancel()
+                return@on
+            }
+
+            if (hasSwappedThisTick) {
+                cancel()
+                if (packet.slot != lastKnownServerSlot) {
+                    player.inventory.selectedSlot = lastKnownServerSlot
+                }
+                return@on
+            }
+
+            lastKnownServerSlot = packet.slot
+            hasSwappedThisTick = true
+        }
+    }
+
+    fun swapToSlot(slot: Int) = when {
+        mc.player == null -> SwapResult.FAILED
+        slot !in 0..8 -> SwapResult.FAILED
+        player.inventory.selectedSlot == slot -> SwapResult.ALREADY_SELECTED
+        hasSwappedThisTick -> SwapResult.TOO_FAST
+        else -> {
+            player.inventory.selectedSlot = slot
+            connection.send(ServerboundSetCarriedItemPacket(slot))
+            SwapResult.SUCCESS
+        }
+    }
+
+    fun swapByLore(lore: String) = findAndSwap(lore) { it.loreString.noControlCodes.contains(lore, true) }
+
+    fun swapById(vararg skyblockIds: String) = findAndSwap(*skyblockIds) { stack ->
+        val id = stack.skyblockId
+        id != null && skyblockIds.any { it.equals(id, true) }
+    }
+
+    private inline fun findAndSwap(vararg items: String, predicate: (ItemStack) -> Boolean): SwapResult {
+        for (i in 0..8) {
+            val stack = player.inventory.getItem(i)
+            if (stack.isEmpty) continue
+            if (predicate(stack)) return swapToSlot(i)
+        }
+
+        modMessage("Could not find ${items.joinToString(", ")}")
+        return SwapResult.NOT_FOUND
+    }
+}
+
+enum class SwapResult(
+    val success: Boolean,
+    val already: Boolean = false
+) {
+    SUCCESS(true),
+    ALREADY_SELECTED(true, true),
+    TOO_FAST(false),
+    NOT_FOUND(false),
+    FAILED(false);
+}

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package com.customcosmetics.gametest;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonParser;
 import com.customcosmetics.compatibility.ClientInput;
 import com.customcosmetics.compatibility.ClientUiAccess;
 import com.customcosmetics.config.ConfigManager;
@@ -18,6 +20,11 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.input.MouseButtonInfo;
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
 
 public final class CustomSkyBlockGameTest implements FabricClientGameTest {
     @Override public void runTest(ClientGameTestContext context) {
@@ -107,6 +114,7 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
             }
             check(!widget(client, "Kuudra", false).active, "Kuudra sidebar button is clickable");
             for (var module : GameplayModule.values()) {
+                if (module.category == GameplayModule.Category.DUNGEON) continue;
                 ((PinkUi.Field) widget(client, "Search modules", false)).setValue(module.label);
                 var card = widget(client, module.label, false);
                 int collapsedCount = ClientUiAccess.screen(client).children().size();
@@ -148,15 +156,6 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
                     && ClientUiAccess.screen(client).children().size() == refillWidgetCount,
                     "Rebuilding Auto GFS settings changed their layout or duplicated widgets");
             }
-            leap = (PinkUi.Field) widget(client, "Search modules", false);
-            leap.setValue("Auto Leap");
-            click(client, "Auto Leap", false, ClientInput.MOUSE_RIGHT);
-            check(widget(client, "Target by Player Name", false) instanceof PinkUi.Action
-                && widget(client, "Door Opener Leap", false) instanceof PinkUi.Action, "Auto Leap settings are incomplete");
-            ((PinkUi.Field) widget(client, "Search modules", false)).setValue("Secret Aura");
-            click(client, "Secret Aura", false, ClientInput.MOUSE_RIGHT);
-            check(widget(client, "Skull Range:", false) instanceof PinkUi.Slider
-                && widget(client, "In Container", false) instanceof PinkUi.Action, "Secret Aura controls are missing");
             ((PinkUi.Field) widget(client, "Search modules", false)).setValue("Trevor Helper");
             click(client, "Trevor Helper", false, ClientInput.MOUSE_RIGHT);
             check(widget(client, "Auto Call", false) instanceof PinkUi.Action
@@ -173,36 +172,24 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
             click(client, "Block Perks", false, ClientInput.MOUSE_RIGHT);
             check(widget(client, "Override Key", false) instanceof PinkUi.Action
                 && widget(client, "Human Cannonball", false) instanceof PinkUi.Action, "Kuudra Block Perks controls are missing");
-            ((PinkUi.Field) widget(client, "Search modules", false)).setValue("Open Terminals");
-            click(client, "Open Terminals", false, ClientInput.MOUSE_RIGHT);
-            check(widget(client, "Aura FOV:", false) instanceof PinkUi.Slider
-                && widget(client, "Delay After Leap", false) instanceof PinkUi.Action, "Open Terminals controls are incomplete");
-            int terminalModeY = widget(client, "Mode:", false).getY();
-            int delayY = widget(client, "Delay After Leap", false).getY();
-            for (int i = 0; i < 3; i++) {
-                click(client, "Mode:", false);
-                click(client, "Mode:", false);
-                check(widget(client, "Mode:", false).getY() == terminalModeY
-                    && widget(client, "Delay After Leap", false).getY() == delayY,
-                    "Rebuilding Open Terminals settings changed their layout");
-            }
             ((PinkUi.Field) widget(client, "Search modules", false)).setValue("Kuudra Queuer");
             click(client, "Kuudra Queuer", false, ClientInput.MOUSE_RIGHT);
             check(widget(client, "Requeue Delay (ticks):", false) instanceof PinkUi.Slider, "Requeue delay is missing");
             ((PinkUi.Field) widget(client, "Search modules", false)).setValue("Cocoon Alert");
             click(client, "Cocoon Alert", false, ClientInput.MOUSE_RIGHT);
             check(widget(client, "Cocoon Timer", false) instanceof PinkUi.Action, "Cocoon timer setting is missing");
-            leap = (PinkUi.Field) widget(client, "Search modules", false);
-            leap.setValue("Fast Leap");
-            click(client, "Fast Leap", false, ClientInput.MOUSE_RIGHT);
-            check(widget(client, "Leap Target", false) instanceof PinkUi.Field && widget(client, "Yellow Pad Leap", false) instanceof PinkUi.Action,
-                "Fast Leap settings are incomplete");
-            click(client, "Keybind", false);
+            click(client, "Dungeon", false);
+            var dungeon = ClientUiAccess.screen(client);
+            check(dungeon.getTitle().getString().equals("Dungeon and Floor 7"), "Dungeon source panel did not open");
+            verifyQuoiModules();
+            verifyRouteImport();
         });
-        context.getInput().pressKey(ClientInput.C);
-        context.waitTicks(2);
-        context.runOnClient(client -> check(GameplayKeybinds.key(GameplayModule.FAST_LEAP).getValue() == ClientInput.C,
-            "Module keybind did not record"));
+        context.waitTicks(6);
+        screenshot(context, "csb-301-dungeon");
+        context.runOnClient(client -> {
+            ClientUiAccess.screen(client).onClose();
+            check(ClientUiAccess.screen(client).getTitle().getString().equals("Cheating"), "Dungeon panel did not return to Cheating");
+        });
         screenshot(context, "csb-300-module-search");
         context.runOnClient(client -> {
             ClientUiAccess.screen(client).onClose();
@@ -234,16 +221,11 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
             context.runOnClient(client -> {
                 ClientUiAccess.setScreen(client, null);
                 verifyCrystalHollowsScanner(client);
+                verifyLegacyHeldSkull(client);
                 check(com.customcosmetics.features.gameplay.InventoryAutomation.countEnderPearls(java.util.List.of(
                     new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.ENDER_PEARL, 7),
                     new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.ENDER_PEARL, 9))) == 16,
                     "Auto GFS missed pearls without a SkyBlock ID");
-                var key = GameplayKeybinds.key(GameplayModule.FAST_LEAP);
-                pressKey(client, key.getValue());
-                check(GameplayModule.FAST_LEAP.enabled(), "Recorded module binding did not toggle");
-                pressKey(client, key.getValue());
-                check(!GameplayModule.FAST_LEAP.enabled(), "Recorded module binding did not toggle off");
-                GameplayKeybinds.bind(GameplayModule.FAST_LEAP, com.mojang.blaze3d.platform.InputConstants.UNKNOWN);
             });
             verifyDyeAndZoom(context);
             context.runOnClient(client -> {
@@ -296,6 +278,76 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
         System.out.println("CSB300_ACCORDION_CONFIRMATION_MODULE_GRID_HUD_MOTION_PACK_OK");
     }
 
+    private static void verifyQuoiModules() {
+        try {
+            var klass = Class.forName("quoi.module.ModuleManager");
+            var modules = (java.util.List<?>) klass.getMethod("getModules").invoke(klass.getField("INSTANCE").get(null));
+            var moduleClass = Class.forName("quoi.module.Module");
+            var label = moduleClass.getMethod("getName");
+            var settings = moduleClass.getMethod("getSettings");
+            var names = new java.util.HashSet<String>();
+            for (var module : modules) {
+                String name = (String) label.invoke(module);
+                names.add(name);
+                check(!((java.util.List<?>) settings.invoke(module)).isEmpty(), "Missing upstream key/settings for " + name);
+            }
+            check(names.size() == 31 && names.containsAll(java.util.List.of(
+                "Auto Routes", "Terminals", "Barrier Boom", "Puzzle Solvers", "Auto Croesus", "Lights Device")),
+                "Dungeon manifest mismatch " + names);
+        } catch (ReflectiveOperationException error) {
+            throw new AssertionError("Dungeon source module did not load", error);
+        }
+    }
+
+    private static void verifyRouteImport() {
+        try {
+            var importer = Class.forName("quoi.api.autoroutes.converters.RouteImport");
+            var instance = importer.getField("INSTANCE").get(null);
+            var read = importer.getMethod("read", File.class);
+            var config = Class.forName("quoi.config.ConfigSystem");
+            var gson = (Gson) config.getMethod("getGson").invoke(config.getField("INSTANCE").get(null));
+            Path input = Path.of("rsa-route-fixture.json");
+            Files.writeString(input, """
+                {"Empty":[],"Fixture":[
+                  {"type":"etherwarp","localPos":{"x":-5,"y":69,"z":2},"localTarget":{"x":-11,"y":70,"z":1},
+                   "radius":0.5,"start":true,"awaits":{"awaitSecrets":2,"awaitEWRaytrace":true}},
+                  {"type":"aotv","localPos":{"x":-2,"y":69,"z":5},"rotationVec":{"x":1,"y":0,"z":0},
+                   "radius":0.75,"start":false}
+                ]}
+                """);
+            var routes = (Map<?, ?>) read.invoke(instance, input.toFile());
+            String nativeJson = gson.toJson(routes);
+            var nodes = JsonParser.parseString(nativeJson).getAsJsonObject().getAsJsonArray("Fixture");
+            var ether = nodes.get(0).getAsJsonObject();
+            var aotv = nodes.get(1).getAsJsonObject();
+            check(ether.getAsJsonObject("relative").get("x").getAsDouble() == 10
+                && ether.getAsJsonObject("target").get("x").getAsDouble() == 4, "RSA coordinate conversion was incorrect");
+            var waits = ether.getAsJsonArray("awaits");
+            check(waits.size() == 2 && waits.get(0).getAsJsonObject().get("amount").getAsInt() == 2
+                && waits.get(1).getAsJsonObject().get("type").getAsString().equals("raycast"), "An RSA wait was lost");
+            check(aotv.get("type").getAsString().equals("use_item") && aotv.get("unsneak").getAsBoolean()
+                && aotv.get("item").getAsString().equals("ASPECT_OF_THE_VOID") && aotv.get("yaw").getAsFloat() == -90f,
+                "Ordinary AOTV retained the wrong item or posture");
+            Path nativeFile = Path.of("native-route-fixture.json");
+            Files.writeString(nativeFile, nativeJson);
+            var reloaded = (Map<?, ?>) read.invoke(instance, nativeFile.toFile());
+            check(gson.toJson(reloaded).equals(nativeJson), "Imported routes did not round-trip in Quoi's format");
+            Path supplied = Path.of("rsa-import-probe.json");
+            if (Files.isRegularFile(supplied)) {
+                var imported = (Map<?, ?>) read.invoke(instance, supplied.toFile());
+                long count = imported.values().stream().mapToLong(nodesInRoom -> ((List<?>) nodesInRoom).size()).sum();
+                check(imported.size() == 120 && count == 1851, "Some routes or nodes in the original pack were lost");
+                Path converted = Path.of("routes-quoi.json");
+                Files.writeString(converted, gson.toJson(imported));
+                check(gson.toJson(read.invoke(instance, converted.toFile())).equals(gson.toJson(imported)),
+                    "Converted route pack did not round-trip");
+                System.out.println("CSB_RSA_IMPORT_OK rooms=" + imported.size() + " nodes=" + count);
+            }
+        } catch (ReflectiveOperationException | java.io.IOException error) {
+            throw new AssertionError("Route import regression", error);
+        }
+    }
+
     private static long blurPasses() {
         try {
             return (long) Class.forName(IntegratedClientPorts.typeName("motionblur", "ShaderManager"))
@@ -311,6 +363,47 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
                 "Bobby did not attach its chunk manager to the test world");
             check(com.customcosmetics.features.gameplay.BobbyIntegration.read()[1] != 0, "Bobby multi-world should be on by default");
         } catch (ReflectiveOperationException error) { throw new AssertionError(error); }
+    }
+
+    private static void verifyLegacyHeldSkull(Minecraft client) {
+        var skull = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.PLAYER_HEAD);
+        var firstPerson = net.minecraft.world.item.ItemDisplayContext.FIRST_PERSON_RIGHT_HAND;
+        var leftHand = net.minecraft.world.item.ItemDisplayContext.FIRST_PERSON_LEFT_HAND;
+        var gui = net.minecraft.world.item.ItemDisplayContext.GUI;
+        var vanillaRight = submitHead(client, skull, firstPerson);
+        var vanillaLeft = submitHead(client, skull, leftHand);
+        var vanillaGui = submitHead(client, skull, gui);
+        ConfigManager.legacyHeldSkull = true;
+        try {
+            var styledRight = submitHead(client, skull, firstPerson);
+            var styledLeft = submitHead(client, skull, leftHand);
+            check(!styledRight.equals(vanillaRight, 0.001f) && !styledLeft.equals(vanillaLeft, 0.001f),
+                "Legacy head transforms did not run for both hands");
+            check(submitHead(client, skull, gui).equals(vanillaGui, 0.001f), "Legacy head transform changed GUI items");
+        } finally {
+            ConfigManager.legacyHeldSkull = false;
+        }
+    }
+
+    private static org.joml.Matrix4f submitHead(Minecraft client, net.minecraft.world.item.ItemStack head,
+                                                net.minecraft.world.item.ItemDisplayContext display) {
+        var state = new net.minecraft.client.renderer.item.ItemStackRenderState();
+        client.getItemModelResolver().updateForTopItem(state, head, display, client.level, client.player, 0);
+        var matrix = new org.joml.Matrix4f[1];
+        var collector = (net.minecraft.client.renderer.SubmitNodeCollector) java.lang.reflect.Proxy.newProxyInstance(
+            CustomSkyBlockGameTest.class.getClassLoader(), new Class<?>[] {net.minecraft.client.renderer.SubmitNodeCollector.class},
+            (proxy, method, args) -> {
+                if (method.getName().equals("order")) return proxy;
+                if (args != null) for (Object arg : args) if (arg instanceof com.mojang.blaze3d.vertex.PoseStack pose) {
+                    matrix[0] = new org.joml.Matrix4f(pose.last().pose());
+                    break;
+                }
+                return null;
+            });
+        var poses = new com.mojang.blaze3d.vertex.PoseStack();
+        state.submit(poses, collector, 15728880, 0, 0);
+        check(matrix[0] != null && poses.last().pose().equals(new org.joml.Matrix4f(), 0.001f), "Head submission did not restore the pose");
+        return matrix[0];
     }
 
     private static void verifyCrystalHollowsScanner(Minecraft client) {

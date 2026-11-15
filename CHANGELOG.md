@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.0.1
+
+- The Dungeon cheating module now uses Quoi.
+
 ## 3.0.0
 
 - Rename to CustomSkyBlock, add `/csb` and `/customskyblock`, and reorganize the settings sidebar.

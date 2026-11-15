@@ -1,0 +1,45 @@
+package quoi.module.settings.impl
+
+import quoi.module.settings.Saving
+import quoi.module.settings.Setting
+import com.google.gson.JsonElement
+import com.google.gson.reflect.TypeToken
+import java.lang.reflect.Type
+
+/**
+ * This setting is only designed to store values as a list.
+ *
+ * Reset restores a shallow snapshot of the construction-time contents in the current collection.
+ *
+ * @author Stivais
+ */
+class ListSetting<E, T : MutableCollection<E>>(
+    name: String,
+    override val default: T,
+    private val type: Type
+) : Setting<T>(name, ""), Saving {
+
+    private val initialContents = default.toList()
+
+    override var value: T = default
+
+    override fun reset() {
+        value.clear()
+        value.addAll(initialContents)
+    }
+
+    override fun write(): JsonElement = gson.toJsonTree(value)
+
+    override fun read(element: JsonElement) {
+        element.asJsonArray?.let {
+            val temp = gson.fromJson<T>(it, type)
+            value.clear()
+            value.addAll(temp)
+        }
+    }
+}
+
+inline fun <reified E : Any, reified T : MutableCollection<E>> ListSetting(
+    name: String,
+    default: T,
+): ListSetting<E, T> = ListSetting(name, default, object : TypeToken<T>() {}.type)

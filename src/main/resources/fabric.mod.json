@@ -18,7 +18,15 @@
     "csb-motionblur-261.mixins.json", "csb-motionblur-262.mixins.json", "csb-motionblur-263.mixins.json"
   ],
   "environment": "client",
+  "jars": [
+    {"file": "META-INF/dungeon/dungeon-common.jar"},
+    {"file": "META-INF/dungeon/dungeon-26.1.2.jar"},
+    {"file": "META-INF/dungeon/dungeon-26.2.jar"},
+    {"file": "META-INF/dungeon/dungeon-26.3.jar"}
+  ],
   "entrypoints": {
+    "csb-dungeon-confirmed": ["com.customcosmetics.features.gameplay.QuoiDungeon::allowed"],
+    "csb-dungeon-hypixel": ["com.customcosmetics.features.gameplay.QuoiDungeon::hypixel"],
     "preLaunch": [
       "com.customcosmetics.features.gameplay.BobbyIntegration",
       "com.customcosmetics.features.gameplay.NaturalMotionBlurIntegration"
@@ -31,7 +39,10 @@
     "fabricloader": ">=${loader_version}",
     "minecraft": ">=26.1 <26.4",
     "java": ">=25",
-    "fabric-api": ">=0.145.1"
+    "fabric-api": ">=0.145.1",
+    "fabric-language-kotlin": ">=1.14.2+kotlin.2.4.21",
+    "customskyblock-dungeon": "*",
+    "customskyblock-dungeon-common": "*"
   },
   "suggests": {
     "hypixel-mod-api": ">=1.0"

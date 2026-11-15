@@ -77,7 +77,7 @@ public enum GameplayModule {
     }
 
     public boolean enabled() {
-        return ConfigManager.gameplayPanelConfirmed && ConfigManager.gameplayModules.contains(name())
+        return category != Category.DUNGEON && ConfigManager.gameplayPanelConfirmed && ConfigManager.gameplayModules.contains(name())
             && ModErrors.active(ModErrors.Key.GAMEPLAY);
     }
 
