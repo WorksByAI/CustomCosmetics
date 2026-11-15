@@ -1318,8 +1318,6 @@
   "customcosmetics.ui.c165f3511c45": "No modules found",
   "customcosmetics.ui.enabled_modules": "Enabled Modules",
   "customcosmetics.ui.no_modules_enabled": "No modules enabled",
-  "customcosmetics.ui.module_enabled": "Module enabled",
-  "customcosmetics.ui.module_disabled": "Module disabled",
   "customcosmetics.ui.all_modules_enabled": "All modules enabled",
   "customcosmetics.ui.all_modules_disabled": "All modules disabled",
   "customcosmetics.ui.73054bd649a0": "Dungeon",
@@ -1764,7 +1762,13 @@
   "customcosmetics.ui.f6cb02457ee8": "Natural Motion Blur requires the game's built-in renderer.",
   "customcosmetics.ui.823a58540c68": "1.8 Held Skull",
   "customcosmetics.ui.86165a98ea52": "Use the 1.8 size, position and rotation for first-person player heads.",
+  "customcosmetics.ui.window_appearance": "Window Appearance",
   "customcosmetics.ui.window_title": "Window Title",
   "customcosmetics.ui.apply_window_title": "Apply Window Title",
-  "customcosmetics.ui.window_title_default": "Leave blank to use the game title."
+  "customcosmetics.ui.window_title_default": "Leave blank to use the game title.",
+  "customcosmetics.ui.choose_window_icon": "Choose Window Icon",
+  "customcosmetics.ui.reset_window_icon": "Reset Window Icon",
+  "customcosmetics.ui.window_icon_size": "Image up to 2 MiB.",
+  "customcosmetics.ui.window_icon_unsupported": "Custom window icons are unavailable on this window system.",
+  "customcosmetics.ui.window_icon_failed": "Could not change the window icon."
 }

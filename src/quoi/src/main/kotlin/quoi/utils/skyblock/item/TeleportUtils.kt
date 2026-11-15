@@ -85,17 +85,14 @@ object TeleportUtils : Shortcuts {
         val stepY = sign(dirY).toInt()
         val stepZ = sign(dirZ).toInt()
 
-        val invDirX = if (dirX != 0.0) 1.0 / dirX else Double.MAX_VALUE
-        val invDirY = if (dirY != 0.0) 1.0 / dirY else Double.MAX_VALUE
-        val invDirZ = if (dirZ != 0.0) 1.0 / dirZ else Double.MAX_VALUE
+        val tDeltaX = 1.0 / abs(dirX)
+        val tDeltaY = 1.0 / abs(dirY)
+        val tDeltaZ = 1.0 / abs(dirZ)
 
-        val tDeltaX = abs(invDirX * stepX)
-        val tDeltaY = abs(invDirY * stepY)
-        val tDeltaZ = abs(invDirZ * stepZ)
-
-        var tMaxX = abs((x + max(stepX, 0) - x0) * invDirX)
-        var tMaxY = abs((y + max(stepY, 0) - y0) * invDirY)
-        var tMaxZ = abs((z + max(stepZ, 0) - z0) * invDirZ)
+        // An axis parallel to the ray never crosses a boundary, even if the ray starts on it.
+        var tMaxX = if (stepX == 0) Double.POSITIVE_INFINITY else abs(x + max(stepX, 0) - x0) * tDeltaX
+        var tMaxY = if (stepY == 0) Double.POSITIVE_INFINITY else abs(y + max(stepY, 0) - y0) * tDeltaY
+        var tMaxZ = if (stepZ == 0) Double.POSITIVE_INFINITY else abs(z + max(stepZ, 0) - z0) * tDeltaZ
 
         val mut = BlockPos.MutableBlockPos()
 

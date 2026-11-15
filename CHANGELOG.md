@@ -2,10 +2,10 @@
 
 ## 3.0.1
 
-- Add edition-specific updates and a customizable window title.
+- Keep automatic updates edition-specific and restore mouse capture after refocusing.
+- Customize the window title and icon, with sharper pixel icons and restoration before the window opens.
 - The Dungeon cheating module uses Quoi, with fixes for leap cooldowns and terminal timing.
-- Add an Auto Routes skip key and improve Etherwarp recovery after mining.
-- Restart Water Board on room re-entry and fix duplicate enchantment tooltip lines.
+- Improve Auto Routes skipping and Etherwarp, restart Water Board on re-entry, and fix duplicate enchantment lines.
 
 ## 3.0.0
 

@@ -14,7 +14,16 @@ import org.lwjgl.system.*;
 public final class NativeFileDialogs {
     public record Request(boolean atlas,Path directory,boolean sdl,long window,String purpose) {
         public Request(boolean atlas,Path directory,boolean sdl,long window){this(atlas,directory,sdl,window,"");}
-        public String title(){return com.customcosmetics.gui.UiText.tr("waypoint".equals(purpose)?"Import Skyblocker Waypoints":"fme".equals(purpose)?"Import FME Config":"skin".equals(purpose)?"Choose Local Skin":"font".equals(purpose)?"Choose Font File":atlas?"Choose Vanilla-Format Cape Image":"Choose Image to Crop");}
+        public String title(){
+            return com.customcosmetics.gui.UiText.tr(switch (purpose) {
+                case "waypoint" -> "Import Skyblocker Waypoints";
+                case "fme" -> "Import FME Config";
+                case "skin" -> "Choose Local Skin";
+                case "font" -> "Choose Font File";
+                case "window-icon" -> "Choose Window Icon";
+                default -> atlas ? "Choose Vanilla-Format Cape Image" : "Choose Image to Crop";
+            });
+        }
         public String description(){return "waypoint".equals(purpose)?"Skyblocker waypoints.json":"fme".equals(purpose)?"FME JSON Config":"skin".equals(purpose)?"Skin PNG":"font".equals(purpose)?"Font files":atlas?"Cape PNG (*.png)":"Image files";}
         public String[] extensions(){return "waypoint".equals(purpose)||"fme".equals(purpose)?new String[]{"json"}:"font".equals(purpose)?new String[]{"ttf","otf","ttc"}:atlas?new String[]{"png"}:new String[]{"png","jpg","jpeg","bmp","gif"};}
     }

@@ -2,12 +2,13 @@ package com.customcosmetics.gui;
 
 import com.customcosmetics.compatibility.ClientInput;
 import com.customcosmetics.compatibility.ClientUiAccess;
+import com.customcosmetics.compatibility.NativeFileDialogs;
 import com.customcosmetics.config.ConfigManager;
 import com.customcosmetics.features.hud.HudLayout;
 import com.customcosmetics.features.pack.HypixelPackDisabler;
 import com.customcosmetics.features.pack.TextColorOverrides;
 import com.customcosmetics.features.text.TextReplacements;
-import com.customcosmetics.features.window.WindowTitle;
+import com.customcosmetics.features.window.WindowAppearance;
 import com.customcosmetics.config.PlayerBlocklist;
 import com.customcosmetics.sync.PresenceSync;
 import com.customcosmetics.utils.NickRenderUtils;
@@ -1387,15 +1388,47 @@ public final class CosmeticsScreen extends ThemedScreen {
         label(choice.active ? "Applies the next time you enter fullscreen." : "Cubes Without Borders handles window modes.",
             contentX + 6, row(20) + 4, DIM, contentWidth - 12);
 
-        var title = fieldRow("Window Title", "Window Title", windowTitleDraft, 2 * WindowTitle.MAX_LENGTH,
+        section("Window Appearance", "");
+        var title = fieldRow("Window Title", "Window Title", windowTitleDraft, 2 * WindowAppearance.MAX_TITLE_LENGTH,
             "Leave blank to use the game title.", 270, value -> windowTitleDraft = value);
         fullButton("Apply Window Title", () -> {
-            windowTitleDraft = WindowTitle.normalize(windowTitleDraft);
+            windowTitleDraft = WindowAppearance.normalizeTitle(windowTitleDraft);
             title.setValue(windowTitleDraft);
             ConfigManager.windowTitle = windowTitleDraft;
             minecraft.updateTitle();
             changed();
         }, false);
+        if (!WindowAppearance.iconSupported()) {
+            label("Custom window icons are unavailable on this window system.", contentX + 6, row(20) + 4, DIM, contentWidth - 12);
+            return;
+        }
+        boolean busy = WindowAppearance.busy();
+        fullButton("Choose Window Icon", this::chooseWindowIcon, false, "Image up to 2 MiB.").active = !busy;
+        fullButton("Reset Window Icon", () -> {
+            WindowAppearance.resetIcon(minecraft, this::windowIconChanged);
+            rebuildWidgets();
+        }, false).active = !busy;
+    }
+
+    private void chooseWindowIcon() {
+        var client = minecraft;
+        NativeFileDialogs.open(new NativeFileDialogs.Request(false, CapeFileScreen.defaultDirectory(),
+                WindowAppearance.usesSdl(), client.getWindow().handle(), "window-icon"),
+            client::execute, result -> {
+                if (ClientUiAccess.screen(client) != this || page != Page.WINDOW) return;
+                if (result.path() != null) {
+                    com.customcosmetics.features.window.WindowAppearance.importIcon(client, result.path(), this::windowIconChanged);
+                    rebuildWidgets();
+                } else if (result.unavailable()) {
+                    toast("System file picker is unavailable");
+                }
+            });
+    }
+
+    private void windowIconChanged(boolean success) {
+        if (ClientUiAccess.screen(minecraft) != this || page != Page.WINDOW) return;
+        if (!success) toast("Could not change the window icon.");
+        rebuildWidgets();
     }
 
     private void hitColor() {

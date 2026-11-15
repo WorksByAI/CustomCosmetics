@@ -126,8 +126,9 @@ object AutoRoutes : Module(
     private var pendingInteract: PendingInteract? = null
     private val warpAttempts = ArrayDeque<WarpAttempt>()
     private var stall: Stall? = null
+    private var lastReportedStall: Pair<Stall, Vec3>? = null
     private var continuation: Continuation? = null
-    private var breakerHandoff: BreakerNode? = null
+    private var blockHandoff: RouteNode? = null
     private var devModeWasActive = false
     private var routeCast: RouteCast? = null
     private var routeEntry: RouteNode? = null
@@ -154,8 +155,8 @@ object AutoRoutes : Module(
             }
             if (devMode && !devModeWasActive) trace("started (${roomNodes.size} route steps)")
             devModeWasActive = devMode
-            if (!watchingStalls) stall = null
-            if (!stallRecovery && warpAttempts.isNotEmpty()) warpAttempts.clear()
+            if (!watchingStalls && stall?.origin == null) stall = null
+            if (!stallRecovery && warpAttempts.isNotEmpty()) warpAttempts.removeIf { it.origin == null }
             if (interactDelay > 0) interactDelay--
             if (editMode || breakerRing != null || roomNodes.isEmpty() || ClearExecutor.routing) {
                 if (position != null || activeNode != null || pendingInteract != null || mimicNode != null) resetExecution()
@@ -177,14 +178,14 @@ object AutoRoutes : Module(
             }
 
             pendingInteract?.let {
-                if (stallRecovery && stall?.stop == Stop.SLOT && stall?.reported == true) return@on
+                if (stall?.stop == Stop.SLOT && stall?.reported == true && (stallRecovery || it.origin != null)) return@on
                 if (!SwapManager.swapToSlot(it.slot).success) {
                     it.node?.let { node -> trackStall(node, Stop.SLOT, origin = it.origin) }
                     return@on
                 }
                 val target = it.warpTarget
                 val node = it.node
-                if (stallRecovery && target != null && node != null) {
+                if ((stallRecovery || it.origin != null) && target != null && node != null) {
                     if (warpAttempts.size == 32) warpAttempts.removeFirst()
                     warpAttempts.addLast(WarpAttempt(node, target, System.nanoTime(), it.origin))
                     if (devMode) trace("sent Etherwarp toward $target", node)
@@ -238,6 +239,7 @@ object AutoRoutes : Module(
 
         on<MouseEvent.Click> {
             if (button != 0 || !state) return@on
+            if (skipToWarpKey.key == button - 100 && skipToWarpKey.isModifierDown()) return@on
             if (mimicNode != null && mc.hitResult is EntityHitResult) return@on
             if (stallRecovery && stall != null) return@on
             if (skipNode()) cancel()
@@ -292,7 +294,7 @@ object AutoRoutes : Module(
     fun skipNode(): Boolean {
         if (!active || editMode || breakerRing != null || ClearExecutor.routing) return false
         if (stallRecovery && stall?.reported == true) return false
-        if (pendingInteract != null) return false
+        if (pendingInteract != null || continuation != null) return false
         val pausedNode = mimicNode
         val pos = if (pausedNode != null) player.position().mutable() else position ?: player.position().mutable()
 
@@ -317,14 +319,14 @@ object AutoRoutes : Module(
 
         if (forcedNode?.inside(playerPos) == false) forcedNode = null
         val forced = forcedNode?.takeIf { !it.triggered && it.inside(playerPos) && canRunStep(it) }
-        if (continuation?.let { !reached(it.origin, player.position()) } == true) continuation = null
+        if (continuation?.let { !nearSkipOrigin(it.origin) } == true) continuation = null
         val resume = continuation
-        if (breakerHandoff?.atPlayer() == false) breakerHandoff = null
-        val breakerHere = breakerHandoff != null
+        if (blockHandoff?.atPlayer() == false) blockHandoff = null
+        val openedHere = blockHandoff != null
         val entry = routeEntry?.takeIf { etherwarpOnlyStart && entryPending && it.matchesLanding(playerPos) }
         val node = resume?.warp ?: forced ?: entry ?: roomNodes.asSequence()
             .filter { !it.triggered && canRunStep(it) && (it.inside(playerPos) ||
-                breakerHere && it is EtherwarpNode && it.matchesLanding(playerPos)) }
+                openedHere && it is EtherwarpNode && it.matchesLanding(playerPos)) }
             .filter { n ->
                 val c = n.chain ?: return@filter true
                 if (c.index == 0) return@filter true
@@ -337,7 +339,7 @@ object AutoRoutes : Module(
             executing = false
             stall = null
 
-            if (!hasActiveWarpOrigin()) {
+            if (!hasActiveWarpOrigin() && lastReportedStall?.let { nearSkipOrigin(it.second) } != true) {
                 position = null
                 routeEntry = null
                 entryPending = false
@@ -350,13 +352,14 @@ object AutoRoutes : Module(
             activeNode = node
             executing = false
             stall = null
+            lastReportedStall = null
             if (devMode) trace("entered step", node)
         }
 
         if (interactDelay > 0) return
 
-        val afterBreaker = breakerHere && node is EtherwarpNode
-        val executionPos = if (resume == null && !afterBreaker) playerPos else player.position().mutable()
+        val afterBlockChange = openedHere && node is EtherwarpNode
+        val executionPos = if (resume == null && !afterBlockChange) playerPos else player.position().mutable()
         if (stallRecovery && activeRoom?.isFullyCollected() == true) satisfySecretWaits(node)
         if (resume == null && forced == null && !executing && !node.checkAwaits(executionPos)) {
             if (watchingStalls) {
@@ -375,17 +378,17 @@ object AutoRoutes : Module(
             if (!progressed) return
             stall = null
         }
-        executeNode(node, executionPos, resume, afterBreaker)
+        executeNode(node, executionPos, resume)
     }
 
     fun queueInteract(dir: Direction) {
         pendingInteract = PendingInteract(dir, player.inventory.selectedSlot, activeNode)
     }
 
-    private fun executeNode(node: RouteNode, pos: MutableVec3, resume: Continuation? = null, afterBreaker: Boolean = false) {
+    private fun executeNode(node: RouteNode, pos: MutableVec3, resume: Continuation? = null) {
         if (!executing && devMode) trace("executing", node)
         executing = true
-        val completed = if (node is EtherwarpNode && (resume != null || afterBreaker)) node.executeFromHere(pos) else node.execute(pos)
+        val completed = node.execute(pos)
         if (!completed) {
             node.triggered = false
             position = null
@@ -394,7 +397,7 @@ object AutoRoutes : Module(
             return
         }
         if (devMode) node.actionFailure?.let { trace(it, node) }
-        if (stallRecovery && node is EtherwarpNode) pendingInteract?.let {
+        if ((stallRecovery || resume != null) && node is EtherwarpNode) pendingInteract?.let {
             it.warpTarget = pos.immutable()
             it.origin = resume?.origin
         }
@@ -406,9 +409,9 @@ object AutoRoutes : Module(
         node.triggered = true
         if (node === routeEntry) entryPending = false
         if (node === continuation?.warp) continuation = null
-        if (node is EtherwarpNode) breakerHandoff = null
-        if (node is BreakerNode && node.isCleared()) {
-            breakerHandoff = node
+        if (node is EtherwarpNode) blockHandoff = null
+        if (node is BreakerNode && node.isCleared() || node is BoomNode && node.cleared) {
+            blockHandoff = node
             position = null
         }
         node.chain?.let {
@@ -417,11 +420,12 @@ object AutoRoutes : Module(
         }
         executing = false
         stall = null
+        lastReportedStall = null
         if (devMode) trace("completed", node)
     }
 
     private fun trackStall(node: RouteNode, stop: Stop, since: Long? = null, origin: Vec3? = null) {
-        if (!watchingStalls) return
+        if (!watchingStalls && origin == null) return
         var wait = stall
         if (wait == null || wait.node !== node || wait.stop != stop) {
             wait = Stall(node, stop, since ?: System.nanoTime(), origin)
@@ -431,6 +435,7 @@ object AutoRoutes : Module(
         if (stop == Stop.PUZZLE) return
         if (wait.reported || System.nanoTime() - wait.since < stallTimeoutNanos || !node.atPlayer(wait.origin)) return
         wait.reported = true
+        lastReportedStall = wait to player.position()
         val reason = when (stop) {
             Stop.SECRET -> "This route step is waiting for a secret event"
             Stop.CONDITION -> if (node is EtherwarpNode && node.awaits?.any { it is RaycastAwait } == true) {
@@ -444,33 +449,39 @@ object AutoRoutes : Module(
             Stop.WARP_ARRIVAL -> "Etherwarp failed (no arrival confirmed)"
         }
         if (devMode) trace(reason, node)
-        if (stallRecovery) modMessage("&eAuto Routes: &c$reason.")
+        if (stallRecovery || wait.origin != null) modMessage("&eAuto Routes: &c$reason.")
     }
 
     private fun skipToNextEtherwarp() {
         if (!active || editMode || breakerRing != null || ClearExecutor.routing) return
         val wait = stall?.takeIf { it.node.atPlayer(it.origin) }
-        val current = wait?.node ?: mimicNode ?: pendingInteract?.node ?: activeNode ?: return
-        if (wait == null && !current.atPlayer(continuation?.origin)) return
+            ?: lastReportedStall?.takeIf { nearSkipOrigin(it.second) && (!etherwarpOnlyStart || routeEntry != null) }?.first
+        val current = wait?.node ?: mimicNode ?: pendingInteract?.node ?: activeNode
+        if (current == null || wait == null && !current.atPlayer(continuation?.origin)) {
+            modMessage("&eAuto Routes: No active route step to skip.")
+            return
+        }
         val waitingOnSecret = wait?.stop == Stop.SECRET || mimicNode === current ||
             (wait == null && !current.triggered && !executing &&
                 current.awaits?.any { it is SecretAwait && it.current < it.amount } == true)
         // A secret check on an Etherwarp node happens before that hop is attempted.
-        val warp = if (current is EtherwarpNode && waitingOnSecret) current
-            else successors(current).filterIsInstance<EtherwarpNode>().firstOrNull()
+        val rest = successors(current).toList()
+        val origin = player.position()
+        val warp = if (current is EtherwarpNode && waitingOnSecret) current else
+            (if (current.chain == null) nextLocalEtherwarp(current, origin) else null)
+                ?: rest.filterIsInstance<EtherwarpNode>().firstOrNull { !it.triggered || wait?.stop == Stop.WARP_ARRIVAL }
         if (warp == null) {
             modMessage("&eAuto Routes: No next Etherwarp in this route.")
             return
         }
-        val origin = player.position()
         pendingInteract = null
         warpAttempts.clear()
         forcedNode = null
         mimicNode = null
-        val rest = successors(current)
         if (current !== warp) {
             markSkipped(current)
-            rest.takeWhile { it !== warp }.forEach(::markSkipped)
+            val index = rest.indexOf(warp)
+            if (index >= 0) rest.take(index).forEach(::markSkipped)
         }
         if (wait?.stop == Stop.WARP_ARRIVAL) {
             rest.dropWhile { it !== warp }.forEach { it.reset() }
@@ -480,6 +491,7 @@ object AutoRoutes : Module(
         position = origin.mutable()
         executing = false
         stall = null
+        lastReportedStall = null
         if (devMode) trace("skipping from ${current.typeName} (${wait?.stop})", warp)
     }
 
@@ -491,7 +503,18 @@ object AutoRoutes : Module(
         }
         val index = roomNodes.indexOf(node)
         if (index < 0) return emptySequence()
-        return roomNodes.asSequence().drop(index + 1).filter { it.chain == null }
+        return roomNodes.asSequence().drop(index + 1).takeWhile { it.start != true }.filter { it.chain == null }
+    }
+
+    internal fun nextLocalEtherwarp(node: RouteNode, origin: Vec3): EtherwarpNode? {
+        val live = origin.mutable()
+        val recorded = node.pos.mutable()
+        fun matches(warp: EtherwarpNode) = warp !== node && !warp.triggered &&
+            (warp.matchesLanding(live) || warp.matchesLanding(recorded))
+        val next = successors(node).filterIsInstance<EtherwarpNode>().firstOrNull(::matches)
+        if (next != null || node.chain != null) return next
+        return roomNodes.asSequence().filterIsInstance<EtherwarpNode>()
+            .firstOrNull { it.chain == null && it.start != true && matches(it) }
     }
 
     private fun markSkipped(node: RouteNode) {
@@ -535,7 +558,9 @@ object AutoRoutes : Module(
         identified && (data.secrets == 0 || (secretsFound ?: -1) >= data.secrets)
 
     private fun RouteNode.atPlayer(origin: Vec3? = null) =
-        if (origin == null) inside() || matchesLanding(player.position().mutable()) else reached(origin, player.position())
+        if (origin == null) inside() || matchesLanding(player.position().mutable()) else nearSkipOrigin(origin)
+
+    private fun nearSkipOrigin(origin: Vec3) = player.position().distanceToSqr(origin) <= 2.25
 
     private fun RouteNode.matchesLanding(landing: MutableVec3): Boolean {
         if (inside(landing)) return true
@@ -623,8 +648,9 @@ object AutoRoutes : Module(
         pendingInteract = null
         warpAttempts.clear()
         stall = null
+        lastReportedStall = null
         continuation = null
-        breakerHandoff = null
+        blockHandoff = null
         routeEntry = null
         entryPending = false
         activeNode = null

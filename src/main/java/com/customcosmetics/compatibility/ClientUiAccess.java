@@ -11,7 +11,7 @@ import java.lang.reflect.Method;
 public final class ClientUiAccess {
     private static final Field LEGACY_SCREEN;
     private static final Field HUD;
-    private static final Method SCREEN, SET_SCREEN, CHAT;
+    private static final Method SCREEN, SET_SCREEN, CHAT, OVERLAY;
     static {
         try {
             Field legacy = null, hud = null;
@@ -29,6 +29,7 @@ public final class ClientUiAccess {
             }
             LEGACY_SCREEN = legacy; HUD = hud;
             SCREEN = screen; SET_SCREEN = setScreen; CHAT = chat;
+            OVERLAY = legacy == null ? Gui.class.getMethod("overlay") : Minecraft.class.getMethod("getOverlay");
         } catch (ReflectiveOperationException e) { throw new ExceptionInInitializerError(e); }
     }
 
@@ -42,6 +43,11 @@ public final class ClientUiAccess {
     public static void setScreen(Minecraft client, Screen screen) {
         try { SET_SCREEN.invoke(LEGACY_SCREEN != null ? client : client.gui, screen); }
         catch (ReflectiveOperationException e) { throw new IllegalStateException("Cannot open Minecraft screen", e); }
+    }
+
+    public static boolean hasOverlay(Minecraft client) {
+        try { return OVERLAY.invoke(LEGACY_SCREEN == null ? client.gui : client) != null; }
+        catch (ReflectiveOperationException e) { throw new IllegalStateException("Cannot read Minecraft overlay", e); }
     }
 
     public static ChatComponent chat(Minecraft client) {

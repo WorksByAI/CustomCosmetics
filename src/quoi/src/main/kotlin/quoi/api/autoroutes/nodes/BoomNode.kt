@@ -1,6 +1,8 @@
 package quoi.api.autoroutes.nodes
 
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.phys.Vec3
 import quoi.api.autoroutes.RouteNode
 import quoi.api.colour.Colour
@@ -10,8 +12,10 @@ import quoi.config.TypeName
 import quoi.module.impl.dungeon.autoclear.impl.AutoRoutes
 import quoi.utils.addVec
 import quoi.utils.equalsOneOf
+import quoi.utils.getHitResult
 import quoi.utils.skyblock.item.ItemUtils.skyblockId
 import quoi.utils.skyblock.item.TeleportUtils.getEtherPos
+import quoi.utils.skyblock.item.TeleportUtils.isEtherwarpPassable
 import quoi.utils.skyblock.item.TeleportUtils.traverseVoxels
 import quoi.utils.skyblock.player.PlayerUtils.eyePosition
 import quoi.utils.skyblock.player.PlayerUtils.getEyeHeight
@@ -38,7 +42,12 @@ class BoomNode : RouteNode() {
     private var blastTarget: BlockPos? = null
 
     @Transient
-    private var blastSent = false
+    private var nearbyWall: List<BlockPos> = emptyList()
+    @Transient
+    private var blockedWarp: EtherwarpNode? = null
+    @Transient
+    internal var cleared = false
+        private set
 
     @Transient
     override var actionFailure: String? = null
@@ -64,11 +73,18 @@ class BoomNode : RouteNode() {
     override fun reset() {
         super.reset()
         blastTarget = null
-        blastSent = false
+        nearbyWall = emptyList()
+        blockedWarp = null
+        cleared = false
         actionFailure = null
     }
 
-    internal fun blastOpened(): Boolean = blastTarget?.let { level.isLoaded(it) && level.getBlockState(it).isAir } == true
+    internal fun blastOpened(): Boolean {
+        val clicked = blastTarget ?: return false
+        return (level.isLoaded(clicked) && level.getBlockState(clicked).isAir)
+            || nearbyWall.any { level.isLoaded(it) && isEtherwarpPassable(level, it) }
+            || blockedWarp?.reachableFrom(player.position()) == true
+    }
 
     override fun execute(pos: MutableVec3): Boolean {
         if (this.pos.distanceToSqr(player.position()) > 0.1) {
@@ -81,17 +97,16 @@ class BoomNode : RouteNode() {
                 actionFailure = "Superboom TNT target is not loaded"
                 return false
             }
-            if (level.getBlockState(previous).isAir) {
+            if (blastOpened()) {
+                cleared = true
                 actionFailure = null
                 return true
             }
-            if (blastSent) {
-                actionFailure = "Superboom TNT has not opened the route"
-                return false
-            }
+            actionFailure = "Superboom TNT passage change was not confirmed"
+            return false
         }
         val target = realTarget
-        val block = previous ?: if (target != null) { // rsa convert compat
+        val block = if (target != null) { // rsa convert compat
             traverseVoxels(pos.immutable().addVec(y = getEyeHeight(true)), target, true).pos
         } else {
             pos.immutable().addVec(y = getEyeHeight(true)).getEtherPos(realYaw, pitch, 6.0).pos
@@ -104,13 +119,29 @@ class BoomNode : RouteNode() {
                 return swap == SwapResult.NOT_FOUND && !AutoRoutes.stallRecovery
             }
         }
-        AuraManager.interactBlock(block)
         if (AutoRoutes.stallRecovery) {
+            val hit = block.getHitResult()
+            if (hit == null) {
+                actionFailure = "Could not aim at the Superboom TNT placement"
+                return false
+            }
+            val placement = block.relative(hit.direction)
+            val neighbors = Direction.values().map { placement.relative(it) } + placement
+            val crackedWall = BlockPos.betweenClosed(placement.offset(-2, -2, -2), placement.offset(2, 2, 2))
+                .asSequence()
+                .filter { level.isLoaded(it) && level.getBlockState(it).`is`(Blocks.CRACKED_STONE_BRICKS) }
+                .map { it.immutable() }.toList()
+            nearbyWall = (neighbors + crackedWall).distinct().filter {
+                it != block && level.isLoaded(it) && !isEtherwarpPassable(level, it)
+            }
+            val origin = player.position()
+            blockedWarp = AutoRoutes.nextLocalEtherwarp(this, origin)?.takeUnless { it.reachableFrom(origin) }
             blastTarget = block
-            blastSent = true
-            actionFailure = "Superboom TNT has not opened the route"
+            AuraManager.interactBlock(block)
+            actionFailure = "Superboom TNT passage change was not confirmed"
             return false
         }
+        AuraManager.interactBlock(block)
         actionFailure = null
         return true
     }

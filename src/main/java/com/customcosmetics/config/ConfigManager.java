@@ -359,7 +359,7 @@ public final class ConfigManager {
                     && java.nio.file.Path.of(uiFontPath).getFileName() == null) uiFontPath = ""; }
             catch (java.nio.file.InvalidPathException invalid) { uiFontPath = ""; }
             fullscreenStyle = "borderless".equals(fullscreenStyle) ? "borderless" : "vanilla";
-            windowTitle = com.customcosmetics.features.window.WindowTitle.normalize(windowTitle);
+            windowTitle = com.customcosmetics.features.window.WindowAppearance.normalizeTitle(windowTitle);
             freecamSpeed = com.customcosmetics.features.map.Freecam.validSpeed(freecamSpeed);
             freecamVerticalSpeed = com.customcosmetics.features.map.Freecam.validSpeed(freecamVerticalSpeed);
             hitColor &= 0xFFFFFF;

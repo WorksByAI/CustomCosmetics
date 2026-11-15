@@ -5,6 +5,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonParser;
 import com.customcosmetics.compatibility.ClientInput;
 import com.customcosmetics.compatibility.ClientUiAccess;
+import com.customcosmetics.compatibility.MouseFocusRecovery;
 import com.customcosmetics.config.ConfigManager;
 import com.customcosmetics.features.camera.CameraZoom;
 import com.customcosmetics.features.gameplay.GameplayKeybinds;
@@ -12,6 +13,7 @@ import com.customcosmetics.features.gameplay.GameplayModule;
 import com.customcosmetics.features.motionblur.BlurSettings;
 import com.customcosmetics.features.motionblur.IntegratedClientPorts;
 import com.customcosmetics.features.motionblur.MotionBlurPort;
+import com.customcosmetics.features.window.WindowAppearance;
 import com.customcosmetics.gui.CosmeticsScreen;
 import com.customcosmetics.gui.PinkUi;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
@@ -229,6 +231,7 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
         });
         context.waitFor(client -> ClientUiAccess.screen(client) instanceof com.customcosmetics.gui.CheatingScreen, 30);
         context.runOnClient(client -> ClientUiAccess.screen(client).onClose());
+        verifyWindowAppearance(context);
         var originalBobby = com.customcosmetics.features.gameplay.BobbyIntegration.read();
         var testBobby = originalBobby.clone();
         testBobby[0] = 1;
@@ -623,6 +626,25 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
             post.invoke(tick.newInstance());
             check((boolean) nodeType.getMethod("getTriggered").invoke(rotate), "A completed room still waited for secret events");
             roomClass.getMethod("setSecretsFound", Integer.class).invoke(room, (Object) null);
+            // Several imported rooms list an outgoing warp before the secret action at the same anchor.
+            nodeType.getMethod("setChain", chain.getDeclaringClass()).invoke(rotate, (Object) null);
+            nodeType.getMethod("setChain", chain.getDeclaringClass()).invoke(warp, (Object) null);
+            nodeType.getMethod("setRelative", vec).invoke(warp, relative.invoke(room, origin.add(0, .16, 0)));
+            routeNodes.getClass().getMethod("put", Object.class, Object.class)
+                .invoke(routeNodes, fixture, new java.util.ArrayList<>(List.of(warp, rotate, decoy)));
+            routeType.getMethod("updateCache", roomClass).invoke(routes, room);
+            post.invoke(tick.newInstance());
+            expireAutoRouteWait(routeType, routes);
+            post.invoke(tick.newInstance());
+            client.player.setPos(origin.add(.78, 0, 0));
+            post.invoke(tick.newInstance());
+            sendKey(client, key, com.mojang.blaze3d.platform.InputConstants.PRESS);
+            sendKey(client, key, com.mojang.blaze3d.platform.InputConstants.RELEASE);
+            post.invoke(tick.newInstance());
+            check((boolean) nodeType.getMethod("getTriggered").invoke(warp) &&
+                !(boolean) nodeType.getMethod("getTriggered").invoke(decoy),
+                "The skip key lost a reported secret wait after leaving its ring or chose the wrong imported warp");
+            client.player.setPos(origin);
             client.level.setBlock(block, originalBlock, 3);
             verifyAutoRouteBlast(client, routeType, routes, routeNodes, fixture, roomClass, room, history);
             verifyAutoRouteBat(client, routeType, routes, routeNodes, fixture, roomClass, room);
@@ -670,34 +692,49 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
         throws ReflectiveOperationException {
         var boom = Class.forName("quoi.api.autoroutes.nodes.BoomNode");
         var node = boom.getConstructor().newInstance();
+        var warpType = Class.forName("quoi.api.autoroutes.nodes.EtherwarpNode");
+        var warp = warpType.getConstructor().newInstance();
         var position = client.player.position();
         var vec = net.minecraft.world.phys.Vec3.class;
-        boom.getMethod("setRelative", vec).invoke(node, roomClass.getMethod("getRelativeCoords", vec).invoke(room, position));
+        var relative = roomClass.getMethod("getRelativeCoords", vec);
+        var clicked = net.minecraft.core.BlockPos.containing(position).offset(2, 0, 0);
+        var wall = clicked.offset(0, 1, 1);
+        var destination = clicked.offset(2, 1, 0);
+        boom.getMethod("setRelative", vec).invoke(node, relative.invoke(room, position));
+        boom.getMethod("setTarget", vec).invoke(node, relative.invoke(room, net.minecraft.world.phys.Vec3.atCenterOf(clicked)));
+        warpType.getMethod("setRelative", vec).invoke(warp, relative.invoke(room, position.add(0, .16, 0)));
+        warpType.getMethod("setTarget", vec).invoke(warp, relative.invoke(room, net.minecraft.world.phys.Vec3.atCenterOf(destination)));
         routeNodes.getClass().getMethod("put", Object.class, Object.class)
-            .invoke(routeNodes, fixture, new java.util.ArrayList<>(List.of(node)));
+            .invoke(routeNodes, fixture, new java.util.ArrayList<>(List.of(node, warp)));
         routeType.getMethod("updateCache", roomClass).invoke(routes, room);
-        var target = net.minecraft.core.BlockPos.containing(position).offset(1, 2, 0);
-        var original = client.level.getBlockState(target);
-        var blastTarget = boom.getDeclaredField("blastTarget");
-        var blastSent = boom.getDeclaredField("blastSent");
-        blastTarget.setAccessible(true);
-        blastSent.setAccessible(true);
+        var original = new java.util.LinkedHashMap<net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState>();
+        for (var block : List.of(clicked, wall, destination)) original.put(block, client.level.getBlockState(block));
+        var inventory = client.player.getInventory();
+        int slot = inventory.getSelectedSlot();
+        var held = inventory.getItem(slot);
         var tick = Class.forName("quoi.api.events.TickEvent$Start").getConstructor();
         var post = tick.getDeclaringClass().getMethod("post");
         try {
-            client.level.setBlock(target, net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(), 3);
-            blastTarget.set(node, target);
-            blastSent.setBoolean(node, true);
+            inventory.setItem(slot, routeItem("SUPERBOOM_TNT"));
+            client.level.setBlock(clicked, net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(), 3);
+            client.level.setBlock(wall, net.minecraft.world.level.block.Blocks.CRACKED_STONE_BRICKS.defaultBlockState(), 3);
+            client.level.setBlock(destination, net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(), 3);
             post.invoke(tick.newInstance());
             expireAutoRouteWait(routeType, routes);
             post.invoke(tick.newInstance());
-            check(routeMessages(client, history, "Superboom TNT has not opened the route") == 1, "Unbroken TNT target was not diagnosed");
+            check(routeMessages(client, history, "Superboom TNT passage change was not confirmed") == 1, "Unconfirmed TNT placement was not diagnosed");
             check(!(boolean) boom.getMethod("getTriggered").invoke(node), "TNT step completed while the wall remained");
-            client.level.setBlock(target, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
+            client.level.setBlock(wall, net.minecraft.world.level.block.Blocks.CAVE_AIR.defaultBlockState(), 3);
+            inventory.setItem(slot, routeItem("ASPECT_OF_THE_VOID"));
             post.invoke(tick.newInstance());
-            check((boolean) boom.getMethod("getTriggered").invoke(node), "TNT step did not complete after the wall opened");
+            check((boolean) boom.getMethod("getTriggered").invoke(node) &&
+                client.level.getBlockState(clicked).is(net.minecraft.world.level.block.Blocks.STONE),
+                "TNT step waited for the clicked support instead of the broken wall");
+            post.invoke(tick.newInstance());
+            check((boolean) warpType.getMethod("getTriggered").invoke(warp), "Etherwarp did not follow the opened TNT wall");
         } finally {
-            client.level.setBlock(target, original, 3);
+            inventory.setItem(slot, held);
+            for (var entry : original.entrySet()) client.level.setBlock(entry.getKey(), entry.getValue(), 3);
         }
     }
 
@@ -834,9 +871,9 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
         var originalPos = client.player.position();
         var block = net.minecraft.core.BlockPos.containing(originalPos).offset(4, 6, 0);
         var originalBlock = client.level.getBlockState(block);
-        var target = new net.minecraft.world.phys.Vec3(block.getX() + .5, block.getY() + .99, block.getZ() + .5);
-        var landing = new net.minecraft.world.phys.Vec3(target.x, block.getY() + 1, target.z);
-        var origin = landing.add(0, 4, 0);
+        var target = new net.minecraft.world.phys.Vec3(block.getX(), block.getY() + .99, block.getZ());
+        var landing = new net.minecraft.world.phys.Vec3(block.getX() + .5, block.getY() + 1, block.getZ() + .5);
+        var origin = new net.minecraft.world.phys.Vec3(target.x, landing.y + 4, target.z);
         var inventory = client.player.getInventory();
         int slot = inventory.getSelectedSlot();
         var originalItem = inventory.getItem(slot);
@@ -850,8 +887,12 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
         try {
             client.player.setPos(origin);
             client.level.setBlock(block, net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(), 3);
-            inventory.setItem(slot, routeItem("ASPECT_OF_THE_VOID"));
+            inventory.setItem(slot, routeItem("ASPECT_OF_THE_END", true));
             playerInput.set(client.player, new net.minecraft.world.entity.player.Input(false, false, false, false, false, true, false));
+            var teleport = Class.forName("quoi.utils.skyblock.item.TeleportUtils");
+            var hit = teleport.getMethod("traverseVoxels", vec, vec, boolean.class)
+                .invoke(teleport.getField("INSTANCE").get(null), origin.add(0, 1.27, 0), target, true);
+            check(block.equals(hit.getClass().getMethod("getPos").invoke(hit)), "A vertical ray stalled on the integer X/Z boundary");
             warpType.getMethod("setRelative", vec).invoke(warp, relative.invoke(room, origin));
             warpType.getMethod("setTarget", vec).invoke(warp, relative.invoke(room, target));
             rotateType.getMethod("setRelative", vec).invoke(rotate, relative.invoke(room, landing));
@@ -989,9 +1030,14 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
     }
 
     private static net.minecraft.world.item.ItemStack routeItem(String id) {
+        return routeItem(id, false);
+    }
+
+    private static net.minecraft.world.item.ItemStack routeItem(String id, boolean ethermerge) {
         var item = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.PAPER);
         var data = new net.minecraft.nbt.CompoundTag();
         data.putString("id", id);
+        if (ethermerge) data.putBoolean("ethermerge", true);
         item.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.of(data));
         return item;
     }
@@ -1244,37 +1290,107 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
 
     private static void verifyMouseRefocus(Minecraft client) {
         var game = net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("minecraft").orElseThrow();
-        if (!game.getMetadata().getVersion().getFriendlyString().startsWith("26.3")) return;
+        boolean sdl = game.getMetadata().getVersion().getFriendlyString().startsWith("26.3");
+        var window = client.getWindow();
+        var mouse = client.mouseHandler;
+        boolean previousFocus = client.isWindowActive();
         try {
-            var window = client.getWindow();
-            var focus = window.getClass().getDeclaredMethod("onFocus", boolean.class);
+            // Fabric GameTest cancels the native focus callbacks at their entry point.
+            var focusedState = window.getClass().getDeclaredField("focused");
+            focusedState.setAccessible(true);
+            var focus = java.util.Arrays.stream(window.getClass().getDeclaredMethods())
+                .filter(method -> method.getName().endsWith(sdl ? "$csb$restoreRelativeMouseMode" : "$csb$restoreMouseMode"))
+                .findFirst().orElseThrow();
             focus.setAccessible(true);
-            var mouse = Class.forName("org.lwjgl.sdl.SDLMouse");
-            var keyboard = Class.forName("org.lwjgl.sdl.SDLKeyboard");
-            var keyboardFocus = keyboard.getMethod("SDL_GetKeyboardFocus");
-            check(java.util.Arrays.stream(window.getClass().getDeclaredMethods())
-                .anyMatch(method -> method.getName().contains("csb$restoreRelativeMouseMode")), "SDL focus repair mixin was not applied");
-            var set = mouse.getMethod("SDL_SetWindowRelativeMouseMode", long.class, boolean.class);
-            var captured = mouse.getMethod("SDL_GetWindowRelativeMouseMode", long.class);
-            ClientUiAccess.setScreen(client, new CosmeticsScreen(null, CosmeticsScreen.Page.MAIN));
-            focus.invoke(window, true);
-            check(!(boolean) captured.invoke(null, window.handle()), "Focus captured the pointer inside a menu");
-            ClientUiAccess.setScreen(client, null);
-            if ((long) keyboardFocus.invoke(null) != window.handle()) {
-                System.out.println("CSB_SDL_MOUSE_REFOCUS_NATIVE_SKIPPED: test window has no OS focus");
-                return;
+            setTestWindowFocus(focusedState, focus, window, sdl, true);
+            var remaining = MouseFocusRecovery.class.getDeclaredField("remainingTicks");
+            remaining.setAccessible(true);
+            check(remaining.getInt(null) > 0, "Window focus callback did not schedule mouse recovery");
+
+            class TestCursor implements MouseFocusRecovery.Cursor {
+                boolean hasFocus;
+                boolean captured;
+                int attempts;
+                @Override public boolean focused(long handle) { return hasFocus; }
+                @Override public boolean captured(long handle) { return captured; }
+                @Override public void capture(long handle) { captured = ++attempts > 1; }
             }
-            client.mouseHandler.grabMouse();
-            check(client.mouseHandler.isMouseGrabbed(), "Test could not grab the game cursor");
-            focus.invoke(window, false);
-            check((boolean) set.invoke(null, window.handle(), false), "Could not simulate a lost native capture");
-            focus.invoke(window, true);
-            check((boolean) captured.invoke(null, window.handle()), "Focus did not restore native cursor capture: "
-                + Class.forName("org.lwjgl.sdl.SDLError").getMethod("SDL_GetError").invoke(null));
-            System.out.println("CSB_SDL_MOUSE_REFOCUS_OK");
+            var backend = new TestCursor();
+            mouse.releaseMouse();
+            MouseFocusRecovery.onFocus(true, backend);
+            MouseFocusRecovery.tick(client);
+            check(!mouse.isMouseGrabbed() && backend.attempts == 0, "Capture attempted before native focus returned");
+
+            backend.hasFocus = true;
+            MouseFocusRecovery.tick(client);
+            check(mouse.isMouseGrabbed() && backend.attempts == 1, "Minecraft's mouse grab did not recover");
+            MouseFocusRecovery.tick(client);
+            check(backend.captured && backend.attempts == 2, "Native capture was not retried after a failed request");
+            backend.captured = false;
+            MouseFocusRecovery.tick(client);
+            check(backend.captured && backend.attempts == 3, "Late loss of native capture was not repaired");
+
+            ClientUiAccess.setScreen(client, new net.minecraft.client.gui.screens.inventory.InventoryScreen(client.player));
+            backend.captured = false;
+            MouseFocusRecovery.onFocus(true, backend);
+            MouseFocusRecovery.tick(client);
+            check(!mouse.isMouseGrabbed() && backend.attempts == 3, "Refocusing grabbed the cursor inside the inventory");
+
+            setTestWindowFocus(focusedState, focus, window, sdl, false);
+            ClientUiAccess.setScreen(client, null);
+            check(!mouse.isMouseGrabbed(), "Closing the inventory while unfocused unexpectedly grabbed the mouse");
+            setTestWindowFocus(focusedState, focus, window, sdl, true);
+            MouseFocusRecovery.onFocus(true, backend);
+            MouseFocusRecovery.tick(client);
+            check(mouse.isMouseGrabbed() && backend.captured, "Focus did not restore gameplay after closing an unfocused inventory");
+            MouseFocusRecovery.onFocus(false, backend);
+            backend.captured = false;
+            MouseFocusRecovery.tick(client);
+            check(!backend.captured, "Pending repair survived a second focus loss");
+            System.out.println("CSB_MOUSE_REFOCUS_OK " + (sdl ? "SDL" : "GLFW"));
+            verifyNativeMouseCapture(client, focusedState, focus, sdl);
+            setTestWindowFocus(focusedState, focus, window, sdl, previousFocus);
         } catch (ReflectiveOperationException error) {
-            throw new AssertionError("Could not verify SDL refocus", error);
+            throw new AssertionError("Could not verify mouse refocus", error);
+        } finally {
+            if (!previousFocus) mouse.releaseMouse();
+            MouseFocusRecovery.onFocus(false, MouseFocusRecovery.GlfwCursor.INSTANCE);
         }
+    }
+
+    private static void setTestWindowFocus(java.lang.reflect.Field state, java.lang.reflect.Method handler,
+                                           com.mojang.blaze3d.platform.Window window, boolean sdl, boolean focused)
+        throws ReflectiveOperationException {
+        state.setBoolean(window, focused);
+        if (sdl) handler.invoke(window, focused, null);
+        else handler.invoke(window, window.handle(), focused, null);
+    }
+
+    private static void verifyNativeMouseCapture(Minecraft client, java.lang.reflect.Field state,
+                                                 java.lang.reflect.Method handler, boolean sdl)
+        throws ReflectiveOperationException {
+        var backend = sdl ? (MouseFocusRecovery.Cursor) Class.forName("com.customcosmetics.compatibility.SdlCursor")
+            .getField("INSTANCE").get(null) : MouseFocusRecovery.GlfwCursor.INSTANCE;
+        var window = client.getWindow();
+        long handle = window.handle();
+        if (!backend.focused(handle)) {
+            System.out.println("CSB_MOUSE_REFOCUS_NATIVE_SKIPPED: test window has no OS focus");
+            return;
+        }
+        setTestWindowFocus(state, handler, window, sdl, false);
+        if (sdl) {
+            var setRelative = Class.forName("org.lwjgl.sdl.SDLMouse").getMethod("SDL_SetWindowRelativeMouseMode", long.class, boolean.class);
+            check((boolean) setRelative.invoke(null, handle, false), "Could not simulate native SDL capture loss");
+        } else {
+            var glfw = Class.forName("org.lwjgl.glfw.GLFW");
+            glfw.getMethod("glfwSetInputMode", long.class, int.class, int.class).invoke(null, handle,
+                glfw.getField("GLFW_CURSOR").getInt(null), glfw.getField("GLFW_CURSOR_NORMAL").getInt(null));
+        }
+        check(!backend.captured(handle), "Could not simulate native capture loss");
+        setTestWindowFocus(state, handler, window, sdl, true);
+        MouseFocusRecovery.tick(client);
+        check(backend.captured(handle), "The window's focus callback did not repair native capture");
+        System.out.println("CSB_MOUSE_REFOCUS_NATIVE_OK");
     }
 
     private static void verifyModuleNotification(Minecraft client) {
@@ -1282,11 +1398,144 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
             var history = net.minecraft.client.gui.components.ChatComponent.class.getDeclaredField("allMessages");
             history.setAccessible(true);
             var messages = (List<?>) history.get(ClientUiAccess.chat(client));
-            check(messages.stream().map(Object::toString).anyMatch(message -> message.contains("Auto Harp") && message.contains("Module disabled")),
-                "Module toggle did not add a chat message");
+            var texts = messages.stream().map(net.minecraft.client.multiplayer.chat.GuiMessage.class::cast)
+                .map(message -> message.content().getString()).toList();
+            for (String status : List.of("Enabled.", "Disabled.")) {
+                String expected = "[csb] Auto Harp: " + status;
+                check(texts.contains(expected), "Missing module notice: " + expected);
+            }
         } catch (ReflectiveOperationException error) {
             throw new AssertionError("Could not verify module notification", error);
         }
+    }
+
+    private static void verifyWindowAppearance(ClientGameTestContext context) {
+        var nativeWindow = new java.util.concurrent.atomic.AtomicReference<com.sun.jna.Pointer>();
+        var initialIcon = new java.util.concurrent.atomic.AtomicReference<com.sun.jna.Pointer>();
+        var importedIcon = new java.util.concurrent.atomic.AtomicReference<com.sun.jna.Pointer>();
+        var finished = new java.util.concurrent.atomic.AtomicReference<Boolean>();
+        java.nio.file.Path fixture;
+        try {
+            fixture = Files.createTempFile("csb-window-icon", ".png");
+            var image = new java.awt.image.BufferedImage(16, 16, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+            image.setRGB(8, 8, 0xFFFFA6CF);
+            javax.imageio.ImageIO.write(image, "png", fixture.toFile());
+        } catch (java.io.IOException error) {
+            throw new AssertionError("Could not prepare window icon fixture", error);
+        }
+        try {
+            context.runOnClient(client -> {
+                if (org.lwjgl.system.Platform.get() == org.lwjgl.system.Platform.WINDOWS) {
+                    nativeWindow.set(nativeWindowHandle(client.getWindow().handle()));
+                    initialIcon.set(nativeWindowIcon(nativeWindow.get()));
+                }
+                var savedIcon = com.customcosmetics.config.CosmeticsConfigDir.getCosmeticsConfigDir().resolve("window-icon.png");
+                if (WindowAppearance.iconSupported() && Files.isRegularFile(savedIcon)) {
+                    verifyStartupWindowIcon(savedIcon);
+                    if (nativeWindow.get() != null) {
+                        int visible = com.sun.jna.NativeLibrary.getInstance("user32").getFunction("IsWindowVisible")
+                            .invokeInt(new Object[]{nativeWindow.get()});
+                        check(visible != 0 && initialIcon.get() != null, "The startup icon did not reach the visible Windows window");
+                    }
+                }
+                ClientUiAccess.setScreen(client, new CosmeticsScreen(null, CosmeticsScreen.Page.WINDOW));
+                var title = (PinkUi.Field) widget(client, "Window Title", false);
+                title.setValue("CustomSkyBlock 窗口测试");
+                click(client, "Apply Window Title", false);
+                client.updateTitle();
+                check("CustomSkyBlock 窗口测试".equals(ConfigManager.windowTitle), "Window title was not saved");
+                if (nativeWindow.get() != null) {
+                    var text = new char[256];
+                    com.sun.jna.NativeLibrary.getInstance("user32").getFunction("GetWindowTextW")
+                        .invokeInt(new Object[]{nativeWindow.get(), text, text.length});
+                    check("CustomSkyBlock 窗口测试".equals(com.sun.jna.Native.toString(text)), "Native title did not match");
+                }
+                title.setValue("");
+                click(client, "Apply Window Title", false);
+                check(ConfigManager.windowTitle.isEmpty(), "Blank title did not reset to vanilla");
+                if (WindowAppearance.iconSupported()) {
+                    check(widget(client, "Choose Window Icon", false).active, "Window icon picker is inactive");
+                    WindowAppearance.importIcon(client, fixture, finished::set);
+                } else {
+                    finished.set(true);
+                }
+            });
+            context.waitFor(client -> finished.get() != null, 180);
+            check(Boolean.TRUE.equals(finished.get()), "Could not apply imported window icon");
+            context.runOnClient(client -> {
+                if (!WindowAppearance.iconSupported()) return;
+                if (nativeWindow.get() != null) {
+                    importedIcon.set(nativeWindowIcon(nativeWindow.get()));
+                    check(importedIcon.get() != null && !importedIcon.get().equals(initialIcon.get()), "Native icon did not change");
+                }
+                var icons = WindowAppearance.standardIcons();
+                check(icons != null && icons.size() == 5, "Missing imported icon sizes");
+                try (var input = icons.get(2).get()) {
+                    var icon = javax.imageio.ImageIO.read(input);
+                    check(icon.getWidth() == 48 && icon.getRGB(23, 24) == 0 && icon.getRGB(24, 24) == 0xFFFFA6CF &&
+                        icon.getRGB(26, 26) == 0xFFFFA6CF && icon.getRGB(27, 26) == 0, "Pixel icon edges were blurred");
+                } catch (java.io.IOException error) {
+                    throw new AssertionError("Could not read the generated 48 pixel icon", error);
+                }
+                finished.set(null);
+                WindowAppearance.resetIcon(client, finished::set);
+            });
+            context.waitFor(client -> finished.get() != null, 180);
+            check(Boolean.TRUE.equals(finished.get()), "Could not restore the game icon");
+            context.runOnClient(client -> {
+                check(WindowAppearance.standardIcons() == null, "Custom icon stayed enabled after reset");
+                if (nativeWindow.get() != null && importedIcon.get() != null) {
+                    check(!importedIcon.get().equals(nativeWindowIcon(nativeWindow.get())), "Native icon did not reset");
+                }
+                ClientUiAccess.setScreen(client, null);
+            });
+            System.out.println("CSB_WINDOW_APPEARANCE_OK");
+        } finally {
+            try { Files.deleteIfExists(fixture); }
+            catch (java.io.IOException error) { throw new AssertionError("Could not remove window icon fixture", error); }
+        }
+    }
+
+    private static void verifyStartupWindowIcon(java.nio.file.Path savedIcon) {
+        try {
+            var checkedSavedIcon = WindowAppearance.class.getDeclaredField("checkedSavedIcon");
+            checkedSavedIcon.setAccessible(true);
+            check(checkedSavedIcon.getBoolean(null), "The window reached the title screen before loading its saved icon");
+            var icons = WindowAppearance.standardIcons();
+            check(icons != null, "The initial window icon did not use the saved image");
+            try (var stream = icons.getFirst().get()) {
+                var restored = javax.imageio.ImageIO.read(stream);
+                var saved = javax.imageio.ImageIO.read(savedIcon.toFile());
+                if (saved.getWidth() == 16 && saved.getHeight() == 16) {
+                    check(restored.getRGB(8, 8) == saved.getRGB(8, 8), "Startup used the wrong icon pixels");
+                }
+            }
+            System.out.println("CSB_SAVED_WINDOW_ICON_ON_STARTUP_OK");
+        } catch (ReflectiveOperationException | java.io.IOException error) {
+            throw new AssertionError("Could not verify the saved startup window icon", error);
+        }
+    }
+
+    private static com.sun.jna.Pointer nativeWindowHandle(long handle) {
+        try {
+            if (!WindowAppearance.usesSdl()) {
+                var win32 = Class.forName("org.lwjgl.glfw.GLFWNativeWin32");
+                return new com.sun.jna.Pointer((long) win32.getMethod("glfwGetWin32Window", long.class).invoke(null, handle));
+            }
+            var video = Class.forName("org.lwjgl.sdl.SDLVideo");
+            int properties = (int) video.getMethod("SDL_GetWindowProperties", long.class).invoke(null, handle);
+            var accessor = Class.forName("org.lwjgl.sdl.SDLProperties")
+                .getMethod("SDL_GetPointerProperty", int.class, CharSequence.class, long.class);
+            return new com.sun.jna.Pointer((long) accessor.invoke(null, properties,
+                video.getField("SDL_PROP_WINDOW_WIN32_HWND_POINTER").get(null), 0L));
+        } catch (ReflectiveOperationException error) {
+            throw new AssertionError("Could not read the native Windows HWND", error);
+        }
+    }
+
+    private static com.sun.jna.Pointer nativeWindowIcon(com.sun.jna.Pointer window) {
+        return com.sun.jna.NativeLibrary.getInstance("user32").getFunction("SendMessageW")
+            .invokePointer(new Object[]{window, 0x007F, 1L, 0L});
     }
 
     private static void verifyLegacyHeldSkull(Minecraft client) {

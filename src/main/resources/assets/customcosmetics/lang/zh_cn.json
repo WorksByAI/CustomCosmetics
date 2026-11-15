@@ -1318,8 +1318,6 @@
   "customcosmetics.ui.c165f3511c45": "没有找到模块",
   "customcosmetics.ui.enabled_modules": "已启用模块",
   "customcosmetics.ui.no_modules_enabled": "没有已启用的模块",
-  "customcosmetics.ui.module_enabled": "已启用",
-  "customcosmetics.ui.module_disabled": "已停用",
   "customcosmetics.ui.all_modules_enabled": "已启用全部模块",
   "customcosmetics.ui.all_modules_disabled": "已停用全部模块",
   "customcosmetics.ui.73054bd649a0": "地牢",
@@ -1764,7 +1762,13 @@
   "customcosmetics.ui.f6cb02457ee8": "动感模糊需要使用游戏内置渲染器。",
   "customcosmetics.ui.823a58540c68": "1.8 手持头颅",
   "customcosmetics.ui.86165a98ea52": "第一人称手持玩家头颅时，使用 1.8 的大小、位置和朝向。",
+  "customcosmetics.ui.window_appearance": "窗口外观",
   "customcosmetics.ui.window_title": "窗口标题",
   "customcosmetics.ui.apply_window_title": "应用窗口标题",
-  "customcosmetics.ui.window_title_default": "留空即可恢复游戏默认标题。"
+  "customcosmetics.ui.window_title_default": "留空即可恢复游戏默认标题。",
+  "customcosmetics.ui.choose_window_icon": "选择窗口图标",
+  "customcosmetics.ui.reset_window_icon": "恢复默认窗口图标",
+  "customcosmetics.ui.window_icon_size": "图片最大 2 MiB。",
+  "customcosmetics.ui.window_icon_unsupported": "当前窗口系统不支持自定义窗口图标。",
+  "customcosmetics.ui.window_icon_failed": "无法更改窗口图标。"
 }

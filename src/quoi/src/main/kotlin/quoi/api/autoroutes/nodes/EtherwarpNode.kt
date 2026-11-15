@@ -2,6 +2,7 @@ package quoi.api.autoroutes.nodes
 
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext
 import net.minecraft.core.BlockPos
+import net.minecraft.world.item.ItemStack
 import net.minecraft.world.phys.Vec3
 import quoi.api.autoroutes.RouteNode
 import quoi.api.colour.Colour
@@ -16,6 +17,7 @@ import quoi.utils.getLook
 import quoi.utils.getVisiblePoint
 import quoi.utils.rayCastVec
 import quoi.utils.render.drawLine
+import quoi.utils.skyblock.item.ItemUtils.extraAttributesView
 import quoi.utils.skyblock.item.ItemUtils.skyblockId
 import quoi.utils.skyblock.item.TeleportUtils.getEtherwarpLandingY
 import quoi.utils.skyblock.item.TeleportUtils.isValidEtherwarpBlock
@@ -74,24 +76,21 @@ class EtherwarpNode : RouteNode() {
         nextAimSearch = 0L
     }
 
-    override fun execute(pos: MutableVec3): Boolean = execute(pos, false)
-
-    internal fun executeFromHere(pos: MutableVec3): Boolean = execute(pos, true)
-
-    private fun execute(pos: MutableVec3, aimFromHere: Boolean): Boolean {
+    override fun execute(pos: MutableVec3): Boolean {
         actionFailure = "Etherwarp failed (sneak input not ready)"
         if (!player.lastSentInput.shift) return false
 
         val from = pos.add(y = getEyeHeight(true)).immutable()
-        val ether = aim(from, aimFromHere)
+        val ether = aim(from)
         actionFailure = "Etherwarp path or landing is blocked"
         if (!ether.succeeded || ether.pos == null) return false
 
-        if (player.mainHandItem.skyblockId != "ASPECT_OF_THE_VOID") {
-            val swap = SwapManager.swapById("ASPECT_OF_THE_VOID", warnIfMissing = !AutoRoutes.stallRecovery)
+        if (!canCast(player.mainHandItem)) {
+            val slot = (0..8).firstOrNull { canCast(player.inventory.getItem(it)) }
+            val swap = slot?.let(SwapManager::swapToSlot) ?: SwapResult.NOT_FOUND
             if (!swap.success) {
-                actionFailure = if (swap == SwapResult.NOT_FOUND) "Etherwarp failed (Aspect of the Void missing)" else "Etherwarp failed (could not select Aspect of the Void)"
-                return swap == SwapResult.NOT_FOUND && !AutoRoutes.stallRecovery
+                actionFailure = if (swap == SwapResult.NOT_FOUND) "Etherwarp failed (no Etherwarp item in the hotbar)" else "Etherwarp failed (could not select the Etherwarp item)"
+                return false
             }
         }
 
@@ -106,20 +105,29 @@ class EtherwarpNode : RouteNode() {
         return true
     }
 
-    private fun targetFrom(from: Vec3): Vec3 = realYaw?.let {
-        rayCastVec(from, getLook(it, pitch!!).scale(61.0)).vec
-    } ?: realTarget
+    private fun canCast(stack: ItemStack): Boolean = when (stack.skyblockId) {
+        "ASPECT_OF_THE_VOID", "ETHERWARP_CONDUIT" -> true
+        "ASPECT_OF_THE_END" -> stack.extraAttributesView?.getBoolean("ethermerge")?.orElse(false) == true
+        else -> false
+    }
 
     fun raycast(pos: MutableVec3): RaycastResult {
         val from = pos.add(y = getEyeHeight(true)).immutable()
-        return aim(from, false)
+        return aim(from)
     }
 
-    private fun aim(from: Vec3, useRecordedTarget: Boolean): RaycastResult {
-        val target = if (useRecordedTarget) realTarget else targetFrom(from)
+    internal fun reachableFrom(origin: Vec3): Boolean = aim(origin.addVec(y = getEyeHeight(true))).succeeded
+
+    private fun aim(from: Vec3): RaycastResult {
         val recordedEye = pos.addVec(y = getEyeHeight(true))
-        val destination = if (useRecordedTarget || realYaw == null) targetBlock(recordedEye, realTarget)
-            else targetBlock(from, target)
+        val legacyHit = realYaw?.let { yaw ->
+            // Re-evaluate the recorded ray after doors or breakable blocks change.
+            val look = getLook(yaw, pitch!!).scale(61.0)
+            val recorded = rayCastVec(recordedEye, look)
+            if (recorded.pos != null && isValidEtherwarpBlock(level, recorded.pos)) recorded else rayCastVec(from, look)
+        }
+        val target = legacyHit?.vec ?: realTarget
+        val destination = if (legacyHit == null) targetBlock(recordedEye, target) else legacyHit.pos ?: return RaycastResult.NONE
         val exact = raycast(from, target, destination)
         if (exact.succeeded) return exact.apply { vec = target }
 
@@ -138,12 +146,13 @@ class EtherwarpNode : RouteNode() {
             alternativeAim = center
             return centerHit.apply { vec = center }
         }
+        var visibleHit = RaycastResult.NONE
         val visible = getVisiblePoint(from, destination) { offset ->
-            val candidate = raycast(from, from.add(offset), destination)
-            if (candidate.succeeded) candidate.pos else null
+            visibleHit = raycast(from, from.add(offset), destination)
+            if (visibleHit.succeeded) visibleHit.pos else null
         } ?: return exact
         alternativeAim = visible
-        return raycast(from, visible, destination).apply { vec = visible }
+        return visibleHit.apply { vec = visible }
     }
 
     private fun targetBlock(from: Vec3, target: Vec3): BlockPos =

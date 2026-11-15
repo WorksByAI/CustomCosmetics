@@ -3,6 +3,7 @@ package com.customcosmetics.client;
 import net.fabricmc.api.ClientModInitializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.customcosmetics.compatibility.MouseFocusRecovery;
 import com.customcosmetics.config.ConfigManager;
 import com.customcosmetics.config.CosmeticsConfigDir;
 import com.customcosmetics.features.blocking.SwordBlocking;
@@ -31,9 +32,7 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
     public void onInitializeClient() {
         CosmeticsConfigDir.init();
         ConfigManager.loadConfig();
-        ClientLifecycleEvents.CLIENT_STARTED.register(client -> {
-            if (!ConfigManager.windowTitle.isEmpty()) client.updateTitle();
-        });
+        ClientLifecycleEvents.CLIENT_STARTED.register(com.customcosmetics.features.window.WindowAppearance::start);
         ModErrors.run(ModErrors.Key.MOTION_BLUR, com.customcosmetics.features.motionblur.MotionBlurPort::init);
         ModErrors.run(ModErrors.Key.BOBBY, com.customcosmetics.features.gameplay.BobbyIntegration::init);
         com.customcosmetics.gui.UiFonts.init();
@@ -90,6 +89,7 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
                 var page=openGuiPageNextTick;openGuiPageNextTick=CosmeticsScreen.Page.MAIN;var screen=requestedScreen;requestedScreen=null;openGuiNextTick=false;
                 ModErrors.attempt(ModErrors.Key.GUI_OPEN,()->com.customcosmetics.compatibility.ClientUiAccess.setScreen(client,screen==null?new CosmeticsScreen(null,page):screen.get()));
             }
+            MouseFocusRecovery.tick(client);
             ModErrors.flush(client);
         });
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
