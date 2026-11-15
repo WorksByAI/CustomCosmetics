@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.IntSupplier;
@@ -32,6 +33,7 @@ public final class TextReplacements {
     private static final ThreadLocal<Boolean> RAW_WIDTH = new ThreadLocal<>();
     private static final ThreadLocal<TextCache> CACHE = ThreadLocal.withInitial(TextCache::new);
     private static volatile Rules rules = new Rules(Map.of());
+    private static volatile Rules playerAliases = new Rules(Map.of());
     private static volatile long frame;
     private static volatile long revision;
 
@@ -62,12 +64,21 @@ public final class TextReplacements {
         revision++;
     }
 
+    public static boolean setPlayerAliases(Map<String, String> aliases) {
+        if (playerAliases.replacements.equals(aliases)) return false;
+        playerAliases = new Rules(Map.copyOf(aliases), true);
+        revision++;
+        return true;
+    }
+
+    public static Map<String, String> playerAliases() { return playerAliases.replacements; }
+
     public static boolean active() {
-        return ConfigManager.textReplacementsEnabled && rules.pattern != null
+        return ((ConfigManager.textReplacementsEnabled && rules.pattern != null) || playerAliases.pattern != null)
             && RAW_WIDTH.get() == null;
     }
 
-    public static void beginFrame() { if (ConfigManager.textReplacementsEnabled) frame++; }
+    public static void beginFrame() { if (ConfigManager.textReplacementsEnabled || playerAliases.pattern != null) frame++; }
 
     public static void refreshChat(Minecraft client) {
         if (client.gui != null) ClientUiAccess.chat(client).rescaleChat();
@@ -81,7 +92,8 @@ public final class TextReplacements {
     }
 
     public static String apply(String text) {
-        return text == null || text.isEmpty() || !active() ? text : rules.replace(text);
+        if (text == null || text.isEmpty() || !active()) return text;
+        return playerAliases.replace(ConfigManager.textReplacementsEnabled ? rules.replace(text) : text);
     }
 
     public static FormattedCharSequence apply(FormattedCharSequence text) {
@@ -90,7 +102,7 @@ public final class TextReplacements {
         cache.sequences.begin(frame, revision);
         var cached = cache.sequences.get(text);
         if (cached != null) return cached;
-        var result = rules.replace(text);
+        var result = replace(text);
         cache.sequences.put(text, result);
         return result;
     }
@@ -102,10 +114,14 @@ public final class TextReplacements {
         var cached = cache.formatted.get(text);
         if (cached != null) return cached;
         var sequence = RankText.sequence(text);
-        var replaced = rules.replace(sequence);
+        var replaced = replace(sequence);
         FormattedText result = replaced == sequence ? text : new ResolvedText(RankText.component(replaced));
         cache.formatted.put(text, result);
         return result;
+    }
+
+    private static FormattedCharSequence replace(FormattedCharSequence text) {
+        return playerAliases.replace(ConfigManager.textReplacementsEnabled ? rules.replace(text) : text);
     }
 
     public static FormattedCharSequence visualOrder(Language language, FormattedText text) {
@@ -148,20 +164,28 @@ public final class TextReplacements {
     private record Glyph(int codepoint, Style style) {}
 
     static final class Rules {
+        private static final Pattern PLAYER_WORD = Pattern.compile("(?<![A-Za-z0-9_])[A-Za-z0-9_]{1,16}(?![A-Za-z0-9_])");
         private final Map<String, String> replacements;
         private final Pattern pattern;
+        private final boolean playerWords;
         private final Map<String, List<Match>> plans = new LinkedHashMap<>(32, .75f, true) {
             @Override protected boolean removeEldestEntry(Map.Entry<String, List<Match>> eldest) { return size() > 512; }
         };
 
         Rules(Map<String, String> replacements) {
+            this(replacements, false);
+        }
+
+        Rules(Map<String, String> replacements, boolean playerWords) {
             this.replacements = replacements;
-            pattern = replacements.isEmpty() ? null : Pattern.compile(replacements.keySet().stream()
+            this.playerWords = playerWords;
+            pattern = replacements.isEmpty() ? null : playerWords ? PLAYER_WORD : Pattern.compile(replacements.keySet().stream()
                 .sorted(Comparator.comparingInt(String::length).reversed())
                 .map(Pattern::quote).collect(Collectors.joining("|")));
         }
 
         String replace(String text) {
+            if (pattern == null) return text;
             if (text.indexOf('§') >= 0) {
                 FormattedCharSequence source = sink -> StringDecomposer.iterateFormatted(text, Style.EMPTY, sink);
                 var result = replace(source);
@@ -179,6 +203,7 @@ public final class TextReplacements {
         }
 
         FormattedCharSequence replace(FormattedCharSequence source) {
+            if (pattern == null) return source;
             var plain = new StringBuilder();
             source.accept((index, style, codepoint) -> { plain.appendCodePoint(codepoint); return true; });
             var matches = matches(plain.toString());
@@ -228,12 +253,14 @@ public final class TextReplacements {
                 long renderedLength = text.length();
                 int maximumLength = Math.max(16_384, text.length());
                 do {
-                    String replacement = replacements.get(matcher.group());
+                    String word = matcher.group();
+                    String replacement = replacements.get(playerWords ? word.toLowerCase(Locale.ROOT) : word);
+                    if (replacement == null) continue;
                     renderedLength += replacement.length() - (matcher.end() - matcher.start());
                     if (renderedLength > maximumLength) return List.of();
                     found.add(new Match(matcher.start(), matcher.end(), replacement));
                 } while (matcher.find());
-                result = List.copyOf(found);
+                if (!found.isEmpty()) result = List.copyOf(found);
             }
             if (text.length() <= 1024 && result.size() <= 64) plans.put(text, result);
             return result;

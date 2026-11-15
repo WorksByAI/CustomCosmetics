@@ -13,6 +13,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.server.packs.resources.IoSupplier;
 import net.minecraft.util.Util;
 import org.lwjgl.glfw.GLFW;
+import org.lwjgl.system.Platform;
 
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
@@ -34,7 +35,7 @@ public final class WindowAppearance {
     public static final int MAX_TITLE_LENGTH = 120;
     private static final boolean SDL = FabricLoader.getInstance().getModContainer("minecraft")
         .map(mod -> mod.getMetadata().getVersion().getFriendlyString().startsWith("26.3")).orElse(false);
-    private static final List<Integer> ICON_SIZES = List.of(16, 32, 48, 128, 256);
+    private static final List<Integer> ICON_SIZES = List.of(16, 20, 24, 28, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 256);
 
     private record Icons(List<IoSupplier<InputStream>> standard, IoSupplier<InputStream> mac) {}
 
@@ -65,6 +66,27 @@ public final class WindowAppearance {
     public static List<IoSupplier<InputStream>> standardIcons() {
         Icons current = loadSavedIcon();
         return current == null ? null : current.standard();
+    }
+
+    public static List<IoSupplier<InputStream>> preferTaskbarIcon(Window window, List<IoSupplier<InputStream>> standard) {
+        if (!SDL || Platform.get() != Platform.WINDOWS || icons == null || standard != icons.standard()) return standard;
+        float scale = 1;
+        try {
+            scale = (float) Class.forName("org.lwjgl.sdl.SDLVideo")
+                .getMethod("SDL_GetWindowDisplayScale", long.class).invoke(null, window.handle());
+        } catch (ReflectiveOperationException | LinkageError failure) {
+            CustomCosmeticsClient.LOGGER.debug("Could not read window display scale for the custom icon", failure);
+        }
+        // SDL Win32 uses the primary surface for both native icons. Supply the large icon at the window's display scale.
+        var ordered = new ArrayList<>(standard);
+        ordered.addFirst(ordered.remove(ICON_SIZES.indexOf(taskbarIconSize(scale))));
+        return ordered;
+    }
+
+    static int taskbarIconSize(float scale) {
+        int desired = Float.isFinite(scale) ? Math.max(32, Math.round(32 * scale)) : 32;
+        for (int size : ICON_SIZES) if (size >= desired) return size;
+        return ICON_SIZES.getLast();
     }
 
     public static IoSupplier<InputStream> macIcon() {

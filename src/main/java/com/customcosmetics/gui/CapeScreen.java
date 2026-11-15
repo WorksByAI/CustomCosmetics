@@ -14,7 +14,13 @@ public final class CapeScreen extends ThemedScreen {
     public CapeScreen(Screen parent){super(Component.literal("Cape"));this.parent=parent;}
     @Override protected void init(){
         w=Math.min(620,width-16);h=Math.min(410,height-16);x=(width-w)/2;y=(height-h)/2;
-        addRenderableWidget(new PinkUi.Action(x+w-164,y+10,150,22,"Blocked Capes",false,()->ClientUiAccess.setScreen(minecraft,new CosmeticsScreen(this,CosmeticsScreen.Page.BLOCKED_CAPES))));
+        addRenderableWidget(new SettingsResetButton(x+w-14,y+10,22,()->{
+            ConfigManager.resetSettings("showLocalCape", "capeEnabled", "capeBlockedPlayers");
+            notice="Default settings restored.";
+            rebuildWidgets();
+        }));
+        int blockedWidth=Math.clamp(w-176,56,150);
+        addRenderableWidget(new PinkUi.Action(x+w-108-blockedWidth,y+10,blockedWidth,22,"Blocked Capes",false,()->ClientUiAccess.setScreen(minecraft,new CosmeticsScreen(this,CosmeticsScreen.Page.BLOCKED_CAPES))));
         int buttonY=y+h-119,cell=(w-38)/2;
         cropButton=addRenderableWidget(new PinkUi.Action(x+14,buttonY,cell,24,"Choose Image & Crop",false,()->choose(false)));
         cropButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent("Crop a regular image into a local cape.")));

@@ -29,6 +29,11 @@ public final class MotionBlurPort {
 
     public static BlurSettings getConfig() { return config; }
 
+    public static void resetSettings() {
+        config = new BlurSettings();
+        save();
+    }
+
     public static boolean integrated() {
         return !LOADER.isModLoaded("naturalmotionblur") && !LOADER.isModLoaded("vulkanmod");
     }

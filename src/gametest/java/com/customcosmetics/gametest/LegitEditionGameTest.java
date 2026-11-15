@@ -2,10 +2,15 @@
 package com.customcosmetics.gametest;
 
 import com.customcosmetics.client.ClientEdition;
+import com.customcosmetics.compatibility.ClientInput;
 import com.customcosmetics.compatibility.ClientUiAccess;
 import com.customcosmetics.config.ConfigManager;
+import com.customcosmetics.features.nickname.NickHider;
+import com.customcosmetics.features.text.TextReplacements;
 import com.customcosmetics.gui.CosmeticsScreen;
+import com.customcosmetics.gui.PinkUi;
 import com.customcosmetics.sync.SyncCommands;
+import com.customcosmetics.utils.NickRenderUtils;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
@@ -13,6 +18,10 @@ import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.MouseButtonInfo;
+import net.minecraft.network.chat.Component;
 
 public final class LegitEditionGameTest implements FabricClientGameTest {
     @Override public void runTest(ClientGameTestContext context) {
@@ -46,11 +55,70 @@ public final class LegitEditionGameTest implements FabricClientGameTest {
                 verify(ClientUiAccess.screen(client).children().stream().filter(AbstractWidget.class::isInstance)
                     .map(AbstractWidget.class::cast).anyMatch(widget -> widget.getMessage().getString().equals("Zoom")),
                     "Missing QOL controls");
+                ClientUiAccess.setScreen(client, new CosmeticsScreen(null, CosmeticsScreen.Page.NICK_HIDER));
+                verify(ClientUiAccess.screen(client).children().stream().filter(AbstractWidget.class::isInstance)
+                    .map(AbstractWidget.class::cast).anyMatch(widget -> widget.getMessage().getString().equals("Hide My Name")),
+                    "Missing Nick Hider controls");
+                String account = client.player.getGameProfile().name();
+                ConfigManager.nickHiderSelf = true;
+                NickHider.changed(client);
+                verify(TextReplacements.apply("Profile: " + account).equals("Profile: Player-1"), "Self alias was not applied");
+                ConfigManager.nickTweaksEnabled = true;
+                ConfigManager.nickTweaksNickChanger = "ChangerName";
+                var field = (PinkUi.Field) button(ClientUiAccess.screen(client), "My Alias");
+                field.setValue("Local Alias");
+                var nametag = Component.literal(account);
+                verify(TextReplacements.apply("Profile: " + account).equals("Profile: Local Alias"), "Custom self alias was not applied");
+                verify(NickRenderUtils.handleFormattedText(nametag).getString().equals(account),
+                    "Nick Changer rewrote the nametag before Nick Hider could apply");
+                field.setValue("");
+                verify(TextReplacements.apply(account).equals("Player-1"), "Clearing the field did not restore the automatic alias");
+                ConfigManager.nickHiderSelf = false;
+                NickHider.changed(client);
+                verify(TextReplacements.apply(account).equals(account), "Disabling Nick Hider left its alias active");
+                verify(NickRenderUtils.handleFormattedText(nametag).getString().equals("ChangerName"),
+                    "Disabling Nick Hider did not restore the Nick Changer name");
+                ConfigManager.nickTweaksEnabled = false;
+                NickRenderUtils.invalidateLocalTargetsCache();
                 ClientUiAccess.setScreen(client, null);
             });
-            context.waitTicks(4);
+            verifyModuleReset(context);
         }
         System.out.println("CSB_LEGIT_EDITION_OK");
+    }
+
+    private static void verifyModuleReset(ClientGameTestContext context) {
+        context.runOnClient(client -> {
+            ConfigManager.zoomFactor = 9;
+            ConfigManager.zoomEnabled = true;
+            ConfigManager.hitOpacity = .73f;
+            ClientUiAccess.setScreen(client, new CosmeticsScreen(null, CosmeticsScreen.Page.ZOOM));
+        });
+        context.waitTicks(10);
+        context.runOnClient(client -> {
+            var screen = ClientUiAccess.screen(client);
+            clickButton(screen, "Reset Settings");
+            verify(ConfigManager.zoomFactor == 9 && ConfigManager.zoomEnabled, "First click reset the Zoom module");
+        });
+        context.waitTicks(10);
+        context.runOnClient(client -> {
+            clickButton(ClientUiAccess.screen(client), "Confirm Reset");
+            verify(ConfigManager.zoomFactor == 4 && !ConfigManager.zoomEnabled, "Zoom settings did not reset");
+            verify(ConfigManager.hitOpacity == .73f, "Zoom reset changed the Hit Color module");
+            ClientUiAccess.setScreen(client, null);
+        });
+    }
+
+    private static AbstractWidget button(Screen screen, String label) {
+        return screen.children().stream().filter(AbstractWidget.class::isInstance).map(AbstractWidget.class::cast)
+            .filter(widget -> widget.getMessage().getString().equals(label)).findFirst().orElseThrow();
+    }
+
+    private static void clickButton(Screen screen, String label) {
+        var button = button(screen, label);
+        var click = new MouseButtonEvent(button.getX() + 4, button.getY() + 4, new MouseButtonInfo(ClientInput.MOUSE_LEFT, 0));
+        verify(screen.mouseClicked(click, false), "Could not click " + label);
+        screen.mouseReleased(click);
     }
 
     private static void verify(boolean condition, String message) {

@@ -23,9 +23,14 @@ public final class WardrobeScreen extends ThemedScreen {
         widgets.clear();w=Math.min(740,width-16);h=Math.min(436,height-16);x=(width-w)/2;y=(height-h)/2;
         int side=w<480?84:112;contentX=x+side+20;contentW=w-side-36;
         var categories=AccessoryCatalog.slots(collection);if(categories.stream().noneMatch(category->category.id().equals(slot)))slot=categories.getFirst().id();
-        int headerOffset=contentW<420?30:0;
-        int blockWidth=Math.min(contentW,Math.clamp(font.width(UiText.guiComponent("Block Other Players' Equipments"))+18,140,210));
-        button(contentX+contentW-blockWidth,y+10,blockWidth,24,"Block Other Players' Equipments",()->ClientUiAccess.setScreen(minecraft,new CosmeticsScreen(this,CosmeticsScreen.Page.BLOCKED_ACCESSORIES)));
+        int headerOffset=contentW<470?30:0;
+        int blockWidth=Math.min(Math.max(1,contentW-94),Math.clamp(font.width(UiText.guiComponent("Block Other Players' Equipments"))+18,140,210));
+        button(contentX+contentW-94-blockWidth,y+10,blockWidth,24,"Block Other Players' Equipments",()->ClientUiAccess.setScreen(minecraft,new CosmeticsScreen(this,CosmeticsScreen.Page.BLOCKED_ACCESSORIES)));
+        widgets.add(addWidget(new SettingsResetButton(contentX+contentW,y+10,24,()->{
+            ConfigManager.resetSettings("accessories", "accessoriesBlockedPlayers");
+            changed();
+            rebuildWidgets();
+        })));
         int tabWidth=Math.min(98,(contentW-6)/2);for(var group:AccessoryCatalog.Collection.values())button(contentX+(group.ordinal()*(tabWidth+6)),y+10+headerOffset,tabWidth,24,group.label,()->{collection=group;page=0;rebuildWidgets();}).selected(()->collection==group);
         if(h>=330){int gap=Math.min(26,(h-88)/categories.size());
             for(int i=0;i<categories.size();i++){var category=categories.get(i);button(x+10,y+44+i*gap,side-8,gap-3,UiText.slotLabel(category.id(),category.label()),()->{slot=category.id();page=0;rebuildWidgets();}).selected(()->slot.equals(category.id()));}

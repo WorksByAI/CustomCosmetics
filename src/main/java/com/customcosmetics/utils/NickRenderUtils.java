@@ -45,6 +45,7 @@ public final class NickRenderUtils {
     private static volatile String cachePlayerName = "";
     private static volatile UUID cachePlayerUuid;
     private static volatile List<Target> cachedTargets = List.of();
+    private static volatile Map<String, String> cachedAliases = Map.of();
     private static volatile boolean cachedSmooth;
     private static final ThreadLocal<Boolean> PREVIEW_OVERRIDE = ThreadLocal.withInitial(() -> Boolean.FALSE);
     private static final ThreadLocal<Boolean> CLICK_GUI_RENDER_SCOPE = ThreadLocal.withInitial(() -> Boolean.FALSE);
@@ -114,6 +115,7 @@ public final class NickRenderUtils {
         cachePlayerName = "";
         cachePlayerUuid = null;
         cachedTargets = List.of();
+        cachedAliases = Map.of();
         cachedSmooth=false;
         TARGET_VERSION.incrementAndGet();
         synchronized (MATCH_CACHE_LOCK) { MATCH_CACHE.clear(); }
@@ -699,7 +701,9 @@ public final class NickRenderUtils {
         String selfName = client.getUser().getName();
         UUID selfUuid = client.getUser().getProfileId();
         long now = System.currentTimeMillis();
-        if (now - targetsCacheAt <= TARGET_CACHE_MS && selfName.equals(cachePlayerName) && selfUuid.equals(cachePlayerUuid)) {
+        var aliases = com.customcosmetics.features.text.TextReplacements.playerAliases();
+        if (aliases == cachedAliases && now - targetsCacheAt <= TARGET_CACHE_MS
+                && selfName.equals(cachePlayerName) && selfUuid.equals(cachePlayerUuid)) {
             return cachedTargets;
         }
 
@@ -709,7 +713,8 @@ public final class NickRenderUtils {
         List<Target> targets = buildTargets(selfUuid, selfName,
             localNickTweaksEnabled, PresenceSync.remoteNicknames());
 
-        targets.removeIf(t -> t.name().isBlank());
+        targets.removeIf(target -> target.name().isBlank() || aliases.containsKey(target.nameLower()));
+        cachedAliases = aliases;
         targets.sort(Comparator.comparingInt((Target t) -> t.codePoints().length).reversed());
         cachedTargets = List.copyOf(targets);
         cachedSmooth=false;for(var target:targets)if(target.gradient()!=null){cachedSmooth=true;break;}

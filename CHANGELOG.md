@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.2
+
+- new feat: Add two-step resets to module settings.
+- new feat: Add Nick Hider with custom aliases, dungeon class labels, and skin overrides.
+- new feat: Add first-dragon death to Auto Leap in Cheating.
+- bug fix: Sharpen custom taskbar icons on Windows in Minecraft 26.3.
+
 ## 3.0.1
 
 - Keep automatic updates edition-specific and restore mouse capture after refocusing.

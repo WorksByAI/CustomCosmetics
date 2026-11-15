@@ -35,7 +35,12 @@ public final class WaypointScreen extends ThemedScreen {
         if (group == null && !groups.isEmpty()) { group = groups.getFirst(); selected = group.id(); }
         groupOffset = Math.clamp(groupOffset, 0, Math.max(0, groups.size() - rows));
         pointOffset = Math.clamp(pointOffset, 0, Math.max(0, group == null ? 0 : group.points().size() - rows));
-        addRenderableWidget(new Action(x + w - 111, y + 10, 99, 22,
+        addRenderableWidget(new SettingsResetButton(x+w-12, y+10, 22, () -> {
+            Waypoints.resetPreferences();
+            message = "Default settings restored.";
+            rebuildWidgets();
+        }));
+        addRenderableWidget(new Action(x + w - 205, y + 10, 99, 22,
                 Waypoints.snapshot().enabled() ? "Markers: On" : "Markers: Off", false,
                 () -> perform(() -> Waypoints.replace(new Snapshot(!Waypoints.snapshot().enabled(), allGroups)))));
         addRenderableWidget(new Action(x + 12, y + 37, 25, 22, "<", false, () -> changeIsland(-1)));

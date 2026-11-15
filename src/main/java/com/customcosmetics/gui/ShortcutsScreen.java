@@ -36,7 +36,11 @@ public final class ShortcutsScreen extends ThemedScreen {
         return addRenderableWidget(new PinkUi.Action(bx, by, bw, 21, label, primary, action));
     }
     private void list() {
-        button(x + w - 104, y + 8, 92, Shortcuts.data().enabled() ? "Enabled" : "Disabled", false, () -> {
+        addRenderableWidget(new SettingsResetButton(x+w-12, y+8, 21, () -> {
+            run(() -> Shortcuts.save(new ShortcutStore.Data(true, Shortcuts.data().entries())));
+            rebuildWidgets();
+        })).active = Shortcuts.writable();
+        button(x + w - 198, y + 8, 92, Shortcuts.data().enabled() ? "Enabled" : "Disabled", false, () -> {
             run(() -> Shortcuts.save(new ShortcutStore.Data(!Shortcuts.data().enabled(), Shortcuts.data().entries())));
             rebuildWidgets();
         });

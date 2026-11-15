@@ -51,7 +51,8 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
             check(!widget(client, "Nick Changer", true).visible, "Opening Connections did not collapse Appearance");
             check(widget(client, "Party Sharing", true).active, "Connections did not open");
             click(client, "SkyBlock", false);
-            check(widget(client, "Tooltip Tweaks", true).visible, "SkyBlock did not open");
+            click(client, "Nick Hider", true);
+            check(widget(client, "Hide My Name", false).visible, "Nick Hider did not open from the SkyBlock sidebar");
             click(client, "QOL", false);
             check(cheating.visible && cheating.active && cheating.getY() == fixedY,
                 "Opening the long QOL list displaced the Cheating button");
@@ -230,7 +231,7 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
             }
         });
         context.waitFor(client -> ClientUiAccess.screen(client) instanceof com.customcosmetics.gui.CheatingScreen, 30);
-        context.runOnClient(client -> ClientUiAccess.screen(client).onClose());
+        verifySettingsReset(context);
         verifyWindowAppearance(context);
         var originalBobby = com.customcosmetics.features.gameplay.BobbyIntegration.read();
         var testBobby = originalBobby.clone();
@@ -307,6 +308,42 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
         System.out.println("CSB300_ACCORDION_CONFIRMATION_MODULE_GRID_HUD_MOTION_PACK_OK");
     }
 
+    private static void verifySettingsReset(ClientGameTestContext context) {
+        context.runOnClient(client -> {
+            ((PinkUi.Field) widget(client, "Search modules", false)).setValue("Auto Clicker");
+            ConfigManager.autoClickerLeftMax = 19;
+            ConfigManager.harpClickDelay = 4;
+            click(client, "Auto Clicker", false, ClientInput.MOUSE_RIGHT);
+            click(client, "Reset Settings", false);
+            check(ConfigManager.autoClickerLeftMax == 19, "First click reset Auto Clicker");
+        });
+        context.waitTicks(10);
+        context.runOnClient(client -> {
+            click(client, "Confirm Reset", false);
+            check(ConfigManager.autoClickerLeftMax == 12, "Auto Clicker did not reset");
+            check(ConfigManager.harpClickDelay == 4, "Auto Clicker reset Auto Harp");
+            ((PinkUi.Field) widget(client, "Search modules", false)).setValue("Auto Blood Rush");
+            var range = bloodRushRange();
+            range.set().accept(6.0);
+            click(client, "Auto Blood Rush", false, ClientInput.MOUSE_RIGHT);
+            click(client, "Reset Settings", false);
+            check(range.value().getAsDouble() == 6.0, "First click reset the Quoi setting");
+        });
+        context.waitTicks(10);
+        context.runOnClient(client -> {
+            click(client, "Confirm Reset", false);
+            check(bloodRushRange().value().getAsDouble() == 5.0, "Quoi setting did not reset");
+            ClientUiAccess.setScreen(client, null);
+        });
+    }
+
+    private static com.customcosmetics.features.gameplay.dungeonapi.DungeonMenu.Number bloodRushRange() {
+        var module = com.customcosmetics.features.gameplay.QuoiDungeon.menu().modules().stream()
+            .filter(entry -> entry.name().equals("Auto Blood Rush")).findFirst().orElseThrow();
+        return (com.customcosmetics.features.gameplay.dungeonapi.DungeonMenu.Number) module.settings().get().stream()
+            .filter(control -> control.name().equals("Aura range")).findFirst().orElseThrow().input();
+    }
+
     private static void expireCheatingSession() {
         try {
             var field = com.customcosmetics.gui.CheatingScreen.class.getDeclaredField("SESSION");
@@ -365,6 +402,7 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
                 check(Integer.valueOf(107).equals(cooldowns.get("SPIRIT_LEAP"))
                     && Integer.valueOf(46).equals(cooldowns.get("INFINITE_SPIRIT_LEAP")), "Spirit Leap cooldowns were mixed");
                 verifyTerminalLeapDelay();
+                verifyFirstDragonLeap();
                 var abilities = Class.forName("quoi.module.impl.dungeon.DungeonAbilities");
                 var triggers = abilities.getDeclaredField("ultTriggers");
                 triggers.setAccessible(true);
@@ -383,6 +421,39 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
             inventory.setSelectedSlot(selectedSlot);
         }
         System.out.println("CSB_QUOI_LEAP_TERMINALS_GOLDOR_OK");
+    }
+
+    private static void verifyFirstDragonLeap() throws ReflectiveOperationException {
+        var leaps = Class.forName("quoi.module.impl.floor7.autoleap.Leaps");
+        var module = leaps.getField("INSTANCE").get(null);
+        var autoField = leaps.getDeclaredField("autoLeap");
+        autoField.setAccessible(true);
+        var auto = autoField.get(module);
+        var targetField = auto.getClass().getDeclaredField("firstDragonDeathLeap");
+        targetField.setAccessible(true);
+        var target = targetField.get(auto);
+        check(Boolean.FALSE.equals(target.getClass().getMethod("getEnabled").invoke(target)), "Dragon Auto Leap defaults to on");
+        var died = auto.getClass().getDeclaredField("firstDragonDied");
+        died.setAccessible(true);
+        var dragon = Class.forName("quoi.api.skyblock.dungeon.dragons.WitherDragon");
+        var event = Class.forName("quoi.api.events.DungeonEvent$Dragon$Death");
+        var reason = Class.forName(event.getName() + "$Reason");
+        var constructor = event.getConstructor(dragon, reason, Class.forName("quoi.utils.DualTime"));
+        var post = event.getMethod("post");
+        var red = dragon.getField("Red").get(null);
+        boolean enabled = (boolean) leaps.getMethod("getEnabled").invoke(module);
+        var toggle = leaps.getMethod("toggle");
+        if (!enabled) toggle.invoke(module);
+        try {
+            post.invoke(constructor.newInstance(red, reason.getField("SpawnTimeout").get(null), null));
+            check(!died.getBoolean(auto), "A timed-out dragon spawn consumed the first-death trigger");
+            post.invoke(constructor.newInstance(red, reason.getField("Health").get(null), null));
+            check(died.getBoolean(auto), "An actual dragon death did not reach Auto Leap");
+        } finally {
+            auto.getClass().getMethod("reset").invoke(auto);
+            if (!enabled) toggle.invoke(module);
+        }
+        System.out.println("CSB_QUOI_FIRST_DRAGON_EVENT_OK");
     }
 
     private static net.minecraft.world.item.ItemStack skyBlockPaper(String id) {
@@ -1436,6 +1507,7 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
                         int visible = com.sun.jna.NativeLibrary.getInstance("user32").getFunction("IsWindowVisible")
                             .invokeInt(new Object[]{nativeWindow.get()});
                         check(visible != 0 && initialIcon.get() != null, "The startup icon did not reach the visible Windows window");
+                        check(nativeIconWidth(initialIcon.get()) >= 32, "The startup taskbar icon used a low-resolution surface");
                     }
                 }
                 ClientUiAccess.setScreen(client, new CosmeticsScreen(null, CosmeticsScreen.Page.WINDOW));
@@ -1467,12 +1539,21 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
                 if (nativeWindow.get() != null) {
                     importedIcon.set(nativeWindowIcon(nativeWindow.get()));
                     check(importedIcon.get() != null && !importedIcon.get().equals(initialIcon.get()), "Native icon did not change");
+                    int width = nativeIconWidth(importedIcon.get());
+                    check(width >= 32, "The taskbar icon used a " + width + "px surface");
+                    System.out.println("CSB_NATIVE_TASKBAR_ICON " + width + "px " + (WindowAppearance.usesSdl() ? "SDL" : "GLFW"));
                 }
                 var icons = WindowAppearance.standardIcons();
-                check(icons != null && icons.size() == 5, "Missing imported icon sizes");
-                try (var input = icons.get(2).get()) {
-                    var icon = javax.imageio.ImageIO.read(input);
-                    check(icon.getWidth() == 48 && icon.getRGB(23, 24) == 0 && icon.getRGB(24, 24) == 0xFFFFA6CF &&
+                check(icons != null && icons.size() > 5, "Missing imported icon sizes");
+                try {
+                    java.awt.image.BufferedImage icon = null;
+                    for (var supplier : icons) {
+                        try (var input = supplier.get()) {
+                            var image = javax.imageio.ImageIO.read(input);
+                            if (image.getWidth() == 48) { icon = image; break; }
+                        }
+                    }
+                    check(icon != null && icon.getRGB(23, 24) == 0 && icon.getRGB(24, 24) == 0xFFFFA6CF &&
                         icon.getRGB(26, 26) == 0xFFFFA6CF && icon.getRGB(27, 26) == 0, "Pixel icon edges were blurred");
                 } catch (java.io.IOException error) {
                     throw new AssertionError("Could not read the generated 48 pixel icon", error);
@@ -1507,7 +1588,8 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
                 var restored = javax.imageio.ImageIO.read(stream);
                 var saved = javax.imageio.ImageIO.read(savedIcon.toFile());
                 if (saved.getWidth() == 16 && saved.getHeight() == 16) {
-                    check(restored.getRGB(8, 8) == saved.getRGB(8, 8), "Startup used the wrong icon pixels");
+                    int center = restored.getWidth() / 2;
+                    check(restored.getRGB(center, center) == saved.getRGB(8, 8), "Startup used the wrong icon pixels");
                 }
             }
             System.out.println("CSB_SAVED_WINDOW_ICON_ON_STARTUP_OK");
@@ -1536,6 +1618,28 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
     private static com.sun.jna.Pointer nativeWindowIcon(com.sun.jna.Pointer window) {
         return com.sun.jna.NativeLibrary.getInstance("user32").getFunction("SendMessageW")
             .invokePointer(new Object[]{window, 0x007F, 1L, 0L});
+    }
+
+    private static int nativeIconWidth(com.sun.jna.Pointer icon) {
+        int pointerSize = com.sun.jna.Native.POINTER_SIZE;
+        int maskOffset = pointerSize == 8 ? 16 : 12;
+        var user32 = com.sun.jna.NativeLibrary.getInstance("user32");
+        var gdi32 = com.sun.jna.NativeLibrary.getInstance("gdi32");
+        try (var info = new com.sun.jna.Memory(maskOffset + 2L * pointerSize);
+             var bitmap = new com.sun.jna.Memory(32)) {
+            check(user32.getFunction("GetIconInfo").invokeInt(new Object[]{icon, info}) != 0, "Could not inspect the Windows icon");
+            var mask = info.getPointer(maskOffset);
+            var color = info.getPointer(maskOffset + pointerSize);
+            try {
+                check(gdi32.getFunction("GetObjectW").invokeInt(new Object[]{color != null ? color : mask, 32, bitmap}) != 0,
+                    "Could not inspect the Windows icon bitmap");
+                return bitmap.getInt(4);
+            } finally {
+                var delete = gdi32.getFunction("DeleteObject");
+                if (color != null) delete.invokeInt(new Object[]{color});
+                if (mask != null) delete.invokeInt(new Object[]{mask});
+            }
+        }
     }
 
     private static void verifyLegacyHeldSkull(Minecraft client) {

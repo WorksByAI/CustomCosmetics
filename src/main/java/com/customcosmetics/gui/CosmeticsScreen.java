@@ -5,6 +5,7 @@ import com.customcosmetics.compatibility.ClientUiAccess;
 import com.customcosmetics.compatibility.NativeFileDialogs;
 import com.customcosmetics.config.ConfigManager;
 import com.customcosmetics.features.hud.HudLayout;
+import com.customcosmetics.features.nickname.NickHider;
 import com.customcosmetics.features.pack.HypixelPackDisabler;
 import com.customcosmetics.features.pack.TextColorOverrides;
 import com.customcosmetics.features.text.TextReplacements;
@@ -33,7 +34,7 @@ import static com.customcosmetics.gui.PinkUi.*;
 public final class CosmeticsScreen extends ThemedScreen {
     public enum Page {
         MAIN, SIZE, NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, BLOCKED_SKINS, POSITION_RECIPIENTS, ANIMATIONS, DAMAGE, ITEMS, ACCESSORIES, MAP, PARTY, LOCATION_SHARING, SKINS, SYNC, THEME, MODULES, SEARCH, EXPERIMENTAL,
-        HUD_LAYOUT, SKYBOX, FONTS, FREECAM, WINDOW, HIT_COLOR, FAST_PING, PACK_DISABLER, INVENTORY_BLUR, TEXT_COLORS, DROP_2D, TEXT_REPLACEMENTS, SIGN_TEXT, COMMAND_TOOLTIPS, SNAPLOOK, MOTION_BLUR, PLAYER_SPIN, LOBBY_MARKER, BOBBY, ZOOM, SEYMOUR, TOOLTIP_TWEAKS;
+        HUD_LAYOUT, SKYBOX, FONTS, FREECAM, WINDOW, HIT_COLOR, FAST_PING, PACK_DISABLER, INVENTORY_BLUR, TEXT_COLORS, DROP_2D, TEXT_REPLACEMENTS, SIGN_TEXT, COMMAND_TOOLTIPS, SNAPLOOK, MOTION_BLUR, PLAYER_SPIN, LOBBY_MARKER, BOBBY, ZOOM, SEYMOUR, TOOLTIP_TWEAKS, NICK_HIDER;
 
         boolean qolOption() { return switch (this) {
             case HUD_LAYOUT, SKYBOX, FONTS, FREECAM, WINDOW, HIT_COLOR, FAST_PING, INVENTORY_BLUR,
@@ -107,6 +108,7 @@ public final class CosmeticsScreen extends ThemedScreen {
     private final UiMotion entrance=new UiMotion(0,UiMotion.Curve.SPRING);
     private float entranceScale=1;
     private boolean drawingPinned;
+    private boolean resetAvailable;
     private int positionedScroll=Integer.MIN_VALUE;
     private record Placement(AbstractWidget widget, int y) {}
 
@@ -147,6 +149,12 @@ public final class CosmeticsScreen extends ThemedScreen {
         navigation.add(addWidget(new RepositoryButton(panelX + 12, panelY + panelHeight - 42)));
         navigation.add(addWidget(new PinkUi.Action(panelX+47,panelY+panelHeight-42,sideWidth-55,30,"Settings",false,()->open(Page.SYNC)).selected(()->page==Page.SYNC)));
         navigation.add(addWidget(new PinkUi.Action(panelX + panelWidth - 32, panelY + 14, 20, 20, "×", false, this::onClose)));
+        resetAvailable = canResetPage();
+        if (resetAvailable) {
+            var reset = addWidget(new SettingsResetButton(panelX + panelWidth - 39, panelY + 14, 20, this::resetPage));
+            reset.active = page != Page.WINDOW || !WindowAppearance.busy();
+            navigation.add(reset);
+        }
         searchField=new PinkUi.Field(font,contentX,panelY+54,contentWidth,"Search Settings",24);
         searchField.setMaxLength(128);searchField.setHint(UiText.component("Search settings..."));searchField.setValue(searchQuery);
         searchField.setResponder(value->{
@@ -167,6 +175,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             case MAIN -> overview();
             case SIZE -> playerSize();
             case NICK -> nickname();
+            case NICK_HIDER -> nickHider();
             case RANK -> rank();
             case COLOR -> colors();
             case CHROMA -> chroma();
@@ -214,12 +223,146 @@ public final class CosmeticsScreen extends ThemedScreen {
         positionControls();
     }
 
+    private boolean canResetPage() {
+        return switch (page) {
+            case MAIN, SEARCH, EXPERIMENTAL, ACCESSORIES -> false;
+            case FREECAM -> com.customcosmetics.features.map.Freecam.available();
+            case MOTION_BLUR -> com.customcosmetics.features.motionblur.MotionBlurPort.integrated();
+            case PACK_DISABLER -> HypixelPackDisabler.available();
+            default -> true;
+        };
+    }
+
+    private void resetPage() {
+        switch (page) {
+            case SIZE -> ConfigManager.resetSettings("playerSize*", "smol*", "creatureModel");
+            case NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS -> ConfigManager.resetSettings("nickTweaks*");
+            case NICK_HIDER -> {
+                ConfigManager.resetSettings("nickHider*", "otherPlayerSkinSlim");
+                com.customcosmetics.features.skins.LocalSkins.otherMode("original");
+                com.customcosmetics.features.nickname.NickHider.changed(minecraft);
+            }
+            case BLOCKED_CAPES -> ConfigManager.resetSettings("capeBlockedPlayers");
+            case BLOCKED_ACCESSORIES -> ConfigManager.resetSettings("accessoriesBlockedPlayers");
+            case BLOCKED_SKINS -> ConfigManager.resetSettings("skinBlockedPlayers");
+            case ANIMATIONS -> ConfigManager.resetSettings("animation*", "legacyHeldSkull", "swordBlocking*", "blocking*");
+            case DAMAGE -> ConfigManager.resetSettings("damageSplash*");
+            case ITEMS -> {
+                ConfigManager.resetSettings("accessoryHelperTooltipEnabled");
+                com.customcosmetics.features.items.ItemCosmetics.store().enabled(true);
+                com.customcosmetics.features.items.ItemCosmetics.save();
+            }
+            case MAP -> {
+                if (com.customcosmetics.features.map.MapEditor.busy()) {
+                    toast("Wait for the current map operation");
+                    return;
+                }
+                com.customcosmetics.features.map.MapEditor.resetPreferences();
+                resetKeys("key.customcosmetics.map_blocks", "key.customcosmetics.map_edit", "key.customcosmetics.freecam");
+            }
+            case SKINS -> {
+                ConfigManager.resetSettings("localSkin*", "skin*", "otherPlayerSkinSlim");
+                com.customcosmetics.features.skins.LocalSkins.slim(ConfigManager.localSkinSlim);
+                com.customcosmetics.features.skins.LocalSkins.otherMode("original");
+            }
+            case PARTY -> ConfigManager.resetSettings("party*", "sharingChamsEnabled");
+            case LOCATION_SHARING, POSITION_RECIPIENTS -> ConfigManager.resetSettings("location*", "positionSharing*");
+            case THEME -> ConfigManager.resetSettings("uiThemeMode", "uiAccentColor", "uiAnimationsEnabled", "uiBackgroundBlur");
+            case SYNC -> {
+                ConfigManager.resetSettings("uiLanguage", "updateCheckEnabled", "syncEnabled", "syncNotifications",
+                    "syncRefreshIntervalSeconds", "syncProxy*", "syncP2pPort");
+                com.customcosmetics.sync.PresenceProxyResolver.resetSession();
+                com.customcosmetics.config.CosmeticsMode.setOffline(false);
+            }
+            case MODULES -> {
+                int previous = ConfigManager.disabledModules;
+                ConfigManager.resetSettings("disabledModules");
+                moduleChanged(previous);
+            }
+            case HUD_LAYOUT -> ConfigManager.resetSettings("hudLayout*");
+            case SKYBOX -> ConfigManager.resetSettings("customSky*");
+            case FONTS -> resetFonts();
+            case FREECAM -> {
+                ConfigManager.resetSettings("freecam*");
+                com.customcosmetics.features.map.Freecam.setEnabled(false);
+                resetKeys("key.customcosmetics.freecam_general");
+            }
+            case WINDOW -> {
+                if (WindowAppearance.busy()) return;
+                ConfigManager.resetSettings("fullscreenStyle", "windowTitle");
+                windowTitleDraft = ConfigManager.windowTitle;
+                minecraft.updateTitle();
+                if (WindowAppearance.hasCustomIcon()) WindowAppearance.resetIcon(minecraft, this::windowIconChanged);
+            }
+            case HIT_COLOR -> ConfigManager.resetSettings("hitColor*", "hitOpacity");
+            case FAST_PING -> ConfigManager.resetSettings("fastIpPingEnabled");
+            case PACK_DISABLER -> {
+                ConfigManager.resetSettings("hideHypixelSkyBlockPack", "hypixelPack*");
+                resetKeys("key.customcosmetics.pack_whitelist", "key.customcosmetics.pack_debug");
+                HypixelPackDisabler.refresh(minecraft);
+            }
+            case INVENTORY_BLUR -> ConfigManager.resetSettings("inventoryBlurEnabled", "inventoryDimPercent");
+            case TEXT_COLORS -> {
+                ConfigManager.resetSettings("customTextColors*");
+                textColorDraft = null;
+                textColorFrom = textColorTo = "";
+                HypixelPackDisabler.refresh(minecraft);
+            }
+            case DROP_2D -> ConfigManager.resetSettings("droppedItems2dEnabled");
+            case TEXT_REPLACEMENTS -> {
+                ConfigManager.resetSettings("textReplacements*");
+                resetTextRuleDraft();
+                TextReplacements.refreshChat(minecraft);
+            }
+            case SIGN_TEXT -> ConfigManager.resetSettings("longSignTextEnabled");
+            case COMMAND_TOOLTIPS -> ConfigManager.resetSettings("commandTooltipsEnabled");
+            case SNAPLOOK -> {
+                ConfigManager.resetSettings("snaplook*");
+                resetKeys("key.customcosmetics.snaplook");
+            }
+            case MOTION_BLUR -> {
+                com.customcosmetics.features.motionblur.MotionBlurPort.resetSettings();
+                resetKeys("Toggle Motion Blur");
+            }
+            case PLAYER_SPIN -> ConfigManager.resetSettings("spinHead*", "spinBody*");
+            case LOBBY_MARKER -> ConfigManager.resetSettings("lobbyMarker*");
+            case BOBBY -> {
+                bobbySettings = com.customcosmetics.features.gameplay.BobbyIntegration.resetSettings();
+                bobbyStatus = "";
+            }
+            case ZOOM -> {
+                ConfigManager.resetSettings("zoom*");
+                resetKeys("key.customcosmetics.zoom");
+            }
+            case SEYMOUR -> ConfigManager.resetSettings("seymour*");
+            case TOOLTIP_TWEAKS -> {
+                ConfigManager.resetSettings("tooltip*", "missingEnchants*");
+                resetKeys("key.customcosmetics.tooltip_hex");
+            }
+            case MAIN, SEARCH, EXPERIMENTAL, ACCESSORIES -> { return; }
+        }
+        changed();
+        toast("Default settings restored.");
+        rebuildWidgets();
+    }
+
+    private void resetFonts() {
+        UiFonts.clear();
+        ConfigManager.resetSettings("uiFont*", "useFontInGame");
+        pendingFontSize = ConfigManager.uiFontSize;
+        pendingFontSpacing = ConfigManager.uiFontSpacing;
+        pendingFontOversample = ConfigManager.uiFontOversample;
+        pendingFontBaseline = ConfigManager.uiFontBaseline;
+        pendingFontShadow = ConfigManager.uiFontShadow;
+    }
+
     private String pageTitle() {
         return switch (page) {
             case MAIN -> "Home";
             case THEME -> "Interface";
             case SIZE -> "Player Size";
             case NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS -> "Nick Changer";
+            case NICK_HIDER -> "Nick Hider";
             case ANIMATIONS -> "Animations";
             case DAMAGE -> "Damage Splash";
             case EXPERIMENTAL -> "QOL";
@@ -300,6 +443,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         navItem("Item Customization", Page.ITEMS);
         navItem("Lobby Marker", Page.LOBBY_MARKER);
         navItem("Map Editor", Page.MAP);
+        navItem("Nick Hider", Page.NICK_HIDER);
         navItem("Pack Disabler", Page.PACK_DISABLER);
         navItem("Seymour Analyzer", Page.SEYMOUR);
         navItem("Tooltip Tweaks", Page.TOOLTIP_TWEAKS);
@@ -314,7 +458,7 @@ public final class CosmeticsScreen extends ThemedScreen {
                  BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, BLOCKED_SKINS -> Section.APPEARANCE;
             case PARTY, LOCATION_SHARING, POSITION_RECIPIENTS -> Section.CONNECTIONS;
             case EXPERIMENTAL, COMMAND_TOOLTIPS, SNAPLOOK, MOTION_BLUR, PLAYER_SPIN, BOBBY, ZOOM -> Section.QOL;
-            case ANIMATIONS, DAMAGE, ITEMS, MAP, PACK_DISABLER, LOBBY_MARKER, SEYMOUR, TOOLTIP_TWEAKS -> Section.SKYBLOCK;
+            case ANIMATIONS, DAMAGE, ITEMS, MAP, NICK_HIDER, PACK_DISABLER, LOBBY_MARKER, SEYMOUR, TOOLTIP_TWEAKS -> Section.SKYBLOCK;
             default -> null;
         };
     }
@@ -1805,6 +1949,51 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
 
     private PinkUi.Action fullButton(String title,Runnable action){return fullButton(title,action,false);}
+    private void nickHider() {
+        toggleRow("Hide Server Player Names", "Give other players numbered aliases on this client.",
+            () -> ConfigManager.nickHiderPlayers, value -> {
+                ConfigManager.nickHiderPlayers = value;
+                NickHider.changed(minecraft);
+            });
+        toggleRow("Hide My Name", "Use your local alias in place of your Nick Changer name.",
+            () -> ConfigManager.nickHiderSelf, value -> {
+                ConfigManager.nickHiderSelf = value;
+                NickHider.changed(minecraft);
+            });
+        var aliasField = fieldRow("My Alias", "My Alias", ConfigManager.nickHiderSelfAlias, NickHider.SELF_ALIAS_LIMIT * 2,
+            "Leave blank to use the automatic alias.", 160, value -> {});
+        aliasField.setResponder(value -> {
+            if (value.codePointCount(0, value.length()) > NickHider.SELF_ALIAS_LIMIT) {
+                aliasField.setValue(value.substring(0, value.offsetByCodePoints(0, NickHider.SELF_ALIAS_LIMIT)));
+                return;
+            }
+            String alias = NickHider.selfAlias(value);
+            if (alias.equals(ConfigManager.nickHiderSelfAlias)) return;
+            ConfigManager.nickHiderSelfAlias = alias;
+            NickHider.changed(minecraft);
+            changed();
+        });
+        toggleRow("Use Dungeon Classes", "Show teammates as Archer, Mage, Berserk, Healer or Tank inside the Catacombs.",
+            () -> ConfigManager.nickHiderDungeon, value -> {
+                ConfigManager.nickHiderDungeon = value;
+                NickHider.changed(minecraft);
+            });
+        fieldRow("Alias Prefix", "Alias Prefix", ConfigManager.nickHiderPrefix, NickHider.PREFIX_LIMIT * 2,
+            "For example, Player becomes Player-1.", 160, value -> {
+                String prefix = NickHider.prefix(value);
+                if (prefix.equals(ConfigManager.nickHiderPrefix)) return;
+                ConfigManager.nickHiderPrefix = prefix;
+                NickHider.changed(minecraft);
+                changed();
+            });
+        section("Other Players", "");
+        if (!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS)) {
+            fullButton("Enable skin replacements in Module Manager", () -> open(Page.MODULES));
+            return;
+        }
+        otherSkinControls();
+    }
+
     private void skins(){
         paragraph("Inspired by CustomSkinLoader. Shared skins are visible to peers only after a successful P2P connection. You are responsible for any consequences of using this feature; the mod developers accept no liability.",MUTED);
         section("My Skin", "");
@@ -1818,6 +2007,10 @@ public final class CosmeticsScreen extends ThemedScreen {
         label("Established P2P peers: "+com.customcosmetics.features.skins.LocalSkins.directCount(),contentX,rowY+5,MUTED,contentWidth);rowY+=24;
         fullButton("Blocked Skins",()->open(Page.BLOCKED_SKINS),false);
         section("Other Players", "");
+        otherSkinControls();
+    }
+
+    private void otherSkinControls() {
         dropdown("Other Players",List.of("original","steve","alex","custom"),()->ConfigManager.otherPlayerSkinMode,com.customcosmetics.features.skins.LocalSkins::otherMode)
             .setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent("Global replacements are local-only.")));
         fullButton("Import Global Skin",()->ClientUiAccess.setScreen(minecraft,new SkinImportScreen(this,true)),false);
@@ -2176,7 +2369,8 @@ public final class CosmeticsScreen extends ThemedScreen {
             String brand = getTitle().getString();
             g.pose().pushMatrix();g.pose().translate(panelX+44,panelY+18);float brandScale=Math.min(1,(sideWidth-50)/(float)Math.max(1,font.width(brand)));g.pose().scale(brandScale,brandScale);g.text(font,brand,0,0,TEXT,false);g.pose().popMatrix();
             text(g,font,DISPLAY_VERSION,panelX+44,panelY+34,DIM,sideWidth-50);
-            UiFonts.drawTitle(g,UiText.tr(pageTitle()),contentX,panelY+21,TEXT,contentWidth-28);
+            UiFonts.drawTitle(g,UiText.tr(pageTitle()),contentX,panelY+21,TEXT,
+                Math.max(1,contentWidth-28-(resetAvailable?SettingsResetButton.WIDTH+7:0)));
             g.fill(contentX, panelY + 83, contentX + contentWidth, panelY + 84, BORDER);
             // Separate disjoint UI regions from the full-panel background. Native GUI
             // overlap ordering otherwise searches the accumulated background subtree per quad.

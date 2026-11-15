@@ -13,6 +13,21 @@ public abstract class ThemedScreen extends Screen {
     public final net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipPositioner beginTooltip(GuiGraphicsExtractor g,net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipPositioner original){return tooltipPositioner.begin(g,original);}
     public final void endTooltip(){tooltipPositioner.end();}
     protected ThemedScreen(Component title){super(localizeTitle(title));font=UiFonts.get(super.font);UiTheme.refresh();}
+
+    protected final void resetKeys(String... names) {
+        var owned = java.util.Set.of(names);
+        boolean changed = false;
+        for (var mapping : minecraft.options.keyMappings) {
+            if (owned.contains(mapping.getName()) && !mapping.isDefault()) {
+                mapping.setKey(mapping.getDefaultKey());
+                changed = true;
+            }
+        }
+        if (changed) {
+            net.minecraft.client.KeyMapping.resetMapping();
+            minecraft.options.save();
+        }
+    }
     /** Content previews use the live game renderer, including resource packs and font-mod hooks. */
     protected final net.minecraft.client.gui.Font previewFont(){
         var active=minecraft.font;

@@ -45,4 +45,20 @@ class TextReplacementsTest {
         String excessive = "a".repeat(512);
         assertSame(excessive, rules.replace(excessive));
     }
+
+    @Test void hidesWholeAccountNamesWithoutChangingSourceStyles() {
+        var aliases = new TextReplacements.Rules(Map.of("alice", "Guest-1", "bob", "Mage"), true);
+        assertEquals("[MVP+] Guest-1: Mage, not Alice123 or x_Bob.",
+            aliases.replace("[MVP+] ALICE: Bob, not Alice123 or x_Bob."));
+        var colored = Style.EMPTY.withColor(0xFFFFFF);
+        var input = FormattedCharSequence.composite(FormattedCharSequence.forward("A", colored),
+            FormattedCharSequence.forward("lice!", Style.EMPTY));
+        var output = aliases.replace(input);
+        output.accept((index, style, codepoint) -> {
+            assertEquals(index < "Guest-1".length() ? colored : Style.EMPTY, style);
+            return true;
+        });
+        assertEquals("Guest-1!", RankText.component(output).getString());
+        assertEquals("Alice!", RankText.component(input).getString());
+    }
 }

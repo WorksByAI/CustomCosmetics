@@ -46,6 +46,14 @@ public final class MapEditor {
     public static BlockPos blockPos(MapEdits.Position p){return new BlockPos(p.x(),p.y(),p.z());}
     public static Path roomsPath(){return roomsFile;}
     public static Path settingsPath(){return file;}
+    public static void resetPreferences() {
+        if (Freecam.freezesBody(Minecraft.getInstance().player)) Freecam.setEnabled(false);
+        enabled = editing = forceDungeon = forceKuudra = false;
+        dungeonOnly = autoRooms = showHud = true;
+        material = "minecraft:stone";
+        Freecam.speed = 12;
+        refresh();
+    }
     public static String roomOriginWorkerThread(){return restorer.originWorkerThread();}
     public static void init(){try{
         var candidate=new MapStorage(CosmeticsConfigDir.getCosmeticsConfigDir());var root=candidate.initialize();

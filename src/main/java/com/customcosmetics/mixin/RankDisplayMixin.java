@@ -3,8 +3,10 @@ package com.customcosmetics.mixin;
 
 import com.customcosmetics.features.animations.PresenceWorld;
 import com.customcosmetics.features.nickname.*;
+import com.customcosmetics.features.skins.LocalSkins;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -12,7 +14,9 @@ import net.minecraft.client.gui.components.ChatComponent;
 import net.minecraft.client.gui.components.PlayerTabOverlay;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.PlayerSkin;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
 
 public final class RankDisplayMixin {
     @Mixin(PlayerTabOverlay.class)
@@ -22,6 +26,12 @@ public final class RankDisplayMixin {
             var name=original.call(player);
             if(!RankAppearance.active())return name;
             return RankAppearance.tabName(name,PresenceWorld.isSkyblock(Minecraft.getInstance()));
+        }
+
+        @WrapOperation(method="extractRenderState", at=@At(value="INVOKE",
+            target="Lnet/minecraft/client/multiplayer/PlayerInfo;getSkin()Lnet/minecraft/world/entity/player/PlayerSkin;"))
+        private PlayerSkin customcosmetics$tabSkin(PlayerInfo player, Operation<PlayerSkin> original) {
+            return LocalSkins.tabSkin(player.getProfile().id(), original.call(player));
         }
     }
     @Mixin(ChatComponent.class)

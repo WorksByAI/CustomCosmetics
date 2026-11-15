@@ -75,6 +75,8 @@ public final class ConfigManager {
     public static java.util.Map<String, String> customTextColors = java.util.Map.of();
     public static boolean textReplacementsEnabled = false;
     public static java.util.Map<String, String> textReplacements = java.util.Map.of();
+    public static boolean nickHiderPlayers, nickHiderDungeon, nickHiderSelf;
+    public static String nickHiderPrefix = "Player", nickHiderSelfAlias = "";
     public static java.util.Set<String> hypixelPackWhitelist = java.util.Set.of();
     public static java.util.Map<String, String> hypixelPackReplacements = java.util.Map.of();
     public static java.util.Map<String, Boolean> hypixelPackGlints = java.util.Map.of();
@@ -312,6 +314,52 @@ public final class ConfigManager {
     public static volatile boolean syncProxyFallbackDirect = true;
     public static volatile String syncProxySource = "none";
 
+    private static final java.util.Map<Field, Object> DEFAULT_SETTINGS = captureDefaults();
+
+    private static java.util.Map<Field, Object> captureDefaults() {
+        var defaults = new java.util.LinkedHashMap<Field, Object>();
+        try {
+            for (Field field : ConfigManager.class.getFields()) {
+                int modifiers = field.getModifiers();
+                if (Modifier.isStatic(modifiers) && !Modifier.isTransient(modifiers) && !Modifier.isFinal(modifiers)) {
+                    defaults.put(field, copyDefault(field.get(null)));
+                }
+            }
+        } catch (IllegalAccessException error) { throw new IllegalStateException("Could not capture setting defaults", error); }
+        return defaults;
+    }
+
+    private static Object copyDefault(Object value) {
+        return switch (value) {
+            case Object[] array -> array.clone();
+            case float[] array -> array.clone();
+            case java.util.EnumMap<?, ?> map -> map.clone();
+            case null, default -> value;
+        };
+    }
+
+    /** Reset only the exact fields or explicitly named field families owned by the module. */
+    public static void resetSettings(String... selectors) {
+        var selected = new java.util.LinkedHashSet<Field>();
+        for (String selector : selectors) {
+            boolean prefix = selector.endsWith("*");
+            String name = prefix ? selector.substring(0, selector.length() - 1) : selector;
+            if (name.isEmpty()) throw new IllegalArgumentException("Empty reset selector");
+            boolean matched = false;
+            for (Field field : DEFAULT_SETTINGS.keySet()) {
+                if (prefix ? field.getName().startsWith(name) : field.getName().equals(name)) {
+                    selected.add(field);
+                    matched = true;
+                }
+            }
+            if (!matched) throw new IllegalArgumentException("Unknown reset settings: " + selector);
+        }
+        try {
+            for (Field field : selected) field.set(null, copyDefault(DEFAULT_SETTINGS.get(field)));
+        } catch (IllegalAccessException error) { throw new IllegalStateException("Could not reset settings", error); }
+        requestSave();
+    }
+
     private ConfigManager() {}
 
     public static int getSyncRefreshIntervalSeconds() {
@@ -392,6 +440,8 @@ public final class ConfigManager {
             capeBlockedPlayers = PlayerBlocklist.normalize(capeBlockedPlayers);
             skinBlockedPlayers = PlayerBlocklist.normalize(skinBlockedPlayers);
             otherPlayerSkinMode = com.customcosmetics.features.skins.SkinRules.mode(otherPlayerSkinMode);
+            nickHiderPrefix = com.customcosmetics.features.nickname.NickHider.prefix(nickHiderPrefix);
+            nickHiderSelfAlias = com.customcosmetics.features.nickname.NickHider.selfAlias(nickHiderSelfAlias);
             smolLimbSwingSpeed = Math.clamp(smolLimbSwingSpeed, 0.5, 5.0);
             playerSizeX=com.customcosmetics.features.playersize.PlayerSizeSettings.bounded(playerSizeX);
             playerSizeY=com.customcosmetics.features.playersize.PlayerSizeSettings.bounded(playerSizeY);

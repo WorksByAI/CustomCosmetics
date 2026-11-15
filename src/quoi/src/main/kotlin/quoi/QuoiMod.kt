@@ -33,6 +33,7 @@ object QuoiMod : ClientModInitializer, EventListener {
         quoi.api.skyblock.location.Location
         quoi.api.skyblock.dungeon.Dungeon
         quoi.api.skyblock.dungeon.Floor7
+        quoi.api.skyblock.dungeon.dragons.DragonUtils
         quoi.api.skyblock.dungeon.terminals.TerminalUtils
         quoi.api.skyblock.SkyblockPlayer
         quoi.utils.EntityUtils

@@ -279,23 +279,27 @@ public final class CheatingScreen extends ThemedScreen {
     private void addDetails() {
         detailsTop = editingRow + 39;
         detailsY = detailsTop + 7;
-        if (editing.dungeon() != null) {
-            addDungeonControls(editing.dungeon().settings().get());
+        MenuEntry module = editing;
+        int x = layout.contentX() + 7, y = detailsY, w = detailWidth();
+        var reset = new SettingsResetButton(x + w, y, 20, () -> resetModule(module));
+        if (module.dungeon() != null) {
+            addDetail(reset);
+            addDungeonControls(module.dungeon().settings().get());
             detailsHeight = detailsY - detailsTop + 7;
             return;
         }
-        int x = layout.contentX() + 7, y = detailsY, w = detailWidth();
-        int clearWidth = Math.min(68, w / 3);
-        keyButton = new PinkUi.Action(x, y, w - clearWidth - 6, 20,
+        int keyWidth = w - SettingsResetButton.WIDTH - 6;
+        int clearWidth = Math.min(68, keyWidth / 3);
+        keyButton = new PinkUi.Action(x, y, keyWidth - clearWidth - 6, 20,
             keyLabel(), false, () -> {
                 recording = true;
                 recordedMapping = null;
                 keyButton.setMessage(UiText.component("Press a key or mouse button…"));
             }).leftAligned();
         addDetail(keyButton);
-        addDetail(new PinkUi.Action(x + w - clearWidth, y, clearWidth, 20, "Clear", false,
+        addDetail(new PinkUi.Action(x + keyWidth - clearWidth, y, clearWidth, 20, "Clear", false,
             () -> finishRecording(InputConstants.UNKNOWN)));
-        y = detailsY;
+        addDetail(reset);
         switch (editing.local()) {
             case FAST_LEAP -> fastLeapSettings();
             case AUTO_CLICKER -> autoClickerSettings();
@@ -423,6 +427,61 @@ public final class CheatingScreen extends ThemedScreen {
             default -> {}
         }
         detailsHeight = detailsY - detailsTop + 7;
+    }
+
+    private void resetModule(MenuEntry module) {
+        if (!module.equals(editing)) return;
+        if (module.dungeon() != null) {
+            module.dungeon().reset().run();
+            dungeonMenu.save();
+            dungeonDirty = false;
+        } else {
+            switch (module.local()) {
+                case AUTO_BOOK_COMBINE -> ConfigManager.resetSettings("bookCombine*");
+                case AUTO_CLICKER -> {
+                    ConfigManager.resetSettings("autoClicker*");
+                    resetKeys("key.customcosmetics.auto_clicker.left", "key.customcosmetics.auto_clicker.right");
+                }
+                case AUTO_EXPERIMENTS -> ConfigManager.resetSettings("experiment*");
+                case AUTO_GFS -> ConfigManager.resetSettings("refill*");
+                case AUTO_HARP -> ConfigManager.resetSettings("harpClickDelay");
+                case TREVOR_HELPER -> ConfigManager.resetSettings("trevor*");
+                case AUTO_LEAP -> ConfigManager.resetSettings("autoLeapTriggers", "autoLeapNames", "autoLeapClasses",
+                    "autoLeapByName", "autoLeapSwapBack", "autoLeapGate", "autoLeapMelody", "autoLeapAfterBlood", "autoLeapDelay");
+                case SECRET_AURA -> ConfigManager.resetSettings("secretAura*");
+                case SECRET_TRIGGERBOT -> ConfigManager.resetSettings("secretSwap*", "secretInteractDelay");
+                case AUTO_DOOR -> ConfigManager.resetSettings("door*");
+                case F7_TIMER -> ConfigManager.resetSettings("f7*");
+                case FAST_LEAP -> ConfigManager.resetSettings("fastLeap*", "autoLeapByName", "autoLeapSwapBack", "autoLeapDelay");
+                case STARRED_MOBS -> ConfigManager.resetSettings("starredMobColor");
+                case CRYSTAL_PICKUP -> ConfigManager.resetSettings("crystal*");
+                case RELICS -> ConfigManager.resetSettings("relic*");
+                case OPEN_TERMINALS -> ConfigManager.resetSettings("terminal*");
+                case ARROW_ALIGN -> ConfigManager.resetSettings("arrow*");
+                case SIMON_SAYS -> ConfigManager.resetSettings("simon*");
+                case HIDE_PLAYERS -> ConfigManager.resetSettings("hideAllPlayers", "hidePlayers*", "hideNearbyPlayersRadius");
+                case TRAJECTORIES -> ConfigManager.resetSettings("trajectory*");
+                case CORPSE_ESP -> ConfigManager.resetSettings("corpse*", "lapisCorpse*", "tungstenCorpse*", "umberCorpse*", "vanguardCorpse*");
+                case PEST_ESP -> ConfigManager.resetSettings("pestEsp*");
+                case SAFARI_ESP -> ConfigManager.resetSettings("safari*");
+                case WORLD_SCANNER -> ConfigManager.resetSettings("scanner*");
+                case RENDER_OPTIMISER -> ConfigManager.resetSettings("renderHide*");
+                case CHOCOLATE_FACTORY -> ConfigManager.resetSettings("chocolate*");
+                case DOJO -> ConfigManager.resetSettings("dojo*");
+                case MIRRORVERSE -> ConfigManager.resetSettings("mirrorverse*");
+                case AUTO_CARNIVAL -> ConfigManager.resetSettings("carnivalShotDelay");
+                case GREAT_SPOOK -> ConfigManager.resetSettings("spook*");
+                case AUTO_CLOSE_CHEST, AUTO_JOIN_SKYBLOCK, AUTO_SPRINT -> { }
+            }
+            GameplayKeybinds.bind(module.local(), InputConstants.UNKNOWN);
+            if (ConfigManager.gameplayModules.contains(module.local().name())) module.local().toggle();
+        }
+        recording = false;
+        recordedMapping = null;
+        dungeonKey = null;
+        openGroups.clear();
+        if (enabledOnly && !module.enabled()) editing = null;
+        rebuildWidgets();
     }
 
     private void addDungeonControls(java.util.List<DungeonMenu.Control> controls) {

@@ -81,6 +81,8 @@ public final class SettingsCatalog {
         add(entries, "Motion Blur", "MOTION_BLUR", "Camera frame blending", "Motion Blur|Blur Strength");
         add(entries, "Player Spin", "PLAYER_SPIN", "Local model rotation", "Player Spin|Rotate Head|Rotate Body");
         add(entries, "Lobby Marker", "LOBBY_MARKER", "Visited SkyBlock lobbies", "Lobby Marker");
+        add(entries, "Nick Hider", "NICK_HIDER", "SkyBlock privacy player names aliases dungeon classes skins",
+            "Hide Server Player Names|Hide My Name|Use Dungeon Classes|Alias Prefix|Other Players|Import Global Skin|Slim Global Skin");
         add(entries, "Tooltip Tweaks", "TOOLTIP_TWEAKS", "SkyBlock item enchantment tooltip", "Missing Enchants|Require Shift");
         add(entries, "Tooltip Tweaks", "TOOLTIP_TWEAKS", "SkyBlock item age dye hex cake year stars", "Remove Gear Score|Remove Vanilla Enchant Lines|Show Item Age|Show Dye Hex|Cake Year Overlay|Item Stars Overlay");
         add(entries, "Inventory Blur", "INVENTORY_BLUR", "Inventory and container background", "Background Darkness (%)");

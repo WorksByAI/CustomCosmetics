@@ -31,6 +31,8 @@ class HudComponent<T : Hud>(
     desc: String = ""
 ) : UIComponent<T>(name, desc), Saving {
 
+    private val defaultEnabled = hud.enabled
+
     var hud: T = hud
         set(value) {
             field = value
@@ -61,7 +63,9 @@ class HudComponent<T : Hud>(
     }
 
     override fun reset() {
+        if (value.toggleable) value.enabled = defaultEnabled
         value.settings.forEach { it.reset() }
+        value.rebuild()
     }
 
     var popup: Popup? = null

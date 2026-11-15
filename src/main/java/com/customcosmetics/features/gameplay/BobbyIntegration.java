@@ -42,6 +42,12 @@ public final class BobbyIntegration implements net.fabricmc.loader.api.entrypoin
 
     public static void onSave(java.util.function.Consumer<int[]> listener) { settingsChanged = listener; }
 
+    public static int[] resetSettings() {
+        int[] defaults = DEFAULTS.clone();
+        save(defaults);
+        return defaults;
+    }
+
     public static synchronized int[] read() {
         int[] values = DEFAULTS.clone();
         if (!Files.isRegularFile(CONFIG)) return values;

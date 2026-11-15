@@ -101,17 +101,32 @@ public final class LocalSkins {
         return registerTexture(hash,NativeImage.read(png));
     }
     public static PlayerSkin skin(UUID id,PlayerSkin original){return skin(id,null,original);}
+    public static PlayerSkin tabSkin(UUID id, PlayerSkin original) {
+        if (!FeatureModules.enabled(FeatureModules.Feature.SKINS) || "original".equals(ConfigManager.otherPlayerSkinMode)
+            || id.equals(Minecraft.getInstance().getUser().getProfileId())) return original;
+        return globalSkin(id, original);
+    }
+
+    private static PlayerSkin globalSkin(UUID id, PlayerSkin original) {
+        return switch (ConfigManager.otherPlayerSkinMode) {
+            case "steve" -> skinCache.body(id, original, STEVE, PlayerModelType.WIDE);
+            case "alex" -> skinCache.body(id, original, ALEX, PlayerModelType.SLIM);
+            case "custom" -> {
+                var document = other;
+                var texture = document == null ? null : textures.get(document.hash());
+                yield texture == null ? skinCache.body(id, original, STEVE, PlayerModelType.WIDE)
+                    : skinCache.body(id, original, texture, ConfigManager.otherPlayerSkinSlim ? PlayerModelType.SLIM : PlayerModelType.WIDE);
+            }
+            default -> original;
+        };
+    }
+
     public static PlayerSkin skin(UUID id,String account,PlayerSkin original){
         if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS))return original;
         var client=Minecraft.getInstance();boolean self=id.equals(client.getUser().getProfileId());String hash;boolean slim;
         if(!self){
+            if(!"original".equals(ConfigManager.otherPlayerSkinMode))return globalSkin(id,original);
             if(blocked(id,account)||account==null&&blocked(id))return original;
-            switch(ConfigManager.otherPlayerSkinMode){
-                case "steve":return skinCache.body(id,original,STEVE,PlayerModelType.WIDE);
-                case "alex":return skinCache.body(id,original,ALEX,PlayerModelType.SLIM);
-                case "custom":var document=other;var texture=document==null?null:textures.get(document.hash());return texture==null?original:skinCache.body(id,original,texture,ConfigManager.otherPlayerSkinSlim?PlayerModelType.SLIM:PlayerModelType.WIDE);
-                default:break;
-            }
         }
         if(self){var document=local;if(!(ConfigManager.localSkinEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS))||document==null)return original;hash=document.hash();slim=document.slim();}
         else{var ready=remote.get(id);if(!(ConfigManager.skinP2pReceiving && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS))||!RemoteAccess.online()||!direct.contains(id)||ready==null)return original;hash=ready.textureHash;slim=ready.slim;}

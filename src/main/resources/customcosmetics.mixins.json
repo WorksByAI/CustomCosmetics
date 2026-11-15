@@ -19,7 +19,7 @@
     "FastIpPingMixin",
     "BorderlessWindowMixin$Legacy",
     "BorderlessWindowMixin$Modern",
-    "WindowAppearanceMixin$Title",
+    "WindowAppearanceMixin$WindowHooks",
     "WindowAppearanceMixin$Icons",
     "WindowIconStartup263Mixin",
     "HitColorMixin",

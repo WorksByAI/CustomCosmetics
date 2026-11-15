@@ -17,11 +17,16 @@ import java.util.List;
 
 public final class WindowAppearanceMixin {
     @Mixin(Window.class)
-    public static class Title {
+    public static class WindowHooks {
         @ModifyVariable(method = "setTitle", at = @At("HEAD"), argsOnly = true)
         private String customSkyBlock$windowTitle(String original) {
             String title = ConfigManager.windowTitle;
             return title.isEmpty() ? original : title;
+        }
+
+        @ModifyVariable(method = "setIcon(Ljava/util/List;)V", at = @At("HEAD"), argsOnly = true, require = 0)
+        private List<IoSupplier<InputStream>> customSkyBlock$taskbarIcon(List<IoSupplier<InputStream>> standard) {
+            return WindowAppearance.preferTaskbarIcon((Window) (Object) this, standard);
         }
     }
 

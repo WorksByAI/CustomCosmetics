@@ -9,6 +9,24 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ConfigManagerTest {
+    @Test void moduleResetRestoresOnlySelectedPreferencesAndCopiesMutableDefaults() {
+        ConfigManager.zoomEnabled = true;
+        ConfigManager.zoomFactor = 9;
+        ConfigManager.hitOpacity = .73f;
+        ConfigManager.resetSettings("zoom*");
+        assertFalse(ConfigManager.zoomEnabled);
+        assertEquals(4, ConfigManager.zoomFactor);
+        assertEquals(.73f, ConfigManager.hitOpacity);
+
+        var previous = ConfigManager.swordBlockingWhitelist;
+        ConfigManager.resetSettings("swordBlockingWhitelist");
+        assertNotSame(previous, ConfigManager.swordBlockingWhitelist);
+        assertArrayEquals(new String[0], ConfigManager.swordBlockingWhitelist);
+
+        assertThrows(IllegalArgumentException.class, () -> ConfigManager.resetSettings("hitOpacity", "nonexistent"));
+        assertEquals(.73f, ConfigManager.hitOpacity);
+    }
+
     @Test void locationVisualsMigratePartyPreferencesOnceThenPersistIndependently()throws Exception{
         var path=directory.resolve("sharing-visuals.json");
         Files.writeString(path,"{\"settings\":{\"partyEspEnabled\":false,\"sharingChamsEnabled\":true,\"partyEspColor\":1122867,\"partyEspStyle\":\"both\",\"partyNametagStyle\":\"vanilla\",\"partyNametagSize\":2,\"partyMaxDisplayDistance\":123,\"locationTracersEnabled\":true,\"locationTracerColor\":4478310}}");

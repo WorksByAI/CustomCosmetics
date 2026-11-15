@@ -81,6 +81,13 @@ public final class Waypoints {
     static void invalidateScope() { dirtyScope = true; }
     public static void invalidateVisuals() { selectionDirty = true; }
 
+    public static void resetPreferences() {
+        var current = snapshot();
+        ConfigManager.resetSettings("waypoint*");
+        if (!current.enabled() && writable()) replace(new Snapshot(true, current.groups()));
+        invalidateVisuals();
+    }
+
     public static void replace(Snapshot value) {
         init();
         if (!store.writable()) throw new IllegalStateException("Waypoint file could not be loaded. Repair waypoints.json and restart.");

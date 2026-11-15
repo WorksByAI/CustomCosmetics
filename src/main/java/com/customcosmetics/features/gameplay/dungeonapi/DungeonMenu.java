@@ -12,7 +12,7 @@ public interface DungeonMenu {
     void setToggleNotifier(BiConsumer<String, Boolean> notifier);
 
     record Entry(String name, String description, BooleanSupplier enabled, Runnable toggle,
-                 Supplier<List<Control>> settings) {}
+                 Supplier<List<Control>> settings, Runnable reset) {}
     record Control(String name, String description, BooleanSupplier visible, Input input, List<Control> children) {}
 
     sealed interface Input permits Toggle, Number, Choice, Text, Color, Key, Button, Group {}

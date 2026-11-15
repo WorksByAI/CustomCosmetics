@@ -21,6 +21,12 @@ final class WaypointOptionsScreen extends ThemedScreen {
     @Override protected void init() {
         w = Math.min(620, width - 16); h = Math.min(320, height - 16);
         x = (width - w) / 2; y = (height - h) / 2;
+        addRenderableWidget(new SettingsResetButton(x+w-12, y+8, 22, () -> {
+            Waypoints.resetPreferences();
+            message = "Default settings restored.";
+            changed();
+            rebuildWidgets();
+        }));
         int half = (w - 30) / 2, right = x + 18 + half;
         if (performance) {
             addRenderableWidget(new Slider(x + 12, y + 38, half, "Marker Size",

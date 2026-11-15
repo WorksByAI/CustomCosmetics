@@ -1770,5 +1770,21 @@
   "customcosmetics.ui.reset_window_icon": "恢复默认窗口图标",
   "customcosmetics.ui.window_icon_size": "图片最大 2 MiB。",
   "customcosmetics.ui.window_icon_unsupported": "当前窗口系统不支持自定义窗口图标。",
-  "customcosmetics.ui.window_icon_failed": "无法更改窗口图标。"
+  "customcosmetics.ui.window_icon_failed": "无法更改窗口图标。",
+  "customcosmetics.ui.nick_hider.title": "昵称隐藏",
+  "customcosmetics.ui.nick_hider.server": "隐藏服务器玩家名",
+  "customcosmetics.ui.nick_hider.server_hint": "在本机将其他玩家显示为编号昵称。",
+  "customcosmetics.ui.nick_hider.self": "隐藏自己的昵称",
+  "customcosmetics.ui.nick_hider.self_hint": "优先显示本地别名，覆盖昵称美化设置。",
+  "customcosmetics.ui.nick_hider.self_alias": "我的别名",
+  "customcosmetics.ui.nick_hider.self_alias_hint": "留空时自动生成别名。",
+  "customcosmetics.ui.nick_hider.classes": "地牢队友显示职业",
+  "customcosmetics.ui.nick_hider.classes_hint": "在地牢中用队友的职业代替玩家名。",
+  "customcosmetics.ui.nick_hider.prefix": "编号前缀",
+  "customcosmetics.ui.nick_hider.prefix_hint": "例如前缀为 Player 时，第一个玩家显示为 Player-1。",
+  "customcosmetics.ui.nick_hider.skins": "在模块管理中启用皮肤模块",
+  "customcosmetics.ui.reset_settings": "重置设置",
+  "customcosmetics.ui.confirm_reset": "确认重置",
+  "customcosmetics.ui.reset_settings_hint": "再点一次，恢复此模块的默认设置。",
+  "customcosmetics.ui.reset_settings_done": "已恢复默认设置。"
 }

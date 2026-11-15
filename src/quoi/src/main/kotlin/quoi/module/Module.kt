@@ -36,6 +36,7 @@ abstract class Module(
 
     var enabled: Boolean = toggled
         private set
+    private val defaultEnabled = toggled
 
     protected inline val command get() = QuoiCommand.command
 
@@ -67,6 +68,12 @@ abstract class Module(
             removeAsyncScope()
             onDisable()
         }
+    }
+
+    fun resetModuleControls() {
+        keybinding.clear()
+        keybinding.key = key
+        if (enabled != defaultEnabled) toggle()
     }
 
     fun addSettings(vararg setArray: Setting<*>) {
