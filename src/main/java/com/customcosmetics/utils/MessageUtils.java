@@ -20,7 +20,7 @@ public class MessageUtils {
     
     private static final float PASTEL_SATURATION = 0.45f;
     private static final int MESSAGE_COLOR = com.customcosmetics.gui.PinkUi.PINK & 0xFFFFFF;
-    private static final String PREFIX = "[CSB] ";
+    private static final String PREFIX = "[csb] ";
 
     public static MutableComponent createMessageWithPrefix(String message) {
         return createMessageWithPrefix(com.customcosmetics.gui.UiText.component(message));

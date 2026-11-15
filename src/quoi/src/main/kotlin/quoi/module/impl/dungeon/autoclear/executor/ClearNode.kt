@@ -62,13 +62,12 @@ abstract class ClearNode(
 
         if (!res.succeeded || res.pos == null) {
             modMessage("""
-                    &cFailed
+                    &cInteractive Map: Etherwarp failed
                     &eFrom&7:&f $from
-                    &eTo&7:&r $.{next?.pos}
                     &eYaw&7:&r $yaw
                     &ePitch&7:&r $pitch
                     &eResult&7:&r $res
-                """.trimIndent(), prefix = "[&cAutoClear&r]")
+                """.trimIndent())
             return cancel()
         }
 

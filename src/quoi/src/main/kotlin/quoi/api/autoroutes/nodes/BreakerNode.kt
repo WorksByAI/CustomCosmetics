@@ -35,6 +35,9 @@ class BreakerNode : RouteNode() {
     @Transient
     private var realBlocks = emptyList<BlockPos>()
 
+    @Transient
+    private var remainingBlocks = Int.MAX_VALUE
+
     override val colour: Colour
         get() = Colour.ORANGE
 
@@ -56,11 +59,21 @@ class BreakerNode : RouteNode() {
         batch = emptyList()
         batchIndex = 0
         cooldown = 0
+        remainingBlocks = Int.MAX_VALUE
     }
+
+    internal fun hasProgressSinceStall(): Boolean = realBlocks.count { level.isLoaded(it) && !it.state.isAir } < remainingBlocks
+
+    internal fun isCleared(): Boolean = realBlocks.none { level.isLoaded(it) && !it.state.isAir }
 
     override fun execute(pos: MutableVec3): Boolean {
         if (blocks.isEmpty()) return true
-        if (realBlocks.none { level.isLoaded(it) && !it.state.isAir }) return true
+        if (AutoRoutes.watchingStalls) {
+            val remaining = realBlocks.count { level.isLoaded(it) && !it.state.isAir }
+            if (remaining == 0) return true
+            if (remaining < remainingBlocks) AutoRoutes.stepProgress(this)
+            remainingBlocks = remaining
+        } else if (isCleared()) return true
         if (cooldown > 0) {
             cooldown--
             return false
@@ -68,7 +81,7 @@ class BreakerNode : RouteNode() {
 
         val breakerSlot = PlayerUtils.breakerSlot ?: run {
             val hasBreaker = (0..8).any { player.inventory.getItem(it).skyblockId == "DUNGEONBREAKER" }
-            return !hasBreaker
+            return !hasBreaker && !AutoRoutes.stallRecovery
         }
 
         if (player.inventory.selectedSlot != breakerSlot) {

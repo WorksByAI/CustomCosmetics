@@ -49,7 +49,8 @@ object RsaConverter {
             "bat" -> UseItemNode().apply {
                 yaw = ring.get("yaw").asFloat
                 pitch = ring.get("pitch").asFloat
-                item = "HYPERION"
+                item = "BAT_WAND"
+                batAttack = true
             }
             else -> throw JsonParseException("Unsupported RSA node type '$type'")
         }

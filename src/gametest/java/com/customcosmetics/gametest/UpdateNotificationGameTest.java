@@ -33,9 +33,9 @@ final class UpdateNotificationGameTest {
                 int count = 0;
                 for (Object line : (java.util.List<?>)messages.get(ClientUiAccess.chat(client))) {
                     var content = (net.minecraft.network.chat.Component)line.getClass().getMethod("content").invoke(line);
-                    if (content.getString().startsWith("[CSB] Update available:")) {
+                    if (content.getString().startsWith("[csb] Update available:")) {
                         count++;
-                        if (!content.getString().equals("[CSB] Update available: 1.0.1 (installed: 1.0.0). [View Release]"))
+                        if (!content.getString().equals("[csb] Update available: 1.0.1 (installed: 1.0.0). [View Release]"))
                             throw new AssertionError("Wrong update chat message");
                         content.visit((style,text) -> {
                             if (style.getColor() == null || style.getColor().getValue() != 0xFFA8CA)

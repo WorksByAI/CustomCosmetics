@@ -66,19 +66,19 @@ object SwapManager : EventListener, Shortcuts {
 
     fun swapByLore(lore: String) = findAndSwap(lore) { it.loreString.noControlCodes.contains(lore, true) }
 
-    fun swapById(vararg skyblockIds: String) = findAndSwap(*skyblockIds) { stack ->
+    fun swapById(vararg skyblockIds: String, warnIfMissing: Boolean = true) = findAndSwap(*skyblockIds, warnIfMissing = warnIfMissing) { stack ->
         val id = stack.skyblockId
         id != null && skyblockIds.any { it.equals(id, true) }
     }
 
-    private inline fun findAndSwap(vararg items: String, predicate: (ItemStack) -> Boolean): SwapResult {
+    private inline fun findAndSwap(vararg items: String, warnIfMissing: Boolean = true, predicate: (ItemStack) -> Boolean): SwapResult {
         for (i in 0..8) {
             val stack = player.inventory.getItem(i)
             if (stack.isEmpty) continue
             if (predicate(stack)) return swapToSlot(i)
         }
 
-        modMessage("Could not find ${items.joinToString(", ")}")
+        if (warnIfMissing) modMessage("Could not find ${items.joinToString(", ")}")
         return SwapResult.NOT_FOUND
     }
 }

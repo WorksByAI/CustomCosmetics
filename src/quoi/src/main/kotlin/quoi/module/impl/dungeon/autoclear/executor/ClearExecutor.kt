@@ -17,6 +17,7 @@ import quoi.api.pathfinding.impl.EtherwarpPathfinder
 import quoi.api.vec.MutableVec3
 import quoi.api.world.Direction
 import quoi.module.impl.dungeon.autoclear.executor.nodes.ClearEtherNode
+import quoi.module.impl.dungeon.autoclear.impl.AutoRoutes
 import quoi.module.impl.dungeon.autoclear.toEther
 import quoi.utils.ChatUtils.modMessage
 import quoi.utils.player
@@ -41,6 +42,7 @@ object ClearExecutor : EventListener {
 
     private var pathJob: Job? = null
     private var pendingInteract: Direction? = null
+    private var pendingRouteLanding: MutableVec3? = null
     private var position: MutableVec3? = null
     private var activeNode: ClearNode? = null
     private var onComplete: (() -> Unit)? = null
@@ -122,6 +124,7 @@ object ClearExecutor : EventListener {
         nodes = path.toMutableList()
         position = null
         pendingInteract = null
+        pendingRouteLanding = null
         this.onComplete = onComplete
         pendingCompletion = null
     }
@@ -136,6 +139,7 @@ object ClearExecutor : EventListener {
         nodes = null
         position = null
         pendingInteract = null
+        pendingRouteLanding = null
         owner = null
         syncDelay = 0
         compDelay = 2
@@ -158,6 +162,7 @@ object ClearExecutor : EventListener {
             clearNodes.remove(node)
 
             if (clearNodes.isEmpty()) {
+                if (node is ClearEtherNode) pendingRouteLanding = playerPos
                 nodes = null
                 position = null
                 compDelay = 2
@@ -170,6 +175,8 @@ object ClearExecutor : EventListener {
 
     private fun doInteract() {
         pendingInteract?.let {
+            pendingRouteLanding?.let(AutoRoutes::expectMapEtherwarp)
+            pendingRouteLanding = null
             player.useItem(it.yaw, it.pitch)
             pendingInteract = null
         }

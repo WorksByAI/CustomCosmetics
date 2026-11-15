@@ -18,7 +18,8 @@ interface Repositionable {
         spot: BlockPos,
         bow: Boolean = true,
         stand: Boolean = false,
-        awaitStand: Boolean = false
+        awaitStand: Boolean = false,
+        arrived: (() -> Boolean)? = null
     ) {
         if (repositionTicker != null) return
         if (stand && player.isMoving) return
@@ -38,7 +39,7 @@ interface Repositionable {
                 if (!r) cancel()
                 player.useItem(dir)
             }
-            await { player.at(spot) }
+            await { arrived?.invoke() ?: player.at(spot) }
 
             if (bow) {
                 action { SwapManager.swapByLore("Shortbow: Instantly shoots!") }

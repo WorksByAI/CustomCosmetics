@@ -252,7 +252,8 @@ object AutoCroesus : Module(
         defaults.forEach { id ->
             if (list.none { it.equals(id, true) }) list.add(id)
         }
-        modMessage("&aAdded ${list.size - before} default $name items.")
+        val added = list.size - before
+        if (added > 0) modMessage("&aAdded $added default $name items.")
     }
 
     private fun showLoot(filters: LootFilters) {

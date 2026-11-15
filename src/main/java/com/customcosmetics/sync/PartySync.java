@@ -37,7 +37,7 @@ public final class PartySync{
     }
     private static void receiveChat(Minecraft client,long version,PartyClient.Chat message){
         if(version!=generation||!ConfigManager.partyChatEnabled||!RemoteAccess.online()||!PartyFeatures.roster().contains(message.uuid(),message.name()))return;
-        ClientUiAccess.chat(client).addClientSystemMessage(Component.literal("[CSB] Party · ").withColor(0xFFA6CF).append(Component.literal(message.name()+": ").withColor(0xFFA6CF)).append(Component.literal(message.text()).withColor(0xFFFFFF)));
+        ClientUiAccess.chat(client).addClientSystemMessage(Component.literal("[csb] Party · ").withColor(0xFFA6CF).append(Component.literal(message.name()+": ").withColor(0xFFA6CF)).append(Component.literal(message.text()).withColor(0xFFFFFF)));
         PartyChatSound.received(client,message.uuid());
         if(message.delivered()==0)PartyFeatures.notice("No other party members are connected to Party IRC.");
     }

@@ -1,18 +1,22 @@
 package quoi.module.impl.dungeon.puzzlesolvers.impl
 
 import com.google.gson.JsonObject
-import net.minecraft.client.player.LocalPlayer
 import net.minecraft.core.BlockPos
-import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket
-import net.minecraft.world.InteractionHand
+import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket
+import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket
 import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.block.LeverBlock.POWERED
+import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.phys.Vec3
 import quoi.api.colour.Colour
 import quoi.api.events.*
 import quoi.api.events.core.Event
 import quoi.api.events.core.on
 import quoi.api.skyblock.dungeon.Dungeon
+import quoi.api.skyblock.dungeon.enums.Puzzle
+import quoi.api.skyblock.dungeon.enums.PuzzleStatus
 import quoi.api.skyblock.dungeon.odonscanning.tiles.OdonRoom
+import quoi.api.skyblock.dungeon.odonscanning.tiles.RoomState
 import quoi.module.impl.dungeon.autoclear.executor.ClearExecutor
 import quoi.module.impl.dungeon.puzzlesolvers.PuzzleSolvers
 import quoi.module.impl.dungeon.puzzlesolvers.Repositionable
@@ -27,7 +31,7 @@ import quoi.utils.WorldUtils.state
 import quoi.utils.render.drawLine
 import quoi.utils.render.drawText
 import quoi.utils.render.drawTracer
-import quoi.utils.skyblock.player.PlayerUtils.at
+import quoi.utils.skyblock.item.TeleportUtils.getEtherwarpLandingY
 import quoi.utils.skyblock.player.interact.AuraManager
 
 /**
@@ -54,7 +58,10 @@ object WaterBoardSolver : SettingGroup(PuzzleSolvers, "Water board"), Reposition
         }
 
         on<DungeonEvent.Room.Enter> {
-            if (room?.name == "Water Board") reset()
+            if (room?.name == "Water Board" || leverStates.isNotEmpty()) {
+                reset()
+                restoring = room?.name == "Water Board" && startingBoard?.pos == room.clayPos
+            }
         }
 
         on<RenderEvent.World> {
@@ -86,14 +93,12 @@ object WaterBoardSolver : SettingGroup(PuzzleSolvers, "Water board"), Reposition
             }
         }
 
-        on<PacketEvent.Sent, ServerboundUseItemOnPacket> {
-            if (!solver && !auto && !triggerbot) return@on
-            if (packet.hand == InteractionHand.OFF_HAND) return@on
-            if (solutions.isEmpty()) return@on
-            LeverBlock.entries.find { it.leverPos == packet.hitResult.blockPos }?.let {
-                if (it == LeverBlock.WATER && openedWaterTicks == -1) openedWaterTicks = tickCounter
-                it.i++
-            }
+        on<PacketEvent.ReceivedPost, ClientboundBlockUpdatePacket> {
+            observeLever(packet.pos, packet.blockState)
+        }
+
+        on<PacketEvent.ReceivedPost, ClientboundSectionBlocksUpdatePacket> {
+            if (leverStates.isNotEmpty()) packet.runUpdates(::observeLever)
         }
 
         on<TickEvent.Server> {
@@ -104,8 +109,8 @@ object WaterBoardSolver : SettingGroup(PuzzleSolvers, "Water board"), Reposition
             if (!auto) return@on
             if (ClearExecutor.active) return@on
             val room = Dungeon.currentRoom ?: return@on
-            if (patternIdentifier == -1 || solutions.isEmpty()) return@on
-            if (player.y != 59.0 || PuzzleSolvers.screenBlocksAuto || atChest) return@on
+            if (room.isSolved() || kotlin.math.abs(player.y - 59.0) > 0.1 || PuzzleSolvers.screenBlocksAuto || atChest ||
+                !readyForClick()) return@on
 
             repositionTicker?.let {
                 if (it.tick()) Scheduler.scheduleTask {
@@ -114,47 +119,27 @@ object WaterBoardSolver : SettingGroup(PuzzleSolvers, "Water board"), Reposition
                 return@on
             }
 
-            val first = solutionList.firstOrNull() ?: return@on chest(player, room)
-
-            val (lever, time) = first
-
-            val z = when (lever.relativePosition.z) {
-                20, 15 -> lever.relativePosition.z
-                10, 5 -> 9
-                else -> return@on
-            }
-
-            val spot = room.getRealCoords(BlockPos(15, 58, z))
-
-            if (!player.at(spot)) {
-                if (System.currentTimeMillis() - lastClick < 200) return@on
-                reposition(spot, bow = false)
+            if (restoring) {
+                val baseline = startingBoard?.levers ?: return@on
+                if (leverStates.isEmpty()) return@on
+                val lever = playableLevers.firstOrNull { leverStates[it] != baseline[it] } ?: return@on
+                if (moveToLever(room, lever)) requestLever(lever)
                 return@on
             }
-
-            val remaining = openedWaterTicks - tickCounter + time * 20
-            val water = lever == LeverBlock.WATER
-
-            if ((water && (openedWaterTicks == -1 || remaining <= 0)) || (!water && remaining <= 0)) {
-                AuraManager.interactBlock(lever.leverPos)
-                lastClick = System.currentTimeMillis()
-            }
+            if (patternIdentifier == -1 || solutions.isEmpty()) return@on
+            val (lever, time) = solutionList.firstOrNull() ?: return@on chest(room)
+            if (moveToLever(room, lever) && readyAt(time)) requestLever(lever)
         }
 
         on<TickEvent.End> {
-            if (!triggerbot || auto) return@on
-            if (patternIdentifier == -1 || solutions.isEmpty()) return@on
-
+            if (!triggerbot || auto || restoring || patternIdentifier == -1 || solutions.isEmpty() || !readyForClick()) return@on
             val (lever, time) = solutionList.firstOrNull() ?: return@on
-            val remaining = openedWaterTicks - tickCounter + time * 20
-            val water = lever == LeverBlock.WATER
-            if (!(water && (openedWaterTicks == -1 || remaining <= 0)) && !(!water && remaining <= 0)) return@on
-
-            PuzzleSolvers.triggerBlock(lever.leverPos)
+            if (readyAt(time) && PuzzleSolvers.triggerBlock(lever.leverPos)) expectLever(lever)
         }
 
         on<WorldEvent.Change> {
             reset()
+            startingBoard = null
         }
     }
 
@@ -175,6 +160,16 @@ object WaterBoardSolver : SettingGroup(PuzzleSolvers, "Water board"), Reposition
     override var repositionTicker: Ticker? = null
     private var lastClick = 0L
     private var atChest = false
+    private data class StartingBoard(val pos: BlockPos, val levers: Map<LeverBlock, Boolean>)
+    private var startingBoard: StartingBoard? = null
+    private val playableLevers = listOf(LeverBlock.WATER, LeverBlock.COAL, LeverBlock.GOLD, LeverBlock.QUARTZ,
+        LeverBlock.DIAMOND, LeverBlock.EMERALD, LeverBlock.CLAY)
+    private val leverStates = mutableMapOf<LeverBlock, Boolean>()
+    private var restoring = false
+    private var resumeAfterTick = 0
+    private var expectedLever: LeverBlock? = null
+    private var paused = false
+    private var scanNoticeShown = false
 
     private val solutionList: List<Pair<LeverBlock, Double>>
         get() = solutions
@@ -188,25 +183,47 @@ object WaterBoardSolver : SettingGroup(PuzzleSolvers, "Water board"), Reposition
             )
 
     private fun scan(optimized: Boolean) = with (Dungeon.currentRoom) {
-        if (this?.name != "Water Board" || patternIdentifier != -1) return@with
-        val extendedSlots = WoolColour.entries.joinToString("") { if (it.isExtended) it.ordinal.toString() else "" }.takeIf { it.length == 3 } ?: return@with
+        if (this?.name != "Water Board" || isSolved() || patternIdentifier != -1 || paused) return@with
+        val currentStates = mutableMapOf<LeverBlock, Boolean>()
+        for (lever in playableLevers) {
+            val state = lever.leverPos.state
+            if (!state.hasProperty(POWERED)) return@with
+            currentStates[lever] = state.getValue(POWERED)
+        }
+        if (leverStates.isEmpty()) leverStates.putAll(currentStates)
+        if (restoring) {
+            if (expectedLever != null || currentStates != startingBoard?.levers) return@with
+            restoring = false
+            resumeAfterTick = tickCounter + 40
+        }
+        if (tickCounter < resumeAfterTick) return@with
+        if (currentStates[LeverBlock.WATER] == true) {
+            showScanNotice("Close the water lever to restart Water Board.")
+            return@with
+        }
+        val extendedSlots = WoolColour.entries.joinToString("") { if (it.isExtended) it.ordinal.toString() else "" }
+        if (extendedSlots.length != 3) {
+            if (startingBoard?.pos == clayPos) showScanNotice("Water Board's current gates do not match a starting pattern.")
+            return@with
+        }
 
-        patternIdentifier = when {
+        val pattern = when {
             getRealCoords(BlockPos(14, 77, 27)).state.block == Blocks.TERRACOTTA -> 0 // right block == clay
             getRealCoords(BlockPos(16, 78, 27)).state.block == Blocks.EMERALD_BLOCK -> 1 // left block == emerald
             getRealCoords(BlockPos(14, 78, 27)).state.block == Blocks.DIAMOND_BLOCK -> 2 // right block == diamond
             getRealCoords(BlockPos(14, 78, 27)).state.block == Blocks.QUARTZ_BLOCK  -> 3 // right block == quartz
-            else -> return@with ChatUtils.modMessage("§cFailed to get Water Board pattern. Was the puzzle already started?")
+            else -> {
+                showScanNotice("Water Board pattern is not ready.")
+                return@with
+            }
         }
-
-        ChatUtils.modMessage(
-            "$patternIdentifier || ${
-                WoolColour.entries.filter { it.isExtended }.joinToString(", ") { it.name.lowercase() }
-            }"
-        )
-
+        val plan = waterSolutions.getAsJsonObject(optimized.toString())?.getAsJsonObject(pattern.toString())
+            ?.getAsJsonObject(extendedSlots) ?: return@with
+        startingBoard = StartingBoard(clayPos, currentStates)
+        leverStates.putAll(currentStates)
+        patternIdentifier = pattern
         solutions.clear()
-        waterSolutions[optimized.toString()].asJsonObject[patternIdentifier.toString()].asJsonObject[extendedSlots].asJsonObject.entrySet().forEach { entry ->
+        plan.entrySet().forEach { entry ->
             solutions[
                 when (entry.key) {
                     "diamond_block" -> LeverBlock.DIAMOND
@@ -229,14 +246,88 @@ object WaterBoardSolver : SettingGroup(PuzzleSolvers, "Water board"), Reposition
         openedWaterTicks = -1
         tickCounter = 0
 
+        if (repositionTicker != null) mc.options.keyShift.isDown = false
         repositionTicker = null
         lastClick = 0L
         atChest = false
+        leverStates.clear()
+        restoring = false
+        resumeAfterTick = 0
+        expectedLever = null
+        paused = false
+        scanNoticeShown = false
     }
 
-    private fun chest(player: LocalPlayer, room: OdonRoom) {
+    private fun observeLever(pos: BlockPos, state: BlockState) {
+        if (leverStates.isEmpty() || !state.hasProperty(POWERED)) return
+        val lever = playableLevers.firstOrNull { it.leverPos == pos } ?: return
+        val powered = state.getValue(POWERED)
+        if (leverStates.put(lever, powered) == powered) return
+        if (expectedLever == lever) expectedLever = null
+        if (restoring || paused || solutions.isEmpty()) return
+        val next = solutionList.firstOrNull() ?: return
+        if (next.first != lever || !readyAt(next.second) ||
+            (lever == LeverBlock.WATER && openedWaterTicks == -1 && !powered)) {
+            pause("A lever changed out of sequence. Re-enter the room to rescan.")
+            return
+        }
+        if (lever == LeverBlock.WATER && openedWaterTicks == -1) openedWaterTicks = tickCounter
+        lever.i++
+    }
+
+    private fun readyAt(time: Double): Boolean =
+        time == 0.0 || openedWaterTicks >= 0 && tickCounter >= openedWaterTicks + (time * 20).toInt()
+
+    private fun OdonRoom.isSolved(): Boolean =
+        Puzzle.WATER_BOARD.status == PuzzleStatus.Completed || data.state == RoomState.CLEARED || data.state == RoomState.GREEN
+
+    private fun readyForClick(): Boolean {
+        if (paused) return false
+        if (expectedLever == null) return !restoring || System.currentTimeMillis() - lastClick >= 200L
+        if (System.currentTimeMillis() - lastClick >= 2000L) pause("The server did not confirm a lever click. Re-enter the room to rescan.")
+        return false
+    }
+
+    private fun expectLever(lever: LeverBlock) {
+        expectedLever = lever
+        lastClick = System.currentTimeMillis()
+    }
+
+    private fun requestLever(lever: LeverBlock) {
+        expectLever(lever)
+        AuraManager.interactBlock(lever.leverPos)
+    }
+
+    private fun moveToLever(room: OdonRoom, lever: LeverBlock): Boolean {
+        val z = when (lever.relativePosition.z) {
+            20, 15 -> lever.relativePosition.z
+            10, 5 -> 9
+            else -> return false
+        }
+        val spot = room.getRealCoords(BlockPos(15, 58, z))
+        if (atLanding(spot)) return true
+        reposition(spot, bow = false, arrived = { atLanding(spot) })
+        return false
+    }
+
+    private fun atLanding(spot: BlockPos): Boolean =
+        player.blockPosition().x == spot.x && player.blockPosition().z == spot.z &&
+            kotlin.math.abs(player.y - getEtherwarpLandingY(spot)) <= 0.1
+
+    private fun pause(message: String) {
+        paused = true
+        ChatUtils.modMessage("§eWater Board: $message")
+    }
+
+    private fun showScanNotice(message: String) {
+        if (scanNoticeShown) return
+        scanNoticeShown = true
+        ChatUtils.modMessage("§e$message")
+    }
+
+    private fun chest(room: OdonRoom) {
         val spot = room.getRealCoords(BlockPos(15, 58, 22))
-        if (!player.at(spot)) return reposition(spot, bow = false)
+        if (!atLanding(spot)) return reposition(spot, bow = false, arrived = { atLanding(spot) })
         mc.options.keyShift.isDown = false
         atChest = true
     }

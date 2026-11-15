@@ -45,7 +45,7 @@ object ChatUtils {
 
     fun prefix(): Component {
         return literal("[").withColor(Colour.WHITE.rgb)
-            .append(literal("CSB").withColor(Colour.GREEN.rgb))
+            .append(literal("csb").withColor(Colour.GREEN.rgb))
             .append("]").withColor(Colour.WHITE.rgb)
     }
 

@@ -49,6 +49,7 @@ abstract class RouteNode(
 
     abstract val colour: Colour
     abstract fun execute(pos: MutableVec3): Boolean
+    open val actionFailure: String? get() = null
 
     open val priority: Int
         get() = 0

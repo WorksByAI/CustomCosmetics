@@ -22,10 +22,10 @@ import static org.junit.jupiter.api.Assertions.*;
 class MessageUtilsTest {
     @ParameterizedTest
     @CsvSource({
-        "true, false, '[CSB] Succeeded to sync remote data!'",
-        "false, false, '[CSB] Failed to sync remote data.'",
-        "true, true, '[CSB] Succeeded to sync remote data! [stop notifications]'",
-        "false, true, '[CSB] Failed to sync remote data. [stop notifications]'"
+        "true, false, '[csb] Succeeded to sync remote data!'",
+        "false, false, '[csb] Failed to sync remote data.'",
+        "true, true, '[csb] Succeeded to sync remote data! [stop notifications]'",
+        "false, true, '[csb] Failed to sync remote data. [stop notifications]'"
     })
     void syncResultsHaveCleanTextAndTheGuiPinkColor(boolean success, boolean notification, String expected) {
         Component result = MessageUtils.createSyncResult(success, notification);
@@ -53,7 +53,7 @@ class MessageUtilsTest {
 
     @Test
     void otherChatMessagesUseTheUpdatedDisplayName() {
-        assertEquals("[CSB] Example", MessageUtils.createMessageWithPrefix("Example").getString());
+        assertEquals("[csb] Example", MessageUtils.createMessageWithPrefix("Example").getString());
     }
 
     @ParameterizedTest
@@ -64,7 +64,7 @@ class MessageUtilsTest {
     })
     void allCommandMessagesUsePinkForBothPrefixAndBody(String text) {
         Component message = MessageUtils.createMessageWithPrefix(text);
-        assertEquals("[CSB] " + text, message.getString());
+        assertEquals("[csb] " + text, message.getString());
         assertEntirelyPink(message);
     }
 
@@ -76,7 +76,7 @@ class MessageUtilsTest {
         var original = Component.literal("Example ").withStyle(style -> style.withColor(0xFFFFFF).withBold(true))
             .append(Component.empty().withStyle(style -> style.withColor(0x00FF00)).append(child));
         Component message = MessageUtils.createMessageWithPrefix(original);
-        assertEquals("[CSB] Example [stop notifications]", message.getString());
+        assertEquals("[csb] Example [stop notifications]", message.getString());
         assertEntirelyPink(message);
         List<Component> clickable = new ArrayList<>();
         collectClickable(message, clickable);
@@ -96,7 +96,7 @@ class MessageUtilsTest {
     void detailedFailuresKeepTheGuiPinkAndNotificationAction(SyncFailure.Reason reason) {
         var failure = SyncFailure.of(reason, SyncFailure.Stage.UPLOAD);
         var message = MessageUtils.createSyncResult(false, true, failure);
-        assertEquals("[CSB] Failed to sync remote data: " + failure.description() + ". [stop notifications]", message.getString());
+        assertEquals("[csb] Failed to sync remote data: " + failure.description() + ". [stop notifications]", message.getString());
         assertEntirelyPink(message);
         List<Component> clickable = new ArrayList<>();
         collectClickable(message, clickable);

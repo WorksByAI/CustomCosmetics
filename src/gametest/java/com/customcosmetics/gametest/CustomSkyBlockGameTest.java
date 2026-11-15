@@ -197,6 +197,7 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
             click(client, "+ Visuals", false);
             check(widget(client, "Map scale", false) instanceof PinkUi.Slider, "Nested dungeon setting was lost");
             check(!widget(client, "HUD Editor", false).active, "Dungeon HUD Editor is clickable");
+            verifyAutoCroesusDefaults(client);
             verifyQuoiModules();
             verifyRouteImport();
         });
@@ -477,7 +478,7 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
                 String fixture = "Auto Routes test room";
                 var data = roomData.getConstructor(String.class, roomType, List.class, int.class, int.class, int.class,
                     roomState, String.class).newInstance(fixture, roomType.getField("NORMAL").get(null),
-                    List.of(1), 0, 0, 0, roomState.getField("DISCOVERED").get(null), "1x1");
+                    List.of(1), 0, 2, 0, roomState.getField("DISCOVERED").get(null), "1x1");
                 var room = roomClass.getConstructor(rotation, roomData, net.minecraft.core.BlockPos.class, java.util.Set.class)
                     .newInstance(rotation.getField("NORTH").get(null), data, net.minecraft.core.BlockPos.ZERO, new java.util.HashSet<>());
                 roomClass.getMethod("setHighestBlock", Integer.class).invoke(room, 70);
@@ -504,6 +505,9 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
                     tick.getMethod("post").invoke(tick.getConstructor().newInstance());
                     check((boolean) nodeType.getMethod("getTriggered").invoke(node) && Math.abs(client.player.getYRot() - 73) < .01,
                         "Auto Routes did not execute its rotation node");
+                    verifyAutoRouteRecovery(client, routeType, routes, routeNodes, fixture, roomClass, room, node);
+                    verifyEtherwarpOnlyRouteStart(client, routeType, routes, routeNodes, fixture, roomClass, room, node);
+                    verifyWaterBoardReentry(client, roomClass, room);
                 } finally {
                     roomEnter.getMethod("post").invoke(roomEnter.getConstructor(roomClass).newInstance(new Object[]{null}));
                     if (!wasEnabled) routeType.getMethod("toggle").invoke(routes);
@@ -520,6 +524,569 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
             }
         });
         System.out.println("CSB_AUTOROUTES_ROOM_TRIGGER_OK");
+    }
+
+    private static void verifyAutoRouteRecovery(Minecraft client, Class<?> routeType, Object routes, Object routeNodes,
+                                                String fixture, Class<?> roomClass, Object room, Object rotate)
+        throws ReflectiveOperationException {
+        var settings = (List<?>) routeType.getMethod("getSettings").invoke(routes);
+        var settingClass = Class.forName("quoi.module.settings.Setting");
+        var getName = settingClass.getMethod("getName");
+        var toggles = new java.util.LinkedHashMap<Object, Boolean>();
+        for (Object setting : settings) {
+            if (List.of("Stall Recovery", "Dev Mode").contains(getName.invoke(setting))) {
+                toggles.put(setting, (boolean) setting.getClass().getMethod("getEnabled").invoke(setting));
+            }
+        }
+        check(toggles.size() == 2, "Auto Routes recovery settings missing");
+
+        var nodeType = Class.forName("quoi.api.autoroutes.RouteNode");
+        var chain = Class.forName("quoi.api.autoroutes.RouteChain").getConstructor(String.class, int.class);
+        var secret = Class.forName("quoi.api.autoroutes.awaits.SecretAwait").getConstructor(int.class).newInstance(1);
+        var item = Class.forName("quoi.api.autoroutes.nodes.UseItemNode").getConstructor().newInstance();
+        item.getClass().getMethod("setItem", String.class).invoke(item, "CSB_FIXTURE_MISSING_ITEM");
+        nodeType.getMethod("setRelative", net.minecraft.world.phys.Vec3.class).invoke(item, client.player.position());
+        nodeType.getMethod("setChain", chain.getDeclaringClass()).invoke(rotate, chain.newInstance("test", 0));
+        nodeType.getMethod("setChain", chain.getDeclaringClass()).invoke(item, chain.newInstance("test", 1));
+        nodeType.getMethod("setAwaits", List.class).invoke(rotate, new java.util.ArrayList<>(List.of(secret)));
+        var warpType = Class.forName("quoi.api.autoroutes.nodes.EtherwarpNode");
+        var warp = warpType.getConstructor().newInstance();
+        var decoy = warpType.getConstructor().newInstance();
+        var vec = net.minecraft.world.phys.Vec3.class;
+        var relative = roomClass.getMethod("getRelativeCoords", vec);
+        var origin = client.player.position();
+        var block = net.minecraft.core.BlockPos.containing(origin).offset(4, 2, 0);
+        var originalBlock = client.level.getBlockState(block);
+        var target = net.minecraft.world.phys.Vec3.atCenterOf(block);
+        var targetRelative = relative.invoke(room, target);
+        nodeType.getMethod("setRelative", vec).invoke(warp, relative.invoke(room, origin.add(8, 0, 0)));
+        nodeType.getMethod("setRelative", vec).invoke(decoy, relative.invoke(room, origin));
+        nodeType.getMethod("setChain", chain.getDeclaringClass()).invoke(warp, chain.newInstance("test", 2));
+        nodeType.getMethod("setChain", chain.getDeclaringClass()).invoke(decoy, chain.newInstance("other branch", 1));
+        warpType.getMethod("setTarget", vec).invoke(warp, targetRelative);
+        warpType.getMethod("setTarget", vec).invoke(decoy, targetRelative);
+
+        var tick = Class.forName("quoi.api.events.TickEvent$Start").getConstructor();
+        var post = tick.getDeclaringClass().getMethod("post");
+        var click = Class.forName("quoi.api.events.MouseEvent$Click").getConstructor(int.class, boolean.class);
+        var history = net.minecraft.client.gui.components.ChatComponent.class.getDeclaredField("allMessages");
+        history.setAccessible(true);
+        var getSetting = routeType.getMethod("getSettingByName", String.class);
+        var skipKey = getSetting.invoke(routes, "Skip to Next Etherwarp");
+        int key = com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.k").getValue();
+        var bind = skipKey.getClass().getMethod("bindFromMenu", int.class);
+        var inventory = client.player.getInventory();
+        int slot = inventory.getSelectedSlot();
+        var originalItem = inventory.getItem(slot);
+        var input = net.minecraft.client.player.LocalPlayer.class.getDeclaredField("lastSentInput");
+        input.setAccessible(true);
+        var originalInput = input.get(client.player);
+        try {
+            check((boolean) bind.invoke(skipKey, key), "Auto Routes skip key could not be bound");
+            inventory.setItem(slot, routeItem("ASPECT_OF_THE_VOID"));
+            input.set(client.player, new net.minecraft.world.entity.player.Input(false, false, false, false, false, true, false));
+            client.level.setBlock(block, net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(), 3);
+            for (Object setting : toggles.keySet()) setting.getClass().getMethod("setEnabled", boolean.class).invoke(setting, true);
+            routeNodes.getClass().getMethod("put", Object.class, Object.class)
+                .invoke(routeNodes, fixture, new java.util.ArrayList<>(List.of(rotate, decoy, item, warp)));
+            routeType.getMethod("updateCache", roomClass).invoke(routes, room);
+            post.invoke(tick.newInstance());
+            check(!(boolean) nodeType.getMethod("getTriggered").invoke(rotate), "The secret wait was bypassed automatically");
+            check(!(boolean) post.invoke(click.newInstance(0, true)), "Unreported stall swallowed the attack");
+            expireAutoRouteWait(routeType, routes);
+            post.invoke(tick.newInstance());
+            post.invoke(tick.newInstance());
+            check(routeMessages(client, history, "This route step is waiting for a secret event") == 1, "Missing or repeated secret wait notice");
+            check(chatMessages(client, history).stream().noneMatch(message -> message.contains("[Continue]") ||
+                message.contains("[Skip to Etherwarp]")), "The stall notice still included a chat button");
+            float yawBeforeSkip = client.player.getYRot();
+            client.player.setPos(origin.add(0, .15, 0));
+            check(!(boolean) post.invoke(click.newInstance(0, true)), "Ordinary left click still resumes a stalled route");
+            sendKey(client, key, com.mojang.blaze3d.platform.InputConstants.PRESS);
+            sendKey(client, key, com.mojang.blaze3d.platform.InputConstants.RELEASE);
+            post.invoke(tick.newInstance());
+            check((boolean) nodeType.getMethod("getTriggered").invoke(warp) &&
+                !(boolean) nodeType.getMethod("getTriggered").invoke(decoy) && client.player.getYRot() == yawBeforeSkip,
+                "Skip did not attempt the off-ring Etherwarp in the current chain without performing the stalled step");
+            check(routeMessages(client, history, "Item CSB_FIXTURE_MISSING_ITEM not found") == 0, "A skipped operation ran before Etherwarp");
+            client.player.setPos(origin);
+
+            routeType.getMethod("updateCache", roomClass).invoke(routes, room);
+            post.invoke(tick.newInstance());
+            sendKey(client, key, com.mojang.blaze3d.platform.InputConstants.PRESS);
+            sendKey(client, key, com.mojang.blaze3d.platform.InputConstants.RELEASE);
+            post.invoke(tick.newInstance());
+            check((boolean) nodeType.getMethod("getTriggered").invoke(warp), "The configured skip key waited for the stall notice");
+
+            roomClass.getMethod("setSecretsFound", Integer.class).invoke(room, 2);
+            routeType.getMethod("updateCache", roomClass).invoke(routes, room);
+            post.invoke(tick.newInstance());
+            check((boolean) nodeType.getMethod("getTriggered").invoke(rotate), "A completed room still waited for secret events");
+            roomClass.getMethod("setSecretsFound", Integer.class).invoke(room, (Object) null);
+            client.level.setBlock(block, originalBlock, 3);
+            verifyAutoRouteBlast(client, routeType, routes, routeNodes, fixture, roomClass, room, history);
+            verifyAutoRouteBat(client, routeType, routes, routeNodes, fixture, roomClass, room);
+            verifyAutoRouteChainedWarp(client, routeType, routes, routeNodes, fixture, roomClass, room);
+            verifyAutoRouteBreakerHandoff(client, routeType, routes, routeNodes, fixture, roomClass, room, history);
+            verifyAutoRoutePuzzleWait(client, routeType, routes, routeNodes, roomClass, room, history);
+        } finally {
+            skipKey.getClass().getMethod("reset").invoke(skipKey);
+            client.player.setPos(origin);
+            inventory.setItem(slot, originalItem);
+            input.set(client.player, originalInput);
+            client.level.setBlock(block, originalBlock, 3);
+            for (var entry : toggles.entrySet()) {
+                entry.getKey().getClass().getMethod("setEnabled", boolean.class).invoke(entry.getKey(), entry.getValue());
+            }
+        }
+        System.out.println("CSB_AUTOROUTES_STALL_RECOVERY_OK");
+    }
+
+    private static void expireAutoRouteWait(Class<?> routeType, Object routes) throws ReflectiveOperationException {
+        var stall = routeType.getDeclaredField("stall");
+        stall.setAccessible(true);
+        var wait = stall.get(routes);
+        check(wait != null, "Auto Routes did not begin tracking the wait");
+        var since = wait.getClass().getDeclaredField("since");
+        since.setAccessible(true);
+        since.setLong(wait, System.nanoTime() - 4_000_000_000L);
+    }
+
+    private static long routeMessages(Minecraft client, java.lang.reflect.Field history, String reason) throws IllegalAccessException {
+        return chatMessages(client, history).stream()
+            .filter(message -> message.contains("[csb] Auto Routes:") && message.contains(reason))
+            .count();
+    }
+
+    private static List<String> chatMessages(Minecraft client, java.lang.reflect.Field history) throws IllegalAccessException {
+        return ((List<?>) history.get(ClientUiAccess.chat(client))).stream()
+            .map(net.minecraft.client.multiplayer.chat.GuiMessage.class::cast)
+            .map(message -> net.minecraft.ChatFormatting.stripFormatting(message.content().getString()))
+            .toList();
+    }
+
+    private static void verifyAutoRouteBlast(Minecraft client, Class<?> routeType, Object routes, Object routeNodes,
+                                            String fixture, Class<?> roomClass, Object room, java.lang.reflect.Field history)
+        throws ReflectiveOperationException {
+        var boom = Class.forName("quoi.api.autoroutes.nodes.BoomNode");
+        var node = boom.getConstructor().newInstance();
+        var position = client.player.position();
+        var vec = net.minecraft.world.phys.Vec3.class;
+        boom.getMethod("setRelative", vec).invoke(node, roomClass.getMethod("getRelativeCoords", vec).invoke(room, position));
+        routeNodes.getClass().getMethod("put", Object.class, Object.class)
+            .invoke(routeNodes, fixture, new java.util.ArrayList<>(List.of(node)));
+        routeType.getMethod("updateCache", roomClass).invoke(routes, room);
+        var target = net.minecraft.core.BlockPos.containing(position).offset(1, 2, 0);
+        var original = client.level.getBlockState(target);
+        var blastTarget = boom.getDeclaredField("blastTarget");
+        var blastSent = boom.getDeclaredField("blastSent");
+        blastTarget.setAccessible(true);
+        blastSent.setAccessible(true);
+        var tick = Class.forName("quoi.api.events.TickEvent$Start").getConstructor();
+        var post = tick.getDeclaringClass().getMethod("post");
+        try {
+            client.level.setBlock(target, net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(), 3);
+            blastTarget.set(node, target);
+            blastSent.setBoolean(node, true);
+            post.invoke(tick.newInstance());
+            expireAutoRouteWait(routeType, routes);
+            post.invoke(tick.newInstance());
+            check(routeMessages(client, history, "Superboom TNT has not opened the route") == 1, "Unbroken TNT target was not diagnosed");
+            check(!(boolean) boom.getMethod("getTriggered").invoke(node), "TNT step completed while the wall remained");
+            client.level.setBlock(target, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
+            post.invoke(tick.newInstance());
+            check((boolean) boom.getMethod("getTriggered").invoke(node), "TNT step did not complete after the wall opened");
+        } finally {
+            client.level.setBlock(target, original, 3);
+        }
+    }
+
+    private static void verifyEtherwarpOnlyRouteStart(Minecraft client, Class<?> routeType, Object routes, Object routeNodes,
+                                                     String fixture, Class<?> roomClass, Object room, Object node)
+        throws ReflectiveOperationException {
+        var settingType = Class.forName("quoi.module.settings.Setting");
+        var getName = settingType.getMethod("getName");
+        Object gate = null;
+        for (Object setting : (List<?>) routeType.getMethod("getSettings").invoke(routes)) {
+            if ("Etherwarp Only Start".equals(getName.invoke(setting))) gate = setting;
+        }
+        check(gate != null, "Missing Etherwarp-only start setting");
+        var set = gate.getClass().getMethod("setEnabled", boolean.class);
+        var wasEnabled = (boolean) gate.getClass().getMethod("getEnabled").invoke(gate);
+        var tick = Class.forName("quoi.api.events.TickEvent$Start").getConstructor();
+        var post = tick.getDeclaringClass().getMethod("post");
+        var click = Class.forName("quoi.api.events.MouseEvent$Click").getConstructor(int.class, boolean.class);
+        var sent = Class.forName("quoi.api.events.PacketEvent$Sent").getConstructor(net.minecraft.network.protocol.Packet.class);
+        var received = Class.forName("quoi.api.events.PacketEvent$Received").getConstructor(net.minecraft.network.protocol.Packet.class);
+        var relative = node.getClass().getMethod("setRelative", net.minecraft.world.phys.Vec3.class);
+        var triggered = node.getClass().getMethod("getTriggered");
+        var update = routeType.getMethod("updateCache", roomClass);
+        var start = client.player.position();
+        var block = net.minecraft.core.BlockPos.containing(start).offset(4, 6, 0);
+        var blockState = client.level.getBlockState(block);
+        var landing = new net.minecraft.world.phys.Vec3(block.getX() + .5, block.getY() + 1, block.getZ() + .5);
+        var origin = landing.add(0, 4, 0);
+        var recorded = landing.add(.32, .16, 0);
+        var inventory = client.player.getInventory();
+        var slot = inventory.getSelectedSlot();
+        var held = inventory.getItem(slot);
+        try {
+            set.invoke(gate, true);
+            node.getClass().getMethod("setAwaits", List.class).invoke(node, (Object) null);
+            node.getClass().getMethod("setStart", Boolean.class).invoke(node, true);
+            relative.invoke(node, roomClass.getMethod("getRelativeCoords", net.minecraft.world.phys.Vec3.class).invoke(room, recorded));
+            routeNodes.getClass().getMethod("put", Object.class, Object.class)
+                .invoke(routeNodes, fixture, new java.util.ArrayList<>(List.of(node)));
+            update.invoke(routes, room);
+            check(recorded.distanceToSqr((net.minecraft.world.phys.Vec3) node.getClass().getMethod("getPos").invoke(node)) < 1e-9,
+                "Fixture route node is not on the landing block");
+            client.level.setBlock(block, net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(), 3);
+
+            client.player.setPos(landing);
+            post.invoke(tick.newInstance());
+            check(!(boolean) triggered.invoke(node), "Walking onto the starting node began a route");
+            check(!(boolean) post.invoke(click.newInstance(0, true)), "A left click bypassed the Etherwarp start gate");
+
+            var conduit = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.STICK);
+            var tag = new net.minecraft.nbt.CompoundTag();
+            tag.putString("id", "ETHERWARP_CONDUIT");
+            conduit.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.of(tag));
+            inventory.setItem(slot, conduit);
+            client.player.setPos(origin);
+            post.invoke(sent.newInstance(new net.minecraft.network.protocol.game.ServerboundUseItemOnPacket(
+                net.minecraft.world.InteractionHand.MAIN_HAND, new net.minecraft.world.phys.BlockHitResult(
+                    landing, net.minecraft.core.Direction.UP, block, false), 0)));
+            client.player.setPos(landing);
+            post.invoke(tick.newInstance());
+            check(!(boolean) triggered.invoke(node), "An unconfirmed Etherwarp began a route");
+            post.invoke(received.newInstance(routePositionPacket(landing)));
+            post.invoke(tick.newInstance());
+            check((boolean) triggered.invoke(node), "A confirmed manual Etherwarp did not start the route");
+
+            update.invoke(routes, room);
+            var vec = Class.forName("quoi.api.vec.MutableVec3");
+            var expectMapEtherwarp = java.util.Arrays.stream(routeType.getMethods())
+                .filter(method -> method.getName().startsWith("expectMapEtherwarp"))
+                .findFirst().orElseThrow();
+            expectMapEtherwarp.invoke(routes, vec.getConstructor(net.minecraft.world.phys.Vec3.class).newInstance(landing));
+            var executorType = Class.forName("quoi.module.impl.dungeon.autoclear.executor.ClearExecutor");
+            var busy = executorType.getDeclaredField("active");
+            busy.setAccessible(true);
+            try {
+                busy.setBoolean(null, true);
+                post.invoke(received.newInstance(routePositionPacket(landing)));
+                post.invoke(tick.newInstance());
+                check(!(boolean) triggered.invoke(node), "Auto Routes started before the map path finished");
+            } finally {
+                busy.setBoolean(null, false);
+            }
+            post.invoke(tick.newInstance());
+            check((boolean) triggered.invoke(node), "The Interactive Map's final Etherwarp did not start the route");
+            client.player.setPos(origin);
+            post.invoke(tick.newInstance());
+            client.player.setPos(landing);
+            post.invoke(tick.newInstance());
+            check(!(boolean) triggered.invoke(node), "Walking back restarted the route");
+        } finally {
+            inventory.setItem(slot, held);
+            client.level.setBlock(block, blockState, 3);
+            client.player.setPos(start);
+            set.invoke(gate, wasEnabled);
+        }
+        System.out.println("CSB_AUTOROUTES_ETHERWARP_START_OK");
+    }
+
+    private static void verifyAutoRouteBat(Minecraft client, Class<?> routeType, Object routes, Object routeNodes,
+                                          String fixture, Class<?> roomClass, Object room) throws ReflectiveOperationException {
+        var type = Class.forName("quoi.api.autoroutes.nodes.UseItemNode");
+        var node = type.getConstructor().newInstance();
+        var secret = Class.forName("quoi.api.autoroutes.awaits.SecretAwait").getConstructor(int.class).newInstance(1);
+        type.getMethod("setItem", String.class).invoke(node, "STARRED_BAT_WAND");
+        type.getMethod("setAwaits", List.class).invoke(node, new java.util.ArrayList<>(List.of(secret)));
+        placeAutoRouteNode(client, routeType, routes, routeNodes, fixture, roomClass, room, node);
+        var inventory = client.player.getInventory();
+        int originalSlot = inventory.getSelectedSlot();
+        int wandSlot = (originalSlot + 1) % 9;
+        var original = inventory.getItem(wandSlot);
+        var tick = Class.forName("quoi.api.events.TickEvent$Start").getConstructor();
+        var post = tick.getDeclaringClass().getMethod("post");
+        try {
+            inventory.setItem(wandSlot, routeItem("BAT_WAND"));
+            post.invoke(tick.newInstance());
+            check(inventory.getSelectedSlot() == wandSlot && !(boolean) type.getMethod("getTriggered").invoke(node),
+                "Bat node did not select the regular Spirit Sceptre before waiting for the secret");
+            var bat = Class.forName("quoi.api.events.DungeonEvent$Secret$Bat").getConstructor();
+            post.invoke(bat.newInstance());
+            post.invoke(tick.newInstance());
+            check((boolean) type.getMethod("getTriggered").invoke(node), "Bat node did not finish after its secret event");
+        } finally {
+            inventory.setSelectedSlot(originalSlot);
+            inventory.setItem(wandSlot, original);
+        }
+    }
+
+    private static void verifyAutoRouteChainedWarp(Minecraft client, Class<?> routeType, Object routes, Object routeNodes,
+                                                  String fixture, Class<?> roomClass, Object room) throws ReflectiveOperationException {
+        var warpType = Class.forName("quoi.api.autoroutes.nodes.EtherwarpNode");
+        var warp = warpType.getConstructor().newInstance();
+        var rotateType = Class.forName("quoi.api.autoroutes.nodes.RotateNode");
+        var rotate = rotateType.getConstructor().newInstance();
+        var originalPos = client.player.position();
+        var block = net.minecraft.core.BlockPos.containing(originalPos).offset(4, 6, 0);
+        var originalBlock = client.level.getBlockState(block);
+        var target = new net.minecraft.world.phys.Vec3(block.getX() + .5, block.getY() + .99, block.getZ() + .5);
+        var landing = new net.minecraft.world.phys.Vec3(target.x, block.getY() + 1, target.z);
+        var origin = landing.add(0, 4, 0);
+        var inventory = client.player.getInventory();
+        int slot = inventory.getSelectedSlot();
+        var originalItem = inventory.getItem(slot);
+        var playerInput = net.minecraft.client.player.LocalPlayer.class.getDeclaredField("lastSentInput");
+        playerInput.setAccessible(true);
+        var originalInput = playerInput.get(client.player);
+        var vec = net.minecraft.world.phys.Vec3.class;
+        var relative = roomClass.getMethod("getRelativeCoords", vec);
+        var tick = Class.forName("quoi.api.events.TickEvent$Start").getConstructor();
+        var post = tick.getDeclaringClass().getMethod("post");
+        try {
+            client.player.setPos(origin);
+            client.level.setBlock(block, net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(), 3);
+            inventory.setItem(slot, routeItem("ASPECT_OF_THE_VOID"));
+            playerInput.set(client.player, new net.minecraft.world.entity.player.Input(false, false, false, false, false, true, false));
+            warpType.getMethod("setRelative", vec).invoke(warp, relative.invoke(room, origin));
+            warpType.getMethod("setTarget", vec).invoke(warp, relative.invoke(room, target));
+            rotateType.getMethod("setRelative", vec).invoke(rotate, relative.invoke(room, landing));
+            routeNodes.getClass().getMethod("put", Object.class, Object.class)
+                .invoke(routeNodes, fixture, new java.util.ArrayList<>(List.of(warp, rotate)));
+            routeType.getMethod("updateCache", roomClass).invoke(routes, room);
+            post.invoke(tick.newInstance());
+            check((boolean) warpType.getMethod("getTriggered").invoke(warp), "Fixture did not queue the first Etherwarp");
+            post.invoke(tick.newInstance());
+            check((boolean) rotateType.getMethod("getTriggered").invoke(rotate) && client.player.position().equals(origin),
+                "The next route action waited for the previous Etherwarp acknowledgement");
+        } finally {
+            playerInput.set(client.player, originalInput);
+            inventory.setItem(slot, originalItem);
+            client.level.setBlock(block, originalBlock, 3);
+            client.player.setPos(originalPos);
+        }
+    }
+
+    private static void placeAutoRouteNode(Minecraft client, Class<?> routeType, Object routes, Object routeNodes,
+                                           String fixture, Class<?> roomClass, Object room, Object node) throws ReflectiveOperationException {
+        var vec = net.minecraft.world.phys.Vec3.class;
+        node.getClass().getMethod("setRelative", vec).invoke(node, roomClass.getMethod("getRelativeCoords", vec).invoke(room, client.player.position()));
+        routeNodes.getClass().getMethod("put", Object.class, Object.class)
+            .invoke(routeNodes, fixture, new java.util.ArrayList<>(List.of(node)));
+        routeType.getMethod("updateCache", roomClass).invoke(routes, room);
+    }
+
+    private static void verifyAutoRouteBreakerHandoff(Minecraft client, Class<?> routeType, Object routes, Object routeNodes,
+                                                      String fixture, Class<?> roomClass, Object room, java.lang.reflect.Field history)
+        throws ReflectiveOperationException {
+        var breakerType = Class.forName("quoi.api.autoroutes.nodes.BreakerNode");
+        var breaker = breakerType.getConstructor().newInstance();
+        var warpType = Class.forName("quoi.api.autoroutes.nodes.EtherwarpNode");
+        var warp = warpType.getConstructor().newInstance();
+        var raycast = Class.forName("quoi.api.autoroutes.awaits.RaycastAwait").getConstructor().newInstance();
+        var vec = net.minecraft.world.phys.Vec3.class;
+        var blockType = net.minecraft.core.BlockPos.class;
+        var relative = roomClass.getMethod("getRelativeCoords", vec);
+        var originalPos = client.player.position();
+        var feet = net.minecraft.core.BlockPos.containing(originalPos);
+        var origin = new net.minecraft.world.phys.Vec3(feet.getX() + .5, originalPos.y, feet.getZ() - .15);
+        var broken = feet.offset(1, 1, -1);
+        var cover = feet.offset(2, 1, -1);
+        var destination = feet.offset(4, 1, 0);
+        var target = new net.minecraft.world.phys.Vec3(destination.getX() + .25, destination.getY() + .5, destination.getZ() + .02);
+        var positions = List.of(broken, cover, destination);
+        var originalBlocks = positions.stream().map(client.level::getBlockState).toList();
+        var tick = Class.forName("quoi.api.events.TickEvent$Start").getConstructor();
+        var post = tick.getDeclaringClass().getMethod("post");
+        try {
+            client.player.setPos(origin);
+            for (var block : positions) client.level.setBlock(block, net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(), 3);
+            breakerType.getMethod("setRelative", vec).invoke(breaker, relative.invoke(room, origin));
+            breakerType.getMethod("setBlocks", List.class).invoke(breaker,
+                List.of(roomClass.getMethod("getRelativeCoords", blockType).invoke(room, broken)));
+            warpType.getMethod("setRelative", vec).invoke(warp, relative.invoke(room, origin.add(0, .16, 0)));
+            warpType.getMethod("setTarget", vec).invoke(warp, relative.invoke(room, target));
+            warpType.getMethod("setAwaits", List.class).invoke(warp, new java.util.ArrayList<>(List.of(raycast)));
+            routeNodes.getClass().getMethod("put", Object.class, Object.class)
+                .invoke(routeNodes, fixture, new java.util.ArrayList<>(List.of(breaker, warp)));
+            routeType.getMethod("updateCache", roomClass).invoke(routes, room);
+            post.invoke(tick.newInstance());
+            expireAutoRouteWait(routeType, routes);
+            post.invoke(tick.newInstance());
+            check(routeMessages(client, history, "Route action did not finish (dungeon_breaker)") == 1,
+                "Dungeonbreaker fixture did not enter its reported stall");
+            client.level.setBlock(broken, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
+            post.invoke(tick.newInstance());
+            check((boolean) breakerType.getMethod("getTriggered").invoke(breaker), "Dungeonbreaker did not see the final block disappear");
+            post.invoke(tick.newInstance());
+            var teleport = Class.forName("quoi.utils.skyblock.item.TeleportUtils");
+            var etherRaycast = teleport.getMethod("traverseVoxels", vec, vec, boolean.class);
+            var eye = origin.add(0, 1.27, 0);
+            Object centerHit = etherRaycast.invoke(teleport.getField("INSTANCE").get(null), eye,
+                net.minecraft.world.phys.Vec3.atCenterOf(destination), true);
+            check((boolean) warpType.getMethod("getTriggered").invoke(warp), "Etherwarp did not follow Dungeonbreaker automatically: " + centerHit);
+            var alternate = warpType.getDeclaredField("alternativeAim");
+            alternate.setAccessible(true);
+            check(alternate.get(warp) != null, "Etherwarp did not find a different visible aim on its blocked target block");
+        } finally {
+            client.player.setPos(originalPos);
+            for (int i = 0; i < positions.size(); i++) client.level.setBlock(positions.get(i), originalBlocks.get(i), 3);
+        }
+    }
+
+    private static void verifyAutoRoutePuzzleWait(Minecraft client, Class<?> routeType, Object routes, Object routeNodes,
+                                                  Class<?> roomClass, Object room, java.lang.reflect.Field history)
+        throws ReflectiveOperationException {
+        String roomName = "Tic Tac Toe";
+        var put = routeNodes.getClass().getMethod("put", Object.class, Object.class);
+        var previous = routeNodes.getClass().getMethod("get", Object.class).invoke(routeNodes, roomName);
+        var originalData = roomClass.getMethod("getData").invoke(room);
+        var roomData = originalData.getClass();
+        var roomType = Class.forName("quoi.api.skyblock.dungeon.odonscanning.tiles.RoomType");
+        var roomState = Class.forName("quoi.api.skyblock.dungeon.odonscanning.tiles.RoomState");
+        var puzzleData = roomData.getConstructor(String.class, roomType, List.class, int.class, int.class, int.class,
+            roomState, String.class).newInstance(roomName, roomType.getField("PUZZLE").get(null),
+            List.of(1), 0, 2, 0, roomState.getField("DISCOVERED").get(null), "1x1");
+        var setData = roomClass.getMethod("setData", roomData);
+        var puzzle = Class.forName("quoi.api.skyblock.dungeon.enums.Puzzle");
+        var status = Class.forName("quoi.api.skyblock.dungeon.enums.PuzzleStatus");
+        var ttt = puzzle.getField("TTT").get(null);
+        var setStatus = puzzle.getMethod("setStatus", status);
+        var previousStatus = puzzle.getMethod("getStatus").invoke(ttt);
+        try {
+            setData.invoke(room, puzzleData);
+            setStatus.invoke(ttt, Class.forName(status.getName() + "$Incomplete").getField("INSTANCE").get(null));
+            var type = Class.forName("quoi.api.autoroutes.nodes.EtherwarpNode");
+            var node = type.getConstructor().newInstance();
+            var raycast = Class.forName("quoi.api.autoroutes.awaits.RaycastAwait").getConstructor().newInstance();
+            var vec = net.minecraft.world.phys.Vec3.class;
+            type.getMethod("setTarget", vec).invoke(node, client.player.position().add(150, 0, 0));
+            type.getMethod("setAwaits", List.class).invoke(node, new java.util.ArrayList<>(List.of(raycast)));
+            placeAutoRouteNode(client, routeType, routes, routeNodes, roomName, roomClass, room, node);
+            var tick = Class.forName("quoi.api.events.TickEvent$Start").getConstructor();
+            var post = tick.getDeclaringClass().getMethod("post");
+            post.invoke(tick.newInstance());
+            expireAutoRouteWait(routeType, routes);
+            post.invoke(tick.newInstance());
+            check(routeMessages(client, history, "Etherwarp path or landing is blocked") == 0,
+                "Tic Tac Toe's unopened passage was reported as an Etherwarp failure");
+            setStatus.invoke(ttt, Class.forName(status.getName() + "$Completed").getField("INSTANCE").get(null));
+            post.invoke(tick.newInstance());
+            expireAutoRouteWait(routeType, routes);
+            post.invoke(tick.newInstance());
+            check(routeMessages(client, history, "Etherwarp path or landing is blocked") == 1,
+                "A blocked passage stopped reporting after Tic Tac Toe was complete");
+        } finally {
+            setStatus.invoke(ttt, previousStatus);
+            setData.invoke(room, originalData);
+            if (previous == null) routeNodes.getClass().getMethod("remove", Object.class).invoke(routeNodes, roomName);
+            else put.invoke(routeNodes, roomName, previous);
+        }
+    }
+
+    private static net.minecraft.world.item.ItemStack routeItem(String id) {
+        var item = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.PAPER);
+        var data = new net.minecraft.nbt.CompoundTag();
+        data.putString("id", id);
+        item.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.of(data));
+        return item;
+    }
+
+    private static void verifyWaterBoardReentry(Minecraft client, Class<?> roomClass, Object room)
+        throws ReflectiveOperationException {
+        var originalData = roomClass.getMethod("getData").invoke(room);
+        var dataType = originalData.getClass();
+        var roomType = Class.forName("quoi.api.skyblock.dungeon.odonscanning.tiles.RoomType");
+        var roomState = Class.forName("quoi.api.skyblock.dungeon.odonscanning.tiles.RoomState");
+        var data = dataType.getConstructor(String.class, roomType, List.class, int.class, int.class, int.class, roomState, String.class)
+            .newInstance("Water Board", roomType.getField("PUZZLE").get(null), List.of(1), 0, 0, 0,
+                roomState.getField("DISCOVERED").get(null), "1x1");
+        var setData = roomClass.getMethod("setData", dataType);
+        var puzzleType = Class.forName("quoi.module.impl.dungeon.puzzlesolvers.PuzzleSolvers");
+        var puzzles = puzzleType.getField("INSTANCE").get(null);
+        var toggle = puzzleType.getMethod("toggle");
+        boolean wasEnabled = (boolean) puzzleType.getMethod("getEnabled").invoke(puzzles);
+        if (!wasEnabled) toggle.invoke(puzzles);
+
+        var boardType = Class.forName("quoi.module.impl.dungeon.puzzlesolvers.impl.WaterBoardSolver");
+        var board = boardType.getField("INSTANCE").get(null);
+        var pattern = boardType.getDeclaredField("patternIdentifier");
+        var paused = boardType.getDeclaredField("paused");
+        var restoring = boardType.getDeclaredField("restoring");
+        var ticks = boardType.getDeclaredField("tickCounter");
+        for (var field : List.of(pattern, paused, restoring, ticks)) field.setAccessible(true);
+        var scan = boardType.getDeclaredMethod("scan", boolean.class);
+        var getPlan = boardType.getDeclaredMethod("getSolutionList");
+        scan.setAccessible(true);
+        getPlan.setAccessible(true);
+        var roomEvent = Class.forName("quoi.api.events.DungeonEvent$Room$Enter").getConstructor(roomClass);
+        var post = roomEvent.getDeclaringClass().getMethod("post");
+        var packetEvent = Class.forName("quoi.api.events.PacketEvent$ReceivedPost").getConstructor(net.minecraft.network.protocol.Packet.class);
+        var blockType = net.minecraft.core.BlockPos.class;
+        var real = roomClass.getMethod("getRealCoords", blockType);
+        var levers = new java.util.ArrayList<net.minecraft.core.BlockPos>();
+        var originalBlocks = new java.util.LinkedHashMap<net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState>();
+        var leverState = net.minecraft.world.level.block.Blocks.LEVER.defaultBlockState();
+        var powered = leverState.setValue(net.minecraft.world.level.block.LeverBlock.POWERED, true);
+        try {
+            setData.invoke(room, data);
+            for (var position : List.of(new net.minecraft.core.BlockPos(20,61,10), new net.minecraft.core.BlockPos(20,61,15),
+                new net.minecraft.core.BlockPos(20,61,20), new net.minecraft.core.BlockPos(10,61,20), new net.minecraft.core.BlockPos(10,61,15),
+                new net.minecraft.core.BlockPos(10,61,10), new net.minecraft.core.BlockPos(15,60,5))) {
+                var block = (net.minecraft.core.BlockPos) real.invoke(room, position);
+                levers.add(block);
+                originalBlocks.put(block, client.level.getBlockState(block));
+                client.level.setBlock(block, leverState, 3);
+            }
+            for (var marker : List.of(new net.minecraft.core.BlockPos(15,56,19), new net.minecraft.core.BlockPos(15,56,18),
+                new net.minecraft.core.BlockPos(15,56,17), new net.minecraft.core.BlockPos(14,77,27))) {
+                var block = (net.minecraft.core.BlockPos) real.invoke(room, marker);
+                originalBlocks.put(block, client.level.getBlockState(block));
+                client.level.setBlock(block, net.minecraft.world.level.block.Blocks.TERRACOTTA.defaultBlockState(), 3);
+            }
+            post.invoke(roomEvent.newInstance(room));
+            scan.invoke(board, false);
+            check(pattern.getInt(null) == 0, "Water Board failed to recognize the starting layout");
+            var plan = (List<?>) getPlan.invoke(board);
+            Object first = plan.getFirst().getClass().getMethod("getFirst").invoke(plan.getFirst());
+            var getLeverPosition = first.getClass().getMethod("getLeverPos");
+            getLeverPosition.setAccessible(true);
+            var lever = (net.minecraft.core.BlockPos) getLeverPosition.invoke(first);
+            post.invoke(packetEvent.newInstance(new net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket(lever, leverState)));
+            check(((List<?>) getPlan.invoke(board)).size() == plan.size(), "An unchanged lever advanced the Water Board");
+            client.level.setBlock(lever, powered, 3);
+            post.invoke(packetEvent.newInstance(new net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket(lever, powered)));
+            check(((List<?>) getPlan.invoke(board)).size() == plan.size() - 1, "A server-confirmed lever did not advance the Water Board");
+            var wrong = levers.getFirst();
+            client.level.setBlock(wrong, powered, 3);
+            post.invoke(packetEvent.newInstance(new net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket(wrong, powered)));
+            check(paused.getBoolean(null), "An out-of-sequence lever did not pause the Water Board");
+            post.invoke(roomEvent.newInstance(new Object[]{null}));
+            post.invoke(roomEvent.newInstance(room));
+            scan.invoke(board, false);
+            check(restoring.getBoolean(null) && !paused.getBoolean(null), "Re-entering Water Board did not re-read the changed levers");
+            for (var pos : levers) client.level.setBlock(pos, leverState, 3);
+            scan.invoke(board, false);
+            ticks.setInt(null, ticks.getInt(null) + 41);
+            scan.invoke(board, false);
+            check(pattern.getInt(null) == 0 && ((List<?>) getPlan.invoke(board)).size() == plan.size(),
+                "Water Board did not start a fresh plan after the levers returned to their starting positions");
+        } finally {
+            post.invoke(roomEvent.newInstance(new Object[]{null}));
+            setData.invoke(room, originalData);
+            for (var entry : originalBlocks.entrySet()) client.level.setBlock(entry.getKey(), entry.getValue(), 3);
+            if (!wasEnabled) toggle.invoke(puzzles);
+        }
+        System.out.println("CSB_WATER_BOARD_REENTRY_OK");
+    }
+
+    private static net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket routePositionPacket(net.minecraft.world.phys.Vec3 position) {
+        return new net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket(0,
+            new net.minecraft.world.entity.PositionMoveRotation(position, net.minecraft.world.phys.Vec3.ZERO, 0, 0), java.util.Set.of());
     }
 
     private static void verifyQuoiModules() {
@@ -541,6 +1108,47 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
         } catch (ReflectiveOperationException error) {
             throw new AssertionError("Dungeon source module did not load", error);
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void verifyAutoCroesusDefaults(Minecraft client) {
+        try {
+            var type = Class.forName("quoi.module.impl.dungeon.AutoCroesus");
+            var module = type.getField("INSTANCE").get(null);
+            var setting = type.getMethod("getSettingByName", String.class).invoke(module, "Always buy");
+            var list = (List<String>) setting.getClass().getMethod("getValue").invoke(setting);
+            var original = List.copyOf(list);
+            var history = net.minecraft.client.gui.components.ChatComponent.class.getDeclaredField("allMessages");
+            history.setAccessible(true);
+            String label = "Add default always buy";
+            try {
+                list.clear();
+                ((PinkUi.Field) widget(client, "Search modules", false)).setValue("Auto Croesus");
+                click(client, "Auto Croesus", false, ClientInput.MOUSE_RIGHT);
+                var screen = ClientUiAccess.screen(client);
+                var top = screen.getClass().getDeclaredField("cardsTop");
+                top.setAccessible(true);
+                var button = widget(client, label, false);
+                for (int i = 0; i < 12 && !button.visible; i++) {
+                    screen.mouseScrolled(button.getX() + 2, top.getInt(screen) + 2, 0, -1);
+                }
+                check(button.visible, "Auto Croesus defaults button could not be brought into view");
+                long before = chatMessages(client, history).stream().filter(line -> line.contains("default Always buy items.")).count();
+                click(client, label, false);
+                check(list.size() == 13 && new java.util.HashSet<>(list).size() == 13,
+                    "The defaults button did not add exactly the 13 unique entries");
+                click(client, label, false);
+                var notices = chatMessages(client, history).stream().filter(line -> line.contains("default Always buy items.")).toList();
+                check(notices.size() == before + 1 && notices.getFirst().startsWith("[csb] Added 13"),
+                    "Auto Croesus repeated a no-op notification or used the wrong chat prefix");
+            } finally {
+                list.clear();
+                list.addAll(original);
+            }
+        } catch (ReflectiveOperationException error) {
+            throw new AssertionError("Could not verify Auto Croesus defaults", error);
+        }
+        System.out.println("CSB_CROESUS_DEFAULTS_NOTICE_OK");
     }
 
     private static void verifyRouteImport() {

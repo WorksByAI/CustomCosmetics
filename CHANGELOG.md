@@ -1,15 +1,11 @@
 # Changelog
 
-## 3.0.2
-
-- Ship CustomSkyBlock Legit and Cheating with edition-specific updates.
-- Use [CSB] notices and /csb or /customskyblock.
-- Update Quoi leap cooldowns, terminal timing, and the Goldor trigger.
-- Remove duplicate vanilla enchantment lines from SkyBlock tooltips.
-
 ## 3.0.1
 
-- The Dungeon cheating module now uses Quoi.
+- Ship CustomSkyBlock Legit and Cheating with edition-specific updates.
+- The Dungeon cheating module uses Quoi, with fixes for leap cooldowns and terminal timing.
+- Add an Auto Routes skip key and improve Etherwarp recovery after mining.
+- Restart Water Board on room re-entry and fix duplicate enchantment tooltip lines.
 
 ## 3.0.0
 

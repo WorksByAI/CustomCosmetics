@@ -30,6 +30,7 @@ import quoi.annotations.Init
 import quoi.api.events.*
 import quoi.api.skyblock.dungeon.Dungeon
 import quoi.api.skyblock.dungeon.Dungeon.dungeonItemDrops
+import quoi.module.impl.dungeon.autoclear.impl.AutoRoutes
 import quoi.utils.EntityUtils
 import quoi.utils.StringUtils.containsOneOf
 import quoi.utils.StringUtils.noControlCodes
@@ -146,6 +147,7 @@ object EventDispatcher {
                 if (!packet.sound.value().equalsOneOf(SoundEvents.BAT_HURT, SoundEvents.BAT_DEATH) || packet.volume != 0.1f) return false
                 val pos = Vec3(packet.x, packet.y, packet.z)
                 val bat = EntityUtils.getEntities<Bat>(pos, 1.0).minByOrNull { it.distanceToSqr(pos) } ?: return false
+                if (AutoRoutes.waitingForBatDeath && bat.isAlive && packet.sound.value() != SoundEvents.BAT_DEATH) return false
                 onSecretBat(bat.id)
             }
             else -> false
