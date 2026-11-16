@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.3
+
+- new feat: Replace Auto Clicker with Nebulune AutoClick and its whitelist commands.
+- bug fix: Preserve manual clicks when AutoClick skips Dungeon Breaker.
+
 ## 3.0.2
 
 - new feat: Add two-step resets to module settings.

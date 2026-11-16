@@ -97,7 +97,9 @@ public final class SyncCommands {
             com.customcosmetics.gui.CheatingScreen.requestOpen();
             return 1;
         }));
-        root.then(com.customcosmetics.features.gameplay.AutoClicker.command());
+        for (String name : new String[]{"autoclick", "ac", "autoclicker"}) {
+            root.then(com.customcosmetics.features.gameplay.AutoClick.command(name));
+        }
         root.then(ClientCommands.literal("leap").then(ClientCommands.argument("target", com.mojang.brigadier.arguments.StringArgumentType.word())
             .suggests((context, builder) -> net.minecraft.commands.SharedSuggestionProvider.suggest(
                 java.util.stream.Stream.of("Healer", "Mage", "Berserk", "Archer", "Tank"), builder))

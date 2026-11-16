@@ -121,7 +121,7 @@ public final class GameplayFeatures {
     }
 
     public static void init() {
-        AutoClicker.init();
+        AutoClick.init();
         CrystalHollowsScanner.init();
         ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
             if (overlay || !ConfigManager.gameplayPanelConfirmed || ConfigManager.gameplayModules.isEmpty()) return;
@@ -175,7 +175,7 @@ public final class GameplayFeatures {
             hudTimer = Component.empty();
             starred = List.of();
             harpScreen = null;
-            AutoClicker.reset(client);
+            AutoClick.reset();
             nextDoorTick = 0;
             InventoryAutomation.worldChanged();
             AutoExperiments.reset();
@@ -199,11 +199,9 @@ public final class GameplayFeatures {
             joinFinished = false;
         }
         if (client.player == null || client.level == null || !ConfigManager.gameplayPanelConfirmed) {
-            AutoClicker.reset(client);
             return;
         }
         if (ConfigManager.gameplayModules.isEmpty() && !AUTO_LEAP.hasRequest()) {
-            AutoClicker.reset(client);
             if (wasInSkyblock) {
                 AUTO_LEAP.reset(client);
                 SecretTriggerbot.reset();
@@ -226,7 +224,6 @@ public final class GameplayFeatures {
         Trajectories.tick(client);
         boolean onHypixel = PresenceWorld.isHypixel(client);
         boolean inSkyblock = onHypixel && PresenceWorld.isSkyblock(client);
-        AutoClicker.tick(client, inSkyblock);
         if (GameplayModule.AUTO_JOIN_SKYBLOCK.enabled() && onHypixel && !joinFinished) {
             if (inSkyblock) joinFinished = true;
             else if (++joinTicks >= 20 && PresenceWorld.hasOfficialLocation(client)) {

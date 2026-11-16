@@ -34,6 +34,7 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
             ConfigManager.offlineMode = true;
             ConfigManager.uiAnimationsEnabled = false;
             ConfigManager.gameplayPanelConfirmed = false;
+            check(com.customcosmetics.client.ClientEdition.reportedVersion().endsWith("-cheating"), "Cheating did not report its edition");
             client.getWindow().setGuiScale(1);
             ClientUiAccess.setScreen(client, new CosmeticsScreen(null, CosmeticsScreen.Page.MAIN));
         });
@@ -81,16 +82,19 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
             click(client, "I understand", false);
             check(ConfigManager.gameplayPanelConfirmed, "Confirmation was not saved");
             var a = widget(client, "Auto Book Combine", false);
-            var b = widget(client, "Auto Clicker", false);
+            var b = widget(client, "Auto Click", false);
             var c = widget(client, "Auto Experiments", false);
             check(a.getY() == b.getY() && b.getY() == c.getY() && a.getX() < b.getX() && b.getX() < c.getX(),
                 "Modules were not laid out in three sorted columns");
-            click(client, "Auto Clicker", false, ClientInput.MOUSE_RIGHT);
+            click(client, "Auto Click", false, ClientInput.MOUSE_RIGHT);
             check(widget(client, "Left Click Keybind", false) instanceof PinkUi.Action
-                && widget(client, "Right Maximum CPS:", false) instanceof PinkUi.Slider, "Auto Clicker controls are missing");
-            check(widget(client, "Search modules", false).visible && widget(client, "Auto Clicker", false).visible,
+                && widget(client, "Right CPS:", false) instanceof PinkUi.Slider
+                && widget(client, "CPS Jitter:", false) instanceof PinkUi.Slider
+                && widget(client, "Required Key:", false) instanceof PinkUi.Action
+                && widget(client, "Reverse Required Key", false) instanceof PinkUi.Action, "Auto Click controls are missing");
+            check(widget(client, "Search modules", false).visible && widget(client, "Auto Click", false).visible,
                 "Settings replaced the module list");
-            click(client, "Auto Clicker", false, ClientInput.MOUSE_RIGHT);
+            click(client, "Auto Click", false, ClientInput.MOUSE_RIGHT);
             click(client, "Auto Book Combine", false, ClientInput.MOUSE_RIGHT);
             check(widget(client, "Anvil Result Delay (ticks):", false) instanceof PinkUi.Slider,
                 "Auto Book Combine result delay is missing");
@@ -247,6 +251,9 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
                 verifyMouseRefocus(client);
                 verifyLegacyHeldSkull(client);
                 verifyQuoiItemId();
+                verifyAutoClickCommands(client);
+                verifyAutoClickTicks(client);
+                verifyDungeonBreakerAutoClick(client);
                 check(com.customcosmetics.features.gameplay.InventoryAutomation.countEnderPearls(java.util.List.of(
                     new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.ENDER_PEARL, 7),
                     new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.ENDER_PEARL, 9))) == 16,
@@ -308,19 +315,150 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
         System.out.println("CSB300_ACCORDION_CONFIRMATION_MODULE_GRID_HUD_MOTION_PACK_OK");
     }
 
+    private static void verifyAutoClickTicks(Minecraft client) {
+        var left = com.customcosmetics.features.gameplay.AutoClick.key(true);
+        var right = com.customcosmetics.features.gameplay.AutoClick.key(false);
+        var requirement = com.customcosmetics.features.gameplay.AutoClick.requiredKey();
+        var attack = client.options.keyAttack;
+        var use = client.options.keyUse;
+        try {
+            var tick = com.customcosmetics.features.gameplay.AutoClick.class.getDeclaredMethod("tickActive", Minecraft.class);
+            tick.setAccessible(true);
+            ConfigManager.autoClickerLeft = ConfigManager.autoClickerRight = true;
+            ConfigManager.autoClickerLeftCps = ConfigManager.autoClickerRightCps = 20;
+            ConfigManager.autoClickerBreakBlocks = false;
+            ConfigManager.autoClickerRequireKey = true;
+            left.setDown(true);
+            right.setDown(true);
+            tick.invoke(null, client);
+            tick.invoke(null, client);
+            check(!attack.consumeClick() && !use.consumeClick(), "Auto Click ignored its required key");
+            requirement.setDown(true);
+            tick.invoke(null, client);
+            tick.invoke(null, client);
+            check(attack.consumeClick(), "Auto Click never queued a left click");
+            check(use.consumeClick(), "Auto Click never queued a right click");
+        } catch (ReflectiveOperationException error) {
+            throw new AssertionError("Auto Click runtime test failed", error);
+        } finally {
+            left.setDown(false);
+            right.setDown(false);
+            requirement.setDown(false);
+            while (attack.consumeClick()) { }
+            while (use.consumeClick()) { }
+            ConfigManager.resetSettings("autoClicker*");
+        }
+    }
+
+    private static void verifyDungeonBreakerAutoClick(Minecraft client) {
+        var autoClick = com.customcosmetics.features.gameplay.AutoClick.class;
+        var left = com.customcosmetics.features.gameplay.AutoClick.key(true);
+        var attack = client.options.keyAttack;
+        var previousKey = net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper.getBoundKeyOf(left);
+        var mouse = net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper.getBoundKeyOf(attack);
+        var inventory = client.player.getInventory();
+        int slot = inventory.getSelectedSlot();
+        var previousItem = inventory.getItem(slot);
+        boolean attackHeld = attack.isDown();
+        try {
+            var capture = autoClick.getDeclaredMethod("captureMouse", net.minecraft.world.item.ItemStack.class,
+                com.mojang.blaze3d.platform.InputConstants.Key.class);
+            var tick = autoClick.getDeclaredMethod("tickActive", Minecraft.class);
+            var mining = autoClick.getDeclaredField("mining");
+            for (var member : List.of(capture, tick, mining)) member.setAccessible(true);
+
+            ConfigManager.autoClickerLeft = ConfigManager.autoClickerBlockDungeonBreaker = true;
+            ConfigManager.autoClickerRequireKey = ConfigManager.autoClickerWhitelistOnly = false;
+            left.setKey(mouse);
+            net.minecraft.client.KeyMapping.resetMapping();
+            for (boolean legacy : new boolean[]{false, true}) {
+                var item = skyBlockPaper("DUNGEONBREAKER");
+                var attributes = new net.minecraft.nbt.CompoundTag();
+                attributes.putString("id", "DUNGEONBREAKER");
+                attributes.putString("uuid", "00000000-0000-0000-0000-000000000001");
+                var tag = attributes;
+                if (legacy) {
+                    tag = new net.minecraft.nbt.CompoundTag();
+                    tag.put("ExtraAttributes", attributes);
+                }
+                item.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.of(tag));
+                inventory.setItem(slot, item);
+
+                check(!(boolean) capture.invoke(null, item, mouse), "Auto Click swallowed a Dungeon Breaker press");
+                net.minecraft.client.KeyMapping.set(mouse, true);
+                net.minecraft.client.KeyMapping.click(mouse);
+                check(attack.consumeClick(), "The manual Dungeon Breaker click did not reach the attack key");
+
+                mining.setBoolean(null, true);
+                tick.invoke(null, client);
+                tick.invoke(null, client);
+                check(!mining.getBoolean(null) && !attack.consumeClick(), "Dungeon Breaker still triggered Auto Click");
+                check(attack.isDown(), "Ending automatic mining released the manual attack key");
+            }
+        } catch (ReflectiveOperationException error) {
+            throw new AssertionError("Dungeon Breaker Auto Click regression test failed", error);
+        } finally {
+            net.minecraft.client.KeyMapping.set(mouse, false);
+            left.setKey(previousKey);
+            net.minecraft.client.KeyMapping.resetMapping();
+            attack.setDown(attackHeld);
+            while (attack.consumeClick()) { }
+            while (left.consumeClick()) { }
+            inventory.setItem(slot, previousItem);
+            ConfigManager.resetSettings("autoClicker*");
+        }
+        System.out.println("CSB_DUNGEON_BREAKER_MANUAL_CLICK_OK");
+    }
+
+    private static void verifyAutoClickCommands(Minecraft client) {
+        var dispatcher = new com.mojang.brigadier.CommandDispatcher<net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource>();
+        com.customcosmetics.sync.SyncCommands.register(dispatcher);
+        var sourceType = net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource.class;
+        var source = sourceType.cast(java.lang.reflect.Proxy.newProxyInstance(sourceType.getClassLoader(),
+            new Class<?>[] {sourceType}, (proxy, method, args) -> {
+                if (method.getName().equals("getPlayer")) return client.player;
+                throw new UnsupportedOperationException(method.getName());
+            }));
+        var inventory = client.player.getInventory();
+        int slot = inventory.getSelectedSlot();
+        var previous = inventory.getItem(slot);
+        var left = ConfigManager.autoClickerLeftItems;
+        var right = ConfigManager.autoClickerRightItems;
+        try {
+            inventory.setItem(slot, skyBlockPaper("ASPECT_OF_THE_VOID"));
+            ConfigManager.autoClickerLeftItems = ConfigManager.autoClickerRightItems = java.util.Set.of();
+            dispatcher.execute("csb ac add left", source);
+            dispatcher.execute("customskyblock autoclick add right", source);
+            check(ConfigManager.autoClickerLeftItems.equals(java.util.Set.of("ASPECT_OF_THE_VOID")), "Left whitelist add failed");
+            check(ConfigManager.autoClickerRightItems.equals(java.util.Set.of("ASPECT_OF_THE_VOID")), "Right whitelist add failed");
+            dispatcher.execute("csb ac list", source);
+            dispatcher.execute("csb autoclick remove left", source);
+            check(ConfigManager.autoClickerLeftItems.isEmpty() && !ConfigManager.autoClickerRightItems.isEmpty(),
+                "Removing an item changed the other side");
+            dispatcher.execute("csb ac clear right", source);
+            check(ConfigManager.autoClickerRightItems.isEmpty(), "Right whitelist clear failed");
+        } catch (com.mojang.brigadier.exceptions.CommandSyntaxException error) {
+            throw new AssertionError("Auto Click whitelist commands failed", error);
+        } finally {
+            inventory.setItem(slot, previous);
+            ConfigManager.autoClickerLeftItems = left;
+            ConfigManager.autoClickerRightItems = right;
+        }
+    }
+
     private static void verifySettingsReset(ClientGameTestContext context) {
         context.runOnClient(client -> {
-            ((PinkUi.Field) widget(client, "Search modules", false)).setValue("Auto Clicker");
-            ConfigManager.autoClickerLeftMax = 19;
+            ((PinkUi.Field) widget(client, "Search modules", false)).setValue("Auto Click");
+            ConfigManager.autoClickerLeftCps = 19;
             ConfigManager.harpClickDelay = 4;
-            click(client, "Auto Clicker", false, ClientInput.MOUSE_RIGHT);
+            click(client, "Auto Click", false, ClientInput.MOUSE_RIGHT);
             click(client, "Reset Settings", false);
-            check(ConfigManager.autoClickerLeftMax == 19, "First click reset Auto Clicker");
+            check(ConfigManager.autoClickerLeftCps == 19, "First click reset Auto Clicker");
         });
         context.waitTicks(10);
         context.runOnClient(client -> {
             click(client, "Confirm Reset", false);
-            check(ConfigManager.autoClickerLeftMax == 12, "Auto Clicker did not reset");
+            check(ConfigManager.autoClickerLeftCps == 5, "Auto Click did not reset");
             check(ConfigManager.harpClickDelay == 4, "Auto Clicker reset Auto Harp");
             ((PinkUi.Field) widget(client, "Search modules", false)).setValue("Auto Blood Rush");
             var range = bloodRushRange();

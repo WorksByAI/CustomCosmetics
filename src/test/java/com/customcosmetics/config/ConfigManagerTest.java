@@ -9,6 +9,16 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ConfigManagerTest {
+    @Test void autoClickMigratesLegacyCpsWithoutReplacingNewSettings() throws Exception {
+        var file = directory.resolve("auto-click.json");
+        Files.writeString(file, "{\"settings\":{\"autoClickerLeftMin\":8,\"autoClickerLeftMax\":13,"
+            + "\"autoClickerRightMin\":10,\"autoClickerRightMax\":12,\"autoClickerRightCps\":17,\"autoClickerJitter\":5}}");
+        ConfigManager.load(file);
+        assertEquals(11, ConfigManager.autoClickerLeftCps);
+        assertEquals(17, ConfigManager.autoClickerRightCps);
+        assertEquals(3, ConfigManager.autoClickerJitter);
+    }
+
     @Test void moduleResetRestoresOnlySelectedPreferencesAndCopiesMutableDefaults() {
         ConfigManager.zoomEnabled = true;
         ConfigManager.zoomFactor = 9;

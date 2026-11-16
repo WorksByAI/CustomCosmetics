@@ -8,7 +8,7 @@ import java.util.HashSet;
 
 public enum GameplayModule {
     AUTO_BOOK_COMBINE("Auto Book Combine", Category.GENERAL),
-    AUTO_CLICKER("Auto Clicker", Category.GENERAL),
+    AUTO_CLICKER("Auto Click", Category.GENERAL),
     AUTO_EXPERIMENTS("Auto Experiments", Category.GENERAL),
     AUTO_GFS("Auto GFS", Category.GENERAL),
     AUTO_HARP("Auto Harp", Category.GENERAL),

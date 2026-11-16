@@ -8,7 +8,7 @@ import com.customcosmetics.features.gameplay.GameplayModule;
 import com.customcosmetics.features.gameplay.QuoiDungeon;
 import com.customcosmetics.features.gameplay.dungeonapi.DungeonMenu;
 import com.customcosmetics.features.gameplay.GameplayKeybinds;
-import com.customcosmetics.features.gameplay.AutoClicker;
+import com.customcosmetics.features.gameplay.AutoClick;
 import com.customcosmetics.features.gameplay.SafariSpecies;
 import com.customcosmetics.features.gameplay.TrevorHelper;
 import com.customcosmetics.features.gameplay.WorldScannerSettings;
@@ -302,7 +302,7 @@ public final class CheatingScreen extends ThemedScreen {
         addDetail(reset);
         switch (editing.local()) {
             case FAST_LEAP -> fastLeapSettings();
-            case AUTO_CLICKER -> autoClickerSettings();
+            case AUTO_CLICKER -> autoClickSettings();
             case AUTO_EXPERIMENTS -> {
                 slider("Min Click Delay (ms)", ConfigManager.experimentMinDelay, 100, 1000, 1,
                     v -> ConfigManager.experimentMinDelay = (int) v);
@@ -440,7 +440,7 @@ public final class CheatingScreen extends ThemedScreen {
                 case AUTO_BOOK_COMBINE -> ConfigManager.resetSettings("bookCombine*");
                 case AUTO_CLICKER -> {
                     ConfigManager.resetSettings("autoClicker*");
-                    resetKeys("key.customcosmetics.auto_clicker.left", "key.customcosmetics.auto_clicker.right");
+                    resetKeys(AutoClick.LEFT_KEY, AutoClick.RIGHT_KEY, AutoClick.REQUIRED_KEY);
                 }
                 case AUTO_EXPERIMENTS -> ConfigManager.resetSettings("experiment*");
                 case AUTO_GFS -> ConfigManager.resetSettings("refill*");
@@ -720,32 +720,24 @@ public final class CheatingScreen extends ThemedScreen {
             ? UiText.tr("Unassigned") : key.getDisplayName().getString());
     }
 
-    private void autoClickerSettings() {
-        detailLabels.add(new DetailLabel(UiText.tr("Enable the module and a click type, then hold its key in SkyBlock."), detailsY));
-        detailsY += 17;
-        option("Enable Left Click", () -> ConfigManager.autoClickerLeft, v -> ConfigManager.autoClickerLeft = v);
-        clickKey("Left Click Keybind", AutoClicker.key(true));
-        slider("Left Minimum CPS", ConfigManager.autoClickerLeftMin, 1, 20, 1, value -> {
-            ConfigManager.autoClickerLeftMin = (int) value;
-        });
-        slider("Left Maximum CPS", ConfigManager.autoClickerLeftMax, 1, 20, 1, value -> {
-            ConfigManager.autoClickerLeftMax = (int) value;
-        });
-        option("Enable Right Click", () -> ConfigManager.autoClickerRight, v -> ConfigManager.autoClickerRight = v);
-        clickKey("Right Click Keybind", AutoClicker.key(false));
-        slider("Right Minimum CPS", ConfigManager.autoClickerRightMin, 1, 20, 1, value -> {
-            ConfigManager.autoClickerRightMin = (int) value;
-        });
-        slider("Right Maximum CPS", ConfigManager.autoClickerRightMax, 1, 20, 1, value -> {
-            ConfigManager.autoClickerRightMax = (int) value;
-        });
-        option("Allow Breaking Blocks", () -> ConfigManager.autoClickerBreakBlocks, v -> ConfigManager.autoClickerBreakBlocks = v);
-        option("Stop on Item Swap", () -> ConfigManager.autoClickerStopOnSwap, v -> ConfigManager.autoClickerStopOnSwap = v);
-        option("Stop While Sneaking", () -> !ConfigManager.autoClickerWhileSneaking, v -> ConfigManager.autoClickerWhileSneaking = !v);
-        option("Block Dungeon Breaker", () -> ConfigManager.autoClickerBlockDungeonBreaker, v -> ConfigManager.autoClickerBlockDungeonBreaker = v);
-        var whitelist = option("Whitelist Only", () -> ConfigManager.autoClickerWhitelistOnly, v -> ConfigManager.autoClickerWhitelistOnly = v);
+    private void autoClickSettings() {
+        option("Enable Left Click", () -> ConfigManager.autoClickerLeft, value -> ConfigManager.autoClickerLeft = value);
+        clickKey("Left Click Keybind", AutoClick.key(true));
+        slider("Left CPS", ConfigManager.autoClickerLeftCps, 5, 20, 1, value -> ConfigManager.autoClickerLeftCps = (int) value);
+        option("Enable Right Click", () -> ConfigManager.autoClickerRight, value -> ConfigManager.autoClickerRight = value);
+        clickKey("Right Click Keybind", AutoClick.key(false));
+        slider("Right CPS", ConfigManager.autoClickerRightCps, 5, 20, 1, value -> ConfigManager.autoClickerRightCps = (int) value);
+        slider("CPS Jitter", ConfigManager.autoClickerJitter, 1, 3, 1, value -> ConfigManager.autoClickerJitter = (int) value);
+        option("Allow Breaking Blocks", () -> ConfigManager.autoClickerBreakBlocks, value -> ConfigManager.autoClickerBreakBlocks = value);
+        option("Skip Dungeon Breaker", () -> ConfigManager.autoClickerBlockDungeonBreaker, value -> ConfigManager.autoClickerBlockDungeonBreaker = value)
+            .setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent(
+                "Pause automatic clicks while holding Dungeon Breaker.")));
+        var whitelist = option("Whitelist Only", () -> ConfigManager.autoClickerWhitelistOnly, value -> ConfigManager.autoClickerWhitelistOnly = value);
         whitelist.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent(
-            "Use /csb autoclicker add, remove or clear, followed by left or right.")));
+            "Use /csb ac list, or /csb ac add, remove or clear followed by left or right.")));
+        option("Require Key", () -> ConfigManager.autoClickerRequireKey, value -> ConfigManager.autoClickerRequireKey = value);
+        clickKey("Required Key", AutoClick.requiredKey());
+        option("Reverse Required Key", () -> ConfigManager.autoClickerReverseKey, value -> ConfigManager.autoClickerReverseKey = value);
     }
 
     private void safariSettings() {

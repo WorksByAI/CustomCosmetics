@@ -2,6 +2,7 @@
 package com.customcosmetics.mixin;
 
 import com.customcosmetics.config.ConfigManager;
+import com.customcosmetics.features.gameplay.AutoClick;
 import com.customcosmetics.features.gameplay.GameplayFeatures;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -11,6 +12,7 @@ import net.minecraft.world.entity.Entity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
@@ -126,6 +128,11 @@ public final class GameplayMixin {
 
         @org.spongepowered.asm.mixin.gen.Invoker("startUseItem")
         @Override public abstract void csb$use();
+
+        @ModifyVariable(method = "continueAttack", at = @At("HEAD"), argsOnly = true)
+        private boolean csb$includeAutoClickMining(boolean manual) {
+            return manual || AutoClick.continuesMining((Minecraft) (Object) this);
+        }
 
         @Inject(method = "startAttack", at = @At("HEAD"), cancellable = true)
         private void startLeap(CallbackInfoReturnable<Boolean> callback) {

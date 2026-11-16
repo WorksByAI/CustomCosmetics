@@ -4,7 +4,7 @@ package com.customcosmetics.mixin;
 import com.customcosmetics.features.shortcuts.Shortcuts;
 import com.customcosmetics.client.ClientEdition;
 import com.customcosmetics.features.gameplay.GameplayKeybinds;
-import com.customcosmetics.features.gameplay.AutoClicker;
+import com.customcosmetics.features.gameplay.AutoClick;
 import com.customcosmetics.features.gameplay.TooltipTweaks;
 import com.customcosmetics.config.ConfigManager;
 import com.mojang.blaze3d.platform.InputConstants;
@@ -36,7 +36,7 @@ public final class ShortcutsInputMixin {
             else if (ClientEdition.hasCheating()) {
                 if (GameplayKeybinds.acceptsInput(window, action))
                     GameplayKeybinds.press(InputConstants.Type.MOUSE.getOrCreate(event.button()));
-                if (AutoClicker.mouse(window, event.button(), action)) callback.cancel();
+                if (AutoClick.mouse(window, event.button(), action)) callback.cancel();
             }
         }
     }

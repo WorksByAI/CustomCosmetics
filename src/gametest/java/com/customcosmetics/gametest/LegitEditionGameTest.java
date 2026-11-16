@@ -28,6 +28,7 @@ public final class LegitEditionGameTest implements FabricClientGameTest {
         context.runOnClient(client -> {
             ConfigManager.offlineMode = true;
             verify(ClientEdition.installed() == ClientEdition.LEGIT, "Wrong test edition");
+            verify(ClientEdition.reportedVersion().endsWith("-legit"), "Legit did not report its edition");
             verify(!FabricLoader.getInstance().isModLoaded("customskyblock-dungeon"), "Legit loaded Quoi");
             ConfigManager.gameplayPanelConfirmed = true;
             ConfigManager.gameplayModules = java.util.Set.of("AUTO_CLICKER");
@@ -39,7 +40,7 @@ public final class LegitEditionGameTest implements FabricClientGameTest {
             var dispatcher = new CommandDispatcher<FabricClientCommandSource>();
             SyncCommands.register(dispatcher);
             var root = dispatcher.getRoot().getChild("customskyblock");
-            for (String name : new String[]{"cheating", "autoclicker", "leap"}) {
+            for (String name : new String[]{"cheating", "autoclick", "ac", "autoclicker", "leap"}) {
                 verify(root.getChild(name) == null, "Legit registered " + name);
             }
             verify(root.getChild("waypoint") != null && root.getChild("shortcuts") != null, "Missing QOL commands");

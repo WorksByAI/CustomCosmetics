@@ -158,8 +158,8 @@ public final class ConfigManager {
     public static Set<String> gameplayModules = Set.of();
     public static java.util.Map<String, com.customcosmetics.features.gameplay.GameplayModule> gameplayKeybinds = java.util.Map.of();
     public static boolean hideAllPlayers, hidePlayersDungeonOnly, hidePlayersBossOnly, hidePlayersAtDevices, hidePlayersClickThrough;
-    public static boolean autoClickerWhileSneaking = true, autoClickerBreakBlocks, autoClickerBlockDungeonBreaker = true;
-    public static boolean autoClickerStopOnSwap, autoClickerWhitelistOnly;
+    public static boolean autoClickerBreakBlocks = true, autoClickerBlockDungeonBreaker = true, autoClickerWhitelistOnly;
+    public static boolean autoClickerRequireKey, autoClickerReverseKey;
     public static Set<String> autoClickerLeftItems = Set.of(), autoClickerRightItems = Set.of();
     public static int bookCombineResultDelay = 10;
     public static int experimentMinDelay = 200, experimentMaxDelay = 250, experimentSerums;
@@ -233,7 +233,7 @@ public final class ConfigManager {
     public static java.util.Map<String, Integer> safariSpeciesColors = java.util.Map.of();
     public static boolean trajectoryBows, trajectoryPearls = true;
     public static boolean autoClickerLeft, autoClickerRight;
-    public static int autoClickerLeftMin = 10, autoClickerLeftMax = 12, autoClickerRightMin = 10, autoClickerRightMax = 12;
+    public static int autoClickerLeftCps = 5, autoClickerRightCps = 5, autoClickerJitter = 2;
     public static boolean refillPearls, refillSuperboom, refillJerries, refillLeaps;
     public static boolean refillTimed, refillDungeonsOnly;
     public static int refillPercent = 50, refillIntervalSeconds = 5;
@@ -361,6 +361,22 @@ public final class ConfigManager {
     }
 
     private ConfigManager() {}
+
+    private static int readAutoClickCps(com.google.gson.JsonObject settings, String side, int fallback) {
+        String prefix = "autoClicker" + side;
+        if (!settings.has(prefix + "Cps")) {
+            int legacy = readNumber(settings, "autoClickerCps", fallback);
+            int minimum = readNumber(settings, prefix + "Min", legacy);
+            int maximum = readNumber(settings, prefix + "Max", minimum);
+            fallback = (Math.clamp(minimum, 1, 20) + Math.clamp(maximum, 1, 20) + 1) / 2;
+        }
+        return Math.clamp(fallback, 5, 20);
+    }
+
+    private static int readNumber(com.google.gson.JsonObject settings, String key, int fallback) {
+        return settings.get(key) instanceof com.google.gson.JsonPrimitive value && value.isNumber()
+            ? value.getAsInt() : fallback;
+    }
 
     public static int getSyncRefreshIntervalSeconds() {
         return Math.clamp(syncRefreshIntervalSeconds, 30, 7200);
@@ -509,13 +525,9 @@ public final class ConfigManager {
             corpseLineWidth = Math.clamp(corpseLineWidth, 1, 10);
             pestEspThickness = Math.clamp(pestEspThickness, 1, 10);
             fastLeapTarget = fastLeapTarget != null && fastLeapTarget.matches("[A-Za-z0-9_]{1,16}") ? fastLeapTarget : "";
-            if (!settings.has("autoClickerLeftMin") && settings.has("autoClickerCps")
-                    && settings.get("autoClickerCps") instanceof com.google.gson.JsonPrimitive legacyCps && legacyCps.isNumber())
-                autoClickerLeftMin = autoClickerLeftMax = autoClickerRightMin = autoClickerRightMax = legacyCps.getAsInt();
-            autoClickerLeftMin = Math.clamp(autoClickerLeftMin, 1, 20);
-            autoClickerLeftMax = Math.clamp(autoClickerLeftMax, 1, 20);
-            autoClickerRightMin = Math.clamp(autoClickerRightMin, 1, 20);
-            autoClickerRightMax = Math.clamp(autoClickerRightMax, 1, 20);
+            autoClickerLeftCps = readAutoClickCps(settings, "Left", autoClickerLeftCps);
+            autoClickerRightCps = readAutoClickCps(settings, "Right", autoClickerRightCps);
+            autoClickerJitter = Math.clamp(autoClickerJitter, 1, 3);
             bookCombineResultDelay = Math.clamp(bookCombineResultDelay, 2, 40);
             experimentMinDelay = Math.clamp(experimentMinDelay, 100, 1000);
             experimentMaxDelay = Math.clamp(experimentMaxDelay, experimentMinDelay, 1000);

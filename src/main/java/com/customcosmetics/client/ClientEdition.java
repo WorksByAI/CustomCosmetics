@@ -27,6 +27,11 @@ public enum ClientEdition {
 
     public static ClientEdition installed() { return Installed.EDITION; }
 
+    public static String reportedVersion() {
+        String version = CustomCosmeticsClient.version();
+        return "unknown".equals(version) ? version : version + "-" + installed().id;
+    }
+
     public static boolean hasCheating() { return installed() == CHEATING; }
 
     private static final class Installed {

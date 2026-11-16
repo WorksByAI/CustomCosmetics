@@ -262,7 +262,7 @@ Athen and Nebulune
 ------------------
 Portions of Lobby Marker, Missing Enchants, Player Spin, Kuudra phase detection, Kuudra alerts and waypoints, Block Perks, Cocoon Alert,
 Item Tweaks and Render Optimiser are adapted from Athen (https://github.com/skies-starred/Athen), copyright 2025-2026 Starred.
-Auto Harp, Auto Experiments, Trevor Helper, Dagger Swap, Kuudra Peek, Auto Pearl, Crystal
+AutoClick, Auto Harp, Auto Experiments, Trevor Helper, Dagger Swap, Kuudra Peek, Auto Pearl, Crystal
 Hollows World Scanner, and corpse, pest and Safari target identification
 adapt Nebulune (https://github.com/Gaeritag/Nebulune),
 copyright 2025 Starred. Pest texture hashes originated in Skyblocker, LGPL-3.0,
@@ -274,7 +274,7 @@ under the MIT License in LICENSES/SkyblockAPI-MIT.txt.
 
 Quoi
 ----
-F7 devices, Auto Leap, Fast Leap, Secret Aura, Auto Close Chest, Auto GFS, Auto Book Combine, Auto Clicker,
+F7 devices, Auto Leap, Fast Leap, Secret Aura, Auto Close Chest, Auto GFS, Auto Book Combine,
 Trajectories, Slayer tools, Dojo, Mirrorverse, Chocolate Factory, Auto Carnival, Great Spook, and portions of
 gameplay target detection are adapted from Quoi at 1640208feeb94e7095873f36c6ad31ecf9721a1e,
 by jcnlk and contributors. The port uses Minecraft's client APIs and project

@@ -29,7 +29,17 @@ class SyncCommandsTest {
             assertNotNull(original.getChild("waypoint").getChild(action), action);
             assertNotNull(original.getChild("waypoint").getChild("ordered").getChild(action), action);
         }
-        for (String restricted : new String[]{"cheating", "autoclicker", "leap"})
+        for (String restricted : new String[]{"cheating", "autoclick", "ac", "autoclicker", "leap"})
             assertEquals(edition == ClientEdition.CHEATING, original.getChild(restricted) != null, restricted);
+        if (edition != ClientEdition.CHEATING) return;
+        for (String name : new String[]{"autoclick", "ac", "autoclicker"}) {
+            var autoClick = original.getChild(name);
+            assertNotNull(autoClick.getChild("list").getCommand());
+            for (String action : new String[]{"add", "remove", "clear"}) {
+                for (String side : new String[]{"left", "right"}) {
+                    assertNotNull(autoClick.getChild(action).getChild(side).getCommand());
+                }
+            }
+        }
     }
 }
