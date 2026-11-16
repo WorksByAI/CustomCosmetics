@@ -2,13 +2,10 @@
 
 ## 3.1.0
 
-- new feat: Customize and share the displayed SkyBlock level with tier presets and per-digit colors.
-- new feat: Share custom item names and appearances on a per-item basis.
-- new feat: Manage the shared item limit and preview players' shared items in the admin panel.
-- new feat: Default to five shared items and display the limit reported by the server in the item editor.
-- bug fix: Let standalone HUD Manager control HUD rendering when installed.
-- bug fix: Apply legacy and hexadecimal color codes in the Nick Hider self alias.
-- bug fix: Let Baity handle motion blur when it provides its own renderer hooks.
+- new feat: Customize and share SkyBlock levels with tier presets and per-digit colors.
+- new feat: Share item appearances, preview them in the admin panel, and show the server limit in-game. The default is five.
+- bug fix: Render color codes in Nick Hider self aliases.
+- bug fix: Avoid conflicts with standalone HUD Manager and Baity motion blur.
 
 ## 3.0.4
 
