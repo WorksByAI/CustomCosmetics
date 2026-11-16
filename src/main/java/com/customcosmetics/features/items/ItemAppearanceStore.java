@@ -15,23 +15,31 @@ import java.util.concurrent.Executors;
 
 /** Local overrides indexed by the unique item UUID, never by the player's UUID. */
 public final class ItemAppearanceStore {
-    public static final int MAX_NAME = 256, MAX_ENTRIES = 1024;
-    private static final Appearance ORIGINAL = new Appearance("", "");
+    public static final int MAX_NAME = 256, MAX_ENTRIES = 1024, MAX_SHARED = 24;
+    static final Appearance ORIGINAL = new Appearance("", "");
     private static final java.util.regex.Pattern COMPACT_UUID = java.util.regex.Pattern.compile("[a-f0-9]{32}");
     private static final java.util.regex.Pattern FULL_UUID = java.util.regex.Pattern.compile("[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}");
     private static final int MAX_FILE_BYTES = 2 * 1024 * 1024;
     private static final Executor WRITER = Executors.newSingleThreadExecutor(task -> {
         var thread = new Thread(task,"CustomSkyBlock-item-save");thread.setDaemon(true);return thread;
     });
-    public record Appearance(String name, String model, String armorModel, Integer armorColor, String headTexture, boolean hideGlint) {
+    public record Appearance(String name, String model, String armorModel, Integer armorColor, String headTexture, boolean hideGlint, boolean shared,
+                             ItemSharingPreview preview) {
+        public Appearance(String name, String model, String armorModel, Integer armorColor, String headTexture, boolean hideGlint, boolean shared) {
+            this(name, model, armorModel, armorColor, headTexture, hideGlint, shared, null);
+        }
         public Appearance(String name, String model) { this(name, model, "", null, ""); }
         public Appearance(String name, String model, String armorModel, Integer armorColor) { this(name, model, armorModel, armorColor, ""); }
         public Appearance(String name, String model, String armorModel, Integer armorColor, String headTexture) { this(name, model, armorModel, armorColor, headTexture, false); }
+        public Appearance(String name, String model, String armorModel, Integer armorColor, String headTexture, boolean hideGlint) {
+            this(name, model, armorModel, armorColor, headTexture, hideGlint, false);
+        }
         public Appearance {
             name = name == null ? "" : name;
             model = canonicalIdentifier(model);
             armorModel = canonicalIdentifier(armorModel);
             headTexture = HeadTexture.normalize(headTexture);
+            if (!shared) preview = null;
             if (name.length() > MAX_NAME || name.codePoints().anyMatch(Character::isISOControl))
                 throw new IllegalArgumentException("Use at most 256 characters without control characters.");
             if (!validIdentifier(model))
@@ -64,6 +72,9 @@ public final class ItemAppearanceStore {
     private boolean writing;
     private CompletableFuture<Void> completion = CompletableFuture.completedFuture(null);
     private int models,names,armorModels,armorColors,headTextures,hiddenGlints;
+    private long sharedRevision = -1;
+    private int sharedSnapshotLimit = -1;
+    private Map<String, Appearance> sharedSnapshot = Map.of();
     public boolean hasModels(){return models!=0;}
     public boolean hasNames(){return names!=0;}
     public boolean hasArmorModels(){return armorModels!=0;}
@@ -100,11 +111,31 @@ public final class ItemAppearanceStore {
     Appearance getCanonical(String uuid) { return entries.getOrDefault(uuid, ORIGINAL); }
     public int size() { return entries.size(); }
     public boolean dirty() { return dirty; }
+    public synchronized Map<String, Appearance> shared() {
+        if (!enabled) return Map.of();
+        int limit = SharedItemAppearances.limit();
+        if (sharedRevision != revision || sharedSnapshotLimit != limit) {
+            var values = new LinkedHashMap<String, Appearance>();
+            entries.entrySet().stream().filter(entry -> entry.getValue().shared()).limit(limit)
+                .forEach(entry -> values.put(entry.getKey(), entry.getValue()));
+            sharedSnapshot = Collections.unmodifiableMap(values);
+            sharedRevision = revision;
+            sharedSnapshotLimit = limit;
+        }
+        return sharedSnapshot;
+    }
     public synchronized void put(String uuid, Appearance value) {
         String key = key(uuid);
         if (key.isEmpty()) throw new IllegalArgumentException("This item has no valid unique item UUID.");
         if (value.empty()) { var removed=entries.remove(key);if(removed!=null){count(removed,-1);dirty=true;revision++;}return; }
         if (!entries.containsKey(key) && entries.size() >= MAX_ENTRIES) throw new IllegalStateException("Too many customized items.");
+        Integer limit = SharedItemAppearances.serverLimit();
+        if (value.shared() && !getCanonical(key).shared()
+                && entries.values().stream().filter(Appearance::shared).count() >= (limit == null ? MAX_SHARED : limit)) {
+            if (limit == null) throw new IllegalStateException("Server sharing limit unavailable.");
+            throw new IllegalStateException(limit == 0 ? "The server has disabled item sharing. Turn sharing off to save locally."
+                : "You can share up to " + limit + " items. Turn sharing off on another item first.");
+        }
         var previous=entries.put(key,value);if(!value.equals(previous)){count(previous,-1);count(value,1);dirty=true;revision++;}
     }
     public void load() throws IOException {
@@ -132,7 +163,8 @@ public final class ItemAppearanceStore {
                         data.has("armorModel") ? data.get("armorModel").getAsString() : "",
                         data.has("armorColor") ? data.get("armorColor").getAsInt() : null,
                         data.has("headTexture") ? data.get("headTexture").getAsString() : "",
-                        data.has("hideGlint") && data.get("hideGlint").getAsBoolean());
+                        data.has("hideGlint") && data.get("hideGlint").getAsBoolean(),
+                        data.has("shared") && data.get("shared").getAsBoolean(), ItemSharingPreview.parse(data.get("preview")));
                     if (!appearance.empty()) loaded.put(key, appearance);
                 } catch (RuntimeException malformedEntry) { /* An invalid override must not break other items. */ }
             }
@@ -183,6 +215,8 @@ public final class ItemAppearanceStore {
             if (entry.getValue().armorColor() != null) value.addProperty("armorColor", entry.getValue().armorColor());
             if (!entry.getValue().headTexture().isEmpty()) value.addProperty("headTexture", entry.getValue().headTexture());
             if (entry.getValue().hideGlint()) value.addProperty("hideGlint", true);
+            if (entry.getValue().shared()) value.addProperty("shared", true);
+            if (entry.getValue().preview() != null) value.add("preview", entry.getValue().preview().json());
             items.add(entry.getKey(), value);
         }
         root.add("items", items);

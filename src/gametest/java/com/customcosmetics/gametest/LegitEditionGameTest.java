@@ -72,6 +72,19 @@ public final class LegitEditionGameTest implements FabricClientGameTest {
                 verify(TextReplacements.apply("Profile: " + account).equals("Profile: Local Alias"), "Custom self alias was not applied");
                 verify(NickRenderUtils.handleFormattedText(nametag).getString().equals(account),
                     "Nick Changer rewrote the nametag before Nick Hider could apply");
+                field.setValue("&6Time&#FF66BBDeo");
+                var renderedAlias = new StringBuilder();
+                var colors = new java.util.ArrayList<Integer>();
+                nametag.getVisualOrderText().accept((index, style, codePoint) -> {
+                    renderedAlias.appendCodePoint(codePoint);
+                    colors.add(style.getColor().getValue());
+                    return true;
+                });
+                verify(renderedAlias.toString().equals("TimeDeo") && colors.equals(java.util.List.of(
+                    0xFFAA00, 0xFFAA00, 0xFFAA00, 0xFFAA00, 0xFF66BB, 0xFF66BB, 0xFF66BB)),
+                    "Self alias formatting was visible as text or used incorrect colors");
+                verify(client.font.width(account) == client.font.width(nametag.getVisualOrderText()),
+                    "The raw and styled self alias widths differ");
                 field.setValue("");
                 verify(TextReplacements.apply(account).equals("Player-1"), "Clearing the field did not restore the automatic alias");
                 ConfigManager.nickHiderSelf = false;

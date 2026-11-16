@@ -22,6 +22,11 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 public final class ItemAppearanceMixin {
+    @Mixin(net.minecraft.client.renderer.texture.SpriteContents.class)
+    public interface SpritePixels {
+        @org.spongepowered.asm.mixin.gen.Accessor("originalImage")
+        com.mojang.blaze3d.platform.NativeImage customcosmetics$originalImage();
+    }
     @Mixin(net.minecraft.core.component.PatchedDataComponentMap.class)
     public static class Components implements com.customcosmetics.features.items.ItemComponentIdentity {
         @org.spongepowered.asm.mixin.Shadow private it.unimi.dsi.fastutil.objects.Reference2ObjectMap<?,?> patch;

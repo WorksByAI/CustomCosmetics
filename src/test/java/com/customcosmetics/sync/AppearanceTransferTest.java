@@ -38,4 +38,19 @@ class AppearanceTransferTest {
         String url=PresenceSync.peerFetchUrl("https://example.test/users.json",peers);
         assertEquals(16,url.substring(url.indexOf('=')+1).split(",").length);assertEquals("x",PresenceSync.peerFetchUrl("x",Set.of()));
     }
+    @Test void levelAndSharedItemsFitTheExistingPeerEnvelope(){
+        var features = new JsonObject();
+        var nick = new JsonObject();
+        features.add("nickTweaks", nick);
+        var level = new com.customcosmetics.features.nickname.SkyBlockLevel(555, List.of(0xFF0000, 0x00FF00, 0x0000FF));
+        com.customcosmetics.features.nickname.SkyBlockLevel.encode(nick, level);
+        String item = UUID.randomUUID().toString();
+        var appearance = new com.customcosmetics.features.items.ItemAppearanceStore.Appearance(
+            "Blue Sword", "minecraft:diamond_sword", "", null, "", true);
+        com.customcosmetics.features.items.SharedItemAppearances.encode(nick, Map.of(item, appearance), false);
+        assertNotNull(AppearanceTransfer.encode(features));
+        var peer = PresenceSync.decodePeerAppearance(UUID.randomUUID(), "Alice", features);
+        assertEquals(level, peer.user().skyBlockLevel());
+        assertEquals(Map.of(item, appearance), peer.user().itemAppearances());
+    }
 }

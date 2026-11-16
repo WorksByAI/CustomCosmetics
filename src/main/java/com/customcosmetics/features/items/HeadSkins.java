@@ -100,10 +100,7 @@ public final class HeadSkins {
         if (!FeatureModules.enabled(FeatureModules.Feature.ITEMS)) return "";
         var preview = PREVIEWS.get(stack);
         if (preview != null) return preview;
-        var store = ItemCosmetics.store();
-        if (store == null || !store.enabled() || !store.hasHeadTextures() || stack.isEmpty()
-                || !FeatureModules.enabled(FeatureModules.Feature.ITEMS)) return "";
-        return store.getCanonical(ItemCosmetics.appearanceKey(stack)).headTexture();
+        return ItemCosmetics.appearance(stack).headTexture();
     }
     public static boolean hasOverride(ItemStack stack) { return !selected(stack).isEmpty(); }
     public static ItemStack renderProxy(ItemStack source) {
@@ -124,8 +121,6 @@ public final class HeadSkins {
         var copy = ItemCosmetics.preview(source, MODEL); copy.set(DataComponents.PROFILE, profile(texture)); PREVIEWS.put(copy, texture); return copy;
     }
     public static void worn(LivingEntity entity, LivingEntityRenderState state) {
-        var store = ItemCosmetics.store();
-        if (store == null || !store.hasHeadTextures() || !store.enabled() || !FeatureModules.enabled(FeatureModules.Feature.ITEMS)) return;
         String texture = selected(entity.getItemBySlot(EquipmentSlot.HEAD));
         if (texture.isEmpty()) return;
         state.headItem.clear(); state.wornHeadType = SkullBlock.Types.PLAYER; state.wornHeadProfile = profile(texture);

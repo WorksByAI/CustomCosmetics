@@ -135,6 +135,7 @@
     "ItemAppearanceMixin$Names",
     "ItemAppearanceMixin$Components",
     "ItemAppearanceMixin$Models",
+    "ItemAppearanceMixin$SpritePixels",
     "ArmorAppearanceMixin$Assets",
     "ArmorAppearanceMixin$HeadEquipment",
     "ArmorAppearanceMixin$HeadSkin",

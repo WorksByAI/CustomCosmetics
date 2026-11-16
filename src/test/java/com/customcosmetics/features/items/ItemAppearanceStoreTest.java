@@ -59,6 +59,50 @@ class ItemAppearanceStoreTest {
     }
     private static final String A="12345678-1234-1234-1234-123456789abc",B="12345678-1234-1234-1234-123456789abd";
     @TempDir Path directory;
+    @Test void onlyOptedInItemsArePublishedAndTheChoiceSurvivesReload() throws Exception {
+        var path = directory.resolve("share.json");
+        var store = new ItemAppearanceStore(path);
+        store.put(A, new ItemAppearanceStore.Appearance("Private", ""));
+        var shared = new ItemAppearanceStore.Appearance("Shared", "minecraft:stick", "", null, "", true, true,
+            new ItemSharingPreview("Stick", "minecraft:stick", "", ""));
+        store.put(B, shared);
+        assertEquals(java.util.Map.of(B, shared), store.shared());
+        store.save();
+        var restored = new ItemAppearanceStore(path);
+        restored.load();
+        assertFalse(restored.get(A).shared());
+        assertEquals(store.shared(), restored.shared());
+        restored.enabled(false);
+        assertTrue(restored.shared().isEmpty());
+        restored.enabled(true);
+        restored.put(B, new ItemAppearanceStore.Appearance("Shared", "minecraft:stick"));
+        assertTrue(restored.shared().isEmpty());
+    }
+    @Test void serverLimitStopsSharingWithoutDeletingLocalOverrides() {
+        var store = new ItemAppearanceStore(directory.resolve("quota.json"));
+        var shared = new ItemAppearanceStore.Appearance("Shared", "", "", null, "", false, true);
+        var policy = new com.google.gson.JsonObject();
+        try {
+            SharedItemAppearances.resetLimit();
+            assertEquals(5, SharedItemAppearances.limit());
+            assertNull(SharedItemAppearances.serverLimit());
+            policy.addProperty("itemShareLimit", 1);
+            SharedItemAppearances.readLimit(policy);
+            assertEquals(1, SharedItemAppearances.serverLimit());
+            store.put(A, shared);
+            assertThrows(IllegalStateException.class, () -> store.put(B, shared));
+            assertEquals(1, store.shared().size());
+            policy.addProperty("itemShareLimit", 0);
+            SharedItemAppearances.readLimit(policy);
+            assertTrue(store.shared().isEmpty());
+            assertEquals(shared, store.get(A));
+            policy.addProperty("itemShareLimit", "2");
+            SharedItemAppearances.readLimit(policy);
+            assertEquals(0, SharedItemAppearances.limit());
+        } finally {
+            SharedItemAppearances.resetLimit();
+        }
+    }
     @Test void savesAndReloadsSeparatePhysicalItemsAndEnabledState() throws Exception {
         var path=directory.resolve("items.json");var original=new ItemAppearanceStore(path);
         original.put(A,new ItemAppearanceStore.Appearance("&dMy Hyperion","minecraft:diamond_sword"));

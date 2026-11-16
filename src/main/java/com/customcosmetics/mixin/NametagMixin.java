@@ -59,8 +59,9 @@ public final class NametagMixin {
             at = @At("HEAD"), argsOnly = true)
         private Component customcosmetics$layoutNickname(Component original) {
             if (original == null) return null;
-            var processed = NickRenderUtils.handleFormattedText(original);
-            return processed instanceof Component component ? component : original;
+            var level = com.customcosmetics.features.nickname.SkyBlockLevelAppearance.nametag(original);
+            var processed = NickRenderUtils.handleFormattedText(level);
+            return processed instanceof Component component ? component : level;
         }
     }
 }

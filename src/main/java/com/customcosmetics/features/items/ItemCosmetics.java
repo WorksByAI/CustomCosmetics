@@ -16,7 +16,7 @@ import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.CustomData;
 
-/** Never modifies inventory stacks or contacts either the game or cosmetics server. */
+/** Render-only overrides. PresenceSync publishes the opted-in items. */
 public final class ItemCosmetics {
     private static final Map<CustomData, String> IDENTITIES = new IdentityHashMap<>();
     private static final Map<ItemStack, Identifier> PREVIEWS = new WeakHashMap<>();
@@ -39,12 +39,34 @@ public final class ItemCosmetics {
         HeadSkins.requestCatalog();
     }
     public static ItemAppearanceStore store() { return store; }
-    public static boolean modelsActive(){return com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ITEMS)&&(!PREVIEWS.isEmpty()||store!=null&&store.enabled()&&(store.hasModels()||store.hasHeadTextures()));}
+    private static boolean enabled() {
+        return com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ITEMS);
+    }
+    static boolean active() { return enabled() && store != null && store.enabled(); }
+    public static Map<String, ItemAppearanceStore.Appearance> shared() {
+        return active() ? store.shared() : Map.of();
+    }
+    private static Map<String, ItemAppearanceStore.Appearance> remote() {
+        var client = Minecraft.getInstance();
+        if (client == null || !client.isSameThread() || !com.customcosmetics.sync.RemoteAccess.online()
+                || !com.customcosmetics.features.animations.PresenceWorld.isHypixel(client)
+                || !com.customcosmetics.features.animations.PresenceWorld.isSkyblock(client)) return Map.of();
+        return com.customcosmetics.sync.PresenceSync.remoteItemAppearances();
+    }
+    static ItemAppearanceStore.Appearance appearance(ItemStack stack) {
+        if (!active() || stack.isEmpty()) return ItemAppearanceStore.ORIGINAL;
+        var local = store.size() == 0 ? ItemAppearanceStore.ORIGINAL : store.getCanonical(appearanceKey(stack));
+        if (!local.empty()) return local;
+        var remote = remote();
+        return remote.isEmpty() ? local : remote.getOrDefault(uuid(stack), local);
+    }
+    public static boolean modelsActive() {
+        return enabled() && (!PREVIEWS.isEmpty() || active() && (store.hasModels() || store.hasHeadTextures() || !remote().isEmpty()));
+    }
     public static boolean modelOverrideActive(ItemStack stack){
         if(!modelsActive())return false;
         if(PREVIEWS.containsKey(stack))return true;
-        if(store==null||!store.enabled())return false;
-        var appearance=store.getCanonical(appearanceKey(stack));
+        var appearance=appearance(stack);
         return !appearance.model().isEmpty()||!appearance.headTexture().isEmpty();
     }
     public static String uuid(CompoundTag data) {
@@ -151,27 +173,23 @@ public final class ItemCosmetics {
         if (VALIDATING.contains(stack)) return original;
         var preview = PREVIEWS.get(stack);
         if (preview != null) return preview;
-        if (store == null || !store.enabled()) return original;
-        var appearance = store.getCanonical(appearanceKey(stack));
+        var appearance = appearance(stack);
         if (!appearance.headTexture().isEmpty()) return HeadSkins.MODEL;
         String raw = appearance.model();
         Identifier selected = modelId(raw);
         return hasModel(selected) && validated(stack, selected) ? selected : original;
     }
     public static Component name(ItemStack stack, Component original) {
-        if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ITEMS))return original;
-        if(store==null||!store.hasNames())return original;
         // The integrated server shares ItemStack classes but must retain its original names.
-        if (store == null || !store.enabled() || !Minecraft.getInstance().isSameThread()) return original;
-        String raw = store.getCanonical(appearanceKey(stack)).name();
+        if (!active() || !Minecraft.getInstance().isSameThread() || !store.hasNames() && remote().isEmpty()) return original;
+        String raw = appearance(stack).name();
         return raw.isEmpty() ? original : ItemNameText.cached(raw);
     }
     /** Render-side visibility only; keep real enchantments and component data intact. */
     public static boolean foil(ItemStack stack, boolean original) {
-        if (!original || !com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.ITEMS)
-                || store == null || !store.enabled() || !store.hasHiddenGlints()) return original;
+        if (!original || !active() || !store.hasHiddenGlints() && remote().isEmpty()) return original;
         if (!Minecraft.getInstance().isSameThread()) return original;
-        return !store.getCanonical(appearanceKey(stack)).hideGlint();
+        return !appearance(stack).hideGlint();
     }
     public static void tick() {
         ArmorTrace.tick(Minecraft.getInstance());

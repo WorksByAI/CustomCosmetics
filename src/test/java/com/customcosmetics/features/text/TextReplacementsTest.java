@@ -9,6 +9,7 @@ import net.minecraft.util.FormattedCharSequence;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -60,5 +61,22 @@ class TextReplacementsTest {
         });
         assertEquals("Guest-1!", RankText.component(output).getString());
         assertEquals("Alice!", RankText.component(input).getString());
+    }
+
+    @Test void appliesOnlyThePersonalAliasColorsAndKeepsTheOriginalNameHover() {
+        var aliases = new TextReplacements.Rules(Map.of("alice", "&6Time&#FF66BBDeo&r!", "bob", "&6Guest"), true, Set.of("alice"));
+        var hover = new HoverEvent.ShowText(Component.literal("player info"));
+        var style = Style.EMPTY.withColor(0xFFFFFF).withHoverEvent(hover);
+        var output = aliases.replace(FormattedCharSequence.composite(
+            FormattedCharSequence.forward("Alice", style), FormattedCharSequence.forward(" Bob", Style.EMPTY)));
+        assertEquals("TimeDeo! &6Guest", RankText.component(output).getString());
+        assertEquals("TimeDeo! &6Guest", aliases.replace("Alice Bob"));
+        output.accept((index, rendered, codepoint) -> {
+            if (index < 8) {
+                assertEquals(hover, rendered.getHoverEvent());
+                assertEquals(index < 4 ? 0xFFAA00 : index < 7 ? 0xFF66BB : 0xFFFFFF, rendered.getColor().getValue());
+            } else assertEquals(Style.EMPTY, rendered);
+            return true;
+        });
     }
 }

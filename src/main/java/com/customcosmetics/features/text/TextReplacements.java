@@ -3,10 +3,13 @@ package com.customcosmetics.features.text;
 
 import com.customcosmetics.compatibility.ClientUiAccess;
 import com.customcosmetics.config.ConfigManager;
+import com.customcosmetics.features.items.ItemNameText;
 import com.customcosmetics.features.nickname.RankText;
 import com.customcosmetics.utils.IdentityFrameCache;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.locale.Language;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.FormattedText;
 import net.minecraft.network.chat.Style;
 import net.minecraft.util.FormattedCharSequence;
@@ -20,6 +23,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.IntSupplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -64,14 +68,22 @@ public final class TextReplacements {
         revision++;
     }
 
-    public static boolean setPlayerAliases(Map<String, String> aliases) {
-        if (playerAliases.replacements.equals(aliases)) return false;
-        playerAliases = new Rules(Map.copyOf(aliases), true);
+    public static boolean setPlayerAliases(Map<String, String> aliases, Set<String> styledAccounts) {
+        if (playerAliases.replacements.equals(aliases) && playerAliases.styledAccounts.equals(styledAccounts)) return false;
+        playerAliases = new Rules(Map.copyOf(aliases), true, Set.copyOf(styledAccounts));
         revision++;
         return true;
     }
 
     public static Map<String, String> playerAliases() { return playerAliases.replacements; }
+
+    public static boolean usesStyledAlias(String text) {
+        var aliases = playerAliases;
+        if (text == null || RAW_WIDTH.get() != null || aliases.styledAliases.isEmpty()) return false;
+        if (ConfigManager.textReplacementsEnabled) text = rules.replace(text);
+        if (text.indexOf('§') >= 0) text = ChatFormatting.stripFormatting(text);
+        return aliases.matches(text).stream().anyMatch(match -> match.styled() != null);
+    }
 
     public static boolean active() {
         return ((ConfigManager.textReplacementsEnabled && rules.pattern != null) || playerAliases.pattern != null)
@@ -160,7 +172,7 @@ public final class TextReplacements {
         final IdentityFrameCache<FormattedText, FormattedText> formatted = new IdentityFrameCache<>(1024);
     }
 
-    private record Match(int start, int end, String replacement) {}
+    private record Match(int start, int end, String replacement, Component styled) {}
     private record Glyph(int codepoint, Style style) {}
 
     static final class Rules {
@@ -168,6 +180,8 @@ public final class TextReplacements {
         private final Map<String, String> replacements;
         private final Pattern pattern;
         private final boolean playerWords;
+        private final Set<String> styledAccounts;
+        private final Map<String, Component> styledAliases;
         private final Map<String, List<Match>> plans = new LinkedHashMap<>(32, .75f, true) {
             @Override protected boolean removeEldestEntry(Map.Entry<String, List<Match>> eldest) { return size() > 512; }
         };
@@ -177,8 +191,21 @@ public final class TextReplacements {
         }
 
         Rules(Map<String, String> replacements, boolean playerWords) {
+            this(replacements, playerWords, Set.of());
+        }
+
+        Rules(Map<String, String> replacements, boolean playerWords, Set<String> styledAccounts) {
             this.replacements = replacements;
             this.playerWords = playerWords;
+            this.styledAccounts = styledAccounts;
+            var styled = new LinkedHashMap<String, Component>();
+            for (var name : styledAccounts) {
+                var raw = replacements.get(name);
+                if (raw == null) continue;
+                var component = ItemNameText.parse(raw, Style.EMPTY);
+                if (!component.getString().equals(raw)) styled.put(name, component);
+            }
+            styledAliases = Map.copyOf(styled);
             pattern = replacements.isEmpty() ? null : playerWords ? PLAYER_WORD : Pattern.compile(replacements.keySet().stream()
                 .sorted(Comparator.comparingInt(String::length).reversed())
                 .map(Pattern::quote).collect(Collectors.joining("|")));
@@ -218,12 +245,11 @@ public final class TextReplacements {
                     var match = matches.get(next[0]);
                     if (position >= match.start()) {
                         if (position == match.start()) {
-                            String replacement = match.replacement();
-                            for (int i = 0; i < replacement.length();) {
-                                int cp = replacement.codePointAt(i);
-                                output.add(new Glyph(cp, style));
-                                i += Character.charCount(cp);
-                            }
+                            if (match.styled() == null) appendGlyphs(output, match.replacement(), style);
+                            else match.styled().visit((aliasStyle, part) -> {
+                                appendGlyphs(output, part, aliasStyle);
+                                return Optional.empty();
+                            }, style);
                         }
                         if (offset[0] >= match.end()) next[0]++;
                         return true;
@@ -242,6 +268,10 @@ public final class TextReplacements {
             });
         }
 
+        private static void appendGlyphs(List<Glyph> output, String text, Style style) {
+            text.codePoints().forEach(cp -> output.add(new Glyph(cp, style)));
+        }
+
         private synchronized List<Match> matches(String text) {
             if (pattern == null || text.isEmpty()) return List.of();
             var cached = plans.get(text);
@@ -254,11 +284,14 @@ public final class TextReplacements {
                 int maximumLength = Math.max(16_384, text.length());
                 do {
                     String word = matcher.group();
-                    String replacement = replacements.get(playerWords ? word.toLowerCase(Locale.ROOT) : word);
+                    String key = playerWords ? word.toLowerCase(Locale.ROOT) : word;
+                    String replacement = replacements.get(key);
                     if (replacement == null) continue;
+                    var styled = styledAliases.get(key);
+                    if (styled != null) replacement = styled.getString();
                     renderedLength += replacement.length() - (matcher.end() - matcher.start());
                     if (renderedLength > maximumLength) return List.of();
-                    found.add(new Match(matcher.start(), matcher.end(), replacement));
+                    found.add(new Match(matcher.start(), matcher.end(), replacement, styled));
                 } while (matcher.find());
                 if (!found.isEmpty()) result = List.copyOf(found);
             }

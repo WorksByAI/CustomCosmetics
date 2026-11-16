@@ -28,10 +28,12 @@ public final class HudLayout {
         }
     }
     private static float alpha=1;
+    private static final boolean EXTERNAL = net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("hudmanager");
     private HudLayout(){}
+    public static boolean available(){return !EXTERNAL;}
     public static Options options(Element element){return ConfigManager.hudLayout.getOrDefault(element,Options.DEFAULT);}
     public static Options active(Element element){
-        if(!ConfigManager.hudLayoutEnabled||!FeatureModules.enabled(FeatureModules.Feature.HUD_LAYOUT))return null;
+        if(EXTERNAL||!ConfigManager.hudLayoutEnabled||!FeatureModules.enabled(FeatureModules.Feature.HUD_LAYOUT))return null;
         return ConfigManager.hudLayout.get(element);
     }
     public static void set(Element element,Options options){

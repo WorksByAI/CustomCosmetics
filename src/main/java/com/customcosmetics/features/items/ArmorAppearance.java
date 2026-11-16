@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package com.customcosmetics.features.items;
 
-import com.customcosmetics.config.FeatureModules;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.model.EquipmentAssetManager;
 import net.minecraft.client.resources.model.EquipmentClientInfo;
@@ -25,10 +24,6 @@ public final class ArmorAppearance {
     private record HeadProxy(CustomData data,ItemAppearanceStore.Appearance appearance,boolean foil,ItemStack stack) {}
     private ArmorAppearance() {}
 
-    private static ItemAppearanceStore activeStore() {
-        ItemAppearanceStore store = ItemCosmetics.store();
-        return FeatureModules.enabled(FeatureModules.Feature.ITEMS) && store != null && store.enabled() ? store : null;
-    }
     public static boolean editable(ItemStack stack) {
         if (stack == null || stack.isEmpty()) return false;
         if (stack.is(Items.PLAYER_HEAD)) return true;
@@ -72,25 +67,20 @@ public final class ArmorAppearance {
         return info != EquipmentAssetManager.MISSING && !info.getLayers(layer).isEmpty();
     }
     public static ResourceKey<EquipmentAsset> model(ItemStack stack, ResourceKey<EquipmentAsset> original, EquipmentClientInfo.LayerType layer) {
-        ItemAppearanceStore store = activeStore();
-        if (store == null || !store.hasArmorModels()) return original;
-        String id = store.getCanonical(ItemCosmetics.appearanceKey(stack)).armorModel();
+        String id = ItemCosmetics.appearance(stack).armorModel();
         if (id.isEmpty()) return original;
         var key = assetKey(id);
         return available(key, layer) ? key : original;
     }
     public static int color(ItemStack stack, int original) {
-        ItemAppearanceStore store = activeStore();
-        if (store == null || !store.hasArmorColors()) return original;
-        Integer selected = store.getCanonical(ItemCosmetics.appearanceKey(stack)).armorColor();
+        Integer selected = ItemCosmetics.appearance(stack).armorColor();
         return selected == null ? original : 0xFF000000 | selected;
     }
     /** A render-state copy for player-head helmets; the inventory stack is never changed. */
     public static ItemStack headProxy(ItemStack original, EquipmentSlot slot) {
         if (slot == EquipmentSlot.HEAD && HeadSkins.hasOverride(original)) return ItemStack.EMPTY;
-        ItemAppearanceStore store = activeStore();
-        if (slot != EquipmentSlot.HEAD || store == null || !store.hasArmorModels() || !original.is(Items.PLAYER_HEAD)) return original;
-        var appearance = store.getCanonical(ItemCosmetics.appearanceKey(original));
+        if (slot != EquipmentSlot.HEAD || !original.is(Items.PLAYER_HEAD)) return original;
+        var appearance = ItemCosmetics.appearance(original);
         if (!available(appearance.armorModel(), EquipmentSlot.HEAD)) return original;
         var data = original.get(DataComponents.CUSTOM_DATA);
         boolean foil = original.hasFoil();
@@ -107,7 +97,6 @@ public final class ArmorAppearance {
     }
     public static boolean hidesHead(ItemStack headEquipment, boolean hasSkull) {
         if (!hasSkull || headEquipment == null || !headEquipment.is(Items.LEATHER_HELMET)) return false;
-        ItemAppearanceStore store = activeStore();
-        return store != null && store.hasArmorModels();
+        return !ItemCosmetics.appearance(headEquipment).armorModel().isEmpty();
     }
 }

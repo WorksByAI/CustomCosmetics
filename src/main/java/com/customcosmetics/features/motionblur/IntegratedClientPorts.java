@@ -6,6 +6,12 @@ import net.fabricmc.loader.api.FabricLoader;
 public final class IntegratedClientPorts {
     private IntegratedClientPorts() {}
 
+    public static boolean baityProvidesMotionBlur() {
+        return FabricLoader.getInstance().getModContainer("baity")
+            .flatMap(mod -> mod.findPath("com/shyeuar/baity/mixin/MotionBlurMixin$LevelRendererMixin.class"))
+            .isPresent();
+    }
+
     public static void launch(String feature, String className) {
         try {
             String name = typeName(feature, className);

@@ -1,5 +1,6 @@
 package com.customcosmetics.mixin;
 
+import com.customcosmetics.features.motionblur.IntegratedClientPorts;
 import java.util.List;
 import java.util.Set;
 import net.fabricmc.loader.api.FabricLoader;
@@ -16,9 +17,10 @@ public final class IntegratedClientMixinPlugin implements IMixinConfigPlugin {
         var loader = FabricLoader.getInstance();
         var game = loader.getModContainer("minecraft").orElseThrow().getMetadata().getVersion().getFriendlyString();
         String version = mixinPackage.substring(mixinPackage.lastIndexOf(".v") + 2, mixinPackage.lastIndexOf(".mixin"));
-        String upstream = mixinPackage.contains(".bobby.") ? "bobby" : "naturalmotionblur";
-        active = game.startsWith("26." + version.charAt(2)) && !loader.isModLoaded(upstream)
-            && (upstream.equals("bobby") || !loader.isModLoaded("vulkanmod"));
+        boolean bobby = mixinPackage.contains(".bobby.");
+        active = game.startsWith("26." + version.charAt(2)) && (bobby ? !loader.isModLoaded("bobby")
+            : !loader.isModLoaded("naturalmotionblur") && !loader.isModLoaded("vulkanmod")
+                && !IntegratedClientPorts.baityProvidesMotionBlur());
     }
 
     @Override public boolean shouldApplyMixin(String target, String mixin) {

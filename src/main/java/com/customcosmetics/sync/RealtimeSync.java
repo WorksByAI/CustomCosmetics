@@ -16,9 +16,10 @@ public final class RealtimeSync {
     private static String lastConnectFailure="";
     private static long generation,nextAttempt;private static boolean authenticating;private static BlockHand hand=BlockHand.NONE;private static String item="";
     private RealtimeSync(){}
-    private static final int APPEARANCE_MODULES=com.customcosmetics.config.FeatureModules.Feature.NICK.bit()|com.customcosmetics.config.FeatureModules.Feature.PLAYER_SIZE.bit()|com.customcosmetics.config.FeatureModules.Feature.SMOL.bit()|com.customcosmetics.config.FeatureModules.Feature.EQUIPMENT.bit()|com.customcosmetics.config.FeatureModules.Feature.CREATURE_MODEL.bit()|com.customcosmetics.config.FeatureModules.Feature.SKINS.bit();
+    private static final int APPEARANCE_MODULES=com.customcosmetics.config.FeatureModules.Feature.NICK.bit()|com.customcosmetics.config.FeatureModules.Feature.PLAYER_SIZE.bit()|com.customcosmetics.config.FeatureModules.Feature.SMOL.bit()|com.customcosmetics.config.FeatureModules.Feature.EQUIPMENT.bit()|com.customcosmetics.config.FeatureModules.Feature.CREATURE_MODEL.bit()|com.customcosmetics.config.FeatureModules.Feature.SKINS.bit()|com.customcosmetics.config.FeatureModules.Feature.ITEMS.bit();
     private static boolean appearanceEnabled(){
-        return ConfigManager.syncEnabled&&com.customcosmetics.client.ModErrors.active(com.customcosmetics.client.ModErrors.Key.APPEARANCE)&&(ConfigManager.disabledModules&APPEARANCE_MODULES)!=APPEARANCE_MODULES;
+        return ConfigManager.syncEnabled&&com.customcosmetics.client.ModErrors.active(com.customcosmetics.client.ModErrors.Key.APPEARANCE)
+            &&(ConfigManager.skyBlockLevelEnabled||(ConfigManager.disabledModules&APPEARANCE_MODULES)!=APPEARANCE_MODULES);
     }
     public static boolean enabled(){return !"udp".equals(ConfigManager.syncBlockingTransport)||PositionSharing.enabled()||appearanceEnabled();}
     public static void block(BlockHand value,String id){

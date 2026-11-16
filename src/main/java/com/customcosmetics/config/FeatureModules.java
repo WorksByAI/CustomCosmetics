@@ -16,5 +16,5 @@ public final class FeatureModules {
     public static boolean enabled(Feature feature){return (ConfigManager.disabledModules&feature.bit())==0;}
     public static void set(Feature feature,boolean enabled){ConfigManager.disabledModules=enabled?ConfigManager.disabledModules&~feature.bit():ConfigManager.disabledModules|feature.bit();}
     public static void all(boolean enabled){ConfigManager.disabledModules=enabled?0:ALL;}
-    public static boolean remoteConsumers(){int remote=ALL&~(Feature.MAP.bit()|Feature.DAMAGE.bit()|Feature.ITEMS.bit()|Feature.SNAPLOOK.bit()|Feature.COMMAND_TOOLTIPS.bit()|Feature.DROP_2D.bit()|Feature.HUD_LAYOUT.bit()|Feature.SKYBOX.bit());return (ConfigManager.disabledModules&remote)!=remote;}
+    public static boolean remoteConsumers(){int remote=ALL&~(Feature.MAP.bit()|Feature.DAMAGE.bit()|Feature.SNAPLOOK.bit()|Feature.COMMAND_TOOLTIPS.bit()|Feature.DROP_2D.bit()|Feature.HUD_LAYOUT.bit()|Feature.SKYBOX.bit());return ConfigManager.skyBlockLevelEnabled||(ConfigManager.disabledModules&remote)!=remote;}
 }

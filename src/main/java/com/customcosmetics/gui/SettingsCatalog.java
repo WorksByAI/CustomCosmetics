@@ -46,7 +46,8 @@ public final class SettingsCatalog {
             "Damage Splash|Animation|Size|Duration (seconds)|Color Mode|Critical Symbol|Bold|Style Normal Damage|Compact Numbers|Separator|Text Shadow");
         add(entries, "Damage Splash", "DAMAGE", "Requires Rainbow: select the Rainbow color mode first.", "Rainbow Speed");
         add(entries, "Damage Splash", "DAMAGE", "Requires Gradient: select the Gradient color mode first.", "Gradient Start|Gradient End");
-        add(entries, "Item Customization", "ITEMS", "Custom item names and models resource packs", "Enabled|Customize Items");
+        add(entries, "Item Customization", "ITEMS", "Custom item names and models resource packs", "Enabled|Customize Items|Share This Item Appearance");
+        add(entries, "SkyBlock Level", "SKYBLOCK_LEVEL", "Level prefix appearance chat tab list nameplate", "Displayed Level|Level Colors|Per-Digit Colors|Level Color");
         add(entries, "Item Customization", "ITEMS", "SkyBlock accessory bag collected upgrade tooltip tier", "Accessory Helper|Missing Accessories|Clear This Profile's Bag Scan");
         add(entries, "Equipments", "ACCESSORIES", "Accessories outfit wardrobe style colors size shoulder", "Open Wardrobe|Clear Outfit");
         add(entries, "Equipments", "BLOCKED_ACCESSORIES", "Blocked accessories players outfit", "Block Other Players' Equipments");

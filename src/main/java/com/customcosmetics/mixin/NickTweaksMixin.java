@@ -44,13 +44,18 @@ public class NickTweaksMixin {
             argsOnly = true
         )
         private String customcosmetics$chromaPrepareString(String text) {
-            return NickRenderUtils.hasSmoothGradient() ? text : NickRenderUtils.handleString(TextReplacements.apply(text));
+            return NickRenderUtils.hasSmoothGradient() || TextReplacements.usesStyledAlias(text) ? text : NickRenderUtils.handleString(TextReplacements.apply(text));
         }
 
         @Inject(method="prepareText(Ljava/lang/String;FFIZI)Lnet/minecraft/client/gui/Font$PreparedText;",at=@At("HEAD"),cancellable=true)
         private void customcosmetics$prepareSmoothString(String text,float x,float y,int color,boolean shadow,int background,CallbackInfoReturnable<Font.PreparedText> result) {
-            if (!NickRenderUtils.hasSmoothGradient()) return;
             Font font=(Font)(Object)this;
+            if (TextReplacements.usesStyledAlias(text)) {
+                var sequence = TextReplacements.visualOrder(Language.getInstance(), FormattedText.of(text));
+                result.setReturnValue(font.prepareText(sequence, x, y, color, shadow, false, background));
+                return;
+            }
+            if (!NickRenderUtils.hasSmoothGradient()) return;
             String replacement=TextReplacements.apply(text);
             String shaped=font.isBidirectional()?font.bidirectionalShaping(replacement):replacement;
             FormattedCharSequence sequence=sink -> StringDecomposer.iterateFormatted(shaped,Style.EMPTY,sink);
@@ -69,7 +74,16 @@ public class NickTweaksMixin {
 
         @ModifyVariable(method = "width(Ljava/lang/String;)I", at = @At("HEAD"), argsOnly = true)
         private String customcosmetics$chromaWidthString(String text) {
-            return com.customcosmetics.compatibility.ModernUiNicknameText.active((Font)(Object)this)?text:NickRenderUtils.handleString(TextReplacements.apply(text));
+            return TextReplacements.usesStyledAlias(text) || com.customcosmetics.compatibility.ModernUiNicknameText.active((Font)(Object)this)
+                ? text : NickRenderUtils.handleString(TextReplacements.apply(text));
+        }
+
+        @Inject(method = "width(Ljava/lang/String;)I", at = @At("HEAD"), cancellable = true)
+        private void customcosmetics$styledAliasStringWidth(String text, CallbackInfoReturnable<Integer> result) {
+            if (TextReplacements.usesStyledAlias(text)) {
+                var sequence = TextReplacements.visualOrder(Language.getInstance(), FormattedText.of(text));
+                result.setReturnValue(((Font) (Object) this).width(sequence));
+            }
         }
 
         @Inject(method = "width(Lnet/minecraft/network/chat/FormattedText;)I", at = @At("HEAD"), cancellable = true)

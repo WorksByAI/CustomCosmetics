@@ -35,7 +35,8 @@ public final class MotionBlurPort {
     }
 
     public static boolean integrated() {
-        return !LOADER.isModLoaded("naturalmotionblur") && !LOADER.isModLoaded("vulkanmod");
+        return !LOADER.isModLoaded("naturalmotionblur") && !LOADER.isModLoaded("vulkanmod")
+            && !IntegratedClientPorts.baityProvidesMotionBlur();
     }
 
     public static void init() {

@@ -3,6 +3,8 @@ package com.customcosmetics.gui;
 
 import com.customcosmetics.compatibility.ClientUiAccess;
 import com.customcosmetics.features.items.*;
+import com.customcosmetics.sync.PresenceSync;
+import com.customcosmetics.sync.RemoteAccess;
 import java.util.*;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -29,7 +31,7 @@ public final class ItemAppearanceScreen extends ThemedScreen {
     private ItemStack previewSource,previewCache;
     private String previewModelKey="",previewHeadKey="";
     private Object previewCatalog;
-    private boolean draftHideGlint,previewHideGlint;
+    private boolean draftHideGlint,previewHideGlint,draftShared;
     private String previewArmorColor="";
     private int x,y,w,h,previewWidth,scroll,bodyTop,bodyBottom;
     private boolean draggingScrollbar;
@@ -46,9 +48,11 @@ public final class ItemAppearanceScreen extends ThemedScreen {
         var appearance=ItemCosmetics.store().get(uuid);
         draftName=appearance.name();draftModel=appearance.model();draftArmorModel=appearance.armorModel();
         draftHeadTexture=appearance.headTexture();draftHideGlint=appearance.hideGlint();
+        draftShared=appearance.shared();
         draftArmorColor=appearance.armorColor()==null?"":hex(appearance.armorColor());status="";scroll=0;
     }
     @Override protected void init(){
+        PresenceSync.refreshItemShareLimit();
         controls.clear();body.clear();w=Math.min(620,width-16);h=Math.min(410,height-16);x=(width-w)/2;y=(height-h)/2;
         bodyTop=y+70;bodyBottom=y+h-56;scroll=Math.clamp(scroll,0,maxScroll());
         previewWidth=Math.clamp(w/4,82,130);
@@ -92,6 +96,13 @@ public final class ItemAppearanceScreen extends ThemedScreen {
             ?Integer.parseInt(draftArmorColor.replace("#",""),16):0xA06540,
             color->armorColorField.setValue(hex(color)));
         body.add(new Placement(addWidget(armorPicker),armorPicker.getY()));
+        var sharing=addWidget(new PinkUi.Toggle(fx,y+431,"Share This Item Appearance",()->draftShared,()->{
+            draftShared=!draftShared;status="";CosmeticsScreen.childInteraction();
+        }).rowWidth(fw));
+        sharing.active=!uuid.isEmpty();
+        sharing.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent(
+            "Share this item's name and appearance online, and send a thumbnail to the admin panel.")));
+        body.add(new Placement(sharing,sharing.getY()));
         int part=(w-44)/3;
         action(x+16,y+h-38,part,"Reset Item",this::reset);
         action(x+22+part,y+h-38,part,"Apply",this::apply);
@@ -101,6 +112,7 @@ public final class ItemAppearanceScreen extends ThemedScreen {
         armorModelField.active=armorColorField.active=armorPicker.active=leather.active=original.active=armorEditable;
         positionBody();
     }
+    @Override public void tick() { PresenceSync.refreshItemShareLimit(); }
     private PinkUi.Action action(int bx,int by,int bw,String label,Runnable callback){
         var widget=addWidget(new PinkUi.Action(bx,by,bw,26,label,false,()->{CosmeticsScreen.childInteraction();callback.run();}));controls.add(widget);return widget;
     }
@@ -154,11 +166,15 @@ public final class ItemAppearanceScreen extends ThemedScreen {
             if(item.is(net.minecraft.world.item.Items.PLAYER_HEAD)&&color!=null&&armorModel.isEmpty()){
                 status="Choose an armor model for a player head before setting its color.";return false;
             }
-            var value=new ItemAppearanceStore.Appearance(draftName,headTexture.isEmpty()?draftModel:"",armorModel,color,headTexture,draftHideGlint);
+            var value=new ItemAppearanceStore.Appearance(draftName,headTexture.isEmpty()?draftModel:"",armorModel,color,headTexture,draftHideGlint,draftShared);
             if(value.headTexture().isEmpty()&&!value.model().isEmpty()&&!ItemCosmetics.renderable(item,Identifier.tryParse(value.model()))){modelField.invalid(true);status="This model has no usable texture. Choose another model or clear the field.";return false;}
+            if (value.shared() && !value.empty()) value = new ItemAppearanceStore.Appearance(value.name(), value.model(), value.armorModel(),
+                value.armorColor(), value.headTexture(), value.hideGlint(), true, ItemSharingPreview.capture(minecraft, item, value));
             ItemCosmetics.store().put(uuid,value);modelField.invalid(false);armorModelField.invalid(false);armorColorField.invalid(false);
             boolean saved=ItemCosmetics.save();
-            status=saved?"Saved. Only visible on your client.":"Could not save. Please try again.";
+            status=saved?(draftShared&&!value.empty()&&!com.customcosmetics.config.ConfigManager.offlineMode
+                ?(ItemCosmetics.store().shared().containsKey(uuid)?"Saved. Sharing is enabled for this item."
+                    :"Saved locally. This item is outside the server sharing limit."):"Saved locally."): "Could not save. Please try again.";
             return saved;
         }catch(IllegalArgumentException|IllegalStateException error){status=error.getMessage();return false;}
     }
@@ -168,7 +184,7 @@ public final class ItemAppearanceScreen extends ThemedScreen {
     private void reset(){
         if(uuid.isEmpty())return;
         ItemCosmetics.store().put(uuid,new ItemAppearanceStore.Appearance("",""));ItemCosmetics.save();
-        draftName=draftModel=draftArmorModel=draftArmorColor=draftHeadTexture="";draftHideGlint=false;rebuildWidgets();status="Original appearance restored.";
+        draftName=draftModel=draftArmorModel=draftArmorColor=draftHeadTexture="";draftHideGlint=draftShared=false;rebuildWidgets();status="Original appearance restored.";
     }
     private ItemStack preview(){
         Object catalog=ItemCosmetics.catalogIdentity();
@@ -201,13 +217,16 @@ public final class ItemAppearanceScreen extends ThemedScreen {
         uiText(g,font,"Enchantment Glint",fx,y+252,TEXT,fw-42);
         uiText(g,font,"Worn Armor Model ID",fx,y+275,TEXT,fw);
         uiText(g,font,"Armor Color (#RRGGBB)",fx,y+323,TEXT,fw);
+        uiText(g,font,"Share This Item Appearance",fx,y+436,TEXT,fw-42);
+        Integer limit = RemoteAccess.online() ? SharedItemAppearances.serverLimit() : null;
+        uiText(g,font,limit == null ? "Server sharing limit unavailable." : "Server sharing limit: " + limit,fx,y+458,MUTED,fw);
         if(ArmorAppearance.editable(item)&&!draftArmorColor.isEmpty()&&draftArmorColor.matches("#?[0-9a-fA-F]{6}"))
             rounded(g,x+24,y+200,24,8,2,0xFF000000|Integer.parseInt(draftArmorColor.replace("#",""),16));
         g.pose().popMatrix();for(var placement:body)if(placement.widget().visible)placement.widget().extractRenderState(g,mx,my,delta);g.disableScissor();
         if(maxScroll()>0){var bar=scrollbar();rounded(g,x+w-10,bodyTop,3,bodyBottom-bodyTop,1,BORDER);rounded(g,x+w-10,bar.thumbStart(scroll),3,bar.thumbLength(),1,PINK);}
         uiText(g,font,status.isEmpty()?(uuid.isEmpty()?"Select a SkyBlock item with a unique item UUID.":""):status,x+16,y+h-53,MUTED,w-32);
     }
-    private int maxScroll(){return Math.max(0,y+432-bodyBottom);}
+    private int maxScroll(){return Math.max(0,y+474-bodyBottom);}
     private ScrollBarLayout scrollbar(){int viewport=Math.max(0,bodyBottom-bodyTop);return ScrollBarLayout.of(bodyTop,viewport,viewport,viewport+maxScroll(),maxScroll());}
     private void positionBody(){for(var p:body){p.widget().setY(p.y()-scroll);p.widget().visible=p.widget().getY()+p.widget().getHeight()>bodyTop&&p.widget().getY()<bodyBottom;}}
     @Override public boolean mouseScrolled(double mx,double my,double horizontal,double vertical){

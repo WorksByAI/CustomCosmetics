@@ -2,6 +2,7 @@
 package com.customcosmetics.features.nickname;
 
 import com.customcosmetics.config.ConfigManager;
+import com.customcosmetics.features.items.ItemNameText;
 import com.customcosmetics.features.map.DungeonSidebarReader;
 import com.customcosmetics.features.party.PartyFeatures;
 import com.customcosmetics.features.party.PartyRoster;
@@ -10,16 +11,19 @@ import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Style;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /** Per-connection display aliases. Original profiles and all network data stay intact. */
 public final class NickHider {
-    public static final int PREFIX_LIMIT = 24, SELF_ALIAS_LIMIT = 30;
+    public static final int PREFIX_LIMIT = 24, SELF_ALIAS_LIMIT = 30, SELF_ALIAS_INPUT_LIMIT = 256;
     private static final int SCAN_TICKS = 5, CHAT_REFRESH_TICKS = 10, HISTORY_LIMIT = 8_192;
     private static final String ACCOUNT = "[A-Za-z0-9_]{1,16}";
     private static final Pattern VALID_ACCOUNT = Pattern.compile(ACCOUNT);
@@ -60,7 +64,10 @@ public final class NickHider {
     }
 
     public static String selfAlias(String value) {
-        return cleanLabel(value, SELF_ALIAS_LIMIT);
+        if (value == null) return "";
+        String clean = cleanLabel(value.replace('§', '&'), SELF_ALIAS_INPUT_LIMIT);
+        String limited = ItemNameText.limitVisible(clean, SELF_ALIAS_LIMIT).strip();
+        return ItemNameText.parse(limited, Style.EMPTY).getString().isBlank() ? "" : limited;
     }
 
     private static String cleanLabel(String value, int limit) {
@@ -169,19 +176,26 @@ public final class NickHider {
         String prefix = ConfigManager.nickHiderPrefix + "-";
         String selfAlias = ConfigManager.nickHiderSelfAlias;
         var aliases = new HashMap<String, String>();
+        var styled = new HashSet<String>();
         for (var entry : numbers.entrySet()) {
             String name = entry.getKey();
             boolean self = name.equals(account) || name.equals(profile);
             if (self ? !ConfigManager.nickHiderSelf : !ConfigManager.nickHiderPlayers && !dungeonMembers.containsKey(name)) continue;
             String role = dungeonMembers.getOrDefault(name, self ? dungeonMembers.getOrDefault(account, "") : "");
             String alias = role.isEmpty() ? prefix + entry.getValue() : role;
-            aliases.put(name, self && !selfAlias.isEmpty() ? selfAlias : alias);
+            if (self && !selfAlias.isEmpty()) {
+                aliases.put(name, selfAlias);
+                styled.add(name);
+            } else aliases.put(name, alias);
         }
         if (ConfigManager.nickHiderSelf && !account.equals(profile)) {
             String alias = aliases.get(profile);
-            if (alias != null) aliases.put(account, alias);
+            if (alias != null) {
+                aliases.put(account, alias);
+                if (styled.contains(profile)) styled.add(account);
+            }
         }
-        if (!TextReplacements.setPlayerAliases(aliases)) return false;
+        if (!TextReplacements.setPlayerAliases(aliases, styled)) return false;
         if (chatRefreshDelay <= 0) chatRefreshDelay = CHAT_REFRESH_TICKS;
         return true;
     }
@@ -206,7 +220,7 @@ public final class NickHider {
         numbers.clear();
         dungeonMembers = Map.of();
         party = PartyRoster.EMPTY;
-        return TextReplacements.setPlayerAliases(Map.of());
+        return TextReplacements.setPlayerAliases(Map.of(), Set.of());
     }
 
     static Member tabMember(String line) {

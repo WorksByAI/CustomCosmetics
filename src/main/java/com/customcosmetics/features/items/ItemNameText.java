@@ -15,30 +15,57 @@ public final class ItemNameText {
     public static Component cached(String raw) { return CACHE.computeIfAbsent(raw, ItemNameText::parse); }
     /** Formatting is display-only; no click events, commands or markup are evaluated. */
     public static Component parse(String raw) {
-        MutableComponent result = Component.empty(); Style style = Style.EMPTY.withItalic(false);
+        return parse(raw, Style.EMPTY.withItalic(false));
+    }
+
+    public static Component parse(String raw, Style initial) {
+        MutableComponent result = Component.empty();
+        Style style = initial;
         StringBuilder segment = new StringBuilder();
-        for (int i = 0; i < raw.length(); i++) {
-            char c = raw.charAt(i);
-            if ((c == '&' || c == '§') && i + 1 < raw.length()) {
-                ChatFormatting format = ChatFormatting.getByCode(Character.toLowerCase(raw.charAt(i + 1)));
-                Integer hex = null;
-                if (raw.charAt(i + 1) == '#' && i + 7 < raw.length() && raw.substring(i + 2,i + 8).matches("[a-fA-F0-9]{6}"))
-                    hex = Integer.parseInt(raw.substring(i + 2,i + 8),16);
-                if (format != null || hex != null) {
-                    if (!segment.isEmpty()) { result.append(Component.literal(segment.toString()).setStyle(style)); segment.setLength(0); }
-                    if (hex != null) { style = Style.EMPTY.withItalic(false).withColor(hex); i += 7; }
-                    else {
-                        if (format == ChatFormatting.RESET) style = Style.EMPTY.withItalic(false);
-                        else if (Character.digit(raw.charAt(i + 1), 16) >= 0) style = Style.EMPTY.withItalic(false).applyFormat(format);
-                        else style = style.applyFormat(format);
-                        i++;
-                    }
-                    continue;
-                }
+        for (int i = 0; i < raw.length();) {
+            int length = codeLength(raw, i);
+            if (length == 0) {
+                segment.append(raw.charAt(i++));
+                continue;
             }
-            segment.append(c);
+            if (!segment.isEmpty()) {
+                result.append(Component.literal(segment.toString()).setStyle(style));
+                segment.setLength(0);
+            }
+            if (length == 8) style = initial.withColor(Integer.parseInt(raw, i + 2, i + 8, 16));
+            else {
+                var format = ChatFormatting.getByCode(Character.toLowerCase(raw.charAt(i + 1)));
+                if (format == ChatFormatting.RESET) style = initial;
+                else style = (Character.digit(raw.charAt(i + 1), 16) >= 0 ? initial : style).applyFormat(format);
+            }
+            i += length;
         }
         if (!segment.isEmpty()) result.append(Component.literal(segment.toString()).setStyle(style));
         return result;
+    }
+
+    public static String limitVisible(String raw, int limit) {
+        int end = 0, visible = 0;
+        for (int i = 0; i < raw.length() && visible < limit;) {
+            int length = codeLength(raw, i);
+            if (length > 0) i += length;
+            else {
+                i += Character.charCount(raw.codePointAt(i));
+                end = i;
+                visible++;
+            }
+        }
+        return raw.substring(0, end);
+    }
+
+    private static int codeLength(String raw, int start) {
+        if (start + 1 >= raw.length() || (raw.charAt(start) != '&' && raw.charAt(start) != '§')) return 0;
+        char code = raw.charAt(start + 1);
+        if (ChatFormatting.getByCode(Character.toLowerCase(code)) != null) return 2;
+        if (code != '#' || start + 8 > raw.length()) return 0;
+        for (int i = start + 2; i < start + 8; i++) {
+            if ("0123456789abcdefABCDEF".indexOf(raw.charAt(i)) < 0) return 0;
+        }
+        return 8;
     }
 }

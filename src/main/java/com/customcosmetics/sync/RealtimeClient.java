@@ -156,6 +156,7 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
             sent=desired;nextView=now+10000;var m=new JsonObject();m.addProperty("type","view");m.addProperty("scope",scope);m.addProperty("world",sent.world());m.addProperty("rosterSequence",++rosterSequence);
             m.addProperty("p2p",sent.p2p()&&!forceWss);
             m.addProperty("appearanceVersion",sent.appearancePlayers().isEmpty()?0:1);
+            m.addProperty("itemSharingPolicy",1);
             var appearancePlayers=new JsonArray();sent.appearancePlayers().stream().sorted().limit(2048).forEach(id->appearancePlayers.add(id.toString()));m.add("appearancePlayers",appearancePlayers);
             var players=new JsonArray();sent.players().stream().sorted().limit(2048).forEach(id->players.add(id.toString()));m.add("players",players);
             var roster=new JsonObject();var members=new JsonArray();sent.roster().members().stream().sorted().forEach(id->members.add(id.toString()));roster.add("members",members);
@@ -202,11 +203,11 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
     }
     private synchronized void receive(JsonObject m,boolean datagram)throws Exception{
         if(closed)return;String type=m.get("type").getAsString();long now=clock();if(!datagram)lastWs=now;
-        if(type.equals("hello")&&!datagram){if(ready||m.get("version").getAsInt()!=1)throw new IllegalArgumentException();expires=m.get("expiresAt").getAsLong();epoch=m.get("epoch").getAsLong();ready=true;return;}
+        if(type.equals("hello")&&!datagram){if(ready||m.get("version").getAsInt()!=1)throw new IllegalArgumentException();expires=m.get("expiresAt").getAsLong();epoch=m.get("epoch").getAsLong();com.customcosmetics.features.items.SharedItemAppearances.readLimit(m);ready=true;return;}
         if(!ready)return;
         if(type.equals("announcement")&&!datagram){ServerAnnouncements.accept(m);return;}
         if(type.equals("view")&&!datagram){acknowledged=m.get("scope").getAsLong();nextUdpProbe=0;return;}
-        if(type.equals("pong")&&!datagram){route.wss(now-m.get("ping").getAsLong());if(m.has("positionIntervalMs"))wssPositionInterval=positionInterval(false,m.get("positionIntervalMs").getAsInt());return;}
+        if(type.equals("pong")&&!datagram){route.wss(now-m.get("ping").getAsLong());if(m.has("positionIntervalMs"))wssPositionInterval=positionInterval(false,m.get("positionIntervalMs").getAsInt());com.customcosmetics.features.items.SharedItemAppearances.readLimit(m);return;}
         if(type.equals("probe")&&datagram){udpReplies++;lastUdpReply=now;route.udp(now,now-m.get("ping").getAsLong(),m.get("healthy").getAsBoolean());if(m.has("positionIntervalMs"))udpPositionInterval=positionInterval(true,m.get("positionIntervalMs").getAsInt());
             if(m.has("cookie")){String cookie=m.get("cookie").getAsString();if(cookie.matches("[a-f0-9]{32}")&&!cookie.equals(peerCookie)){peerCookie=cookie;nextUdpProbe=0;}}
             peers.permit(m.getAsJsonArray("peerIds"),now);return;}

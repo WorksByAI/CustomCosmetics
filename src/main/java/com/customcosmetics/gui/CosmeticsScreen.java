@@ -6,6 +6,8 @@ import com.customcosmetics.compatibility.NativeFileDialogs;
 import com.customcosmetics.config.ConfigManager;
 import com.customcosmetics.features.hud.HudLayout;
 import com.customcosmetics.features.nickname.NickHider;
+import com.customcosmetics.features.nickname.SkyBlockLevel;
+import com.customcosmetics.features.nickname.SkyBlockLevelAppearance;
 import com.customcosmetics.features.pack.HypixelPackDisabler;
 import com.customcosmetics.features.pack.TextColorOverrides;
 import com.customcosmetics.features.text.TextReplacements;
@@ -22,6 +24,7 @@ import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.BooleanSupplier;
@@ -34,7 +37,7 @@ import static com.customcosmetics.gui.PinkUi.*;
 public final class CosmeticsScreen extends ThemedScreen {
     public enum Page {
         MAIN, SIZE, NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, BLOCKED_SKINS, POSITION_RECIPIENTS, ANIMATIONS, DAMAGE, ITEMS, ACCESSORIES, MAP, PARTY, LOCATION_SHARING, SKINS, SYNC, THEME, MODULES, SEARCH, EXPERIMENTAL,
-        HUD_LAYOUT, SKYBOX, FONTS, FREECAM, WINDOW, HIT_COLOR, FAST_PING, PACK_DISABLER, INVENTORY_BLUR, TEXT_COLORS, DROP_2D, TEXT_REPLACEMENTS, SIGN_TEXT, COMMAND_TOOLTIPS, SNAPLOOK, MOTION_BLUR, PLAYER_SPIN, LOBBY_MARKER, BOBBY, ZOOM, SEYMOUR, TOOLTIP_TWEAKS, NICK_HIDER;
+        HUD_LAYOUT, SKYBOX, FONTS, FREECAM, WINDOW, HIT_COLOR, FAST_PING, PACK_DISABLER, INVENTORY_BLUR, TEXT_COLORS, DROP_2D, TEXT_REPLACEMENTS, SIGN_TEXT, COMMAND_TOOLTIPS, SNAPLOOK, MOTION_BLUR, PLAYER_SPIN, LOBBY_MARKER, BOBBY, ZOOM, SEYMOUR, TOOLTIP_TWEAKS, NICK_HIDER, SKYBLOCK_LEVEL;
 
         boolean qolOption() { return switch (this) {
             case HUD_LAYOUT, SKYBOX, FONTS, FREECAM, WINDOW, HIT_COLOR, FAST_PING, INVENTORY_BLUR,
@@ -110,6 +113,7 @@ public final class CosmeticsScreen extends ThemedScreen {
     private boolean drawingPinned;
     private boolean resetAvailable;
     private int positionedScroll=Integer.MIN_VALUE;
+    private int editingLevelDigit;
     private record Placement(AbstractWidget widget, int y) {}
 
     public CosmeticsScreen(Screen parent, Page page) {
@@ -176,6 +180,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             case SIZE -> playerSize();
             case NICK -> nickname();
             case NICK_HIDER -> nickHider();
+            case SKYBLOCK_LEVEL -> skyBlockLevel();
             case RANK -> rank();
             case COLOR -> colors();
             case CHROMA -> chroma();
@@ -242,6 +247,7 @@ public final class CosmeticsScreen extends ThemedScreen {
                 com.customcosmetics.features.skins.LocalSkins.otherMode("original");
                 com.customcosmetics.features.nickname.NickHider.changed(minecraft);
             }
+            case SKYBLOCK_LEVEL -> ConfigManager.resetSettings("skyBlockLevel*");
             case BLOCKED_CAPES -> ConfigManager.resetSettings("capeBlockedPlayers");
             case BLOCKED_ACCESSORIES -> ConfigManager.resetSettings("accessoriesBlockedPlayers");
             case BLOCKED_SKINS -> ConfigManager.resetSettings("skinBlockedPlayers");
@@ -363,6 +369,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             case SIZE -> "Player Size";
             case NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS -> "Nick Changer";
             case NICK_HIDER -> "Nick Hider";
+            case SKYBLOCK_LEVEL -> "SkyBlock Level";
             case ANIMATIONS -> "Animations";
             case DAMAGE -> "Damage Splash";
             case EXPERIMENTAL -> "QOL";
@@ -444,6 +451,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         navItem("Lobby Marker", Page.LOBBY_MARKER);
         navItem("Map Editor", Page.MAP);
         navItem("Nick Hider", Page.NICK_HIDER);
+        navItem("SkyBlock Level", Page.SKYBLOCK_LEVEL);
         navItem("Pack Disabler", Page.PACK_DISABLER);
         navItem("Seymour Analyzer", Page.SEYMOUR);
         navItem("Tooltip Tweaks", Page.TOOLTIP_TWEAKS);
@@ -458,7 +466,7 @@ public final class CosmeticsScreen extends ThemedScreen {
                  BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, BLOCKED_SKINS -> Section.APPEARANCE;
             case PARTY, LOCATION_SHARING, POSITION_RECIPIENTS -> Section.CONNECTIONS;
             case EXPERIMENTAL, COMMAND_TOOLTIPS, SNAPLOOK, MOTION_BLUR, PLAYER_SPIN, BOBBY, ZOOM -> Section.QOL;
-            case ANIMATIONS, DAMAGE, ITEMS, MAP, NICK_HIDER, PACK_DISABLER, LOBBY_MARKER, SEYMOUR, TOOLTIP_TWEAKS -> Section.SKYBLOCK;
+            case ANIMATIONS, DAMAGE, ITEMS, MAP, NICK_HIDER, SKYBLOCK_LEVEL, PACK_DISABLER, LOBBY_MARKER, SEYMOUR, TOOLTIP_TWEAKS -> Section.SKYBLOCK;
             default -> null;
         };
     }
@@ -778,6 +786,10 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
 
     private void hudLayout(){
+        if (!HudLayout.available()) {
+            label("Standalone HUD Manager controls the HUD.", contentX + 6, row(22) + 5, DIM, contentWidth - 12);
+            return;
+        }
         toggleRow("HUD Manager","",()->ConfigManager.hudLayoutEnabled,v->ConfigManager.hudLayoutEnabled=v);
         var elements=List.of(HudLayout.Element.values());
         for(var element:elements)indexOption(element.label,"",rowY);
@@ -1846,6 +1858,10 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
 
     private void motionBlur() {
+        if (com.customcosmetics.features.motionblur.IntegratedClientPorts.baityProvidesMotionBlur()) {
+            paragraph("Baity is handling motion blur. Adjust it in Baity's settings.", MUTED);
+            return;
+        }
         if (com.customcosmetics.features.gameplay.NaturalMotionBlurIntegration.available()) {
             fullButton("Open Natural Motion Blur Settings", () -> ClientUiAccess.setScreen(minecraft,
                 com.customcosmetics.features.gameplay.NaturalMotionBlurIntegration.open(this)), true);
@@ -1949,6 +1965,78 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
 
     private PinkUi.Action fullButton(String title,Runnable action){return fullButton(title,action,false);}
+    private void skyBlockLevel() {
+        toggleRow("Override SkyBlock Level", "Online mode shares the display with other CustomSkyBlock players.",
+            () -> ConfigManager.skyBlockLevelEnabled, value -> ConfigManager.skyBlockLevelEnabled = value);
+        var field = fieldRow("Displayed Level", "Displayed Level", Integer.toString(ConfigManager.skyBlockLevelValue),
+            SkyBlockLevel.MAX_DIGITS, "0–99999", 110, value -> {});
+        field.setResponder(value -> {
+            boolean valid = value.matches("[0-9]{1,5}");
+            field.invalid(!valid);
+            if (valid) {
+                ConfigManager.skyBlockLevelValue = Integer.parseInt(value);
+                changed();
+            }
+        });
+        var modes = new ArrayList<>(List.of("auto", "custom", "digits"));
+        var labels = new ArrayList<>(List.of("Automatic Level Color", "Custom Color", "Per-Digit Colors"));
+        for (int i = 0; i < SkyBlockLevel.TIERS.size(); i++) {
+            var tier = SkyBlockLevel.TIERS.get(i);
+            String identifier = tier.name().toLowerCase(Locale.ROOT);
+            modes.add(identifier);
+            int start = i * 40;
+            String colorName = Arrays.stream(identifier.split("_")).map(CosmeticsScreen::capitalize)
+                .collect(java.util.stream.Collectors.joining(" "));
+            labels.add((i + 1 == SkyBlockLevel.TIERS.size() ? start + "+" : start + "–" + (start + 39))
+                + " · " + UiText.tr(colorName));
+        }
+        dropdown("Level Colors", modes, labels, () -> ConfigManager.skyBlockLevelColorMode,
+            value -> ConfigManager.skyBlockLevelColorMode = value);
+        int y = row(28);
+        String title = UiText.tr("Preview");
+        int previewX = contentX + 17 + font.width(title);
+        art.add(bounded(y, y + 28, g -> {
+            g.text(font, title, contentX + 6, y + 9, TEXT, false);
+            var preview = SkyBlockLevelAppearance.preview(SkyBlockLevel.configured());
+            rounded(g, previewX, y + 3, font.width(preview) + 12, 20, 5, 0xFF181B22);
+            g.text(font, preview, previewX + 6, y + 9, TEXT, false);
+        }));
+        if ("custom".equals(ConfigManager.skyBlockLevelColorMode)) {
+            levelColorPicker(ConfigManager.skyBlockLevelColor, color -> ConfigManager.skyBlockLevelColor = color);
+        } else if ("digits".equals(ConfigManager.skyBlockLevelColorMode)) {
+            var positions = List.of("1", "2", "3", "4", "5");
+            dropdown("Digit Position", positions, positions, () -> Integer.toString(editingLevelDigit + 1),
+                value -> editingLevelDigit = Integer.parseInt(value) - 1);
+            var colors = ConfigManager.skyBlockLevelDigitColors;
+            int color = editingLevelDigit < colors.size() ? colors.get(editingLevelDigit) : -1;
+            levelColorPicker(color < 0 ? SkyBlockLevel.tierColor(ConfigManager.skyBlockLevelValue) : color, this::setLevelDigitColor);
+            fullButton("Reset Digit to Automatic", () -> { setLevelDigitColor(-1); changed(); rebuildWidgets(); }, false);
+        }
+    }
+
+    private void setLevelDigitColor(int color) {
+        var values = new ArrayList<>(ConfigManager.skyBlockLevelDigitColors);
+        while (values.size() <= editingLevelDigit) values.add(-1);
+        values.set(editingLevelDigit, color);
+        ConfigManager.skyBlockLevelDigitColors = List.copyOf(values);
+    }
+
+    private void levelColorPicker(int color, java.util.function.IntConsumer save) {
+        var field = fieldRow("Level Color", "Level Color", hex(color), 7, "#RRGGBB", 115, value -> {});
+        int y = row(83);
+        var palette = add(new PinkUi.ColorPicker(contentX + 6, y + 4, Math.min(300, contentWidth - 12), 74, color,
+            value -> field.setValue(hex(value))));
+        field.setResponder(value -> {
+            boolean valid = value.matches("#?[0-9a-fA-F]{6}");
+            field.invalid(!valid);
+            if (!valid) return;
+            int rgb = Integer.parseInt(value.replace("#", ""), 16);
+            palette.setColor(rgb);
+            save.accept(rgb);
+            changed();
+        });
+    }
+
     private void nickHider() {
         toggleRow("Hide Server Player Names", "Give other players numbered aliases on this client.",
             () -> ConfigManager.nickHiderPlayers, value -> {
@@ -1960,13 +2048,8 @@ public final class CosmeticsScreen extends ThemedScreen {
                 ConfigManager.nickHiderSelf = value;
                 NickHider.changed(minecraft);
             });
-        var aliasField = fieldRow("My Alias", "My Alias", ConfigManager.nickHiderSelfAlias, NickHider.SELF_ALIAS_LIMIT * 2,
-            "Leave blank to use the automatic alias.", 160, value -> {});
-        aliasField.setResponder(value -> {
-            if (value.codePointCount(0, value.length()) > NickHider.SELF_ALIAS_LIMIT) {
-                aliasField.setValue(value.substring(0, value.offsetByCodePoints(0, NickHider.SELF_ALIAS_LIMIT)));
-                return;
-            }
+        fieldRow("My Alias", "My Alias", ConfigManager.nickHiderSelfAlias, NickHider.SELF_ALIAS_INPUT_LIMIT,
+            "Supports &0–&f and &#RRGGBB. Leave blank to use the automatic alias.", 160, value -> {
             String alias = NickHider.selfAlias(value);
             if (alias.equals(ConfigManager.nickHiderSelfAlias)) return;
             ConfigManager.nickHiderSelfAlias = alias;

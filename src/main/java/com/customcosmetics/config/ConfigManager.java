@@ -76,6 +76,10 @@ public final class ConfigManager {
     public static boolean textReplacementsEnabled = false;
     public static java.util.Map<String, String> textReplacements = java.util.Map.of();
     public static boolean nickHiderPlayers, nickHiderDungeon, nickHiderSelf;
+    public static boolean skyBlockLevelEnabled;
+    public static int skyBlockLevelValue = 40, skyBlockLevelColor = 0xFFFFFF;
+    public static String skyBlockLevelColorMode = "auto";
+    public static java.util.List<Integer> skyBlockLevelDigitColors = java.util.List.of();
     public static String nickHiderPrefix = "Player", nickHiderSelfAlias = "";
     public static java.util.Set<String> hypixelPackWhitelist = java.util.Set.of();
     public static java.util.Map<String, String> hypixelPackReplacements = java.util.Map.of();
@@ -460,6 +464,7 @@ public final class ConfigManager {
             skinBlockedPlayers = PlayerBlocklist.normalize(skinBlockedPlayers);
             otherPlayerSkinMode = com.customcosmetics.features.skins.SkinRules.mode(otherPlayerSkinMode);
             nickHiderPrefix = com.customcosmetics.features.nickname.NickHider.prefix(nickHiderPrefix);
+            com.customcosmetics.features.nickname.SkyBlockLevel.normalizeConfig();
             nickHiderSelfAlias = com.customcosmetics.features.nickname.NickHider.selfAlias(nickHiderSelfAlias);
             smolLimbSwingSpeed = Math.clamp(smolLimbSwingSpeed, 0.5, 5.0);
             playerSizeX=com.customcosmetics.features.playersize.PlayerSizeSettings.bounded(playerSizeX);

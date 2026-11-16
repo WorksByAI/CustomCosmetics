@@ -50,6 +50,7 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
         ModErrors.run(ModErrors.Key.SYNC, PresenceSync::init);
         ModErrors.run(ModErrors.Key.PARTY, com.customcosmetics.features.party.PartyFeatures::init);
         ModErrors.run(ModErrors.Key.NICK_HIDER, NickHider::init);
+        ModErrors.run(ModErrors.Key.STARTUP, com.customcosmetics.features.nickname.SkyBlockLevelAppearance::init);
         ModErrors.run(ModErrors.Key.DAMAGE, com.customcosmetics.features.damage.DamageSplash::init);
         ModErrors.run(ModErrors.Key.UPDATES, com.customcosmetics.update.UpdateChecker::init);
         ModErrors.run(ModErrors.Key.WAYPOINTS, com.customcosmetics.features.waypoint.Waypoints::init);

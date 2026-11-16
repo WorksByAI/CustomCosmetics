@@ -19,11 +19,13 @@ class NickHiderTest {
         assertNull(NickHider.sidebarMember("[MVP+] LobbyPlayer"));
     }
 
-    @Test void keepsTheSelfAliasLiteralAndAllowsAutomaticFallback() {
+    @Test void keepsSelfAliasFormattingWithoutCountingCodesTowardTheDisplayLimit() {
         assertEquals("", NickHider.selfAlias(null));
         assertEquals("", NickHider.selfAlias(" \n\u200b "));
         assertEquals("本地 Alias", NickHider.selfAlias("  本地 Alias  "));
         assertEquals("𠀋".repeat(30), NickHider.selfAlias("𠀋".repeat(31)));
+        assertEquals("&6" + "𠀋".repeat(29) + "&#FF66BB火", NickHider.selfAlias("§6" + "𠀋".repeat(29) + "&#FF66BB火a"));
+        assertEquals("", NickHider.selfAlias("&6&#FF66BB&r"));
     }
 
     @Test void keepsThePrefixLiteralAndLimitsCodePoints() {

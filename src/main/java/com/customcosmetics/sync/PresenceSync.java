@@ -18,6 +18,11 @@ import com.customcosmetics.config.ConfigManager;
 import com.customcosmetics.config.RemoteServerConfig;
 import com.customcosmetics.features.nickname.NicknameSegments;
 import com.customcosmetics.features.nickname.RankSettings;
+import com.customcosmetics.features.nickname.SkyBlockLevel;
+import com.customcosmetics.config.PlayerBlocklist;
+import com.customcosmetics.features.items.ItemAppearanceStore.Appearance;
+import com.customcosmetics.features.items.ItemCosmetics;
+import com.customcosmetics.features.items.SharedItemAppearances;
 import com.customcosmetics.features.nickname.RankAppearance;
 import com.customcosmetics.features.playersize.PlayerSizeSettings;
 import com.customcosmetics.features.accessories.AccessoriesSettings;
@@ -76,6 +81,8 @@ public final class PresenceSync {
     private static final AtomicBoolean CACHE_SCHEDULED = new AtomicBoolean();
 
     private static final AtomicBoolean FETCHING = new AtomicBoolean(false);
+    private static final AtomicBoolean FETCHING_ITEM_LIMIT = new AtomicBoolean();
+    private static long nextItemLimitFetch;
     private static final AtomicLong ENDPOINT_VERSION = new AtomicLong();
     private static final AtomicBoolean REPORTING = new AtomicBoolean(false);
 
@@ -107,6 +114,41 @@ public final class PresenceSync {
     /** Opaque identity for client-render caches; changes whenever synchronized appearance changes. */
     public static Object appearanceSnapshot() { return remoteSnapshot; }
     public static List<RemoteRank> remoteRanks() { return RemoteAccess.online()?remoteSnapshot.rankProfiles():List.of(); }
+
+    public record RemoteLevel(UUID uuid, String name, SkyBlockLevel level) {}
+    public static List<RemoteLevel> remoteLevels() {
+        if (!RemoteAccess.online()) return List.of();
+        return remoteSnapshot.users().values().stream().filter(user -> !user.stale() && user.skyBlockLevel() != null)
+            .map(user -> new RemoteLevel(user.uuid(), user.name(), user.skyBlockLevel())).toList();
+    }
+
+    private static Object indexedItemsSnapshot, indexedItemsBlocklist;
+    private static UUID indexedItemsSelf;
+    private static int indexedItemsLimit;
+    private static Map<String, Appearance> indexedItems = Map.of();
+    public static Map<String, Appearance> remoteItemAppearances() {
+        if (!RemoteAccess.online()) return Map.of();
+        var snapshot = remoteSnapshot;
+        var blocked = ConfigManager.nickTweaksBlockedPlayers;
+        var self = Minecraft.getInstance().getUser().getProfileId();
+        int limit = SharedItemAppearances.limit();
+        if (indexedItemsSnapshot == snapshot && indexedItemsBlocklist == blocked && self.equals(indexedItemsSelf) && indexedItemsLimit == limit) return indexedItems;
+        var values = new HashMap<String, Appearance>();
+        var duplicates = new java.util.HashSet<String>();
+        for (var user : snapshot.users().values()) {
+            if (user.stale() || user.uuid().equals(self) || PlayerBlocklist.contains(blocked, user.uuid(), user.name())) continue;
+            user.itemAppearances().entrySet().stream().sorted(Map.Entry.comparingByKey()).limit(limit).forEach(entry -> {
+                if (values.putIfAbsent(entry.getKey(), entry.getValue()) != null) duplicates.add(entry.getKey());
+            });
+        }
+        duplicates.forEach(values::remove);
+        indexedItems = Map.copyOf(values);
+        indexedItemsSnapshot = snapshot;
+        indexedItemsBlocklist = blocked;
+        indexedItemsSelf = self;
+        indexedItemsLimit = limit;
+        return indexedItems;
+    }
 
     private PresenceSync() {
     }
@@ -216,6 +258,8 @@ public final class PresenceSync {
 
     public static void onModeChanged() {
         CapeSync.modeChanged();
+        SharedItemAppearances.resetLimit();
+        nextItemLimitFetch = 0;
         ENDPOINT_VERSION.incrementAndGet();
         MANUAL_RESULT.cancel();
         RATE_LIMIT_NOTICE.reset();
@@ -311,7 +355,7 @@ public final class PresenceSync {
                     nowIsoToEpochMs(nowIso),
                     false,
                     local.gradientStyle(),
-                    local.shimmerSpeed(), local.shimmerColor(), local.shimmerHighlightColor(), local.shimmerSize(),local.shimmerInterval(),local.segments(),local.playerSize(),local.accessories(),local.creatureModel()
+                    local.shimmerSpeed(), local.shimmerColor(), local.shimmerHighlightColor(), local.shimmerSize(),local.shimmerInterval(),local.segments(),local.playerSize(),local.accessories(),local.creatureModel(),local.skyBlockLevel(),local.itemAppearances()
             ));
 
             JsonObject root = new JsonObject();
@@ -350,6 +394,8 @@ public final class PresenceSync {
         JsonObject features = new JsonObject();
 
         JsonObject nickTweaks = new JsonObject();
+        SkyBlockLevel.encode(nickTweaks, state.skyBlockLevel());
+        SharedItemAppearances.encode(nickTweaks, state.itemAppearances(), false);
         nickTweaks.addProperty("enabled", state.nickTweaksEnabled());
         nickTweaks.addProperty("boldEnabled", state.boldEnabled());
         nickTweaks.addProperty("nickChanger", state.nickChanger());
@@ -540,6 +586,38 @@ public final class PresenceSync {
         return RemoteAccess.online() ? SyncEndpoint.baseUrl() : "";
     }
 
+    /** Lightweight policy check for the item editor, including when automatic appearance sync is off. */
+    public static void refreshItemShareLimit() {
+        String base = serviceBaseUrl();
+        long now = System.currentTimeMillis();
+        if (base.isBlank() || now < nextItemLimitFetch || !FETCHING_ITEM_LIMIT.compareAndSet(false, true)) return;
+        nextItemLimitFetch = now + 15_000;
+        long endpointVersion = ENDPOINT_VERSION.get();
+        CompletableFuture.runAsync(() -> {
+            HttpURLConnection connection = null;
+            try {
+                connection = openHttpConnection(base + "/items/policy", 0);
+                connection.setConnectTimeout(4_000);
+                connection.setReadTimeout(4_000);
+                connection.setUseCaches(false);
+                if (connection.getResponseCode() != 200) return;
+                try (var stream = connection.getInputStream()) {
+                    var response = JsonParser.parseString(new String(stream.readNBytes(4096), StandardCharsets.UTF_8));
+                    if (!response.isJsonObject()) return;
+                    Minecraft.getInstance().execute(() -> {
+                        if (endpointVersion == ENDPOINT_VERSION.get() && base.equals(serviceBaseUrl()))
+                            SharedItemAppearances.readLimit(response.getAsJsonObject());
+                    });
+                }
+            } catch (Exception unavailable) {
+                // The normal synchronization channels can still supply the policy.
+            } finally {
+                if (connection != null) connection.disconnect();
+                FETCHING_ITEM_LIMIT.set(false);
+            }
+        });
+    }
+
     private static String resolveFetchUrl() {
         String base = serviceBaseUrl();
         return base.isBlank() ? "" : base + "/users.json";
@@ -632,6 +710,7 @@ public final class PresenceSync {
                         }
                         Minecraft.getInstance().submit(() -> {
                             if (endpointVersion != ENDPOINT_VERSION.get() || !RemoteAccess.online() || !url.equals(resolveFetchUrl())) return;
+                            SharedItemAppearances.readLimit(payload);
                             publishSnapshot(decoded);
                             String base = serviceBaseUrl();
                             CapeSync.acceptSnapshot(capes, base);
@@ -709,19 +788,22 @@ public final class PresenceSync {
             nickTweaksEnabled && customNickColorEnabled && !chromaEnabled && ConfigManager.nickTweaksGradientStyle.equals("segmented")
                 ? NicknameSegments.normalize(ConfigManager.nickTweaksGradientSegments) : List.of(),PlayerSizeSettings.local().active(),com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.EQUIPMENT)?ConfigManager.accessories.active():AccessoriesSettings.NONE,
             com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.CREATURE_MODEL)
-                ? com.customcosmetics.features.creature.CreatureModels.parse(ConfigManager.creatureModel).id : "player", RankAppearance.local()
+                ? com.customcosmetics.features.creature.CreatureModels.parse(ConfigManager.creatureModel).id : "player", RankAppearance.local(),
+            SkyBlockLevel.local(), ItemCosmetics.shared()
         );
         return state;
     }
 
     /** Capture immutable settings on the client thread; JSON/compression run on the network worker. */
     static java.util.function.Supplier<JsonObject> capturePeerAppearance(){
-        var state=snapshotLocalState();return state==null?null:()->encodeAppearance(state);
+        var state=snapshotLocalState();return state==null?null:()->encodeAppearance(state, false);
     }
-    private static JsonObject encodeAppearance(LocalUserState state){
+    private static JsonObject encodeAppearance(LocalUserState state, boolean includePreviews){
         JsonObject features = new JsonObject();
 
         JsonObject nickTweaks = new JsonObject();
+        SkyBlockLevel.encode(nickTweaks, state.skyBlockLevel());
+        SharedItemAppearances.encode(nickTweaks, state.itemAppearances(), includePreviews);
         nickTweaks.addProperty("enabled", state.nickTweaksEnabled());
         nickTweaks.addProperty("boldEnabled", state.boldSelf());
         nickTweaks.addProperty("nickChanger", state.nickChanger());
@@ -776,7 +858,7 @@ public final class PresenceSync {
         user.addProperty("uuid", state.uuid().toString());
         user.addProperty("name", state.name());
 
-        JsonObject features=encodeAppearance(state);
+        JsonObject features=encodeAppearance(state, true);
         user.add("features", features);
 
         JsonObject meta = new JsonObject();
@@ -1018,7 +1100,9 @@ public final class PresenceSync {
                 stale,
                 gradientStyle,
                 shimmerSpeed, shimmerColor, shimmerHighlightColor, shimmerSize, shimmerInterval,segments,PlayerSizeSettings.parse(features==null?null:features.get("playerSize")),AccessoriesSettings.parse(features==null?null:features.get("accessories")),
-                com.customcosmetics.features.creature.CreatureModels.parse(getAsString(features,"creatureModel","player")).id
+                com.customcosmetics.features.creature.CreatureModels.parse(getAsString(features,"creatureModel","player")).id,
+                SkyBlockLevel.decode(nickTweaksObj == null ? null : nickTweaksObj.get("skyBlockLevel")),
+                SharedItemAppearances.decode(nickTweaksObj == null ? null : nickTweaksObj.get("itemAppearances"))
             );
             newUsers.put(uuid, state);
             var rank=RankSettings.parse(nickTweaksObj==null?null:nickTweaksObj.get("rank"));
@@ -1128,7 +1212,7 @@ public final class PresenceSync {
             + "|" + (r.gradientStart() & 0xFFFFFF) + "|" + (r.gradientEnd() & 0xFFFFFF)
             + "|" + r.boldEnabled() + "|" + r.customNickColorEnabled() + "|" + (r.nickChanger() == null ? "" : r.nickChanger())
             + "|" + r.gradientStyle() + "|" + r.shimmerSpeed() + "|" + r.shimmerColor() + "|" + r.shimmerHighlightColor() + "|" + r.shimmerSize() + "|" + r.shimmerInterval()
-            + "|" + r.segments() + "|" + r.playerSize() + "|" + r.accessories() + "|" + r.creatureModel() + "|" + remoteSnapshot.ranks().getOrDefault(r.uuid(),RankSettings.OFF) + "|" + java.util.Arrays.toString(r.chromaPalette() == null ? new int[0] : r.chromaPalette()));
+            + "|" + r.segments() + "|" + r.playerSize() + "|" + r.accessories() + "|" + r.creatureModel() + "|" + r.skyBlockLevel() + "|" + r.itemAppearances() + "|" + remoteSnapshot.ranks().getOrDefault(r.uuid(),RankSettings.OFF) + "|" + java.util.Arrays.toString(r.chromaPalette() == null ? new int[0] : r.chromaPalette()));
     }
 
 
@@ -1329,7 +1413,9 @@ public final class PresenceSync {
             List<NicknameSegments.Segment> segments,
             PlayerSizeSettings playerSize,
             AccessoriesSettings accessories,
-            String creatureModel
+            String creatureModel,
+            SkyBlockLevel skyBlockLevel,
+            Map<String, Appearance> itemAppearances
     ) {
         public RemoteUserState{playerSize=playerSize==null?PlayerSizeSettings.NORMAL:playerSize.active();accessories=accessories==null?AccessoriesSettings.NONE:accessories.active();creatureModel=com.customcosmetics.features.creature.CreatureModels.parse(creatureModel).id;}
     }
@@ -1361,7 +1447,9 @@ public final class PresenceSync {
             PlayerSizeSettings playerSize,
             AccessoriesSettings accessories,
             String creatureModel,
-            RankSettings rank
+            RankSettings rank,
+            SkyBlockLevel skyBlockLevel,
+            Map<String, Appearance> itemAppearances
     ) {
         private LocalUserState{rank=rank==null?RankSettings.OFF:rank;playerSize=playerSize==null?PlayerSizeSettings.NORMAL:playerSize.active();accessories=accessories==null?AccessoriesSettings.NONE:accessories.active();creatureModel=com.customcosmetics.features.creature.CreatureModels.parse(creatureModel).id;}
         String signature() {
@@ -1369,7 +1457,7 @@ public final class PresenceSync {
                     + "|" + chromaSize + "|" + chromaAmount + "|" + chromaLightness
                     + "|" + gradientStart + "|" + gradientEnd + "|" + boldSelf + "|" + customNickColorEnabled + "|" + nickChanger
                     + "|" + gradientStyle + "|" + shimmerSpeed + "|" + shimmerColor + "|" + shimmerHighlightColor + "|" + shimmerSize + "|" + shimmerInterval
-                    + "|" + segments + "|" + playerSize + "|" + accessories + "|" + creatureModel + "|" + rank + "|" + java.util.Arrays.toString(chromaPalette);
+                    + "|" + segments + "|" + playerSize + "|" + accessories + "|" + creatureModel + "|" + rank + "|" + skyBlockLevel + "|" + itemAppearances + "|" + java.util.Arrays.toString(chromaPalette);
         }
     }
 }

@@ -13,6 +13,8 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.ChatComponent;
 import net.minecraft.client.gui.components.PlayerTabOverlay;
 import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.multiplayer.chat.GuiMessage;
+import net.minecraft.client.multiplayer.chat.GuiMessageSource;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.PlayerSkin;
 import org.spongepowered.asm.mixin.Mixin;
@@ -23,7 +25,7 @@ public final class RankDisplayMixin {
     public static class Tab {
         @WrapMethod(method="getNameForDisplay")
         private Component customcosmetics$tabRank(PlayerInfo player,Operation<Component> original){
-            var name=original.call(player);
+            var name=SkyBlockLevelAppearance.tab(original.call(player),player.getProfile().name());
             if(!RankAppearance.active())return name;
             return RankAppearance.tabName(name,PresenceWorld.isSkyblock(Minecraft.getInstance()));
         }
@@ -36,6 +38,14 @@ public final class RankDisplayMixin {
     }
     @Mixin(ChatComponent.class)
     public static class Chat {
+        @WrapMethod(method="addMessageToDisplayQueue")
+        private void customcosmetics$chatLevel(GuiMessage message, Operation<Void> original) {
+            var text = message.content();
+            var rendered = message.source() == GuiMessageSource.SYSTEM_CLIENT ? text : SkyBlockLevelAppearance.chat(text);
+            if (rendered == text) original.call(message);
+            else original.call(new GuiMessage(message.addedTime(), rendered, message.signature(), message.source(), message.tag()));
+        }
+
         @WrapMethod(method="extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/gui/Font;IIILnet/minecraft/client/gui/components/ChatComponent$DisplayMode;Z)V")
         private void customcosmetics$chatRank(GuiGraphicsExtractor graphics,Font font,int tick,int x,int y,
             ChatComponent.DisplayMode mode,boolean focused,Operation<Void> original){
