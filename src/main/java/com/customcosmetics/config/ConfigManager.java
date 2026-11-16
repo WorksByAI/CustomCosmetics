@@ -161,6 +161,9 @@ public final class ConfigManager {
     public static boolean autoClickerBreakBlocks = true, autoClickerBlockDungeonBreaker = true, autoClickerWhitelistOnly;
     public static boolean autoClickerRequireKey, autoClickerReverseKey;
     public static Set<String> autoClickerLeftItems = Set.of(), autoClickerRightItems = Set.of();
+    public static boolean autoI4Precise = true, autoI4Predict = true;
+    public static boolean autoI4Rod = false, autoI4Mask = false, autoI4Leap = false, autoI4LeapToMelody = false;
+    public static int autoI4RotationTime = 170, autoI4SwapOrder = 0, autoI4LeapPriority = 0;
     public static int bookCombineResultDelay = 10;
     public static int experimentMinDelay = 200, experimentMaxDelay = 250, experimentSerums;
     public static boolean experimentAutoClose, experimentGetMax;
@@ -528,6 +531,9 @@ public final class ConfigManager {
             autoClickerLeftCps = readAutoClickCps(settings, "Left", autoClickerLeftCps);
             autoClickerRightCps = readAutoClickCps(settings, "Right", autoClickerRightCps);
             autoClickerJitter = Math.clamp(autoClickerJitter, 1, 3);
+            autoI4RotationTime = Math.clamp(autoI4RotationTime, 0, 250);
+            autoI4SwapOrder = Math.clamp(autoI4SwapOrder, 0, 1);
+            autoI4LeapPriority = Math.clamp(autoI4LeapPriority, 0, 3);
             bookCombineResultDelay = Math.clamp(bookCombineResultDelay, 2, 40);
             experimentMinDelay = Math.clamp(experimentMinDelay, 100, 1000);
             experimentMaxDelay = Math.clamp(experimentMaxDelay, experimentMinDelay, 1000);

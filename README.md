@@ -6,7 +6,7 @@ This is a private mod. Quality and stability are not guaranteed.
 
 CustomSkyBlock 提供 **Legit** 和 **Cheating** 两种安装包。Legit 提供外观与 QOL，Cheating 另含作弊模块。任选一个，用 `/customskyblock` 或 `/csb` 打开。更新器沿用已装的版本类型。从旧命名的安装包升级时，请手动选一次。
 
-v3.0.3。支持 Minecraft 26.1～26.3 的 Fabric 模组，部分外观可在玩家间同步。支持中英文、系统字体和本地字体。
+v3.0.4。支持 Minecraft 26.1～26.3 的 Fabric 模组，部分外观可在玩家间同步。支持中英文、系统字体和本地字体。
 
 目前模组所有功能（[√] 表示其他安装本模组的玩家可见）：
 
@@ -26,13 +26,13 @@ v3.0.3。支持 Minecraft 26.1～26.3 的 Fabric 模组，部分外观可在玩�
 - **Offline Mode**：断开所有远程同步连接，不使用共享功能，也无法看见别人的装饰品。
 - 模块：Settings → Module Manager。
 
-需要 Java 25、Fabric Loader 0.19.5+ 和匹配的 Fabric API。Cheating 另需 Fabric Language Kotlin 1.14.2+。共享功能需 [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api)。
+需要 Java 25、Fabric Loader 0.19.5+ 和 Fabric API。内置地牢需 Fabric Language Kotlin 1.14.2+。独立 Quoi 用 `/quoi`。共享需 [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api)。
 
 ## English
 
 CustomSkyBlock ships as **Legit** and **Cheating**. Legit includes visual and QOL features. Cheating adds the Cheating panel. Install one JAR and open with `/customskyblock` or `/csb`. Updates stay in the installed edition. Pick an edition manually when upgrading from an older filename.
 
-v3.0.3. Fabric cosmetics for Minecraft 26.1–26.3 with optional sync, English and Simplified Chinese, and system or local font support.
+v3.0.4. Fabric cosmetics for Minecraft 26.1–26.3 with optional sync, English and Simplified Chinese, and system or local font support.
 
 Features ([√] visible to other mod users):
 
@@ -52,7 +52,7 @@ Features ([√] visible to other mod users):
 - **Offline Mode**: Disconnect all remote synchronization connections. Sharing is disabled, and other players' cosmetics are not shown.
 - Modules: Settings → Module Manager.
 
-Requires Java 25, Fabric Loader 0.19.5+ and matching Fabric API. Cheating also needs Fabric Language Kotlin 1.14.2+. Sharing requires [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api).
+Requires Java 25, Fabric Loader 0.19.5+ and Fabric API. Bundled dungeons need Fabric Language Kotlin 1.14.2+. Use `/quoi` for standalone Quoi. Sharing needs [Hypixel Mod API](https://modrinth.com/mod/hypixel-mod-api).
 
 采用 / Licensed under **AGPL-3.0-or-later**。部分代码移植自 / Portions ported from [Baity](https://github.com/raueyhs/Baity), originally authored by raueyhs. See [LICENSE](https://github.com/WorksByAI/CustomCosmetics/blob/main/LICENSE) and [NOTICE](https://github.com/WorksByAI/CustomCosmetics/blob/main/NOTICE).
 

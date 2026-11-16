@@ -17,6 +17,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.Locale;
+import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -110,7 +111,7 @@ public final class AutoLeap {
         public boolean hasTarget() { return this != DOOR && this != P3; }
     }
 
-    private record Request(Pattern target, int expires, boolean manual) {}
+    private record Request(Pattern target, int expires, boolean manual, boolean i4) {}
     private Request pending, active;
     private int oldSlot = -1, leapSlot = -1, clickAt = -1, cooldown;
     private long lastCompletedLeap;
@@ -288,6 +289,33 @@ public final class AutoLeap {
 
     boolean request(Minecraft client, String target, boolean byClass, boolean manual) {
         if (client.getConnection() == null || client.player == null || cooldown > client.player.tickCount) return false;
+        String name = findTeammate(client, target, byClass);
+        if (name == null) {
+            MessageUtils.sendMessage("Leap target unavailable: " + target);
+            return false;
+        }
+        queue(client, name, manual, false);
+        return true;
+    }
+
+    boolean requestI4(Minecraft client, String melody, List<String> priorities) {
+        if (hasRequest() || client.getConnection() == null || cooldown > client.player.tickCount || findLeap(client) < 0) return false;
+        String name = melody == null ? null : findTeammate(client, melody, false);
+        for (String role : priorities) {
+            if (name != null) break;
+            name = findTeammate(client, role, true);
+        }
+        if (name == null) return false;
+        queue(client, name, true, true);
+        return true;
+    }
+
+    private void queue(Minecraft client, String name, boolean manual, boolean i4) {
+        var pattern = Pattern.compile("(?<![A-Za-z0-9_])" + Pattern.quote(name) + "(?![A-Za-z0-9_])", Pattern.CASE_INSENSITIVE);
+        pending = new Request(pattern, client.player.tickCount + 60, manual, i4);
+    }
+
+    private static String findTeammate(Minecraft client, String target, boolean byClass) {
         String self = client.player.getGameProfile().name();
         for (var entry : client.getConnection().getListedOnlinePlayers()) {
             var display = entry.getTabListDisplayName();
@@ -296,17 +324,16 @@ public final class AutoLeap {
             if (!match.matches()) continue;
             String name = match.group(1), role = match.group(2);
             if (name.equalsIgnoreCase(self) || "DEAD".equalsIgnoreCase(role)) continue;
-            if ((byClass ? role : name).equalsIgnoreCase(target)) {
-                var pattern = Pattern.compile("(?<![A-Za-z0-9_])" + Pattern.quote(name) + "(?![A-Za-z0-9_])", Pattern.CASE_INSENSITIVE);
-                pending = new Request(pattern, client.player.tickCount + 60, manual);
-                return true;
-            }
+            if ((byClass ? role : name).equalsIgnoreCase(target)) return name;
         }
-        MessageUtils.sendMessage("Leap target unavailable: " + target);
-        return false;
+        return null;
     }
 
     void tick(Minecraft client) {
+        if (!GameplayModule.AUTO_I4.enabled() || !ConfigManager.autoI4Leap || !AutoI4.onDevice(client)) {
+            if (pending != null && pending.i4()) pending = null;
+            if (active != null && active.i4()) finish(client);
+        }
         boolean automatic = GameplayModule.AUTO_LEAP.enabled();
         if (!automatic) {
             if (pending != null && !pending.manual()) pending = null;
@@ -350,7 +377,7 @@ public final class AutoLeap {
             }
         } else if (pending != null) {
             if (now >= pending.expires() || now < cooldown) { pending = null; return; }
-            if (!leapMenu && screen != null) return;
+            if (screen != null && (!leapMenu || pending.i4())) return;
             if (!leapMenu) {
                 int slot = findLeap(client);
                 if (slot < 0) { pending = null; return; }
@@ -359,12 +386,14 @@ public final class AutoLeap {
                 inventory.setSelectedSlot(slot);
                 client.gameMode.useItem(client.player, InteractionHand.MAIN_HAND);
             }
-            active = new Request(pending.target(), now + 60, pending.manual());
+            active = new Request(pending.target(), now + 60, pending.manual(), pending.i4());
             pending = null;
         }
     }
 
     boolean hasRequest() { return pending != null || active != null; }
+
+    boolean hasI4Request() { return pending != null && pending.i4() || active != null && active.i4(); }
 
     void noteLeap() { lastCompletedLeap = System.nanoTime(); }
 
@@ -384,7 +413,7 @@ public final class AutoLeap {
     }
 
     private void finish(Minecraft client) {
-        if (ConfigManager.autoLeapSwapBack && oldSlot >= 0 && client.player != null
+        if ((ConfigManager.autoLeapSwapBack || active != null && active.i4()) && oldSlot >= 0 && client.player != null
                 && client.player.getInventory().getSelectedSlot() == leapSlot) client.player.getInventory().setSelectedSlot(oldSlot);
         oldSlot = leapSlot = clickAt = -1;
         active = null;

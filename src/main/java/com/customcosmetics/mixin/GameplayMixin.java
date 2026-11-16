@@ -94,6 +94,16 @@ public final class GameplayMixin {
 
     }
 
+    @Mixin(net.minecraft.client.multiplayer.ClientCommonPacketListenerImpl.class)
+    public static class I4Timing {
+        @Inject(method = "handlePing", at = @At("TAIL"))
+        private void observe(net.minecraft.network.protocol.common.ClientboundPingPacket packet, CallbackInfo callback) {
+            if ((Object) this instanceof net.minecraft.client.multiplayer.ClientPacketListener && packet.getId() != 0) {
+                GameplayFeatures.i4ServerTick(Minecraft.getInstance());
+            }
+        }
+    }
+
     @Mixin(net.minecraft.client.gui.components.BossHealthOverlay.class)
     public static class BossBars {
         @org.spongepowered.asm.mixin.Shadow @org.spongepowered.asm.mixin.Final

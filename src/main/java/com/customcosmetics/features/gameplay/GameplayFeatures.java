@@ -120,6 +120,10 @@ public final class GameplayFeatures {
         return ConfigManager.terminalLeapDelay && AUTO_LEAP.recentlyLeaped(ConfigManager.terminalLeapDelaySeconds);
     }
 
+    public static void i4ServerTick(Minecraft client) {
+        AutoI4.serverTick(client);
+    }
+
     public static void init() {
         AutoClick.init();
         CrystalHollowsScanner.init();
@@ -136,6 +140,7 @@ public final class GameplayFeatures {
             InventoryAutomation.message(text);
             TrevorHelper.message(message, text);
             CorpseHighlight.message(client, text);
+            AutoI4.message(client, text);
             if (GameplayModule.AUTO_LEAP.enabled() || GameplayModule.FAST_LEAP.enabled()) AUTO_LEAP.message(client, text);
             if (!GameplayModule.F7_TIMER.enabled() || !MapEditor.automaticDungeon(client) || !isFloorSeven()) return;
             for (int i = BOSS.length - 1; i > phase; i--) {
@@ -176,6 +181,7 @@ public final class GameplayFeatures {
             starred = List.of();
             harpScreen = null;
             AutoClick.reset();
+            AutoI4.reset(client);
             nextDoorTick = 0;
             InventoryAutomation.worldChanged();
             AutoExperiments.reset();
@@ -204,6 +210,7 @@ public final class GameplayFeatures {
         if (ConfigManager.gameplayModules.isEmpty() && !AUTO_LEAP.hasRequest()) {
             if (wasInSkyblock) {
                 AUTO_LEAP.reset(client);
+                AutoI4.reset(client);
                 SecretTriggerbot.reset();
                 CrystalHollowsScanner.reset();
                 EntityHighlights.reset();
@@ -234,6 +241,7 @@ public final class GameplayFeatures {
         if (!inSkyblock) {
             if (wasInSkyblock) {
                 InventoryAutomation.worldChanged();
+                AutoI4.reset(client);
                 AutoExperiments.reset();
                 FloorSevenDevices.reset();
                 SecretTriggerbot.reset();
@@ -268,6 +276,7 @@ public final class GameplayFeatures {
         if (GameplayModule.AUTO_HARP.enabled()) harp(client);
         else harpScreen = null;
         AUTO_LEAP.tick(client);
+        AutoI4.tick(client, AUTO_LEAP);
         FloorSevenDevices.tick(client);
         SecretTriggerbot.tick(client);
         SecretAura.tick(client);

@@ -33,13 +33,14 @@ public final class CheatingScreen extends ThemedScreen {
     private static final ScreenSession SESSION = new ScreenSession(GameplayModule.Category.GENERAL.name());
     private static final String ENABLED_PAGE = "ENABLED";
     private static final GameplayModule[] MODULES = Arrays.stream(GameplayModule.values())
-        .filter(module -> module.category != GameplayModule.Category.DUNGEON)
+        .filter(GameplayModule::localControl)
         .sorted(Comparator.comparing(module -> module.label)).toArray(GameplayModule[]::new);
     private final Screen parent;
     private final ArrayList<Card> cards = new ArrayList<>();
     private GameplayModule.Category category = GameplayModule.Category.GENERAL;
     private MenuEntry editing;
     private DungeonMenu dungeonMenu;
+    private java.util.List<net.minecraft.util.FormattedCharSequence> dungeonNotice = java.util.List.of();
     private DungeonMenu.Key dungeonKey;
     private boolean dungeonDirty;
     private final HashSet<DungeonMenu.Control> openGroups = new HashSet<>();
@@ -222,6 +223,14 @@ public final class CheatingScreen extends ThemedScreen {
         editingRow = -1;
         detailsHeight = 0;
         dungeonMenu = QuoiDungeon.menu();
+        dungeonNotice = java.util.List.of();
+        if (!enabledOnly && filter.isEmpty() && category == GameplayModule.Category.DUNGEON && dungeonMenu == null) {
+            String message = QuoiDungeon.standaloneInstalled()
+                ? "Standalone Quoi manages dungeon modules. Use /quoi in-game."
+                : "Bundled dungeon modules are unavailable. Check your Fabric Language Kotlin version.";
+            dungeonNotice = font.split(UiText.component(message), layout.contentWidth() - 10);
+            cardsTop += dungeonNotice.size() * 10 + 12;
+        }
         Stream<MenuEntry> entries = Arrays.stream(MODULES).map(module -> new MenuEntry(module, null));
         if (dungeonMenu != null && (enabledOnly || category == GameplayModule.Category.DUNGEON || !filter.isEmpty())) {
             entries = Stream.concat(entries, dungeonMenu.modules().stream().map(module -> new MenuEntry(null, module)));
@@ -303,6 +312,26 @@ public final class CheatingScreen extends ThemedScreen {
         switch (editing.local()) {
             case FAST_LEAP -> fastLeapSettings();
             case AUTO_CLICKER -> autoClickSettings();
+            case AUTO_I4 -> {
+                tooltip(option("Precise I4 Aim", () -> ConfigManager.autoI4Precise, v -> ConfigManager.autoI4Precise = v),
+                    "Aim at the lit target's center and compensate for arrow drop. Supports single-arrow shortbows.");
+                tooltip(option("I4 Target Prediction", () -> ConfigManager.autoI4Predict, v -> ConfigManager.autoI4Predict = v),
+                    "Pre-aim at a likely target while waiting for the next lamp to light.");
+                tooltip(slider("I4 Rotation Time (ms)", ConfigManager.autoI4RotationTime, 0, 250, 1,
+                    v -> ConfigManager.autoI4RotationTime = (int) v), "Set to 0 to pause Auto I4 aiming and shooting.");
+                tooltip(option("Auto Rod", () -> ConfigManager.autoI4Rod, v -> ConfigManager.autoI4Rod = v),
+                    "Use a fishing rod from the hotbar and then return to the previous slot.");
+                tooltip(option("Auto Mask", () -> ConfigManager.autoI4Mask, v -> ConfigManager.autoI4Mask = v),
+                    "Equip a Spirit Mask or Bonzo's Mask through Stats & Equipment.");
+                cycle("Swap Order", java.util.List.of("Rod First", "Mask First"), () -> ConfigManager.autoI4SwapOrder,
+                    v -> ConfigManager.autoI4SwapOrder = v);
+                tooltip(option("Auto Leap", () -> ConfigManager.autoI4Leap, v -> ConfigManager.autoI4Leap = v),
+                    "Use a Spirit Leap after completing I4 or when the Goldor timer reaches the escape point.");
+                tooltip(option("Leap To Melody", () -> ConfigManager.autoI4LeapToMelody, v -> ConfigManager.autoI4LeapToMelody = v),
+                    "Prefer the teammate reporting Melody progress in party chat.");
+                cycle("Leap Priority", java.util.List.of("Tank", "Mage", "Healer", "Archer"), () -> ConfigManager.autoI4LeapPriority,
+                    v -> ConfigManager.autoI4LeapPriority = v);
+            }
             case AUTO_EXPERIMENTS -> {
                 slider("Min Click Delay (ms)", ConfigManager.experimentMinDelay, 100, 1000, 1,
                     v -> ConfigManager.experimentMinDelay = (int) v);
@@ -438,6 +467,7 @@ public final class CheatingScreen extends ThemedScreen {
         } else {
             switch (module.local()) {
                 case AUTO_BOOK_COMBINE -> ConfigManager.resetSettings("bookCombine*");
+                case AUTO_I4 -> ConfigManager.resetSettings("autoI4*");
                 case AUTO_CLICKER -> {
                     ConfigManager.resetSettings("autoClicker*");
                     resetKeys(AutoClick.LEFT_KEY, AutoClick.RIGHT_KEY, AutoClick.REQUIRED_KEY);
@@ -980,7 +1010,7 @@ public final class CheatingScreen extends ThemedScreen {
         return button;
     }
 
-    private void slider(String title, double value, double min, double max, double step, java.util.function.DoubleConsumer setter) {
+    private PinkUi.Slider slider(String title, double value, double min, double max, double step, java.util.function.DoubleConsumer setter) {
         int x = layout.contentX() + 7, width = detailWidth();
         var number = new PinkUi.Field(font, x + width - 48, detailsY, 48, title, 19);
         number.setMaxLength(8);
@@ -1002,6 +1032,7 @@ public final class CheatingScreen extends ThemedScreen {
         int y = detailsY;
         addDetail(slider);
         details.add(new Detail(addWidget(number), y));
+        return slider;
     }
 
     private void color(String title, int rgb, java.util.function.IntConsumer setter) {
@@ -1138,6 +1169,11 @@ public final class CheatingScreen extends ThemedScreen {
         UiFonts.drawTitle(graphics, UiText.tr(enabledOnly ? "Enabled Modules" : category.label), layout.contentX(), layout.y() + 19, TEXT, layout.contentWidth() - 24);
         graphics.nextStratum();
         super.extractRenderState(graphics, x, y, delta);
+        int lineY = cardsTop - dungeonNotice.size() * 10 - 6;
+        for (var line : dungeonNotice) {
+            graphics.text(font, line, layout.contentX() + 5, lineY, DIM, false);
+            lineY += 10;
+        }
         if (cards.isEmpty()) uiText(graphics, font, enabledOnly && query.isBlank() ? "No modules enabled" : "No modules found",
             layout.contentX() + 5, cardsTop + 8, DIM, layout.contentWidth());
         if (cardsBottom <= cardsTop) return;

@@ -21,7 +21,6 @@ if (edition == 'legit') {
             metadata.remove('jars')
             metadata.mixins.remove(cheatingMixins)
             metadata.entrypoints.keySet().removeIf { it.startsWith('csb-dungeon-') }
-            metadata.depends.keySet().removeIf { it.startsWith('customskyblock-dungeon') || it == 'fabric-language-kotlin' }
             file.setText(JsonOutput.prettyPrint(JsonOutput.toJson(metadata)), 'UTF-8')
         }
     }
@@ -149,7 +148,8 @@ def prepareDungeon = tasks.register('prepareDungeon') {
             }
             write('dungeon-common.jar', base, common.toList(), ['fabric.mod.json': groovy.json.JsonOutput.toJson([
                 schemaVersion: 1, id: 'customskyblock-dungeon-common', version: dungeonVersion,
-                name: 'CustomSkyBlock Dungeon Common', environment: 'client', license: 'GPL-3.0-only'
+                name: 'CustomSkyBlock Dungeon Common', environment: 'client', license: 'GPL-3.0-only',
+                depends: ['customskyblock-dungeon': "=${dungeonVersion}".toString()], breaks: [quoi: '*']
             ])])
         } finally {
             jars.values().each { it.close() }

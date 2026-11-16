@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.4
+
+- new feat: Add Auto I4 with precise aiming for single-arrow shortbows and optional rod, mask, and Spirit Leap actions.
+- bug fix: Fix Tooltip Tweaks crashes when standalone Pack Disabler is installed.
+- bug fix: Keep Corpse ESP working with standalone Pack Disabler installed.
+- bug fix: Let CustomSkyBlock coexist with standalone Quoi without loading a second dungeon implementation.
+
 ## 3.0.3
 
 - new feat: Replace Auto Clicker with Nebulune AutoClick and its whitelist commands.

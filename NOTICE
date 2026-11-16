@@ -105,6 +105,12 @@ is applied to independent visual state, with native swing restart and snapshot
 interpolation order; it does not override Minecraft's entity timing or network behavior.
 Source: https://github.com/Noamm9/NoammAddons/blob/44e447abbe2f3a1c0678c6388abd3a3b0b2287d8/src/main/java/com/github/noamm9/mixin/MixinLivingEntity.java
 
+Auto I4 adapts the device layout, spread aiming, action timings, and equipment
+handling from NoammAddons AutoI4, I4Helper, and PlayerUtils (CC0-1.0).
+The single-arrow aim model and game integration are AGPL-3.0-or-later.
+Source: https://github.com/Noamm9/NoammAddons/tree/d23ecd98862f774ca3839bad7fa1eaa10b4dee45/src/main/kotlin/com/github/noamm9/features/impl/floor7/devices
+Source: https://github.com/Noamm9/NoammAddons/blob/d23ecd98862f774ca3839bad7fa1eaa10b4dee45/src/main/kotlin/com/github/noamm9/utils/PlayerUtils.kt
+
 GitHub Invertocat White (assets/customcosmetics/textures/gui/github.png):
 Unmodified official PNG from https://brand.github.com/GitHub_Logos.zip,
 used as a secondary button linking to this project's GitHub repository.

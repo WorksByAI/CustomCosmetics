@@ -21,10 +21,15 @@ public final class QuoiDungeon {
         return PresenceWorld.isHypixel(Minecraft.getInstance());
     }
 
+    public static boolean standaloneInstalled() {
+        return FabricLoader.getInstance().isModLoaded("quoi");
+    }
+
     public static DungeonMenu menu() {
-        if (!allowed()) return null;
+        var loader = FabricLoader.getInstance();
+        if (!allowed() || !loader.isModLoaded("customskyblock-dungeon")) return null;
         if (menu == null) ModErrors.run(ModErrors.Key.DUNGEON, () -> {
-            var entrypoint = FabricLoader.getInstance().getEntrypoints("csb-dungeon-menu", DungeonMenu.class).getFirst();
+            var entrypoint = loader.getEntrypoints("csb-dungeon-menu", DungeonMenu.class).getFirst();
             entrypoint.setToggleNotifier(ModuleNotifications::show);
             menu = entrypoint;
         });

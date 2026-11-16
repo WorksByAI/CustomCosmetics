@@ -8,6 +8,7 @@
     "GameplayMixin$AttackEntity",
     "GameplayMixin$BossBars",
     "GameplayMixin$GameplayPackets",
+    "GameplayMixin$I4Timing",
     "GameplayMixin$ContainerTools",
     "GameplayMixin$DeviceBlocks",
     "SecretChestMixin",

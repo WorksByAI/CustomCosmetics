@@ -14,6 +14,7 @@ public enum GameplayModule {
     AUTO_HARP("Auto Harp", Category.GENERAL),
     TREVOR_HELPER("Trevor Helper", Category.GENERAL),
     AUTO_CLOSE_CHEST("Auto Close Chest", Category.DUNGEON),
+    AUTO_I4("Auto I4", Category.DUNGEON),
     AUTO_LEAP("Auto Leap", Category.DUNGEON),
     SECRET_AURA("Secret Aura", Category.DUNGEON),
     SECRET_TRIGGERBOT("Secret Triggerbot", Category.DUNGEON),
@@ -56,8 +57,10 @@ public enum GameplayModule {
         this.category = category;
     }
 
+    public boolean localControl() { return this == AUTO_I4 || category != Category.DUNGEON; }
+
     public boolean enabled() {
-        return category != Category.DUNGEON && ConfigManager.gameplayPanelConfirmed && ConfigManager.gameplayModules.contains(name())
+        return localControl() && ConfigManager.gameplayPanelConfirmed && ConfigManager.gameplayModules.contains(name())
             && ModErrors.active(ModErrors.Key.GAMEPLAY);
     }
 

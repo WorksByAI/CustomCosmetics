@@ -109,6 +109,20 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
                 "Auto Experiments switches did not update the settings");
             ConfigManager.experimentAutoClose = ConfigManager.experimentGetMax = false;
             click(client, "Auto Experiments", false, ClientInput.MOUSE_RIGHT);
+            click(client, "Dungeon", false);
+            click(client, "Auto I4", false, ClientInput.MOUSE_RIGHT);
+            click(client, "Precise I4 Aim", false);
+            check(!ConfigManager.autoI4Precise && !GameplayModule.AUTO_I4.enabled(), "Precision setting also toggled Auto I4");
+            click(client, "Precise I4 Aim", false);
+            for (String label : List.of("Auto Rod", "Auto Mask", "Auto Leap", "Leap To Melody", "Swap Order", "Leap Priority"))
+                check(widget(client, label, false) instanceof PinkUi.Action, "Auto I4 is missing " + label);
+            click(client, "Auto Rod", false);
+            check(ConfigManager.autoI4Rod && !ConfigManager.autoI4Mask && !ConfigManager.autoI4Leap,
+                "Auto I4 actions are not independent");
+            click(client, "Auto Mask", false);
+            check(ConfigManager.autoI4Mask && !ConfigManager.autoI4Leap, "Auto Mask also enabled Auto Leap");
+            ConfigManager.autoI4Rod = ConfigManager.autoI4Mask = false;
+            click(client, "Auto I4", false, ClientInput.MOUSE_RIGHT);
             var leap = (PinkUi.Field) widget(client, "Search modules", false);
             leap.setValue("Health and Mana");
             check(ClientUiAccess.screen(client).children().stream().noneMatch(child -> child instanceof PinkUi.Action action
@@ -123,7 +137,7 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
                 .map(AbstractWidget.class::cast).noneMatch(widget -> List.of("Kuudra", "Slayer").contains(widget.getMessage().getString())),
                 "Retired categories are still visible");
             for (var module : GameplayModule.values()) {
-                if (module.category == GameplayModule.Category.DUNGEON) continue;
+                if (!module.localControl()) continue;
                 ((PinkUi.Field) widget(client, "Search modules", false)).setValue(module.label);
                 var card = widget(client, module.label, false);
                 int collapsedCount = ClientUiAccess.screen(client).children().size();
