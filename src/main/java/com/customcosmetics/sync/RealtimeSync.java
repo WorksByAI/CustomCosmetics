@@ -46,10 +46,13 @@ public final class RealtimeSync {
         boolean appearance=appearanceEnabled()&&PresenceWorld.isHypixel(client);
         boolean party=PartyFeatures.sharingPositions()&&!PartyFeatures.roster().empty();
         var audience=PositionSharing.audience(client);boolean locations=audience.receive()||audience.publishes(PartyFeatures.roster(),party);
-        if(!enabled()||!RemoteAccess.online()||client.player==null||client.level==null||client.hasSingleplayerServer()||!blocking&&!party&&!locations&&!appearance){disconnect();return;}
-        String base=PresenceSync.serviceBaseUrl(),key=base+"|"+ConfigManager.syncBlockingTransport;var auth=PresenceSync.actionSession();
+        boolean relay = enabled() && (blocking || party || locations || appearance);
+        boolean noticesOnly = !relay && PresenceWorld.hasHypixelLocation(client);
+        if(!RemoteAccess.online()||client.player==null||client.level==null||client.hasSingleplayerServer()||!relay&&!noticesOnly){disconnect();return;}
+        String base=PresenceSync.serviceBaseUrl(),key=base+"|"+ConfigManager.syncBlockingTransport+"|"+noticesOnly;var auth=PresenceSync.actionSession();
         if(!key.equals(endpoint)||auth!=identity){disconnect();endpoint=key;identity=auth;}
         if(live!=null&&!live.closed()){
+            if (noticesOnly) return;
             var world=PresenceWorld.read(client);var player=client.player;var roster=PartyFeatures.roster();
             live.update(new RealtimeClient.View(world.world(),blocking?world.players():Set.of(),roster,PresenceWorld.environment(client),party,party||locations||appearance,audience,appearance?world.players():Set.of()),
                 blocking?hand:BlockHand.NONE,blocking?item:"",audience.publishes(roster,party)?new PartyClient.Position(player.getX(),player.getY(),player.getZ(),player.getBbWidth(),player.getBbHeight()):null);
@@ -62,7 +65,7 @@ public final class RealtimeSync {
         long version=generation;
         if(auth==null){authenticating=true;PresenceSync.authenticatedSession().whenComplete((session,error)->client.execute(()->{if(version!=generation)return;authenticating=false;lastAuthFailure=error==null?null:SyncFailure.fromException(error,SyncFailure.Stage.SERVER_AUTH);if(error==null)nextAttempt=0;}));return;}
         if(live!=null&&live.closed())lastConnectFailure=live.status();
-        try{live=RemoteAccess.channel(()->new RealtimeClient(base,auth,"wss".equals(ConfigManager.syncBlockingTransport)));}
+        try{live=RemoteAccess.channel(()->new RealtimeClient(base,auth,noticesOnly||"wss".equals(ConfigManager.syncBlockingTransport)));}
         catch(Exception unavailable){lastConnectFailure="Realtime setup: "+SyncFailure.fromException(unavailable,SyncFailure.Stage.OTHER).description();}
     }
 }

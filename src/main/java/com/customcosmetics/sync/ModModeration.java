@@ -4,10 +4,13 @@ package com.customcosmetics.sync;
 import com.customcosmetics.compatibility.ClientUiAccess;
 import com.customcosmetics.features.animations.PresenceWorld;
 import com.customcosmetics.features.items.ItemNameText;
+import com.customcosmetics.features.map.DungeonSidebarReader;
 import com.customcosmetics.utils.MessageUtils;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
 import net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.DisconnectedScreen;
 import net.minecraft.client.gui.screens.Screen;
@@ -26,6 +29,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
@@ -43,6 +47,7 @@ public final class ModModeration {
     private static boolean polling, administrator;
     private static Pending pending;
     private static BanScreen disconnectScreen;
+    private static final LinkedHashSet<String> seenRemovals = new LinkedHashSet<>();
     private static final String LINK_TOKEN = "\u0001";
 
     private record Pending(String id, long due, BanScreen screen, String base, long generation) {}
@@ -151,6 +156,10 @@ public final class ModModeration {
             var reported = new JsonObject();
             reported.addProperty("serverId", location.serverId());
             reported.addProperty("area", location.area());
+            if (location.area().equals("Dungeons")) {
+                String floor = DungeonSidebarReader.read(client).floor();
+                if (!floor.isEmpty()) reported.addProperty("floor", floor);
+            }
             request.add("location", reported);
         }
         request(base, generation, "poll", request).whenComplete((result, error) -> client.execute(() -> {
@@ -170,8 +179,46 @@ public final class ModModeration {
             } else if (result.has("kick") && result.get("kick").isJsonObject()) {
                 String reason = text(result.getAsJsonObject("kick"), "reason");
                 disconnect(kickMessage(reason));
+            } else if (result.has("removalNotices") && result.get("removalNotices").isJsonArray()) {
+                for (var notice : result.getAsJsonArray("removalNotices"))
+                    if (notice.isJsonObject()) displayRemoval(client, notice.getAsJsonObject());
+            } else if (location != null && result.get("removals") instanceof JsonPrimitive removals &&
+                removals.isNumber() && removals.getAsInt() > 0) {
+                var currentLocation = PresenceWorld.gameLocation(client);
+                if (currentLocation != null && currentLocation.serverId().equals(location.serverId()))
+                    showRemovalNotices(client, removals.getAsInt());
             }
         }));
+    }
+
+    static void acceptRemoval(JsonObject notice, String base) {
+        var client = Minecraft.getInstance();
+        long generation = RemoteAccess.generation();
+        client.execute(() -> {
+            if (currentService(base, generation)) displayRemoval(client, notice);
+        });
+    }
+
+    private static void displayRemoval(Minecraft client, JsonObject notice) {
+        var current = client.getConnection();
+        if (current == null || current.getConnection() != observedConnection ||
+            !text(notice, "connection").equals(connectionId)) return;
+        var location = PresenceWorld.gameLocation(client);
+        if (location == null || !location.serverId().equals(text(notice, "serverId"))) return;
+        String id = text(notice, "id");
+        if (id.length() != 36 || !seenRemovals.add(id)) return;
+        if (seenRemovals.size() > 128) seenRemovals.removeFirst();
+        showRemovalNotices(client, 1);
+    }
+
+    private static void showRemovalNotices(Minecraft client, int count) {
+        var chat = ClientUiAccess.chat(client);
+        for (int i = 0; i < count; i++) {
+            chat.addClientSystemMessage(Component.literal("A Player has been removed from your game.")
+                .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+            chat.addClientSystemMessage(Component.literal("Use /report to continue helping out the server!")
+                .withStyle(ChatFormatting.AQUA));
+        }
     }
 
     private static void beginActivation(Connection connection) {
@@ -180,6 +227,7 @@ public final class ModModeration {
         if (!currentService(action.base(), action.generation()) || !connection.isConnected()) return;
         var body = scoped(scope);
         body.addProperty("id", action.id());
+        body.addProperty("connection", connectionId);
         request(action.base(), action.generation(), "activate", body);
         disconnectBan(connection, action.screen());
     }
@@ -208,6 +256,7 @@ public final class ModModeration {
         observedConnection = null;
         listener = null;
         connectionId = scope = null;
+        seenRemovals.clear();
         pending = null;
         nextPoll = 0;
         polling = administrator = false;
@@ -342,13 +391,13 @@ public final class ModModeration {
         var result = new StringBuilder();
         for (int i = 0; i < scales.length; i++) {
             long part = value / scales[i];
-            if (part != 0 || !result.isEmpty() || i == 3) {
+            if (part != 0) {
                 if (!result.isEmpty()) result.append(' ');
                 result.append(part).append(suffixes[i]);
             }
             value %= scales[i];
         }
-        return result.toString();
+        return result.isEmpty() ? "0s" : result.toString();
     }
 
     private static String text(JsonObject body, String key) {

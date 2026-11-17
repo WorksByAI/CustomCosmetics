@@ -25,6 +25,7 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
     private final ScheduledExecutorService worker=Executors.newSingleThreadScheduledExecutor(r->{var t=new Thread(r,"CustomSkyBlock-Realtime");t.setDaemon(true);return t;});
     private final HttpClient http=WebSocketPresenceClient.createHttpClient();
     private final RealtimeRoute route=new RealtimeRoute();private final boolean forceWss;
+    private final String serviceBase;
     private final UUID self;private final PartyPeerClient peers;private long epoch;private InetSocketAddress relayAddress;private JsonObject localCandidate;
     private final DatagramFactory datagrams;private final int requestedUdpPort;
     private String udpFailure="";
@@ -58,6 +59,7 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
     private RealtimeClient(String base,PresenceAuthClient.Session session,boolean forceWss,DatagramFactory datagrams,int requestedUdpPort){
         if(requestedUdpPort<0||requestedUdpPort>65535)throw new IllegalArgumentException("Invalid local UDP port");
         if(session==null||!session.baseUrl().equals(base))throw new IllegalArgumentException("Realtime requires an authenticated service session");
+        serviceBase = base;
         this.forceWss=forceWss;this.datagrams=datagrams;this.requestedUdpPort=requestedUdpPort;token=session.token();self=session.uuid();
         peers=new PartyPeerClient((bytes,address)->{if(udp==null)throw new java.io.IOException("UDP unavailable");udp.send(new DatagramPacket(bytes,bytes.length,address));},m->acceptRecord(m,0,RealtimeConnections.Path.P2P));
         peers.skins(com.customcosmetics.features.skins.LocalSkins.exchange());
@@ -195,7 +197,7 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
         }
         return source;
     }
-    @Override public void onOpen(WebSocket ws){synchronized(this){socket=ws;if(closed){ws.abort();return;}var m=new JsonObject();m.addProperty("type","hello");m.addProperty("client",clientId);m.addProperty("token",token);m.addProperty("announcements",1);send(m);token=null;}ws.request(1);}
+    @Override public void onOpen(WebSocket ws){synchronized(this){socket=ws;if(closed){ws.abort();return;}var m=new JsonObject();m.addProperty("type","hello");m.addProperty("client",clientId);m.addProperty("token",token);m.addProperty("announcements",1);m.addProperty("removalNotices",1);send(m);token=null;}ws.request(1);}
     @Override public CompletionStage<?> onText(WebSocket ws,CharSequence part,boolean last){
         if(closed)return null;if(fragments.length()+part.length()>262144){close();return null;}fragments.append(part);
         if(last){String message=fragments.toString();fragments.setLength(0);try{worker.execute(()->{try{receive(JsonParser.parseString(message).getAsJsonObject(),false);}catch(Exception invalid){close();}});}catch(RejectedExecutionException ignored){}}
@@ -206,6 +208,10 @@ public final class RealtimeClient implements WebSocket.Listener,AutoCloseable {
         if(type.equals("hello")&&!datagram){if(ready||m.get("version").getAsInt()!=1)throw new IllegalArgumentException();expires=m.get("expiresAt").getAsLong();epoch=m.get("epoch").getAsLong();com.customcosmetics.features.items.SharedItemAppearances.readLimit(m);ready=true;return;}
         if(!ready)return;
         if(type.equals("announcement")&&!datagram){ServerAnnouncements.accept(m);return;}
+        if (type.equals("player-removed") && !datagram) {
+            ModModeration.acceptRemoval(m, serviceBase);
+            return;
+        }
         if(type.equals("view")&&!datagram){acknowledged=m.get("scope").getAsLong();nextUdpProbe=0;return;}
         if(type.equals("pong")&&!datagram){route.wss(now-m.get("ping").getAsLong());if(m.has("positionIntervalMs"))wssPositionInterval=positionInterval(false,m.get("positionIntervalMs").getAsInt());com.customcosmetics.features.items.SharedItemAppearances.readLimit(m);return;}
         if(type.equals("probe")&&datagram){udpReplies++;lastUdpReply=now;route.udp(now,now-m.get("ping").getAsLong(),m.get("healthy").getAsBoolean());if(m.has("positionIntervalMs"))udpPositionInterval=positionInterval(true,m.get("positionIntervalMs").getAsInt());
