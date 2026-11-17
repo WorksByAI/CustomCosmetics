@@ -34,7 +34,7 @@ public final class CapeScreen extends ThemedScreen {
         }));
         showLocal.selected(()->ConfigManager.showLocalCape);
         showLocal.setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent("Show your imported cape on this client.")));
-        boolean administrator=RemoteAccess.online()&&CapeAdministrators.includes(minecraft.getUser().getProfileId());int part=administrator?(w-48)/3:cell;
+        boolean administrator=com.customcosmetics.sync.ModModeration.administrator();int part=administrator?(w-48)/3:cell;
         var enabled=addRenderableWidget(new PinkUi.Action(x+14,y+h-29,part,22,"Show Custom Capes",false,()->{ConfigManager.capeEnabled=!ConfigManager.capeEnabled;ConfigManager.requestSave();}));enabled.selected(()->ConfigManager.capeEnabled);
         int next=x+24+part;
         if(administrator){addRenderableWidget(new PinkUi.Action(next,y+h-29,part,22,"Review Queue",false,()->com.customcosmetics.compatibility.RepositoryLinks.openUri(java.net.URI.create(SyncEndpoint.baseUrl()+"/admin"))));next+=part+10;}

@@ -55,7 +55,7 @@ public final class CapeCosmetics {
     public static void notice(String text){var client=Minecraft.getInstance();client.execute(()->{if(client.player!=null)com.customcosmetics.compatibility.ClientUiAccess.chat(client).addClientSystemMessage(com.customcosmetics.utils.MessageUtils.createMessageWithPrefix(net.minecraft.network.chat.Component.literal(text)));});}
     public static void reviewNotice(int count,String base){
         var client=Minecraft.getInstance();client.execute(()->{
-            if(!RemoteAccess.online()||client.player==null||!CapeAdministrators.includes(client.getUser().getProfileId()))return;
+            if(!RemoteAccess.online()||client.player==null)return;
             var link=net.minecraft.network.chat.Component.literal("[Review]").withStyle(style->style.withUnderlined(true).withClickEvent(new net.minecraft.network.chat.ClickEvent.OpenUrl(java.net.URI.create(base+"/admin"))));
             com.customcosmetics.compatibility.ClientUiAccess.chat(client).addClientSystemMessage(com.customcosmetics.utils.MessageUtils.createMessageWithPrefix(net.minecraft.network.chat.Component.literal(count+" cape submission(s) await review. ").append(link)));
         });

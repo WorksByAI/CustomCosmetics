@@ -47,6 +47,7 @@ public final class SettingsCatalog {
         add(entries, "Damage Splash", "DAMAGE", "Requires Rainbow: select the Rainbow color mode first.", "Rainbow Speed");
         add(entries, "Damage Splash", "DAMAGE", "Requires Gradient: select the Gradient color mode first.", "Gradient Start|Gradient End");
         add(entries, "Item Customization", "ITEMS", "Custom item names and models resource packs", "Enabled|Customize Items|Share This Item Appearance");
+        add(entries, "Purse Display", "PURSE_DISPLAY", "SkyBlock sidebar scoreboard purse coins balance offset", "Override Purse Display|Coin Offset");
         add(entries, "SkyBlock Level", "SKYBLOCK_LEVEL", "Level prefix appearance chat tab list nameplate", "Displayed Level|Level Colors|Per-Digit Colors|Level Color");
         add(entries, "Item Customization", "ITEMS", "SkyBlock accessory bag collected upgrade tooltip tier", "Accessory Helper|Missing Accessories|Clear This Profile's Bag Scan");
         add(entries, "Equipments", "ACCESSORIES", "Accessories outfit wardrobe style colors size shoulder", "Open Wardrobe|Clear Outfit");
@@ -83,7 +84,7 @@ public final class SettingsCatalog {
         add(entries, "Player Spin", "PLAYER_SPIN", "Local model rotation", "Player Spin|Rotate Head|Rotate Body");
         add(entries, "Lobby Marker", "LOBBY_MARKER", "Visited SkyBlock lobbies", "Lobby Marker");
         add(entries, "Nick Hider", "NICK_HIDER", "SkyBlock privacy player names aliases dungeon classes skins",
-            "Hide Server Player Names|Hide My Name|Use Dungeon Classes|Alias Prefix|Other Players|Import Global Skin|Slim Global Skin");
+            "Hide Server Player Names|Hide My Name|Use Dungeon Classes|Alias Prefix|Hide My Skin|Mask Skin|Import Mask Skin|Slim Mask Skin|Other Players|Import Global Skin|Slim Global Skin");
         add(entries, "Tooltip Tweaks", "TOOLTIP_TWEAKS", "SkyBlock item enchantment tooltip", "Missing Enchants|Require Shift");
         add(entries, "Tooltip Tweaks", "TOOLTIP_TWEAKS", "SkyBlock item age dye hex cake year stars", "Remove Gear Score|Remove Vanilla Enchant Lines|Show Item Age|Show Dye Hex|Cake Year Overlay|Item Stars Overlay");
         add(entries, "Inventory Blur", "INVENTORY_BLUR", "Inventory and container background", "Background Darkness (%)");

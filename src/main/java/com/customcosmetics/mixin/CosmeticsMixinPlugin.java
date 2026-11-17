@@ -11,6 +11,10 @@ public final class CosmeticsMixinPlugin implements IMixinConfigPlugin {
     @Override public void onLoad(String mixinPackage) {}
     @Override public String getRefMapperConfig() { return null; }
     @Override public boolean shouldApplyMixin(String target, String mixin) {
+        if (mixin.endsWith("IqAddonsSpawnerGlowMixin"))
+            return FabricLoader.getInstance().getModContainer("iqaddons").isPresent()
+                && FabricLoader.getInstance().getModContainer("minecraft").orElseThrow()
+                    .getMetadata().getVersion().getFriendlyString().startsWith("26.3");
         if (mixin.endsWith("WindowIconStartup263Mixin")) return FabricLoader.getInstance().getModContainer("minecraft")
             .orElseThrow().getMetadata().getVersion().getFriendlyString().startsWith("26.3");
         if (mixin.endsWith("MouseFocus263Mixin") || mixin.endsWith("MouseFocusLegacyMixin")) {

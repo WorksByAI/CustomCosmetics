@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package com.customcosmetics.features.animations;
 
+import com.customcosmetics.features.waypoint.SkyblockIslands;
 import net.minecraft.client.Minecraft;
 import java.util.Locale;
 import java.util.HashSet;
@@ -15,7 +16,8 @@ public final class PresenceWorld {
     private static int environment;
     private static String instance = "";
     private static boolean hypixel;
-    private static String gameType;
+    private static String gameType, islandMode = "";
+    private static GameLocation reportedLocation;
     private static Object sidebarTitle;
     private static boolean sidebarSkyblock;
     private static final Scope EMPTY = new Scope("", Set.of());
@@ -26,6 +28,19 @@ public final class PresenceWorld {
     private static int cachedTick,cachedDistance;
     private PresenceWorld() {}
     public record Scope(String world, Set<UUID> players) {}
+    public record GameLocation(String serverId, String area) {}
+
+    public static GameLocation gameLocation(Minecraft client) {
+        context(client);
+        return client.player != null && client.level != null && !client.hasSingleplayerServer() ? reportedLocation : null;
+    }
+
+    static GameLocation describeLocation(String instance, String gameType, String mode) {
+        if (!WorldScope.validInstance(instance)) return null;
+        if (!"SKYBLOCK".equals(gameType)) return new GameLocation(instance, "");
+        String area = mode == null || mode.isEmpty() ? "" : SkyblockIslands.name(mode);
+        return new GameLocation(instance, area);
+    }
     public static boolean isHypixel(Minecraft client){
         context(client);
         return client.player!=null&&!client.hasSingleplayerServer()&&(hypixel||hypixelHost);
@@ -58,8 +73,12 @@ public final class PresenceWorld {
         if (initialized) return;
         initialized = true;
         HypixelLocationBridge.register(PresenceWorld.class.getClassLoader(),
-            value -> accept(() -> { environment = value; instance = "";gameType=null; }),
-            (value,game) -> accept(() -> {instance = value;gameType=game;}));
+            value -> accept(() -> { environment = value; instance = ""; gameType = null; islandMode = ""; }),
+            location -> accept(() -> {
+                instance = location.instance();
+                gameType = location.gameType();
+                islandMode = location.mode();
+            }));
     }
     private static void accept(Runnable update) {
         var client = Minecraft.getInstance();
@@ -69,13 +88,14 @@ public final class PresenceWorld {
             connection = source; hypixel = true; update.run();cachedScope=null;
             String key = WorldScope.hypixelKey(environment, instance);
             locationWorld = key.isEmpty() ? "" : WorldScope.hash(key);
+            reportedLocation = describeLocation(instance, gameType, islandMode);
         });
     }
     private static void context(Minecraft client){
         init();
         if (connection != client.getConnection()) {
             connection = client.getConnection(); instance = ""; hypixel = false; environment = 0;cachedScope=null;
-            gameType=null;sidebarTitle=null;sidebarSkyblock=false;
+            gameType=null;islandMode="";reportedLocation=null;sidebarTitle=null;sidebarSkyblock=false;
             locationWorld = ""; cachedWorldKey = cachedWorldHash = "";
         }
         var server = client.getCurrentServer();

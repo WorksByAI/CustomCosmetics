@@ -75,12 +75,16 @@ public final class ConfigManager {
     public static java.util.Map<String, String> customTextColors = java.util.Map.of();
     public static boolean textReplacementsEnabled = false;
     public static java.util.Map<String, String> textReplacements = java.util.Map.of();
-    public static boolean nickHiderPlayers, nickHiderDungeon, nickHiderSelf;
+    public static boolean nickHiderPlayers, nickHiderDungeon, nickHiderSelf, nickHiderSelfSkin;
     public static boolean skyBlockLevelEnabled;
+    public static boolean purseDisplayEnabled;
+    public static String purseDisplayOffset = "0";
     public static int skyBlockLevelValue = 40, skyBlockLevelColor = 0xFFFFFF;
     public static String skyBlockLevelColorMode = "auto";
     public static java.util.List<Integer> skyBlockLevelDigitColors = java.util.List.of();
     public static String nickHiderPrefix = "Player", nickHiderSelfAlias = "";
+    public static String nickHiderSelfSkinMode = "auto";
+    public static boolean nickHiderSelfSkinSlim;
     public static java.util.Set<String> hypixelPackWhitelist = java.util.Set.of();
     public static java.util.Map<String, String> hypixelPackReplacements = java.util.Map.of();
     public static java.util.Map<String, Boolean> hypixelPackGlints = java.util.Map.of();
@@ -465,7 +469,9 @@ public final class ConfigManager {
             otherPlayerSkinMode = com.customcosmetics.features.skins.SkinRules.mode(otherPlayerSkinMode);
             nickHiderPrefix = com.customcosmetics.features.nickname.NickHider.prefix(nickHiderPrefix);
             com.customcosmetics.features.nickname.SkyBlockLevel.normalizeConfig();
+            purseDisplayOffset = com.customcosmetics.features.hud.PurseDisplay.normalizeOffset(purseDisplayOffset);
             nickHiderSelfAlias = com.customcosmetics.features.nickname.NickHider.selfAlias(nickHiderSelfAlias);
+            nickHiderSelfSkinMode = com.customcosmetics.features.skins.LocalSkins.selfMaskMode(nickHiderSelfSkinMode);
             smolLimbSwingSpeed = Math.clamp(smolLimbSwingSpeed, 0.5, 5.0);
             playerSizeX=com.customcosmetics.features.playersize.PlayerSizeSettings.bounded(playerSizeX);
             playerSizeY=com.customcosmetics.features.playersize.PlayerSizeSettings.bounded(playerSizeY);

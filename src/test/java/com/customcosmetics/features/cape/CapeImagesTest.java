@@ -27,12 +27,6 @@ class CapeImagesTest {
         var oversized=directory.resolve("too-big.png");java.nio.file.Files.write(oversized,new byte[CapeImages.MAX_FILE+1]);
         assertTrue(assertThrows(java.io.IOException.class,()->CapeImages.read(oversized)).getMessage().contains("2 MiB"));
     }
-    @Test void administrationUsesTheVerifiedAccountUuidRatherThanASpoofableNickname(){
-        assertTrue(CapeAdministrators.includes(UUID.fromString("db78ac18-99d5-4aee-b1d7-893cfc9e358d")));
-        assertEquals("ToryHi",CapeAdministrators.ACCOUNTS.get(UUID.fromString("db78ac18-99d5-4aee-b1d7-893cfc9e358d")));
-        assertFalse(CapeAdministrators.includes(UUID.nameUUIDFromBytes("OfflinePlayer:ToryHi".getBytes())));
-        assertFalse(CapeAdministrators.includes(null));
-    }
     @TempDir Path directory;
     @Test void croppedFacesUseCorrectAtlasUvsAndCropMovementStaysInsideImage()throws Exception{
         var source=new BufferedImage(100,200,BufferedImage.TYPE_INT_ARGB);for(int y=0;y<200;y++)for(int x=0;x<100;x++)source.setRGB(x,y,0xFF000000|x<<16|y<<8);

@@ -5,10 +5,17 @@ package com.customcosmetics.mixin;
 
 import com.customcosmetics.features.hud.HudLayout;
 import com.customcosmetics.features.hud.HudLayout.Element;
+import com.customcosmetics.features.hud.PurseDisplay;
+import com.customcosmetics.config.ConfigManager;
+import com.customcosmetics.features.animations.PresenceWorld;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.world.scores.Team;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.state.gui.*;
 import org.spongepowered.asm.mixin.Mixin;
@@ -77,6 +84,14 @@ public final class HudLayoutMixin {
             float old=HudLayout.push(g,o);
             try{original.call(g,tick);}finally{HudLayout.pop(g,old);}
         }
+        @WrapOperation(method = "lambda$displayScoreboardSidebar$1", at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/world/scores/PlayerTeam;formatNameForTeam(Lnet/minecraft/world/scores/Team;Lnet/minecraft/network/chat/Component;)Lnet/minecraft/network/chat/MutableComponent;"))
+        private MutableComponent ccos$purseLine(Team team, Component name, Operation<MutableComponent> original) {
+            var line = original.call(team, name);
+            if (!ConfigManager.purseDisplayEnabled || !PresenceWorld.isSkyblock(Minecraft.getInstance())) return line;
+            return PurseDisplay.apply(line, ConfigManager.purseDisplayOffset);
+        }
+
         @WrapMethod(method="extractTitle")
         private void ccos$Title(GuiGraphicsExtractor g,DeltaTracker tick,Operation<Void> original){
             var o=HudLayout.active(Element.TITLE);

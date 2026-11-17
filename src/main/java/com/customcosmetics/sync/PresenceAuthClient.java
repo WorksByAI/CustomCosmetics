@@ -18,7 +18,9 @@ public final class PresenceAuthClient {
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final URI MOJANG_JOIN = URI.create("https://sessionserver.mojang.com/session/minecraft/join");
     private static final Set<String> REQUEST_PATHS = Set.of(
-        "/health", "/items/policy", "/users.json", "/auth/challenge", "/auth/experimental", "/register", "/report", "/auth/logout", "/actions", "/actions/udp-session", "/capes/status", "/capes/submit");
+        "/health", "/items/policy", "/users.json", "/auth/challenge", "/auth/experimental", "/register", "/report", "/auth/logout", "/actions", "/actions/udp-session", "/capes/status", "/capes/submit",
+        "/mod/moderation/check", "/mod/moderation/poll", "/mod/moderation/activate",
+        "/mod/moderation/templates", "/mod/moderation/action");
     private static final String UUID_PATTERN = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
     private static final Pattern PEER_EXCLUSIONS = Pattern.compile("peerExcluded=" + UUID_PATTERN + "(?:," + UUID_PATTERN + "){0,15}");
 

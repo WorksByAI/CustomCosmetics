@@ -3,7 +3,9 @@ package com.customcosmetics.features.skins;
 import com.customcosmetics.config.*;
 import com.customcosmetics.sync.*;
 import com.mojang.blaze3d.platform.NativeImage;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.*;
@@ -20,9 +22,10 @@ public final class LocalSkins {
     private static Set<UUID> direct=Set.of();private static int decoding;
     private static final SkinRules.Blocks blocked=new SkinRules.Blocks();
     private static final Identifier STEVE=Identifier.withDefaultNamespace("textures/entity/player/wide/steve.png"),ALEX=Identifier.withDefaultNamespace("textures/entity/player/slim/alex.png");
-    private static LocalSkinStore otherStore;private static SkinTransfer.Document other;private static long otherRevision;
-    private static boolean otherLoading,otherAttempted;private static String otherNotice="";
-    private record Prepared(SkinTransfer.Document document,NativeImage pixels){}
+    private static final java.util.regex.Pattern TAB_ACCOUNT = java.util.regex.Pattern.compile(
+        "^\\h*(?:(?:\\[[^\\]\\r\\n]+]\\h*|[0-9]{1,5}\\h+))*([A-Za-z0-9_]{1,16})(?![A-Za-z0-9_])");
+    private static ReplacementSkin other, selfMask;
+    private record Prepared(String hash, NativeImage pixels) {}
     private static final PlayerSkinCache skinCache=new PlayerSkinCache();
     private LocalSkins(){}
     private static final SkinTransfer.Source SOURCE=new SkinTransfer.Source(){
@@ -32,14 +35,12 @@ public final class LocalSkins {
         public void received(UUID id,SkinTransfer.Document skin){Minecraft.getInstance().execute(()->receive(id,skin));}
     };
     public static SkinTransfer.Source exchange(){return store==null||!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS)?SkinTransfer.Source.NONE:SOURCE;}
-    public static void init(){otherStore=new LocalSkinStore(CosmeticsConfigDir.getCosmeticsConfigDir().resolve("skins/other-players"));store=new LocalSkinStore(CosmeticsConfigDir.getCosmeticsConfigDir().resolve("skins"));try{var png=store.load();if(png!=null)local=new SkinTransfer.Document(png,ConfigManager.localSkinSlim);}catch(IOException error){notice("Could not load local skin: "+error.getMessage());}}
+    public static void init(){var directory=CosmeticsConfigDir.getCosmeticsConfigDir().resolve("skins");other=new ReplacementSkin(directory.resolve("other-players"));selfMask=new ReplacementSkin(directory.resolve("self-mask"));store=new LocalSkinStore(directory);try{var png=store.load();if(png!=null)local=new SkinTransfer.Document(png,ConfigManager.localSkinSlim);}catch(IOException error){notice("Could not load local skin: "+error.getMessage());}}
     public static void tick(){if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS))return;direct=RealtimeSync.directPeers();remote.keySet().retainAll(direct);pending.keySet().retainAll(direct);if(!(ConfigManager.skinP2pReceiving && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS))){remote.clear();pending.clear();}
         if(!"original".equals(ConfigManager.otherPlayerSkinMode)){remote.clear();pending.clear();}
         else if(!ConfigManager.skinBlockedPlayers.isEmpty()){remote.keySet().removeIf(LocalSkins::blocked);pending.keySet().removeIf(LocalSkins::blocked);}
-        if("custom".equals(ConfigManager.otherPlayerSkinMode)){
-            if(other!=null&&!textures.containsKey(other.hash())){other=null;otherAttempted=false;}
-            if(other==null&&!otherLoading&&!otherAttempted)loadOther(null,false);
-        }
+        if("custom".equals(ConfigManager.otherPlayerSkinMode))other.prepare();
+        if(ConfigManager.nickHiderSelfSkin && "custom".equals(ConfigManager.nickHiderSelfSkinMode))selfMask.prepare();
         var document=local;if(document!=null&&(ConfigManager.localSkinEnabled && com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS))&&!textures.containsKey(document.hash()))try{texture(document.bytes());}catch(IOException error){notice("Could not load skin texture: "+error.getMessage());}
     }
     public static boolean hasLocal(){return local!=null;}
@@ -68,28 +69,75 @@ public final class LocalSkins {
         return blocked(id,info!=null?info.getProfile().name():player!=null?player.getGameProfile().name():PresenceSync.cachedPlayerName(id));
     }
     public static void otherMode(String mode){
-        ConfigManager.otherPlayerSkinMode=SkinRules.mode(mode);otherRevision++;otherLoading=false;otherAttempted=false;otherNotice="";ConfigManager.requestSave();
+        ConfigManager.otherPlayerSkinMode=SkinRules.mode(mode);other.invalidate();ConfigManager.requestSave();
     }
-    public static String otherNotice(){return otherNotice;}
-    public static CompletableFuture<Void> importOther(Path file){return loadOther(file,true);}
-    private static CompletableFuture<Void> loadOther(Path file,boolean importing){
-        long revision=++otherRevision;otherLoading=true;otherAttempted=true;otherNotice="";
-        return CompletableFuture.supplyAsync(()->{
-            try{byte[] png=importing?otherStore.save(SkinImages.read(file)):otherStore.load();
-                return png==null?null:new Prepared(new SkinTransfer.Document(png,false),NativeImage.read(png));
-            }catch(IOException error){throw new CompletionException(error);}
-        }).handle((prepared,error)->{
-            var applied=new CompletableFuture<Void>();Minecraft.getInstance().execute(()->{
-                if(revision!=otherRevision){if(prepared!=null)prepared.pixels.close();applied.complete(null);return;}
-                otherLoading=false;
-                if(error!=null){otherNotice="Could not load global skin.";applied.completeExceptionally(error);return;}
-                if(prepared==null){otherNotice="Choose a custom skin first.";applied.complete(null);return;}
-                if(importing){ConfigManager.otherPlayerSkinMode="custom";ConfigManager.requestSave();}
-                if(!FeatureModules.enabled(FeatureModules.Feature.SKINS)){otherAttempted=false;prepared.pixels.close();applied.complete(null);return;}
-                try{registerTexture(prepared.document.hash(),prepared.pixels);other=prepared.document;if(importing)ConfigManager.otherPlayerSkinMode="custom";ConfigManager.requestSave();applied.complete(null);}
-                catch(RuntimeException failure){prepared.pixels.close();applied.completeExceptionally(failure);}
-            });return applied;
-        }).thenCompose(result->result);
+    public static String otherNotice(){return other.notice;}
+    public static CompletableFuture<Void> importOther(Path file){return other.load(file, () -> ConfigManager.otherPlayerSkinMode = "custom");}
+    public static String selfMaskMode(String mode) {
+        String normalized = SkinRules.mode(mode);
+        return normalized.equals("original") ? "auto" : normalized;
+    }
+    public static void selectSelfMask(String mode) {
+        ConfigManager.nickHiderSelfSkinMode = selfMaskMode(mode);
+        selfMask.invalidate();
+        ConfigManager.requestSave();
+    }
+    public static String selfMaskNotice() { return selfMask.notice; }
+    public static CompletableFuture<Void> importSelfMask(Path file) {
+        return selfMask.load(file, () -> ConfigManager.nickHiderSelfSkinMode = "custom");
+    }
+
+    /** Local replacement files and user choices are separate from the P2P skin document. */
+    private static final class ReplacementSkin {
+        private final LocalSkinStore store;
+        private String hash, notice = "";
+        private long revision;
+        private boolean loading, attempted;
+
+        ReplacementSkin(Path directory) { store = new LocalSkinStore(directory); }
+        Identifier texture() { return hash == null ? null : textures.get(hash); }
+        void invalidate() { revision++; loading = attempted = false; notice = ""; }
+        void prepare() {
+            if (hash != null && texture() == null) { hash = null; attempted = false; }
+            if (hash == null && !loading && !attempted) load(null, null);
+        }
+
+        CompletableFuture<Void> load(Path file, Runnable onImport) {
+            long request = ++revision;
+            loading = attempted = true;
+            notice = "";
+            return CompletableFuture.supplyAsync(() -> {
+                try {
+                    byte[] png = file == null ? store.load() : store.save(SkinImages.read(file));
+                    return png == null ? null : new Prepared(SkinTransfer.hash(png), NativeImage.read(png));
+                } catch (IOException error) { throw new CompletionException(error); }
+            }).handle((prepared, error) -> {
+                var applied = new CompletableFuture<Void>();
+                Minecraft.getInstance().execute(() -> {
+                    if (request != revision) {
+                        if (prepared != null) prepared.pixels.close();
+                        applied.complete(null);
+                        return;
+                    }
+                    loading = false;
+                    if (error != null) { notice = "Could not load skin."; applied.completeExceptionally(error); return; }
+                    if (prepared == null) { notice = "Choose a custom skin first."; applied.complete(null); return; }
+                    if (onImport != null) { onImport.run(); ConfigManager.requestSave(); }
+                    if (!FeatureModules.enabled(FeatureModules.Feature.SKINS)) {
+                        attempted = false;
+                        prepared.pixels.close();
+                        applied.complete(null);
+                        return;
+                    }
+                    try {
+                        registerTexture(prepared.hash, prepared.pixels);
+                        hash = prepared.hash;
+                        applied.complete(null);
+                    } catch (RuntimeException failure) { prepared.pixels.close(); applied.completeExceptionally(failure); }
+                });
+                return applied;
+            }).thenCompose(result -> result);
+        }
     }
     private static Identifier registerTexture(String hash,NativeImage pixels){
         var existing=textures.get(hash);if(existing!=null){pixels.close();return existing;}
@@ -101,10 +149,45 @@ public final class LocalSkins {
         return registerTexture(hash,NativeImage.read(png));
     }
     public static PlayerSkin skin(UUID id,PlayerSkin original){return skin(id,null,original);}
-    public static PlayerSkin tabSkin(UUID id, PlayerSkin original) {
-        if (!FeatureModules.enabled(FeatureModules.Feature.SKINS) || "original".equals(ConfigManager.otherPlayerSkinMode)
-            || id.equals(Minecraft.getInstance().getUser().getProfileId())) return original;
-        return globalSkin(id, original);
+    public static PlayerSkin rosterSkin(PlayerInfo entry, PlayerSkin original) {
+        if (!ConfigManager.nickHiderSelfSkin || !FeatureModules.enabled(FeatureModules.Feature.SKINS)
+                || !isOwnRosterEntry(entry)) return original;
+        return hiddenSelfSkin(entry.getProfile().id(), original);
+    }
+
+    public static PlayerSkin tabSkin(PlayerInfo entry, PlayerSkin original) {
+        if ("original".equals(ConfigManager.otherPlayerSkinMode)
+                || !FeatureModules.enabled(FeatureModules.Feature.SKINS) || isOwnRosterEntry(entry)) return original;
+        return globalSkin(entry.getProfile().id(), original);
+    }
+
+    private static boolean isOwnRosterEntry(PlayerInfo entry) {
+        var client = Minecraft.getInstance();
+        var user = client.getUser();
+        var profile = entry.getProfile();
+        if (profile.id().equals(user.getProfileId()) || profile.name().equalsIgnoreCase(user.getName())
+                || client.player != null && profile.id().equals(client.player.getUUID())) return true;
+
+        // SkyBlock can show a formatted roster row under a server-generated profile.
+        var display = entry.getTabListDisplayName();
+        if (display == null) return false;
+        var account = TAB_ACCOUNT.matcher(ChatFormatting.stripFormatting(display.getString()));
+        return account.find() && user.getName().equalsIgnoreCase(account.group(1));
+    }
+
+    private static PlayerSkin hiddenSelfSkin(UUID id, PlayerSkin original) {
+        var model = original.model();
+        var automatic = model == PlayerModelType.SLIM ? ALEX : STEVE;
+        return switch (ConfigManager.nickHiderSelfSkinMode) {
+            case "steve" -> skinCache.body(id, original, STEVE, PlayerModelType.WIDE);
+            case "alex" -> skinCache.body(id, original, ALEX, PlayerModelType.SLIM);
+            case "custom" -> {
+                var texture = selfMask.texture();
+                yield texture == null ? skinCache.body(id, original, automatic, model)
+                    : skinCache.body(id, original, texture, ConfigManager.nickHiderSelfSkinSlim ? PlayerModelType.SLIM : PlayerModelType.WIDE);
+            }
+            default -> skinCache.body(id, original, automatic, model);
+        };
     }
 
     private static PlayerSkin globalSkin(UUID id, PlayerSkin original) {
@@ -112,8 +195,7 @@ public final class LocalSkins {
             case "steve" -> skinCache.body(id, original, STEVE, PlayerModelType.WIDE);
             case "alex" -> skinCache.body(id, original, ALEX, PlayerModelType.SLIM);
             case "custom" -> {
-                var document = other;
-                var texture = document == null ? null : textures.get(document.hash());
+                var texture = other.texture();
                 yield texture == null ? skinCache.body(id, original, STEVE, PlayerModelType.WIDE)
                     : skinCache.body(id, original, texture, ConfigManager.otherPlayerSkinSlim ? PlayerModelType.SLIM : PlayerModelType.WIDE);
             }
@@ -124,6 +206,7 @@ public final class LocalSkins {
     public static PlayerSkin skin(UUID id,String account,PlayerSkin original){
         if(!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS))return original;
         var client=Minecraft.getInstance();boolean self=id.equals(client.getUser().getProfileId());String hash;boolean slim;
+        if (self && ConfigManager.nickHiderSelfSkin) return hiddenSelfSkin(id, original);
         if(!self){
             if(!"original".equals(ConfigManager.otherPlayerSkinMode))return globalSkin(id,original);
             if(blocked(id,account)||account==null&&blocked(id))return original;
@@ -133,6 +216,6 @@ public final class LocalSkins {
         var texture=textures.get(hash);if(texture==null)return original;
         return skinCache.body(id,original,texture,slim?PlayerModelType.SLIM:PlayerModelType.WIDE);
     }
-    public static void close(){otherRevision++;otherLoading=false;otherAttempted=false;other=null;for(var texture:textures.values())Minecraft.getInstance().getTextureManager().release(texture);textures.clear();remote.clear();pending.clear();direct=Set.of();skinCache.clear();}
+    public static void close(){if(other!=null)other.invalidate();if(selfMask!=null)selfMask.invalidate();for(var texture:textures.values())Minecraft.getInstance().getTextureManager().release(texture);textures.clear();remote.clear();pending.clear();direct=Set.of();skinCache.clear();}
     private static void notice(String text){com.customcosmetics.features.cape.CapeCosmetics.notice(text);}
 }

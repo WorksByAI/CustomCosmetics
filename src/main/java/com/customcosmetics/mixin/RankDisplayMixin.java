@@ -19,6 +19,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.PlayerSkin;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 public final class RankDisplayMixin {
     @Mixin(PlayerTabOverlay.class)
@@ -33,9 +35,19 @@ public final class RankDisplayMixin {
         @WrapOperation(method="extractRenderState", at=@At(value="INVOKE",
             target="Lnet/minecraft/client/multiplayer/PlayerInfo;getSkin()Lnet/minecraft/world/entity/player/PlayerSkin;"))
         private PlayerSkin customcosmetics$tabSkin(PlayerInfo player, Operation<PlayerSkin> original) {
-            return LocalSkins.tabSkin(player.getProfile().id(), original.call(player));
+            return LocalSkins.tabSkin(player, original.call(player));
         }
     }
+    @Mixin(PlayerInfo.class)
+    public static class RosterSkin {
+        @Inject(method = "getSkin", at = @At("RETURN"), cancellable = true)
+        private void customcosmetics$maskRosterSkin(CallbackInfoReturnable<PlayerSkin> callback) {
+            var original = callback.getReturnValue();
+            var masked = LocalSkins.rosterSkin((PlayerInfo) (Object) this, original);
+            if (original != masked) callback.setReturnValue(masked);
+        }
+    }
+
     @Mixin(ChatComponent.class)
     public static class Chat {
         @WrapMethod(method="addMessageToDisplayQueue")

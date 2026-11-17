@@ -3,13 +3,15 @@ package com.customcosmetics.features.animations;
 
 import java.lang.reflect.Proxy;
 import java.util.Optional;
-import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 
 /** Optional official API integration. Registers only Hello/Location handlers and a Location subscription. */
 public final class HypixelLocationBridge {
     private HypixelLocationBridge() {}
-    public static boolean register(ClassLoader loader, IntConsumer environment, BiConsumer<String,String> instance) {
+    public record Location(String instance, String gameType, String mode) {}
+
+    public static boolean register(ClassLoader loader, IntConsumer environment, Consumer<Location> locationUpdate) {
         try {
             var apiClass = Class.forName("net.hypixel.modapi.HypixelModAPI", false, loader);
             var handler = Class.forName("net.hypixel.modapi.handler.ClientboundPacketHandler", false, loader);
@@ -28,7 +30,9 @@ public final class HypixelLocationBridge {
                     } else {
                         var game=(Optional<?>)type.getMethod("getServerType").invoke(args[0]);
                         String gameType=game.isEmpty()?"":(String)game.get().getClass().getMethod("name").invoke(game.get());
-                        instance.accept((String)type.getMethod("getServerName").invoke(args[0]),gameType);
+                        var mode = (Optional<?>) type.getMethod("getMode").invoke(args[0]);
+                        locationUpdate.accept(new Location((String) type.getMethod("getServerName").invoke(args[0]),
+                            gameType, mode.map(Object::toString).orElse("")));
                     }
                     return null;
                 });

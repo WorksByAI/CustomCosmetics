@@ -18,7 +18,7 @@ public final class ModErrors {
         REALTIME("Real-time Connection"),SKINS("Skins"),DEBUG("Debug"),ANIMATIONS("Animations"),BLOCKHIT("Blockhit"),
         APPEARANCE("Peer Appearance"),ACCESSORIES("Accessory Helper"),WAYPOINTS("Waypoints"),SHORTCUTS("Shortcuts"),COMMANDS("Commands"),
         PACK("Pack Disabler"), GAMEPLAY("Gameplay Features"), MOTION_BLUR("Motion Blur"), BOBBY("Bobby"), DUNGEON("Dungeon"),
-        NICK_HIDER("Nick Hider");
+        NICK_HIDER("Nick Hider"), MODERATION("Moderation");
         public final String label;Key(String label){this.label=label;}
     }
     private record Notice(Key key,String error){}

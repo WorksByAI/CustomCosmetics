@@ -47,7 +47,7 @@ public final class CapeSync {
         var hashes=snapshot.hashes();
         CapeCosmetics.approved(hashes);
         var client=Minecraft.getInstance();var identity=PresenceSync.actionSession();
-        if(identity!=null&&CapeAdministrators.includes(identity.uuid())){
+        if(identity!=null){
             int pending=snapshot.pending();long revision=snapshot.revision();
             if(pending>0&&revision>notifiedRevision){notifiedRevision=revision;CapeCosmetics.reviewNotice(pending,base);}
         }

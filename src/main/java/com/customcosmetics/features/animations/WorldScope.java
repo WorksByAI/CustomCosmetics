@@ -12,7 +12,7 @@ public final class WorldScope {
         return environment < 0 || !validInstance(instance)
             ? "" : "$hypixel" + environment + ":" + instance.toLowerCase(Locale.ROOT);
     }
-    private static boolean validInstance(String value) {
+    static boolean validInstance(String value) {
         if (value == null || value.isEmpty() || value.length() > 64) return false;
         for (int i = 0; i < value.length(); i++) {
             char c = value.charAt(i);

@@ -5,6 +5,7 @@ import com.customcosmetics.compatibility.ClientUiAccess;
 import com.customcosmetics.compatibility.NativeFileDialogs;
 import com.customcosmetics.config.ConfigManager;
 import com.customcosmetics.features.hud.HudLayout;
+import com.customcosmetics.features.hud.PurseDisplay;
 import com.customcosmetics.features.nickname.NickHider;
 import com.customcosmetics.features.nickname.SkyBlockLevel;
 import com.customcosmetics.features.nickname.SkyBlockLevelAppearance;
@@ -37,7 +38,7 @@ import static com.customcosmetics.gui.PinkUi.*;
 public final class CosmeticsScreen extends ThemedScreen {
     public enum Page {
         MAIN, SIZE, NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, BLOCKED_SKINS, POSITION_RECIPIENTS, ANIMATIONS, DAMAGE, ITEMS, ACCESSORIES, MAP, PARTY, LOCATION_SHARING, SKINS, SYNC, THEME, MODULES, SEARCH, EXPERIMENTAL,
-        HUD_LAYOUT, SKYBOX, FONTS, FREECAM, WINDOW, HIT_COLOR, FAST_PING, PACK_DISABLER, INVENTORY_BLUR, TEXT_COLORS, DROP_2D, TEXT_REPLACEMENTS, SIGN_TEXT, COMMAND_TOOLTIPS, SNAPLOOK, MOTION_BLUR, PLAYER_SPIN, LOBBY_MARKER, BOBBY, ZOOM, SEYMOUR, TOOLTIP_TWEAKS, NICK_HIDER, SKYBLOCK_LEVEL;
+        HUD_LAYOUT, SKYBOX, FONTS, FREECAM, WINDOW, HIT_COLOR, FAST_PING, PACK_DISABLER, INVENTORY_BLUR, TEXT_COLORS, DROP_2D, TEXT_REPLACEMENTS, SIGN_TEXT, COMMAND_TOOLTIPS, SNAPLOOK, MOTION_BLUR, PLAYER_SPIN, LOBBY_MARKER, BOBBY, ZOOM, SEYMOUR, TOOLTIP_TWEAKS, NICK_HIDER, SKYBLOCK_LEVEL, PURSE_DISPLAY;
 
         boolean qolOption() { return switch (this) {
             case HUD_LAYOUT, SKYBOX, FONTS, FREECAM, WINDOW, HIT_COLOR, FAST_PING, INVENTORY_BLUR,
@@ -181,6 +182,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             case NICK -> nickname();
             case NICK_HIDER -> nickHider();
             case SKYBLOCK_LEVEL -> skyBlockLevel();
+            case PURSE_DISPLAY -> purseDisplay();
             case RANK -> rank();
             case COLOR -> colors();
             case CHROMA -> chroma();
@@ -248,6 +250,7 @@ public final class CosmeticsScreen extends ThemedScreen {
                 com.customcosmetics.features.nickname.NickHider.changed(minecraft);
             }
             case SKYBLOCK_LEVEL -> ConfigManager.resetSettings("skyBlockLevel*");
+            case PURSE_DISPLAY -> ConfigManager.resetSettings("purseDisplay*");
             case BLOCKED_CAPES -> ConfigManager.resetSettings("capeBlockedPlayers");
             case BLOCKED_ACCESSORIES -> ConfigManager.resetSettings("accessoriesBlockedPlayers");
             case BLOCKED_SKINS -> ConfigManager.resetSettings("skinBlockedPlayers");
@@ -370,6 +373,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             case NICK, COLOR, CHROMA, PRESETS, RANK, BLOCKED_NICKS -> "Nick Changer";
             case NICK_HIDER -> "Nick Hider";
             case SKYBLOCK_LEVEL -> "SkyBlock Level";
+            case PURSE_DISPLAY -> "Purse Display";
             case ANIMATIONS -> "Animations";
             case DAMAGE -> "Damage Splash";
             case EXPERIMENTAL -> "QOL";
@@ -451,6 +455,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         navItem("Lobby Marker", Page.LOBBY_MARKER);
         navItem("Map Editor", Page.MAP);
         navItem("Nick Hider", Page.NICK_HIDER);
+        navItem("Purse Display", Page.PURSE_DISPLAY);
         navItem("SkyBlock Level", Page.SKYBLOCK_LEVEL);
         navItem("Pack Disabler", Page.PACK_DISABLER);
         navItem("Seymour Analyzer", Page.SEYMOUR);
@@ -466,7 +471,7 @@ public final class CosmeticsScreen extends ThemedScreen {
                  BLOCKED_NICKS, BLOCKED_ACCESSORIES, BLOCKED_CAPES, BLOCKED_SKINS -> Section.APPEARANCE;
             case PARTY, LOCATION_SHARING, POSITION_RECIPIENTS -> Section.CONNECTIONS;
             case EXPERIMENTAL, COMMAND_TOOLTIPS, SNAPLOOK, MOTION_BLUR, PLAYER_SPIN, BOBBY, ZOOM -> Section.QOL;
-            case ANIMATIONS, DAMAGE, ITEMS, MAP, NICK_HIDER, SKYBLOCK_LEVEL, PACK_DISABLER, LOBBY_MARKER, SEYMOUR, TOOLTIP_TWEAKS -> Section.SKYBLOCK;
+            case ANIMATIONS, DAMAGE, ITEMS, MAP, NICK_HIDER, SKYBLOCK_LEVEL, PURSE_DISPLAY, PACK_DISABLER, LOBBY_MARKER, SEYMOUR, TOOLTIP_TWEAKS -> Section.SKYBLOCK;
             default -> null;
         };
     }
@@ -1965,6 +1970,21 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
 
     private PinkUi.Action fullButton(String title,Runnable action){return fullButton(title,action,false);}
+    private void purseDisplay() {
+        toggleRow("Override Purse Display", "Adjust the displayed purse as your actual balance changes.",
+            () -> ConfigManager.purseDisplayEnabled, value -> ConfigManager.purseDisplayEnabled = value);
+        var field = fieldRow("Coin Offset", "Coin Offset", ConfigManager.purseDisplayOffset,
+            PurseDisplay.MAX_OFFSET_LENGTH, "Enter a signed amount, such as +100,000 or -250.50.", 180, value -> {});
+        field.setResponder(value -> {
+            var offset = PurseDisplay.parseOffset(value);
+            field.invalid(offset == null);
+            if (offset != null) {
+                ConfigManager.purseDisplayOffset = value.strip();
+                changed();
+            }
+        });
+    }
+
     private void skyBlockLevel() {
         toggleRow("Override SkyBlock Level", "Online mode shares the display with other CustomSkyBlock players.",
             () -> ConfigManager.skyBlockLevelEnabled, value -> ConfigManager.skyBlockLevelEnabled = value);
@@ -2069,11 +2089,21 @@ public final class CosmeticsScreen extends ThemedScreen {
                 NickHider.changed(minecraft);
                 changed();
             });
-        section("Other Players", "");
         if (!com.customcosmetics.config.FeatureModules.enabled(com.customcosmetics.config.FeatureModules.Feature.SKINS)) {
             fullButton("Enable skin replacements in Module Manager", () -> open(Page.MODULES));
             return;
         }
+        toggleRow("Hide My Skin", "Replace your skin on this client.",
+            () -> ConfigManager.nickHiderSelfSkin, value -> ConfigManager.nickHiderSelfSkin = value);
+        dropdown("Mask Skin", List.of("auto", "steve", "alex", "custom"),
+            () -> ConfigManager.nickHiderSelfSkinMode, com.customcosmetics.features.skins.LocalSkins::selectSelfMask);
+        fullButton("Import Mask Skin", () -> ClientUiAccess.setScreen(minecraft, new SkinImportScreen(this, SkinImportScreen.Target.SELF_MASK)), false);
+        if ("custom".equals(ConfigManager.nickHiderSelfSkinMode)) {
+            toggleRow("Slim Mask Skin", "", () -> ConfigManager.nickHiderSelfSkinSlim, value -> ConfigManager.nickHiderSelfSkinSlim = value);
+            var notice = com.customcosmetics.features.skins.LocalSkins.selfMaskNotice();
+            if (!notice.isEmpty()) paragraph(notice, MUTED);
+        }
+        section("Other Players", "");
         otherSkinControls();
     }
 
@@ -2096,7 +2126,7 @@ public final class CosmeticsScreen extends ThemedScreen {
     private void otherSkinControls() {
         dropdown("Other Players",List.of("original","steve","alex","custom"),()->ConfigManager.otherPlayerSkinMode,com.customcosmetics.features.skins.LocalSkins::otherMode)
             .setTooltip(net.minecraft.client.gui.components.Tooltip.create(UiText.guiComponent("Global replacements are local-only.")));
-        fullButton("Import Global Skin",()->ClientUiAccess.setScreen(minecraft,new SkinImportScreen(this,true)),false);
+        fullButton("Import Global Skin",()->ClientUiAccess.setScreen(minecraft,new SkinImportScreen(this,SkinImportScreen.Target.GLOBAL)),false);
         if("custom".equals(ConfigManager.otherPlayerSkinMode))toggleRow("Slim Global Skin","",()->ConfigManager.otherPlayerSkinSlim,v->ConfigManager.otherPlayerSkinSlim=v);
         var otherNotice=com.customcosmetics.features.skins.LocalSkins.otherNotice();if(!otherNotice.isEmpty()){label(otherNotice,contentX,rowY,MUTED,contentWidth);rowY+=18;}
     }

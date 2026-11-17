@@ -28,8 +28,8 @@ class WorldScopeTest {
             new WorldScope.Candidate(UUID.randomUUID(), Double.POSITIVE_INFINITY)), 2));
     }
     @Test void realOfficialApiHelloAndLocationChangeInstanceWithoutChatCommands() {
-        var env = new AtomicInteger(-1); var instance = new AtomicReference<String>();var game=new AtomicReference<String>();
-        assertTrue(HypixelLocationBridge.register(getClass().getClassLoader(), env::set, (name,type)->{instance.set(name);game.set(type);}));
+        var env = new AtomicInteger(-1); var instance = new AtomicReference<String>();var game=new AtomicReference<String>();var mode=new AtomicReference<String>();
+        assertTrue(HypixelLocationBridge.register(getClass().getClassLoader(), env::set, location -> {instance.set(location.instance());game.set(location.gameType());mode.set(location.mode());}));
         var api = HypixelModAPI.getInstance();
         api.handle(new ClientboundHelloPacket(Environment.getById(0).orElseThrow()));
         api.handle(new ClientboundLocationPacket("mini37FG", null, null, null, null));
@@ -40,6 +40,11 @@ class WorldScopeTest {
         assertNotEquals(before, WorldScope.hash(WorldScope.hypixelKey(env.get(), instance.get())));
         api.handle(new ClientboundLocationPacket("mini39",net.hypixel.data.type.ServerType.valueOf("SKYBLOCK").orElseThrow(),null,"hub",null));
         assertEquals("SKYBLOCK",game.get());
+        assertEquals("hub", mode.get());
+        assertEquals("Private Island", PresenceWorld.describeLocation("mini37FG", "SKYBLOCK", "dynamic").area());
+        assertEquals("Dungeon Hub", PresenceWorld.describeLocation("mini38FG", "SKYBLOCK", "dungeon_hub").area());
+        assertNull(PresenceWorld.describeLocation("/locraw", "SKYBLOCK", "hub"));
+        assertEquals("", PresenceWorld.describeLocation("lobby42", "", "").area());
         assertNotEquals(before, WorldScope.hash(WorldScope.hypixelKey(1, "mini37FG")));
         assertEquals("", WorldScope.hypixelKey(0, "")); assertEquals("", WorldScope.hypixelKey(0, "/locraw"));
     }
@@ -50,7 +55,7 @@ class WorldScopeTest {
                 return super.loadClass(name, resolve);
             }
         };
-        assertFalse(HypixelLocationBridge.register(unavailable, value -> fail(), (name,type) -> fail()));
+        assertFalse(HypixelLocationBridge.register(unavailable, value -> fail(), location -> fail()));
         assertEquals("", WorldScope.hypixelKey(-1, "mini37FG"));
     }
     @Test void vanillaRenderDistanceIncludesAllLoadedPlayersWithoutAnExtraPlayerLimit() {

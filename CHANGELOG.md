@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.1.1
+
+- new feat: Hide your own skin in Nick Hider with Steve, Alex, or an imported PNG, including the Tab portrait.
+- new feat: Add a live coin offset to the SkyBlock Purse display.
+- bug fix: Prevent IQAddons from stalling the render thread when loading spawner previews on Minecraft 26.3.
+
 ## 3.1.0
 
 - new feat: Customize and share SkyBlock levels with tier presets and per-digit colors.

@@ -48,6 +48,7 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
         ModErrors.run(ModErrors.Key.SNAPLOOK, com.customcosmetics.features.camera.CameraZoom::init);
         ModErrors.run(ModErrors.Key.SKINS, com.customcosmetics.features.skins.LocalSkins::init);
         ModErrors.run(ModErrors.Key.SYNC, PresenceSync::init);
+        com.customcosmetics.sync.ModModeration.init();
         ModErrors.run(ModErrors.Key.PARTY, com.customcosmetics.features.party.PartyFeatures::init);
         ModErrors.run(ModErrors.Key.NICK_HIDER, NickHider::init);
         ModErrors.run(ModErrors.Key.STARTUP, com.customcosmetics.features.nickname.SkyBlockLevelAppearance::init);
@@ -77,6 +78,7 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
             new TickStep(ModErrors.Key.SYNC,c->PresenceSync.tick()),
             new TickStep(ModErrors.Key.PARTY,com.customcosmetics.features.party.PartyFeatures::tick),
             new TickStep(ModErrors.Key.NICK_HIDER, NickHider::tick),
+            new TickStep(ModErrors.Key.MODERATION, com.customcosmetics.sync.ModModeration::tick),
             new TickStep(ModErrors.Key.UPDATES,com.customcosmetics.update.UpdateChecker::tick),
             new TickStep(ModErrors.Key.BLOCKING,SwordBlocking::tick),
             new TickStep(ModErrors.Key.REALTIME,com.customcosmetics.sync.RealtimeSync::tick),
