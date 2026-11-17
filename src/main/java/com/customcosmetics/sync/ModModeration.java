@@ -271,7 +271,7 @@ public final class ModModeration {
             if (fields.length > 3) { notice("Usage: /csbban <player> <template> [time] [ban ID]"); return; }
             body.addProperty("template", fields[0].toLowerCase(Locale.ROOT));
             if (fields.length >= 2) {
-                if (fields.length == 2 && fields[1].matches("[A-Za-z0-9]{8}") && !fields[1].matches("(?i)\\d+(?:s|sec|m|min|h|d)"))
+                if (fields.length == 2 && fields[1].matches("[A-Za-z0-9]{8}") && !fields[1].matches("(?i)(?:[0-9]+(?:min|sec|[dhms]))+"))
                     body.addProperty("id", fields[1]);
                 else body.addProperty("time", fields[1]);
             }
@@ -373,7 +373,7 @@ public final class ModModeration {
         return switch (String.valueOf(error.getMessage())) {
             case "minecraft_profile_not_found" -> "Minecraft account not found.";
             case "moderation_target_offline" -> "That player is not active in CustomSkyBlock.";
-            case "invalid_ban_duration" -> "Invalid time. Examples: 30d, 1min, 10s.";
+            case "invalid_ban_duration" -> "Invalid time. Examples: 30d, 1min, 29d59m58s.";
             case "invalid_ban_template" -> "Unknown template. Use /csbban <player> templates.";
             case "moderation_already_banned" -> "That player already has an active restriction.";
             case "invalid_ban_id", "ban_id_in_use" -> "Ban ID must be an unused eight-character alphanumeric ID.";
