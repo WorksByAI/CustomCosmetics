@@ -36,7 +36,10 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Supplier;
 
 public final class ModModeration {
     private static final Set<String> COMMANDS = Set.of("csbkick", "csbban", "csbunban");
@@ -51,6 +54,12 @@ public final class ModModeration {
     private static final String LINK_TOKEN = "\u0001";
 
     private record Pending(String id, long due, BanScreen screen, String base, long generation) {}
+
+    public interface LoginAccess {
+        BanScreen csb$awaitRestriction();
+
+        void csb$showRestriction(Minecraft client, BanScreen restriction);
+    }
 
     public record BanScreen(Component title, Component body, Component button) {
         public DisconnectedScreen create(Screen parent) {
@@ -262,20 +271,26 @@ public final class ModModeration {
         polling = administrator = false;
     }
 
-    public static void beforeConnect(Minecraft client, Screen connecting, Screen parent, ServerAddress address, Runnable proceed) {
-        if (!RemoteAccess.online()) {
-            proceed.run();
-            return;
-        }
+    public static Supplier<BanScreen> startLoginCheck(Minecraft client, ServerAddress address) {
+        if (!RemoteAccess.online()) return () -> null;
+        var user = client.getUser();
         String base = PresenceSync.serviceBaseUrl();
         long generation = RemoteAccess.generation();
-        request(base, generation, "check", scoped(scope(address))).orTimeout(6, TimeUnit.SECONDS)
-            .whenComplete((result, error) -> client.execute(() -> {
-                if (ClientUiAccess.screen(client) != connecting) return;
-                var ban = error == null && currentService(base, generation) ? Ban.read(result) : null;
-                if (ban != null) ClientUiAccess.setScreen(client, ban.screen(ban.remaining()).create(parent));
-                else proceed.run();
-            }));
+        var result = request(base, generation, "check", scoped(scope(address)))
+            .orTimeout(6, TimeUnit.SECONDS).thenApply(Ban::read);
+        return () -> {
+            try {
+                // DNS and TCP have already run in parallel with the check. Only the connector thread waits.
+                var ban = result.get(1, TimeUnit.SECONDS);
+                if (ban != null && currentService(base, generation) && client.getUser() == user)
+                    return ban.screen(ban.remaining());
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            } catch (ExecutionException | TimeoutException ignored) {
+                // The in-game moderation poll still checks restrictions after login.
+            }
+            return null;
+        };
     }
 
     private static boolean handleCommand(String command) {

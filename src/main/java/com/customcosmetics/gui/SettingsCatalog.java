@@ -49,7 +49,6 @@ public final class SettingsCatalog {
         add(entries, "Item Customization", "ITEMS", "Custom item names and models resource packs", "Enabled|Customize Items|Share This Item Appearance");
         add(entries, "Purse Display", "PURSE_DISPLAY", "SkyBlock sidebar scoreboard purse coins balance offset", "Override Purse Display|Coin Offset");
         add(entries, "SkyBlock Level", "SKYBLOCK_LEVEL", "Level prefix appearance chat tab list nameplate", "Displayed Level|Level Colors|Per-Digit Colors|Level Color");
-        add(entries, "Item Customization", "ITEMS", "SkyBlock accessory bag collected upgrade tooltip tier", "Accessory Helper|Missing Accessories|Clear This Profile's Bag Scan");
         add(entries, "Equipments", "ACCESSORIES", "Accessories outfit wardrobe style colors size shoulder", "Open Wardrobe|Clear Outfit");
         add(entries, "Equipments", "BLOCKED_ACCESSORIES", "Blocked accessories players outfit", "Block Other Players' Equipments");
         add(entries, "Cape", "CAPE", "Cape visibility local import texture upload approval",
@@ -77,7 +76,7 @@ public final class SettingsCatalog {
         add(entries, "Optifine Skies", "SKYBOX", "Custom skies", "Optifine Skies");
         add(entries, "HUD Manager", "HUD_LAYOUT", "HUD positioning", "HUD Manager");
         add(entries, "Windowed Fullscreen", "WINDOW", "Window mode borderless window title icon", "Windowed Fullscreen");
-        add(entries, "Fast IP Ping", "FAST_PING", "Numeric addresses", "Fast IP Ping");
+        add(entries, "Fast Ping", "FAST_PING", "Server list DNS numeric IP addresses", "Fast Ping");
         add(entries, "Command Tooltips", "COMMAND_TOOLTIPS", "Show command on hover", "Command Tooltips");
         add(entries, "Snaplook", "SNAPLOOK", "Camera perspective", "Snaplook|Snaplook View|Snaplook Keybind…");
         add(entries, "Motion Blur", "MOTION_BLUR", "Camera frame blending", "Motion Blur|Blur Strength");

@@ -132,7 +132,6 @@ public final class ConfigManager {
     public static volatile boolean updateCheckEnabled = true;
     public static boolean updateOnNextLaunch=false;
     public static boolean commandTooltipsEnabled=true;
-    public static boolean accessoryHelperTooltipEnabled=false;
     public static boolean waypointShowLabels=true,waypointShowDistance=false;
     public static boolean waypointRenderLine=true,waypointAllowSkipping=true,waypointAllowBackwards=true;
     public static double waypointLineWidth=5;

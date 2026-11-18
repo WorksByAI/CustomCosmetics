@@ -46,7 +46,7 @@ class UiTextTest {
         for(String language:new String[]{"en_us","zh_cn"}){
             UiText.configure(language,"en_us");assertTrue(SettingsCatalog.find("语言").stream().anyMatch(e->e.title().equals("Language")));
             assertTrue(SettingsCatalog.find("快速切换视角").stream().anyMatch(e->e.title().equals("Snaplook")));
-            assertTrue(SettingsCatalog.find("护符").stream().anyMatch(e->e.title().equals("Accessory Helper")));
+            assertTrue(SettingsCatalog.find("自定义物品").stream().anyMatch(e->e.title().equals("Customize Items")));
             assertTrue(SettingsCatalog.find("Snaplook").stream().anyMatch(e->e.title().equals("Snaplook")));
         }
     }

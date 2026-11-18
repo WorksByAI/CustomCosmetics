@@ -42,7 +42,6 @@ public final class CustomCosmeticsClient implements ClientModInitializer {
         ModErrors.run(ModErrors.Key.CAPE, com.customcosmetics.features.cape.CapeCosmetics::init);
         ModErrors.run(ModErrors.Key.STARTUP, com.customcosmetics.features.nickname.NicknamePresets::init);
         ModErrors.run(ModErrors.Key.ITEMS, com.customcosmetics.features.items.ItemCosmetics::init);
-        ModErrors.run(ModErrors.Key.ACCESSORIES, com.customcosmetics.features.accessoryhelper.AccessoryTooltipHelper::init);
         ModErrors.run(ModErrors.Key.MAP, com.customcosmetics.features.map.MapEditor::init);
         ModErrors.run(ModErrors.Key.SNAPLOOK, com.customcosmetics.features.camera.Snaplook::init);
         ModErrors.run(ModErrors.Key.SNAPLOOK, com.customcosmetics.features.camera.CameraZoom::init);

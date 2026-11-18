@@ -25,14 +25,17 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 public final class SkyBlockLevelAppearance {
+    private static final String SPACE = "[ \\p{Zs}]";
     private static final String ACCOUNT = "(?<name>[A-Za-z0-9_]{1,16})(?![A-Za-z0-9_])";
-    private static final String RANK = "(?:\\[[^]\\r\\n]{1,20}][ \\p{Zs}]*)?";
+    private static final String TAG = "\\[[^]\\r\\n]{1,20}]" + SPACE + "*";
     private static final String LEVEL = "(?<level>[0-9]{1,5})";
-    private static final String PREFIX = "\\[" + LEVEL + "(?:[ \\p{Zs}]*[♲☀Ⓑ])?][ \\p{Zs}]+" + RANK + ACCOUNT;
-    private static final Pattern NAMETAG = Pattern.compile("^[ \\p{Zs}]*" + PREFIX);
-    private static final Pattern COMPACT = Pattern.compile("^[ \\p{Zs}]*" + LEVEL + "[ \\p{Zs}]+" + RANK + ACCOUNT);
-    private static final Pattern CHAT = Pattern.compile("^(?:\\[\\d{1,2}:\\d\\d(?::\\d\\d)?][ \\p{Zs}]*)?"
-        + "(?:(?:Party|Guild|Officer|Co-op) > )?" + PREFIX + "(?:[ \\p{Zs}]+[^A-Za-z0-9_:\\s]{1,5})?[ \\p{Zs}]*:");
+    private static final String BRACKETED_LEVEL = "\\[" + LEVEL + "(?:" + SPACE + "*[♲☀Ⓑ])?]" + SPACE + "+";
+    private static final String CHAT_EMBLEM = "(?:[\\p{L}\\p{M}\\p{P}\\p{S}\\p{Co}&&[^\\p{ASCII}]]{1,5}" + SPACE + "+)?";
+    private static final Pattern NAMETAG = Pattern.compile("^" + SPACE + "*" + BRACKETED_LEVEL + "(?:" + TAG + ")?" + ACCOUNT);
+    private static final Pattern COMPACT = Pattern.compile("^" + SPACE + "*" + LEVEL + SPACE + "+(?:" + TAG + ")?" + ACCOUNT);
+    private static final Pattern CHAT = Pattern.compile("^(?:\\[\\d{1,2}:\\d\\d(?::\\d\\d)?]" + SPACE + "*)?"
+        + "(?:(?:Party|Guild|Officer|Co-op) > )?" + BRACKETED_LEVEL + CHAT_EMBLEM + "(?:" + TAG + "){0,2}"
+        + ACCOUNT + "(?:" + SPACE + "+[^A-Za-z0-9_:\\s]{1,5})?" + SPACE + "*:");
     private static final Pattern NAMED_LEVEL = Pattern.compile("(?i)^[ \\p{Zs}]*(?:Your )?SkyBlock Level[ \\p{Zs}]*:[ \\p{Zs}]*\\[?"
         + LEVEL + "(?![0-9])");
     private static final Set<String> PERSONAL_MENUS = Set.of("SkyBlock Menu", "SkyBlock Leveling", "Your SkyBlock Profile", "Stats & Equipment");

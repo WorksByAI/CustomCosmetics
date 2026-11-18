@@ -15,7 +15,7 @@ public final class CosmeticsMixinPlugin implements IMixinConfigPlugin {
             return FabricLoader.getInstance().getModContainer("iqaddons").isPresent()
                 && FabricLoader.getInstance().getModContainer("minecraft").orElseThrow()
                     .getMetadata().getVersion().getFriendlyString().startsWith("26.3");
-        if (mixin.endsWith("WindowIconStartup263Mixin")) return FabricLoader.getInstance().getModContainer("minecraft")
+        if (mixin.endsWith("WindowIconStartup263Mixin") || mixin.endsWith("FirstPersonSwing263Mixin")) return FabricLoader.getInstance().getModContainer("minecraft")
             .orElseThrow().getMetadata().getVersion().getFriendlyString().startsWith("26.3");
         if (mixin.endsWith("MouseFocus263Mixin") || mixin.endsWith("MouseFocusLegacyMixin")) {
             var version = FabricLoader.getInstance().getModContainer("minecraft").orElseThrow().getMetadata().getVersion();

@@ -19,7 +19,12 @@ import net.minecraft.world.scores.ScoreHolder;
 import net.minecraft.world.scores.criteria.ObjectiveCriteria;
 import net.minecraft.world.entity.player.PlayerModelType;
 import java.util.*;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.SocketTimeoutException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.nio.file.*;
 import java.util.concurrent.atomic.*;
 public final class SkinGameTest implements FabricClientGameTest {
@@ -94,8 +99,20 @@ public final class SkinGameTest implements FabricClientGameTest {
     }
 
     private static void checkModerationLogin(ClientGameTestContext context) throws Exception {
-        var server = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        try (var gameServer = new ServerSocket()) {
+            gameServer.bind(new InetSocketAddress("127.0.0.1", 0));
+            gameServer.setSoTimeout(5000);
+            checkModerationLogin(context, gameServer);
+        }
+    }
+
+    private static void checkModerationLogin(ClientGameTestContext context, ServerSocket gameServer) throws Exception {
+        var server = com.sun.net.httpserver.HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         var checked = new AtomicBoolean();
+        var restrictedResponse = new CountDownLatch(1);
+        var slowResponse = new CountDownLatch(1);
+        var slowRequest = new CountDownLatch(1);
+        String host = "127.0.0.1:" + gameServer.getLocalPort();
         server.createContext("/mod/moderation/check", exchange -> {
             try (exchange) {
                 if (!("Bearer " + "a".repeat(64)).equals(exchange.getRequestHeaders().getFirst("Authorization"))) {
@@ -104,16 +121,25 @@ public final class SkinGameTest implements FabricClientGameTest {
                 }
                 var request = com.google.gson.JsonParser.parseString(new String(exchange.getRequestBody().readAllBytes(),
                     java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
-                String expected = java.util.HexFormat.of().formatHex(digest("localhost:1"));
+                String expected = java.util.HexFormat.of().formatHex(digest(host));
                 if (!expected.equals(request.get("scope").getAsString())) {
                     exchange.sendResponseHeaders(400, -1);
                     return;
                 }
-                byte[] reply = """
+                boolean restricted = !checked.get();
+                if (!restricted) slowRequest.countDown();
+                var response = restricted ? restrictedResponse : slowResponse;
+                try {
+                    if (!response.await(8, TimeUnit.SECONDS)) throw new java.io.IOException("Fixture did not release its reply");
+                } catch (InterruptedException error) {
+                    Thread.currentThread().interrupt();
+                    throw new java.io.IOException(error);
+                }
+                byte[] reply = (restricted ? """
                     {"administrator":false,"ban":{"id":"GAME1234","reason":"&cFixture restriction",
                     "permanent":false,"pending":false,"seconds":60,"remainingSeconds":59,"helpUrl":"https://example.org",
                     "screen":{"title":"Fixture title","body":"&cRemaining {time} | &f{reason} | {link} | #{id}","button":"Fixture return"}}}
-                    """.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                    """ : "{\"administrator\":false,\"ban\":null}").getBytes(java.nio.charset.StandardCharsets.UTF_8);
                 exchange.sendResponseHeaders(200, reply.length);
                 exchange.getResponseBody().write(reply);
                 checked.set(true);
@@ -139,11 +165,7 @@ public final class SkinGameTest implements FabricClientGameTest {
                 var events = net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents.ALLOW_COMMAND.invoker();
                 check(!events.allowSendCommandMessage("csbban Fixture cheating 30d"), "Hidden moderation command leaked to the server");
                 check(events.allowSendCommandMessage("help"), "An unrelated command was intercepted");
-                var parent = new net.minecraft.client.gui.screens.TitleScreen();
-                var address = net.minecraft.client.multiplayer.resolver.ServerAddress.parseString("LOCALHOST:1");
-                var destination = new net.minecraft.client.multiplayer.ServerData("Moderation fixture", "127.0.0.1:1",
-                    net.minecraft.client.multiplayer.ServerData.Type.OTHER);
-                net.minecraft.client.gui.screens.ConnectScreen.startConnecting(parent, client, address, destination, false, null);
+                connectToModerationFixture(client, host);
                 var connecting = ClientUiAccess.screen(client);
                 check(connecting instanceof net.minecraft.client.gui.screens.ConnectScreen, "The original connecting screen was replaced");
                 var field = connecting.getClass().getDeclaredField("status");
@@ -152,6 +174,18 @@ public final class SkinGameTest implements FabricClientGameTest {
                 check(status.getString().equals(Component.translatable("connect.connecting").getString()),
                     "The login status appeared before moderation allowed the connection");
             });
+            try (var connection = gameServer.accept()) {
+                check(!checked.get(), "TCP did not start while the moderation request was pending");
+                connection.setSoTimeout(50);
+                try {
+                    connection.getInputStream().read();
+                    throw new AssertionError("Login or disconnect started before the restriction reply");
+                } catch (SocketTimeoutException expected) {
+                    restrictedResponse.countDown();
+                }
+                connection.setSoTimeout(3000);
+                check(connection.getInputStream().read() == -1, "A restricted account sent a login packet");
+            }
             context.waitFor(client -> ClientUiAccess.screen(client) instanceof net.minecraft.client.gui.screens.DisconnectedScreen);
             check(checked.get(), "Login restriction was not fetched from the authenticated moderation service");
             context.runOnClient(client -> {
@@ -166,14 +200,32 @@ public final class SkinGameTest implements FabricClientGameTest {
                 button.setAccessible(true);
                 check(((Component) button.get(screen)).getString().equals("Fixture return"), "The remote button text was ignored");
             });
+            context.runOnClient(client -> connectToModerationFixture(client, host));
+            try (var connection = gameServer.accept()) {
+                check(slowRequest.await(3, TimeUnit.SECONDS), "The second moderation check did not start");
+                connection.setSoTimeout(2500);
+                check(connection.getInputStream().read() > 0, "A slow moderation backend blocked the login handshake");
+                check(slowResponse.getCount() == 1, "The handshake waited for the moderation reply");
+            }
             System.out.println("MODERATION_LOGIN_GUARD_AND_HIDDEN_COMMANDS_OK");
+            System.out.println("MODERATION_PRECHECK_PARALLEL_TCP_AND_BOUNDED_WAIT_OK");
         } finally {
+            restrictedResponse.countDown();
+            slowResponse.countDown();
             server.stop(0);
             context.runOnClient(client -> {
                 ConfigManager.offlineMode = true;
                 ClientUiAccess.setScreen(client, new net.minecraft.client.gui.screens.TitleScreen());
             });
         }
+    }
+
+    private static void connectToModerationFixture(Minecraft client, String host) {
+        var parent = new net.minecraft.client.gui.screens.TitleScreen();
+        var address = net.minecraft.client.multiplayer.resolver.ServerAddress.parseString(host);
+        var destination = new net.minecraft.client.multiplayer.ServerData("Moderation fixture", host,
+            net.minecraft.client.multiplayer.ServerData.Type.OTHER);
+        net.minecraft.client.gui.screens.ConnectScreen.startConnecting(parent, client, address, destination, false, null);
     }
 
     private static byte[] digest(String value) {

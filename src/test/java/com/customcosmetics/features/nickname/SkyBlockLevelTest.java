@@ -45,10 +45,16 @@ class SkyBlockLevelTest {
         var field = SkyBlockLevelAppearance.class.getDeclaredField("known");
         field.setAccessible(true);
         var original = field.get(null);
-        field.set(null, Map.of("alice", new SkyBlockLevel(555, List.of(1, 2, 3))));
+        field.set(null, Map.of(
+            "alice", new SkyBlockLevel(555, List.of(1, 2, 3)),
+            "toryhi", new SkyBlockLevel(1314, List.of(1, 2, 3, 4))));
         try {
             assertEquals("[12:34] [555] [MVP++] Alice ✦: [40] Alice",
                 SkyBlockLevelAppearance.chat(Component.literal("[12:34] [40] [MVP++] Alice ✦: [40] Alice")).getString());
+            assertEquals("[21:57] [1314] ᛝ [Cute] [MVP++] ToryHi: 1",
+                SkyBlockLevelAppearance.chat(Component.literal("[21:57] [523] ᛝ [Cute] [MVP++] ToryHi: 1")).getString());
+            assertEquals("[1314] ✬ [MVP++] ToryHi: [523] ᛝ [Cute] [MVP++] ToryHi",
+                SkyBlockLevelAppearance.chat(Component.literal("[523] ✬ §6[MVP§a++§6] ToryHi§f: [523] ᛝ [Cute] [MVP++] ToryHi")).getString());
             assertEquals("[555♲] Alice", SkyBlockLevelAppearance.nametag(Component.literal("[40♲] Alice")).getString());
             assertEquals("555 [MVP+] Alice", SkyBlockLevelAppearance.tab(Component.literal("40 [MVP+] Alice"), "Alice").getString());
             for (var unrelated : List.of("[40] Bob: [40] Alice", "[Lv40] Alice: Hi", "[40] Alice Mention: Hi", "[40] Alicia: Hi")) {

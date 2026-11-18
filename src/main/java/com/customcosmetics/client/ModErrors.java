@@ -16,7 +16,7 @@ public final class ModErrors {
         FREECAM("Freecam"),SNAPLOOK("Snaplook"),DAMAGE("Damage Splash"),CAPE("Cape"),ITEMS("Item Customization"),
         SYNC("Remote Sync"),PARTY("Sharing"),UPDATES("Check for Updates"),BLOCKING("Sword Blocking"),
         REALTIME("Real-time Connection"),SKINS("Skins"),DEBUG("Debug"),ANIMATIONS("Animations"),BLOCKHIT("Blockhit"),
-        APPEARANCE("Peer Appearance"),ACCESSORIES("Accessory Helper"),WAYPOINTS("Waypoints"),SHORTCUTS("Shortcuts"),COMMANDS("Commands"),
+        APPEARANCE("Peer Appearance"),WAYPOINTS("Waypoints"),SHORTCUTS("Shortcuts"),COMMANDS("Commands"),
         PACK("Pack Disabler"), GAMEPLAY("Gameplay Features"), MOTION_BLUR("Motion Blur"), BOBBY("Bobby"), DUNGEON("Dungeon"),
         NICK_HIDER("Nick Hider"), MODERATION("Moderation");
         public final String label;Key(String label){this.label=label;}

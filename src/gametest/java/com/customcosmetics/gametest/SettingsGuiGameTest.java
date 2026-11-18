@@ -328,8 +328,8 @@ final class SettingsGuiGameTest {
         });context.takeScreenshot("interface-chinese-settings");
         click(context,"Interface",PinkUi.Action.class);click(context,"Mode: Dark",PinkUi.Action.class);context.getInput().setCursorPos(1595,995);context.waitTicks(4);context.takeScreenshot("interface-chinese-light-theme");
         click(context,"Mode: Light",PinkUi.Action.class);click(context,"Settings",PinkUi.Action.class);
-        type(context,"Search Settings","护符");context.waitTicks(4);context.takeScreenshot("interface-chinese-search");
-        click(context,"Accessory Helper",PinkUi.Action.class);
+        type(context,"Search Settings","自定义物品");context.waitTicks(4);context.takeScreenshot("interface-chinese-search");
+        click(context,"Customize Items",PinkUi.Action.class);
         context.runOnClient(client->{if(read(ClientUiAccess.screen(client),"page")!=CosmeticsScreen.Page.ITEMS)throw new AssertionError("Chinese search did not reach the setting");});
         click(context,"Nick Changer",PinkUi.Action.class);
         context.runOnClient(client->{ConfigManager.nickTweaksNickChanger="Settings";ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.NICK));});context.waitTicks(3);
@@ -452,7 +452,7 @@ final class SettingsGuiGameTest {
         var type=com.customcosmetics.update.UpdateChecker.class;var field=type.getDeclaredField("check");field.setAccessible(true);Object original=field.get(null);
         boolean enabled=ConfigManager.updateCheckEnabled,offline=ConfigManager.offlineMode;String language=ConfigManager.uiLanguage;
         try{
-            var fake=new com.customcosmetics.update.GitHubUpdateCheck("2.0.0-dev.6");
+            var fake=new com.customcosmetics.update.GitHubUpdateCheck("2.0.0-dev.6", com.customcosmetics.client.ClientEdition.installed(), () -> true);
             var start=fake.getClass().getDeclaredMethod("start",java.util.function.Supplier.class,java.util.concurrent.Executor.class);start.setAccessible(true);
             start.invoke(fake,(java.util.function.Supplier<java.util.Optional<String>>)()->java.util.Optional.of("2.0.0"),(java.util.concurrent.Executor)Runnable::run);field.set(null,fake);
             context.runOnClient(client->{ConfigManager.updateCheckEnabled=true;ConfigManager.offlineMode=false;ConfigManager.uiLanguage="zh_cn";ClientUiAccess.setScreen(client,new net.minecraft.client.gui.screens.TitleScreen());com.customcosmetics.update.UpdateChecker.tick(client);});

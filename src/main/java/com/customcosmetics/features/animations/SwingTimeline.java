@@ -27,6 +27,7 @@ public final class SwingTimeline {
         swinging = true;
         return true;
     }
+    boolean isSwinging() { return swinging; }
     public void clear() { swinging = false; elapsed = 0; previous = current = 0; }
     public void tick(int ticks) {
         previous = current;

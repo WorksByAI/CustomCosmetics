@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.2
+
+- bug fix: Apply custom SkyBlock levels to chat prefixes with emblems and title tags.
+- bug fix: Smooth the return of first-person item swings on Minecraft 26.3.
+- bug fix: Reduce delays when refreshing the multiplayer server list or joining a server.
+- bug fix: Remove the obsolete SkyBlock Accessory Bag scanner and reminders.
+
 ## 3.1.1
 
 - new feat: Hide your own skin in Nick Hider with Steve, Alex, or an imported PNG, including the Tab portrait.

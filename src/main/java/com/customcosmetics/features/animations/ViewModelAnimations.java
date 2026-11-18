@@ -20,11 +20,12 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.effect.MobEffectUtil;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.SwingAnimation;
 
 public final class ViewModelAnimations {
     private static final SwingTimeline clock = new SwingTimeline();
     private static InteractionHand swingingHand = InteractionHand.MAIN_HAND;
-    private static Object swingAnimation;
+    private static SwingAnimation swingAnimation;
     private static Object world, localPlayer;
     private ViewModelAnimations() {}
     public static void tick(Minecraft client) {
@@ -41,7 +42,7 @@ public final class ViewModelAnimations {
     public static void observeSwing(Object player, InteractionHand hand) {
         observeSwing(player, hand, null);
     }
-    public static void observeSwing(Object player, InteractionHand hand, Object animation) {
+    public static void observeSwing(Object player, InteractionHand hand, SwingAnimation animation) {
         if (!customTiming() || player != Minecraft.getInstance().player) return;
         var client = Minecraft.getInstance(); resetIfNeeded(client);
         if (!customTiming(client.player.getMainHandItem().isEmpty())) { clock.clear(); return; }
@@ -110,6 +111,14 @@ public final class ViewModelAnimations {
         var player = Minecraft.getInstance().player;
         if (player == null || !customTiming(player.getMainHandItem().isEmpty())) return vanilla;
         return hand == swingingHand ? clock.progress(partial) : 0;
+    }
+    public static SwingAnimation activeSwingAnimation(InteractionHand hand, ItemStack stack) {
+        if (!customTiming() || !clock.isSwinging() || hand != swingingHand || stack.isEmpty()) return null;
+        var client = Minecraft.getInstance();
+        if (client.player == null || client.player != localPlayer || client.level != world
+                || client.player.getMainHandItem().isEmpty()) return null;
+        if (ConfigManager.animationDisableSwing && suppressSwing(SwordItems.skyblockId(stack).orElse(""))) return null;
+        return swingAnimation;
     }
     public static float equip(float vanilla) { return enabled() && ConfigManager.animationDisableEquip ? 0 : vanilla; }
     public static boolean handMovement() { return !enabled() || !ConfigManager.animationDisableHandMove; }

@@ -6,7 +6,7 @@ This is a private mod. Quality and stability are not guaranteed.
 
 CustomSkyBlock 提供 **Legit** 和 **Cheating** 两种安装包。Legit 提供外观与 QOL，Cheating 另含作弊模块。任选一个，用 `/customskyblock` 或 `/csb` 打开。更新器沿用已装的版本类型。从旧命名的安装包升级时，请手动选一次。
 
-v3.1.1。支持 Minecraft 26.1～26.3 的 Fabric 模组，部分外观可在玩家间同步。支持中英文、系统字体和本地字体。
+v3.1.2。支持 Minecraft 26.1～26.3 的 Fabric 模组，部分外观可在玩家间同步。支持中英文、系统字体和本地字体。
 
 目前模组所有功能（[√] 表示其他安装本模组的玩家可见）：
 
@@ -18,7 +18,7 @@ v3.1.1。支持 Minecraft 26.1～26.3 的 Fabric 模组，部分外观可在玩�
 - **[√] Equipments**：原创饰品，支持自由搭配、调色、大小、位置微调。
 - **[√] Sharing**：Hypixel 队友显示、远处标记、追踪线与 IRC；可向同一世界公开或指定玩家共享位置（默认关闭）。
 - **[√] Skins**：支持导入最高 1024×1024 像素的皮肤，共享仅在 P2P 打洞成功后对其他玩家可见。
-- **Item Customization**：自定义物品名称、图标模型、头颅皮肤及穿戴护甲模型与颜色；扫描护符背包后显示收集／升级提示。
+- **Item Customization**：自定义物品名称、图标模型、头颅皮肤及穿戴护甲模型与颜色。
 - **Damage Splash**：自定义伤害数字的动画、双色渐变／流动彩虹配色、大小与数字格式。
 - **Map Editor**：地牢／Kuudra 纯视觉改图、批量方块替换。
 - **Waypoints / Shortcuts**：Hypixel Mod API 识别 SkyBlock 岛屿；支持路点、路线、Skyblocker 导入及命令／键鼠快捷方式。
@@ -32,7 +32,7 @@ v3.1.1。支持 Minecraft 26.1～26.3 的 Fabric 模组，部分外观可在玩�
 
 CustomSkyBlock ships as **Legit** and **Cheating**. Legit includes visual and QOL features. Cheating adds the Cheating panel. Install one JAR and open with `/customskyblock` or `/csb`. Updates stay in the installed edition. Pick an edition manually when upgrading from an older filename.
 
-v3.1.1. Fabric cosmetics for Minecraft 26.1–26.3 with optional sync, English and Simplified Chinese, and system or local font support.
+v3.1.2. Fabric cosmetics for Minecraft 26.1–26.3 with optional sync, English and Simplified Chinese, and system or local font support.
 
 Features ([√] visible to other mod users):
 
@@ -44,7 +44,7 @@ Features ([√] visible to other mod users):
 - **[√] Equipments**: Accessories with configurable colors, sizes and offsets.
 - **[√] Sharing**: Hypixel party member displays, distant markers, tracers and IRC. Optionally share your position publicly within the same world or with selected players (off by default).
 - **[√] Skins**: Import skins up to 1024×1024 pixels. Shared skins are visible to other players only after a direct P2P connection is established.
-- **Item Customization**: Local item names, icon models, head skins, worn armor models and colors, plus accessory tooltips after scanning the Accessory Bag.
+- **Item Customization**: Local item names, icon models, head skins, worn armor models and colors.
 - **Damage Splash**: Damage-number animations, gradients, rainbow colors and formatting.
 - **Map Editor**: Visual-only Catacombs/Kuudra map editing and bulk block replacement.
 - **Waypoints / Shortcuts**: Hypixel Mod API island markers, routes, Skyblocker import, command aliases and key/mouse shortcuts.

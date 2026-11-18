@@ -257,7 +257,6 @@ public final class CosmeticsScreen extends ThemedScreen {
             case ANIMATIONS -> ConfigManager.resetSettings("animation*", "legacyHeldSkull", "swordBlocking*", "blocking*");
             case DAMAGE -> ConfigManager.resetSettings("damageSplash*");
             case ITEMS -> {
-                ConfigManager.resetSettings("accessoryHelperTooltipEnabled");
                 com.customcosmetics.features.items.ItemCosmetics.store().enabled(true);
                 com.customcosmetics.features.items.ItemCosmetics.save();
             }
@@ -391,7 +390,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             case BOBBY -> "Bobby";
             case ZOOM -> "Zoom";
             case SEYMOUR -> "Seymour Analyzer";
-            case FAST_PING -> "Fast IP Ping";
+            case FAST_PING -> "Fast Ping";
             case COMMAND_TOOLTIPS -> "Command Tooltips";
             case SNAPLOOK -> "Snaplook";
             case MOTION_BLUR -> "Motion Blur";
@@ -434,7 +433,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         navItem("Bobby", Page.BOBBY);
         navItem("Command Tooltips", Page.COMMAND_TOOLTIPS);
         navItem("Customize Text Colors", Page.TEXT_COLORS);
-        navItem("Fast IP Ping", Page.FAST_PING);
+        navItem("Fast Ping", Page.FAST_PING);
         navItem("Fonts", Page.FONTS);
         navItem("Freecam", Page.FREECAM);
         navItem("Hit Color", Page.HIT_COLOR);
@@ -551,7 +550,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         fullButton("Player Spin", () -> open(Page.PLAYER_SPIN), false);
         fullButton("Optifine Skies", () -> open(Page.SKYBOX), false);
         fullButton("HUD Manager", () -> open(Page.HUD_LAYOUT), false);
-        fullButton("Fast IP Ping", () -> open(Page.FAST_PING), false);
+        fullButton("Fast Ping", () -> open(Page.FAST_PING), false);
         fullButton("Freecam", () -> open(Page.FREECAM), false);
         fullButton("Windowed Fullscreen", () -> open(Page.WINDOW), false);
         fullButton("Hit Color", () -> open(Page.HIT_COLOR), false);
@@ -1158,16 +1157,6 @@ public final class CosmeticsScreen extends ThemedScreen {
 
 
     private void itemCosmetics() {
-        section("SkyBlock accessories", "See collected tiers when hovering accessories.");
-        toggleRow("Accessory Helper", "Show ownership tooltips and missing accessories beside the Accessory Bag.",
-            () -> ConfigManager.accessoryHelperTooltipEnabled, value -> ConfigManager.accessoryHelperTooltipEnabled = value);
-        fullButton("Clear This Profile's Bag Scan", () -> {
-            boolean cleared = com.customcosmetics.features.accessoryhelper.AccessoryTooltipHelper.clearCurrent();
-            toast(cleared ? "Accessory Bag scan cleared. Reopen every page to refresh." : "No profile scan to clear.");
-            rebuildWidgets();
-        }, false);
-        String accessoryNotice = com.customcosmetics.features.accessoryhelper.AccessoryTooltipHelper.notice();
-        if (!accessoryNotice.isEmpty()) { label(accessoryNotice, contentX, rowY, MUTED, contentWidth); rowY += 16; }
         section("Item appearance", "Customize names and models on your client.");
         toggleRow("Enabled", "Custom item names and models. Only visible on your client.",
             () -> com.customcosmetics.features.items.ItemCosmetics.store().enabled(),
@@ -1744,7 +1733,7 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
 
     private void fastPing() {
-        toggleRow("Fast IP Ping", "Skip reverse DNS for numeric server addresses.",
+        toggleRow("Fast Ping", "Shorten server list DNS waits and skip reverse lookups for numeric addresses.",
             () -> ConfigManager.fastIpPingEnabled, v -> ConfigManager.fastIpPingEnabled = v);
     }
 

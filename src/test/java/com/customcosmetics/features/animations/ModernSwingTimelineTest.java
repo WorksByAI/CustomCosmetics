@@ -9,8 +9,9 @@ class ModernSwingTimelineTest {
         var clock = new SwingTimeline(); clock.modern(true); clock.request(2);
         clock.tick(99); assertEquals(0, clock.progress(1));
         clock.tick(99); assertEquals(.5f, clock.progress(1));
-        clock.tick(99); assertEquals(1, clock.progress(1));
+        clock.tick(99); assertEquals(1, clock.progress(1)); assertTrue(clock.isSwinging());
         clock.tick(99); assertEquals(1, clock.progress(0)); assertEquals(1, clock.progress(1));
+        assertFalse(clock.isSwinging(), "The pose type is released after the visual endpoint");
         clock.tick(99); assertEquals(0, clock.progress(1));
     }
 
