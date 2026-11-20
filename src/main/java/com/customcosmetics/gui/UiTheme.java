@@ -5,6 +5,9 @@ import com.customcosmetics.config.ConfigManager;
 
 /** Preferences are local; refreshing the palette happens only when a screen is built or edited. */
 public final class UiTheme {
+    public static final int DEFAULT_GLASS_OPACITY = 80;
+    public static final int MAX_GLASS_OPACITY = 90;
+
     private static String mode;
     private static int accent;
     private static UiPalette palette;

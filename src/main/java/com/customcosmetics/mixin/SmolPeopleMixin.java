@@ -9,21 +9,15 @@ package com.customcosmetics.mixin;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.customcosmetics.features.smolpeople.SmolPlayers;
-import com.customcosmetics.features.smolpeople.SmolPeopleCamera;
 import com.customcosmetics.features.smolpeople.SmolPeopleNametag;
-import net.minecraft.client.Camera;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.player.PlayerModel;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.entity.player.AvatarRenderer;
 import net.minecraft.client.renderer.entity.state.AvatarRenderState;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -112,22 +106,4 @@ public class SmolPeopleMixin {
         }
     }
 
-    @Mixin(Camera.class)
-    public static class SmolCameraMixin {
-
-        @Shadow
-        private Vec3 position;
-
-        @Shadow
-        private Entity entity;
-
-        @Inject(method = "alignWithEntity", at = @At("TAIL"))
-        private void customcosmetics$adjustCameraForSmolPeople(float tickDelta, CallbackInfo ci) {
-            Minecraft mc = Minecraft.getInstance();
-            if (mc.player == null || this.entity != mc.player) {
-                return;
-            }
-            this.position = SmolPeopleCamera.applyThirdPersonFrontOffset(this.position);
-        }
-    }
 }

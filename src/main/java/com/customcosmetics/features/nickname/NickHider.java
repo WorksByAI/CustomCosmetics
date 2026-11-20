@@ -37,12 +37,14 @@ public final class NickHider {
 
     private static final LinkedHashMap<String, Integer> numbers = new LinkedHashMap<>();
     private static Map<String, String> dungeonMembers = Map.of();
+    private static Set<String> ownNames = Set.of();
     private static PartyRoster party = PartyRoster.EMPTY;
     private static Object connection, world;
     private static int number, scanDelay, chatRefreshDelay;
     private static boolean enabled, inDungeon;
 
     record Member(String name, String role) {}
+    record Aliases(Map<String, String> names, Set<String> styled) {}
 
     private NickHider() {}
 
@@ -124,15 +126,11 @@ public final class NickHider {
         scanDelay = SCAN_TICKS - 1;
 
         String self = client.player.getGameProfile().name();
-        String account = client.getUser().getName();
-        if (ConfigManager.nickHiderSelf) dirty |= remember(self);
-        if (ConfigManager.nickHiderPlayers) {
-            for (var player : listener.getOnlinePlayers()) dirty |= rememberOther(player.getProfile().name(), self, account);
-            for (var player : client.level.players()) dirty |= rememberOther(player.getGameProfile().name(), self, account);
-        }
-
         var sidebar = ConfigManager.nickHiderDungeon ? DungeonSidebarReader.read(client) : null;
         boolean dungeon = sidebar != null && sidebar.detected();
+        var own = inDungeon && dungeon ? new HashSet<>(ownNames) : new HashSet<String>();
+        own.add(key(self));
+        own.add(key(client.getUser().getName()));
         if (dungeon) {
             var roster = PartyFeatures.roster();
             Map<String, String> members = inDungeon && party.equals(roster) ? new HashMap<>(dungeonMembers) : new HashMap<>();
@@ -145,59 +143,82 @@ public final class NickHider {
                 Member member = sidebarMember(line);
                 addMember(members, member == null ? tabMember(line) : member);
             }
+            var worldId = client.player.getUUID();
+            var accountId = client.getUser().getProfileId();
             for (var info : listener.getListedOnlinePlayers()) {
                 var display = info.getTabListDisplayName();
-                if (display != null) addMember(members, tabMember(display.getString()));
+                Member member = display == null ? null : tabMember(display.getString());
+                addMember(members, member);
+                var profile = info.getProfile();
+                if (worldId.equals(profile.id()) || accountId.equals(profile.id())) {
+                    own.add(key(profile.name()));
+                    if (member != null) own.add(member.name());
+                }
             }
             party = roster;
             if (!dungeonMembers.equals(members)) {
                 dungeonMembers = Map.copyOf(members);
                 dirty = true;
             }
-            for (String name : dungeonMembers.keySet()) dirty |= rememberOther(name, self, account);
         } else if (inDungeon) {
             dungeonMembers = Map.of();
             party = PartyRoster.EMPTY;
             dirty = true;
         }
         inDungeon = dungeon;
+        if (!ownNames.equals(own)) {
+            ownNames = Set.copyOf(own);
+            dirty = true;
+        }
+        if (ConfigManager.nickHiderSelf) dirty |= remember(self);
+        if (ConfigManager.nickHiderPlayers) {
+            for (var player : listener.getOnlinePlayers()) dirty |= rememberOther(player.getProfile().name());
+            for (var player : client.level.players()) dirty |= rememberOther(player.getGameProfile().name());
+        }
+        if (dungeon) for (String name : dungeonMembers.keySet()) dirty |= rememberOther(name);
         return (dirty || force) && publish(client);
     }
 
     private static void observeSpeaker(Minecraft client, String name) {
         if (client.player == null || client.getConnection() == null) return;
-        if (connection != client.getConnection().getConnection()) scan(client, false);
-        if (rememberOther(name, client.player.getGameProfile().name(), client.getUser().getName())) publish(client);
+        if (connection != client.getConnection().getConnection() || world != client.level) scan(client, false);
+        if (rememberOther(name)) publish(client);
     }
 
     private static boolean publish(Minecraft client) {
-        String account = key(client.getUser().getName());
         String profile = key(client.player.getGameProfile().name());
-        String prefix = ConfigManager.nickHiderPrefix + "-";
-        String selfAlias = ConfigManager.nickHiderSelfAlias;
-        var aliases = new HashMap<String, String>();
-        var styled = new HashSet<String>();
-        for (var entry : numbers.entrySet()) {
-            String name = entry.getKey();
-            boolean self = name.equals(account) || name.equals(profile);
-            if (self ? !ConfigManager.nickHiderSelf : !ConfigManager.nickHiderPlayers && !dungeonMembers.containsKey(name)) continue;
-            String role = dungeonMembers.getOrDefault(name, self ? dungeonMembers.getOrDefault(account, "") : "");
-            String alias = role.isEmpty() ? prefix + entry.getValue() : role;
-            if (self && !selfAlias.isEmpty()) {
-                aliases.put(name, selfAlias);
-                styled.add(name);
-            } else aliases.put(name, alias);
-        }
-        if (ConfigManager.nickHiderSelf && !account.equals(profile)) {
-            String alias = aliases.get(profile);
-            if (alias != null) {
-                aliases.put(account, alias);
-                if (styled.contains(profile)) styled.add(account);
-            }
-        }
-        if (!TextReplacements.setPlayerAliases(aliases, styled)) return false;
+        var aliases = buildAliases(profile, ownNames, numbers, dungeonMembers);
+        if (!TextReplacements.setPlayerAliases(aliases.names(), aliases.styled())) return false;
         if (chatRefreshDelay <= 0) chatRefreshDelay = CHAT_REFRESH_TICKS;
         return true;
+    }
+
+    static Aliases buildAliases(String profile, Set<String> own, Map<String, Integer> numbers, Map<String, String> classes) {
+        String prefix = ConfigManager.nickHiderPrefix + "-";
+        var names = new HashMap<String, String>();
+        for (var entry : numbers.entrySet()) {
+            String name = entry.getKey();
+            if (own.contains(name)) continue;
+            String role = classes.getOrDefault(name, "");
+            if (!role.isEmpty()) names.put(name, role);
+            else if (ConfigManager.nickHiderPlayers) names.put(name, prefix + entry.getValue());
+        }
+        if (!ConfigManager.nickHiderSelf) return new Aliases(names, Set.of());
+
+        String alias = ConfigManager.nickHiderSelfAlias;
+        boolean custom = !alias.isEmpty();
+        if (!custom) {
+            alias = classes.getOrDefault(profile, "");
+            if (alias.isEmpty()) alias = own.stream().map(name -> classes.getOrDefault(name, ""))
+                .filter(role -> !role.isEmpty()).findFirst().orElse("");
+            if (alias.isEmpty()) {
+                Integer number = numbers.get(profile);
+                if (number == null) return new Aliases(names, Set.of());
+                alias = prefix + number;
+            }
+        }
+        for (String name : own) names.put(name, alias);
+        return new Aliases(names, custom ? own : Set.of());
     }
 
     private static boolean remember(String name) {
@@ -209,8 +230,8 @@ public final class NickHider {
         return true;
     }
 
-    private static boolean rememberOther(String name, String self, String account) {
-        return !name.equalsIgnoreCase(self) && !name.equalsIgnoreCase(account) && remember(name);
+    private static boolean rememberOther(String name) {
+        return !ownNames.contains(key(name)) && remember(name);
     }
 
     private static boolean reset() {
@@ -218,6 +239,7 @@ public final class NickHider {
         connection = world = null;
         number = scanDelay = chatRefreshDelay = 0;
         numbers.clear();
+        ownNames = Set.of();
         dungeonMembers = Map.of();
         party = PartyRoster.EMPTY;
         return TextReplacements.setPlayerAliases(Map.of(), Set.of());

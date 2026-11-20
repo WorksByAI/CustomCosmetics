@@ -1,9 +1,11 @@
 package quoi.module.impl.misc
 
+import quoi.QuoiMod.mc
 import quoi.api.customtriggers.TriggerManager
-import quoi.api.customtriggers.ui.CustomTriggerEditor
+import quoi.api.customtriggers.ui.TriggerEditor
+import quoi.compat.GameAccess
 import quoi.module.Module
-import quoi.utils.ui.screens.UIScreen.Companion.open
+import quoi.utils.ui.screens.UIScreen
 
 object CustomTriggers : Module(
     "Custom Triggers",
@@ -11,11 +13,16 @@ object CustomTriggers : Module(
     tag = Tag.BETA
 ) {
     @Suppress("unused")
-    private val editor by button("Open editor") { open(CustomTriggerEditor().build()) }
+    private val editor by button("Open editor") { openEditor() }
 
     init {
         TriggerManager.init()
-        command.sub("ct") { open(CustomTriggerEditor().build()) }.description("Opens Custom Triggers editor.")
+        command.sub("ct") { openEditor() }.description("Opens Custom Triggers editor.")
+    }
+
+    private fun openEditor() {
+        val parent = GameAccess.screen()
+        mc.schedule { GameAccess.setScreen(UIScreen(TriggerEditor().build(), parent = parent)) }
     }
 
     override fun onDisable() = TriggerManager.reset()

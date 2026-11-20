@@ -8,13 +8,14 @@ import java.util.HashSet;
 
 public enum GameplayModule {
     AUTO_BOOK_COMBINE("Auto Book Combine", Category.GENERAL),
-    AUTO_CLICKER("Auto Click", Category.GENERAL),
+    AUTO_CLICKER("Auto Clicker", Category.GENERAL),
     AUTO_EXPERIMENTS("Auto Experiments", Category.GENERAL),
     AUTO_GFS("Auto GFS", Category.GENERAL),
     AUTO_HARP("Auto Harp", Category.GENERAL),
     TREVOR_HELPER("Trevor Helper", Category.GENERAL),
     AUTO_CLOSE_CHEST("Auto Close Chest", Category.DUNGEON),
     AUTO_I4("Auto I4", Category.DUNGEON),
+    DEVICE("Device", Category.DUNGEON),
     AUTO_LEAP("Auto Leap", Category.DUNGEON),
     SECRET_AURA("Secret Aura", Category.DUNGEON),
     SECRET_TRIGGERBOT("Secret Triggerbot", Category.DUNGEON),
@@ -57,14 +58,26 @@ public enum GameplayModule {
         this.category = category;
     }
 
-    public boolean localControl() { return this == AUTO_I4 || category != Category.DUNGEON; }
+    public boolean localControl() { return this == AUTO_I4 || this == DEVICE || category != Category.DUNGEON; }
+
+    public boolean configured() {
+        return this == DEVICE ? ConfigManager.gameplayDeviceEnabled : ConfigManager.gameplayModules.contains(name());
+    }
 
     public boolean enabled() {
-        return localControl() && ConfigManager.gameplayPanelConfirmed && ConfigManager.gameplayModules.contains(name())
+        return localControl() && ConfigManager.gameplayPanelConfirmed && configured()
+            && (this != AUTO_I4 || ConfigManager.gameplayDeviceEnabled)
             && ModErrors.active(ModErrors.Key.GAMEPLAY);
     }
 
     public void toggle() {
+        if (this == DEVICE) {
+            ConfigManager.gameplayDeviceEnabled = !ConfigManager.gameplayDeviceEnabled;
+            ConfigManager.requestSave();
+            QuoiDungeon.deviceGateChanged();
+            ModuleNotifications.show(label, ConfigManager.gameplayDeviceEnabled);
+            return;
+        }
         var next = new HashSet<>(ConfigManager.gameplayModules);
         boolean enabled = !next.remove(name());
         if (enabled) next.add(name());

@@ -13,8 +13,14 @@ class UiMotionTest {
     }
     @Test void reversalPreservesContinuityAndReducedMotionDoesNoTimingWork(){
         long[] now={0};var motion=new UiMotion(0,()->now[0]);motion.value(1,true);now[0]=40_000_000;
-        float current=motion.value(1,true);assertEquals(current,motion.value(0,true));now[0]+=140_000_000;assertEquals(0,motion.value(0,true));
+        float current=motion.value(1,true);
+        assertTrue(motion.travel()>0);
+        assertEquals(current,motion.value(0,true));
+        assertTrue(motion.travel()<0);
+        now[0]+=140_000_000;assertEquals(0,motion.value(0,true));
+        assertEquals(0,motion.travel());
         var reduced=new UiMotion(0,()->{throw new AssertionError("Disabled motion read the clock");});assertEquals(1,reduced.value(1,false));
+        assertEquals(0,reduced.travel());
     }
     @Test void springOvershootsSettlesAndStopsTimingEvenAfterRapidReversal(){
         long[] now={0},calls={0};var motion=new UiMotion(0,()->{calls[0]++;return now[0];},UiMotion.Curve.SPRING);

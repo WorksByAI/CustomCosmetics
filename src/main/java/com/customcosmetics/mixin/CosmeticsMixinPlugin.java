@@ -17,6 +17,9 @@ public final class CosmeticsMixinPlugin implements IMixinConfigPlugin {
                     .getMetadata().getVersion().getFriendlyString().startsWith("26.3");
         if (mixin.endsWith("WindowIconStartup263Mixin") || mixin.endsWith("FirstPersonSwing263Mixin")) return FabricLoader.getInstance().getModContainer("minecraft")
             .orElseThrow().getMetadata().getVersion().getFriendlyString().startsWith("26.3");
+        if (mixin.contains("LegacyNametagOrder263Mixin$") || mixin.contains("NametagAntialiasing263Mixin$"))
+            return FabricLoader.getInstance().getModContainer("minecraft")
+            .orElseThrow().getMetadata().getVersion().getFriendlyString().startsWith("26.3");
         if (mixin.endsWith("MouseFocus263Mixin") || mixin.endsWith("MouseFocusLegacyMixin")) {
             var version = FabricLoader.getInstance().getModContainer("minecraft").orElseThrow().getMetadata().getVersion();
             return mixin.endsWith("MouseFocus263Mixin") == version.getFriendlyString().startsWith("26.3");
@@ -75,7 +78,7 @@ public final class CosmeticsMixinPlugin implements IMixinConfigPlugin {
             return mixin.endsWith("Bind")||mixin.endsWith(modern?"Modern":"Legacy");
         }
         if(mixin.endsWith("UiTooltipMixin$Legacy")||mixin.endsWith("UiTooltipMixin$Modern"))return mixin.endsWith("Modern")==FabricLoader.getInstance().getModContainer("minecraft").orElseThrow().getMetadata().getVersion().getFriendlyString().startsWith("26.3");
-        if (mixin.contains("LocalFontSampling")) {
+        if (mixin.contains("LocalFontSampling") || mixin.contains("RoundedGuiSampling")) {
             var version = FabricLoader.getInstance().getModContainer("minecraft").orElseThrow().getMetadata().getVersion().getFriendlyString();
             return mixin.contains("263Mixin") == version.startsWith("26.3");
         }

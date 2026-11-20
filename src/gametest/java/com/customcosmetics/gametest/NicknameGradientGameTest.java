@@ -99,10 +99,43 @@ public final class NicknameGradientGameTest implements FabricClientGameTest {
             ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.COLOR));
         });context.waitTicks(3);context.takeScreenshot("nickname-shimmer-settings");
         checkRemoteNameTag(context);
+        checkItalicToggle(context);
         NicknamePresetGameTest.check(context);
         checkSegments(context);
         RenderAssertions.nicknameTime=-1;
         System.out.println("NICKNAME_SHIMMER_GPU_OK base="+base+" left="+left+" right="+right+" smooth="+smooth);
+    }
+
+    private static void checkItalicToggle(ClientGameTestContext context) {
+        context.runOnClient(client -> {
+            ConfigManager.uiLanguage = "en_us";
+            ConfigManager.nickTweaksItalicSelf = false;
+            ClientUiAccess.setScreen(client, new CosmeticsScreen(null, CosmeticsScreen.Page.NICK));
+        });
+        context.waitTicks(8);
+        try {
+            NicknamePresetGameTest.click(context, "Italic Self Nick", com.customcosmetics.gui.PinkUi.Toggle.class);
+            context.runOnClient(client -> {
+                var preview = NickRenderUtils.previewNickname(client.getUser().getName());
+                if (!ConfigManager.nickTweaksItalicSelf || !preview.getVisualOrderText().accept((index, style, cp) -> style.isItalic())) {
+                    throw new AssertionError("The toggle did not italicize the self nickname");
+                }
+                var capture = PresenceSync.class.getDeclaredMethod("capturePeerAppearance");
+                capture.setAccessible(true);
+                var features = (com.google.gson.JsonObject) ((java.util.function.Supplier<?>) capture.invoke(null)).get();
+                if (!features.getAsJsonObject("nickTweaks").get("italicEnabled").getAsBoolean()) {
+                    throw new AssertionError("The enabled italic setting did not enter the peer appearance payload");
+                }
+            });
+        } catch (Exception error) {
+            throw new AssertionError("Could not toggle nickname italics", error);
+        }
+        context.takeScreenshot("italic-self-nick");
+        context.runOnClient(client -> {
+            ConfigManager.nickTweaksItalicSelf = false;
+            NickRenderUtils.invalidateLocalTargetsCache();
+        });
+        System.out.println("SELF_NICK_ITALIC_TOGGLE_AND_PEER_PAYLOAD_OK");
     }
 
     private static void checkSegments(ClientGameTestContext context) {
@@ -287,6 +320,7 @@ public final class NicknameGradientGameTest implements FabricClientGameTest {
                 var users=new com.google.gson.JsonObject();var user=new com.google.gson.JsonObject();user.addProperty("name","Alice");
                 var features=new com.google.gson.JsonObject();var nick=new com.google.gson.JsonObject();
                 nick.addProperty("enabled",true);nick.addProperty("customNickColorEnabled",true);nick.addProperty("nickChanger","暮冬");
+                nick.addProperty("italicEnabled",true);
                 var solid=new com.google.gson.JsonObject();solid.addProperty("customColorStart","#24CFDF");solid.addProperty("customColorEnd","#EA78C5");
                 solid.addProperty("style","shimmer");solid.addProperty("shimmerSpeed",1.7);solid.addProperty("shimmerColor","#0055FF");solid.addProperty("shimmerHighlightColor","#66DDFF");solid.addProperty("shimmerSize",.35);solid.addProperty("shimmerInterval",4.7);nick.add("solid",solid);features.add("nickTweaks",nick);user.add("features",features);
                 UUID id=UUID.fromString("12345678-1234-4234-8234-123456789abc");users.add(id.toString(),user);payload.add("users",users);
@@ -296,6 +330,8 @@ public final class NicknameGradientGameTest implements FabricClientGameTest {
                 var remoteGlyphs=prepared(client.font.prepareText(net.minecraft.locale.Language.getInstance().getVisualOrder(NickRenderUtils.handleFormattedText(Component.literal("Alice"))),0,0,-1,false,false,0));
                 if(remoteGlyphs.size()!=2||remoteGlyphs.getFirst().effect().gradient().shimmerColor()!=0x0055FF||remoteGlyphs.getFirst().effect().gradient().shimmerHighlightColor()!=0x66DDFF)
                     throw new AssertionError("Remote formatted nickname did not create gradient glyphs");
+                if (remoteGlyphs.stream().anyMatch(glyph -> !glyph.wrapped().style().isItalic()))
+                    throw new AssertionError("Relayed nickname lost italics during glyph preparation");
                 var player=new RemotePlayer(client.level,new com.mojang.authlib.GameProfile(id,"Alice"));
                 player.setId(-12101);player.setPos(client.player.getX(),client.player.getY(),client.player.getZ()+3);
                 client.level.addEntity(player);client.player.setYRot(0);client.player.setXRot(0);

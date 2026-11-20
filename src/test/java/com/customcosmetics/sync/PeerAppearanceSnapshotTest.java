@@ -19,15 +19,20 @@ class PeerAppearanceSnapshotTest {
             var decode=PresenceSync.class.getDeclaredMethod("decodePayload",JsonObject.class);decode.setAccessible(true);
             var publish=PresenceSync.class.getDeclaredMethod("publishSnapshot",decode.getReturnType());publish.setAccessible(true);publish.invoke(null,decode.invoke(null,root));
             var peerFeatures=features.deepCopy();peerFeatures.getAsJsonObject("nickTweaks").addProperty("nickChanger","Direct");
+            peerFeatures.getAsJsonObject("nickTweaks").addProperty("italicEnabled",true);
             var peer=PresenceSync.decodePeerAppearance(id,"Alice",peerFeatures);var direct=Map.of(id,peer);PresenceSync.peerAppearances(direct);
             assertEquals("Direct",PresenceSync.getChromaProfileByName("Alice").nickChanger());
+            assertTrue(PresenceSync.getChromaProfileByName("Alice").italicSelf());
+            assertTrue(peer.user().italicEnabled());
             var identity=field("remoteSnapshot").get(null);PresenceSync.peerAppearances(direct);assertSame(identity,field("remoteSnapshot").get(null));
             root.add("users",new JsonObject());root.addProperty("appearanceVersion",1);var omitted=new JsonArray();omitted.add(id.toString());root.add("peerExcluded",omitted);override.addProperty("prefix","[MOD]");
             publish.invoke(null,decode.invoke(null,root));
             assertEquals("Direct",PresenceSync.getChromaProfileByName("Alice").nickChanger());
+            assertTrue(PresenceSync.getChromaProfileByName("Alice").italicSelf());
             assertTrue(PresenceSync.remoteRanks().stream().anyMatch(rank->rank.administrator()&&rank.prefix().equals("[MOD]")));
             var effective=PresenceSync.remoteRanks().stream().filter(rank->rank.uuid().equals(id)).reduce((first,last)->last).orElseThrow();assertTrue(effective.administrator());assertEquals("[MOD]",effective.prefix());
             PresenceSync.peerAppearances(Map.of());assertEquals("Relay",PresenceSync.getChromaProfileByName("Alice").nickChanger());assertEquals(true,field("peerFallbackPending").get(null));
+            assertFalse(PresenceSync.getChromaProfileByName("Alice").italicSelf(), "Legacy relay snapshots default to regular text");
         }finally{for(var entry:saved.entrySet())entry.getKey().set(null,entry.getValue());ConfigManager.offlineMode=offline;}
     }
 }

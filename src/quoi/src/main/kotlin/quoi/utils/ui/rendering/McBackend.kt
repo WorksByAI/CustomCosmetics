@@ -273,9 +273,10 @@ class McBackend : RendererBackend {
 
     override fun text(text: String, x: Float, y: Float, size: Float, color: Int, font: Font) {
         if (text.isEmpty() || size <= 0f) return
-        if (font === UIRenderer.minecraftFont) {
+        val nativeFont = UIRenderer.resolveMinecraftFont(font)
+        if (nativeFont != null) {
             val graphics = ctx ?: return
-            val scale = size / mc.font.lineHeight
+            val scale = size / nativeFont.lineHeight
             flush()
             val clip = scissorStack.lastOrNull()?.screenRect
             if (clip != null) graphics.enableScissor(clip.left(), clip.top(), clip.right(), clip.bottom())
@@ -284,7 +285,7 @@ class McBackend : RendererBackend {
             try {
                 pose.set(basePose).mul(state.pose).translate(x, y).scale(scale)
                 val alpha = (((color ushr 24) * state.alpha).toInt()).coerceIn(0, 255)
-                if (alpha != 0) graphics.text(mc.font, text, 0, 0, (alpha shl 24) or (color and 0xffffff), false)
+                if (alpha != 0) graphics.text(nativeFont, text, 0, 0, (alpha shl 24) or (color and 0xffffff), false)
             } finally {
                 pose.popMatrix()
                 if (clip != null) graphics.disableScissor()
@@ -341,8 +342,8 @@ class McBackend : RendererBackend {
     }
 
     override fun textWidth(text: String, size: Float, font: Font): Float =
-        if (font === UIRenderer.minecraftFont) mc.font.width(text) * size / mc.font.lineHeight
-        else fonts.width(font, text, size, textRasterScale())
+        UIRenderer.resolveMinecraftFont(font)?.let { it.width(text) * size / it.lineHeight }
+            ?: fonts.width(font, text, size, textRasterScale())
 
     override fun image(image: Image, x: Float, y: Float, w: Float, h: Float, tl: Float, bl: Float, br: Float, tr: Float, color: Int?) {
         val entry = images.entry(image)

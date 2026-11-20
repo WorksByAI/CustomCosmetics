@@ -10,7 +10,6 @@ import quoi.api.abobaui.elements.impl.Group
 import quoi.api.abobaui.events.EventManager
 import quoi.api.abobaui.events.Lifetime
 import quoi.api.abobaui.operations.Operation
-import quoi.utils.ui.rendering.UIRenderer
 
 // heavily inspired by stivais' auroraui. I'm too stupid for this
 class AbobaUI(val title: String) {
@@ -28,6 +27,8 @@ class AbobaUI(val title: String) {
     var debug = false
 
     var customPass = true
+    var foreground: Element? = null
+    var useInterfaceFont = false
 
     internal var layoutDirty = true
 
@@ -74,15 +75,9 @@ class AbobaUI(val title: String) {
         }
     }
 
-    fun render(custom: Boolean) {
+    fun render(custom: Boolean, foregroundOnly: Boolean = false) {
         customPass = custom
-        if (custom) {
-            UIRenderer.push()
-            main.render()
-            UIRenderer.pop()
-        } else {
-            main.render()
-        }
+        if (foregroundOnly) foreground?.render() else main.render(skipChild = foreground)
     }
 
     fun close() {
@@ -139,7 +134,7 @@ class AbobaUI(val title: String) {
 
         fun prepareFrame() = ui.prepareFrame()
 
-        fun render(custom: Boolean = true) = ui.render(custom)
+        fun render(custom: Boolean = true, foregroundOnly: Boolean = false) = ui.render(custom, foregroundOnly)
 
         fun close() = ui.close()
 

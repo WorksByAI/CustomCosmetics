@@ -36,12 +36,12 @@ public final class UiBlurPolicy {
         int blue = (vanilla & 255) * remaining / 20;
         return (255 - (255 - alpha) * remaining / 20 << 24) | (red << 16) | (green << 8) | blue;
     }
-    public static int effective(int vanilla,boolean enabled,boolean ownScreen,boolean inWorld){
-        return enabled&&ownScreen&&inWorld?Math.max(5,vanilla):vanilla;
+    public static int effective(int vanilla,boolean enabled,boolean ownScreen){
+        return enabled&&ownScreen?Math.max(5,vanilla):vanilla;
     }
     public static int radius(int vanilla){
         if(!ConfigManager.uiBackgroundBlur)return vanilla;
         var client=Minecraft.getInstance();
-        return client==null?vanilla:effective(vanilla,true,ClientUiAccess.screen(client) instanceof ThemedScreen,client.level!=null);
+        return client==null?vanilla:effective(vanilla,true,ClientUiAccess.screen(client) instanceof ThemedScreen);
     }
 }

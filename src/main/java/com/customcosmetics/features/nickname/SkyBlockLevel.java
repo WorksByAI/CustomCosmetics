@@ -34,16 +34,19 @@ public record SkyBlockLevel(int value, List<Integer> colors) {
     }
 
     public static SkyBlockLevel configured() {
-        int level = ConfigManager.skyBlockLevelValue;
+        return resolve(ConfigManager.skyBlockLevelValue, ConfigManager.skyBlockLevelColorMode,
+            ConfigManager.skyBlockLevelColor, ConfigManager.skyBlockLevelDigitColors);
+    }
+
+    static SkyBlockLevel resolve(int level, String mode, int customColor, List<Integer> digits) {
         int fallback = tierColor(level);
-        String mode = ConfigManager.skyBlockLevelColorMode;
         ChatFormatting preset = preset(mode);
         var colors = new ArrayList<Integer>(MAX_DIGITS);
         int length = Integer.toString(level).length();
         for (int i = 0; i < length; i++) {
             int color = switch (mode) {
-                case "custom" -> ConfigManager.skyBlockLevelColor;
-                case "digits" -> i < ConfigManager.skyBlockLevelDigitColors.size() ? ConfigManager.skyBlockLevelDigitColors.get(i) : -1;
+                case "custom" -> customColor;
+                case "digits" -> i < digits.size() ? digits.get(i) : -1;
                 default -> preset == null ? fallback : TextColor.fromLegacyFormat(preset).getValue();
             };
             colors.add(color < 0 ? fallback : color);
@@ -53,18 +56,24 @@ public record SkyBlockLevel(int value, List<Integer> colors) {
 
     public static void normalizeConfig() {
         ConfigManager.skyBlockLevelValue = Math.clamp(ConfigManager.skyBlockLevelValue, 0, MAX_LEVEL);
-        var mode = ConfigManager.skyBlockLevelColorMode;
-        if (mode == null || !List.of("auto", "digits", "custom").contains(mode) && preset(mode) == null) {
-            ConfigManager.skyBlockLevelColorMode = "auto";
-        }
+        ConfigManager.skyBlockLevelColorMode = normalizeMode(ConfigManager.skyBlockLevelColorMode);
         ConfigManager.skyBlockLevelColor &= 0xFFFFFF;
-        var digits = ConfigManager.skyBlockLevelDigitColors;
+        ConfigManager.skyBlockLevelDigitColors = normalizeDigits(ConfigManager.skyBlockLevelDigitColors);
+        ConfigManager.skyBlockLevelColorPresets = SkyBlockLevelColors.normalizePresets(ConfigManager.skyBlockLevelColorPresets);
+    }
+
+    static String normalizeMode(String mode) {
+        return mode != null && (List.of("auto", "digits", "custom").contains(mode) || preset(mode) != null) ? mode : "auto";
+    }
+
+    static List<Integer> normalizeDigits(List<Integer> digits) {
+        if (digits == null || digits.isEmpty()) return List.of();
         var valid = new ArrayList<Integer>(MAX_DIGITS);
-        if (digits != null) for (int i = 0; i < Math.min(digits.size(), MAX_DIGITS); i++) {
+        for (int i = 0; i < Math.min(digits.size(), MAX_DIGITS); i++) {
             Integer color = digits.get(i);
             valid.add(color != null && color >= 0 && color <= 0xFFFFFF ? color : -1);
         }
-        ConfigManager.skyBlockLevelDigitColors = List.copyOf(valid);
+        return List.copyOf(valid);
     }
 
     private static ChatFormatting preset(String name) {

@@ -258,7 +258,8 @@ Modified in November 2026 for CustomCosmetics settings and selected item names.
 Athen and Nebulune
 ------------------
 Portions of Lobby Marker, Missing Enchants, Player Spin, Kuudra phase detection, Kuudra alerts and waypoints, Block Perks, Cocoon Alert,
-Item Tweaks and Render Optimiser are adapted from Athen (https://github.com/skies-starred/Athen), copyright 2025-2026 Starred.
+Item Tweaks, Render Optimiser, Slot Binds, Pet Keybinds, Loadout Keybinds and Slayer Nametags are adapted from Athen (https://github.com/skies-starred/Athen), copyright 2025-2026 Starred.
+The loadout auto-equip and auto-close behavior references Nebulune (https://github.com/Gaeritag/Nebulune).
 AutoClick, Auto Harp, Auto Experiments, Trevor Helper, Dagger Swap, Kuudra Peek, Auto Pearl, Crystal
 Hollows World Scanner, and corpse, pest and Safari target identification
 adapt Nebulune (https://github.com/Gaeritag/Nebulune),
@@ -289,7 +290,8 @@ c5be4172e82cc65c1928cc6b40f121f3c7307191. Modified 2026-11-15 for the CustomSkyB
 client, with the game font and compatibility adaptations for Minecraft 26.1–26.3.
 The leap cooldowns, terminal delay and Goldor trigger incorporate Quoi fixes through
 21a26828c70d4d6e29a225cefa24e6f27657448b, adapted 2026-11-16.
-See src/quoi/LICENSE and the original per-file credit notices.
+The Croesus menu action and Custom Triggers editor incorporate Quoi commits
+0062b72, 9d325fe, and 9dcad3d. See src/quoi/LICENSE and the original per-file credit notices.
 
 
 Natural Motion Blur

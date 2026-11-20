@@ -125,7 +125,10 @@ public final class AutoExperiments {
                 if (!item.isEmpty() && NUMBER.matcher(item.getHoverName().getString()).matches())
                     revealed.put(item.getCount(), slot);
             }
-            if (!revealed.isEmpty() && revealed.firstKey() == 1 && revealed.lastKey() == revealed.size()) {
+            // Tiles disappear one packet at a time before the timer switches to CLOCK.
+            // Keep the fullest contiguous snapshot until the next round starts.
+            if (!revealed.isEmpty() && revealed.firstKey() == 1 && revealed.lastKey() == revealed.size()
+                    && revealed.size() >= order.size()) {
                 order.clear();
                 order.addAll(revealed.values());
                 recorded = true;

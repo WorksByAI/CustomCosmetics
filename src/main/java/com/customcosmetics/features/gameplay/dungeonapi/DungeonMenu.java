@@ -9,9 +9,14 @@ public interface DungeonMenu {
     List<Entry> modules();
     Screen hudEditor(Screen parent);
     void save();
+    String snapshotConfig();
+    void loadConfig(String json);
     void setToggleNotifier(BiConsumer<String, Boolean> notifier);
+    void deviceGateChanged();
 
-    record Entry(String name, String description, BooleanSupplier enabled, Runnable toggle,
+    enum Category { GENERAL, DUNGEON, RENDER, OTHER }
+
+    record Entry(String name, String description, Category category, BooleanSupplier enabled, Runnable toggle,
                  Supplier<List<Control>> settings, Runnable reset) {}
     record Control(String name, String description, BooleanSupplier visible, Input input, List<Control> children) {}
 

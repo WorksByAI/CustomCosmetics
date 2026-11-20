@@ -57,8 +57,10 @@ public final class CapeScreen extends ThemedScreen {
         });if(!started){choosing=false;notice="A system file picker is already open.";}
     }
     @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float dt){
-        outline(g,x,y,w,h,10,BORDER,PANEL);uiText(g,font,"Cape",x+14,y+15,PINK,w-28);
-        int previewHeight=Math.max(30,h-172);outline(g,x+14,y+37,w-28,previewHeight,6,BORDER,CARD);
+        ClickGuiChrome.drawPanel(g,x,y,w,h,10);
+        g.nextStratum();
+        uiText(g,font,"Cape",x+14,y+15,PINK,w-28);
+        int previewHeight=Math.max(30,h-172);outline(g,x+14,y+37,w-28,previewHeight,6,BORDER,ClickGuiChrome.previewTint());
         var texture=CapeCosmetics.preview();
         uiText(g,font,"Preview · "+(CapeCosmetics.hasLocal()?"Local Cape":texture!=null?"Approved Cape":"Current Cape"),x+24,y+47,PINK,w-48);
         if(texture!=null){int side=Math.min(90,previewHeight-33),ph=Math.max(1,side);g.blit(texture,x+30,y+69,x+30+Math.max(1,ph*10/16),y+69+ph,1f/64,11f/64,1f/32,17f/32);}

@@ -33,6 +33,11 @@ class UIScreen(val instance: AbobaUI.Instance, val background: Boolean = true, p
             instance.render(true)
         }
         instance.render(false)
+        if (instance.ui.foreground != null) {
+            ctx.nextStratum()
+            UIRenderer.frame(ctx) { instance.render(true, foregroundOnly = true) }
+            instance.render(false, foregroundOnly = true)
+        }
         super.extractRenderState(ctx, mouseX, mouseY, deltaTicks)
     }
 

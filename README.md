@@ -6,7 +6,7 @@ This is a private mod. Quality and stability are not guaranteed.
 
 CustomSkyBlock 提供 **Legit** 和 **Cheating** 两种安装包。Legit 提供外观与 QOL，Cheating 另含作弊模块。任选一个，用 `/customskyblock` 或 `/csb` 打开。更新器沿用已装的版本类型。从旧命名的安装包升级时，请手动选一次。
 
-v3.1.2。支持 Minecraft 26.1～26.3 的 Fabric 模组，部分外观可在玩家间同步。支持中英文、系统字体和本地字体。
+v3.2.0。支持 Minecraft 26.1～26.3 的 Fabric 模组，部分外观可在玩家间同步。支持中英文、系统字体和本地字体。
 
 目前模组所有功能（[√] 表示其他安装本模组的玩家可见）：
 
@@ -32,7 +32,7 @@ v3.1.2。支持 Minecraft 26.1～26.3 的 Fabric 模组，部分外观可在玩�
 
 CustomSkyBlock ships as **Legit** and **Cheating**. Legit includes visual and QOL features. Cheating adds the Cheating panel. Install one JAR and open with `/customskyblock` or `/csb`. Updates stay in the installed edition. Pick an edition manually when upgrading from an older filename.
 
-v3.1.2. Fabric cosmetics for Minecraft 26.1–26.3 with optional sync, English and Simplified Chinese, and system or local font support.
+v3.2.0. Fabric cosmetics for Minecraft 26.1–26.3 with optional sync, English and Simplified Chinese, and system or local font support.
 
 Features ([√] visible to other mod users):
 

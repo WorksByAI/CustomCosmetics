@@ -10,6 +10,11 @@ import quoi.api.colour.toHSB
 import quoi.config.Config
 import quoi.config.DungeonOptions
 import quoi.module.ModuleManager
+import quoi.module.impl.general.LoadoutKeybinds
+import quoi.module.impl.general.PetKeybinds
+import quoi.module.impl.general.SlotBinds
+import quoi.module.impl.misc.CustomTriggers
+import quoi.module.impl.render.SlayerNametags
 import quoi.module.settings.Saving
 import quoi.module.settings.Setting
 import quoi.module.settings.UIComponent
@@ -23,11 +28,17 @@ object CsbDungeonMenu : DungeonMenu {
         val options by lazy { controls(DungeonOptions.settings) }
         ModuleManager.modules.map { module ->
             val settings by lazy { controls(module.settings) }
-            Entry(module.name, module.desc, { module.enabled }, module::toggleByUser, { settings }) {
+            val category = when (module) {
+                LoadoutKeybinds, PetKeybinds, SlotBinds -> Category.GENERAL
+                CustomTriggers -> Category.OTHER
+                SlayerNametags -> Category.RENDER
+                else -> Category.DUNGEON
+            }
+            Entry(module.name, module.desc, category, { module.enabled }, module::toggleByUser, { settings }) {
                 reset(module.settings)
                 module.resetModuleControls()
             }
-        } + Entry("Dungeon Options", "", null, null, { options }) { reset(DungeonOptions.settings) }
+        } + Entry("Dungeon Options", "", Category.DUNGEON, null, null, { options }) { reset(DungeonOptions.settings) }
     }
 
     override fun modules(): List<Entry> {
@@ -37,6 +48,9 @@ object CsbDungeonMenu : DungeonMenu {
 
     override fun hudEditor(parent: Screen): Screen = UIScreen(HudManager.editor(), parent = parent)
     override fun save() = Config.save()
+    override fun snapshotConfig(): String { QuoiMod.ensureDungeonModules(); return Config.snapshot() }
+    override fun loadConfig(json: String) { Config.load(json); Config.save() }
+    override fun deviceGateChanged() { ModuleManager.modules.forEach { it.syncDeviceGate() } }
     private fun reset(settings: List<Setting<*>>) {
         for (setting in settings) {
             if (setting is Saving && setting is UIComponent<*>) setting.editFromMenu(setting::reset)

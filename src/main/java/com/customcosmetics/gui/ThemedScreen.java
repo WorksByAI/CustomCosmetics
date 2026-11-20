@@ -14,6 +14,9 @@ public abstract class ThemedScreen extends Screen {
     public final void endTooltip(){tooltipPositioner.end();}
     protected ThemedScreen(Component title){super(localizeTitle(title));font=UiFonts.get(super.font);UiTheme.refresh();}
 
+    int widgetOffsetX() { return 0; }
+    int widgetOffsetY() { return 0; }
+
     protected final void resetKeys(String... names) {
         var owned = java.util.Set.of(names);
         boolean changed = false;
@@ -34,9 +37,12 @@ public abstract class ThemedScreen extends Screen {
         return active!=null?active:super.font;
     }
     private static Component localizeTitle(Component title){UiLocale.refresh();return UiText.component(title.getString());}
+    @Override protected void extractBlurredBackground(GuiGraphicsExtractor graphics) {
+        if (ConfigManager.uiBackgroundBlur) super.extractBlurredBackground(graphics);
+    }
     @Override public void extractBackground(GuiGraphicsExtractor g,int mx,int my,float dt){
         if(minecraft.level==null)super.extractBackground(g,mx,my,dt);
-        else if(ConfigManager.uiBackgroundBlur)g.blurBeforeThisStratum();
-        g.fill(0,0,width,height,0x65000000);
+        else extractBlurredBackground(g);
+        g.fill(0,0,width,height,ConfigManager.uiGlassTheme ? 0x420B101C : 0x65000000);
     }
 }

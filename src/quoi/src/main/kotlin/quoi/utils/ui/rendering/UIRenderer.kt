@@ -2,6 +2,8 @@ package quoi.utils.ui.rendering
 
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.resources.Identifier
+import net.fabricmc.loader.api.FabricLoader
+import java.util.function.Supplier
 import quoi.QuoiMod.mc
 import quoi.api.colour.Colour
 import quoi.api.colour.multiply
@@ -24,8 +26,18 @@ object UIRenderer {
     val backend: RendererBackend = McBackend()
 
     val minecraftFont = Font("Minecraft")
+    val interfaceFont = Font("CustomSkyBlock interface")
     val defaultFont = minecraftFont
     val customFont = minecraftFont
+
+    internal fun resolveMinecraftFont(font: Font): net.minecraft.client.gui.Font? = when (font) {
+        minecraftFont -> mc.font
+        interfaceFont -> {
+            val source = FabricLoader.getInstance().objectShare.get("customcosmetics:interface_font") as? Supplier<*>
+            source?.get() as? net.minecraft.client.gui.Font ?: mc.font
+        }
+        else -> null
+    }
 
     private val imageCache = HashMap<String, Image>()
 

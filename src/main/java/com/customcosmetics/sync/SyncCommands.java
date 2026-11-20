@@ -93,6 +93,7 @@ public final class SyncCommands {
     }
 
     private static void registerCheating(LiteralArgumentBuilder<FabricClientCommandSource> root) {
+        root.then(com.customcosmetics.features.gameplay.CheatingConfigs.command());
         root.then(ClientCommands.literal("cheating").executes(context -> {
             com.customcosmetics.gui.CheatingScreen.requestOpen();
             return 1;

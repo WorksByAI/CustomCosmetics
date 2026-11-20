@@ -1,5 +1,7 @@
 package quoi.module
 
+import com.customcosmetics.features.gameplay.dungeonapi.DeviceConfig.Part
+import quoi.QuoiMod
 import quoi.annotations.AlwaysActive
 import quoi.api.commands.QuoiCommand
 import quoi.api.events.core.AreaBoundListener
@@ -23,8 +25,11 @@ abstract class Module(
     val tag: Tag = Tag.NONE
 ) : SettingsDSL(), HudDSL, Shortcuts, AreaBoundListener {
 
+    private val devicePart = Part.forDungeonName(name) != null
+    private var deviceRunning = false
+
     override val running: Boolean
-        get() = (enabled || alwaysActive) && quoi.QuoiMod.allowed
+        get() = (enabled || alwaysActive) && QuoiMod.allowed && (!devicePart || QuoiMod.deviceEnabled)
 
     inline val active: Boolean
         get() = running && inEnvironment()
@@ -63,7 +68,20 @@ abstract class Module(
 
     fun toggle() {
         enabled = !enabled
-        if (enabled) onEnable()
+        if (devicePart) syncDeviceGate()
+        else updateLifecycle(enabled)
+    }
+
+    fun syncDeviceGate() {
+        if (!devicePart) return
+        val next = enabled && QuoiMod.deviceEnabled
+        if (next == deviceRunning) return
+        deviceRunning = next
+        updateLifecycle(next)
+    }
+
+    private fun updateLifecycle(running: Boolean) {
+        if (running) onEnable()
         else {
             removeAsyncScope()
             onDisable()

@@ -28,6 +28,7 @@
   ],
   "entrypoints": {
     "csb-dungeon-confirmed": ["com.customcosmetics.features.gameplay.QuoiDungeon::allowed"],
+    "csb-dungeon-device-enabled": ["com.customcosmetics.features.gameplay.QuoiDungeon::deviceEnabled"],
     "csb-dungeon-hypixel": ["com.customcosmetics.features.gameplay.QuoiDungeon::hypixel"],
     "preLaunch": [
       "com.customcosmetics.features.gameplay.BobbyIntegration",

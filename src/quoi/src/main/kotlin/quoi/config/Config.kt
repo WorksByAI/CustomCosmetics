@@ -1,6 +1,7 @@
 package quoi.config
 
 import com.google.gson.*
+import com.customcosmetics.features.gameplay.dungeonapi.DeviceConfig
 import quoi.QuoiMod.logger
 import quoi.QuoiMod.mc
 import quoi.api.events.GameEvent
@@ -37,17 +38,24 @@ object Config : EventListener {
         once<GameEvent.Unload> { save() }
     }
 
-    fun load() {
+    fun load(source: String? = null) {
         loaded = false
         try {
-            with(configFile.bufferedReader().use { it.readText() }) {
-                if (isEmpty()) {
-                    loaded = true
-                    return
+            with(source ?: configFile.bufferedReader().use { it.readText() }) {
+                val jsonElement = if (isBlank()) JsonArray() else JsonParser.parseString(this)
+                val jsonArray = if (jsonElement.isJsonArray) jsonElement.asJsonArray else error("Expected module array")
+                var migrateDevice = false
+                if (source == null) {
+                    try {
+                        val device = DeviceConfig.read(configFile.toPath().parent.parent)
+                        val legacy = DeviceConfig.takeDungeon(jsonArray)
+                        for ((name, value) in legacy.entrySet()) if (!device.has(name)) device.add(name, value)
+                        DeviceConfig.restoreDungeon(jsonArray, device)
+                        migrateDevice = legacy.size() != 0
+                    } catch (e: Exception) {
+                        logger.error("Could not read Device settings", e)
+                    }
                 }
-
-                val jsonElement = JsonParser.parseString(this)
-                val jsonArray = if (jsonElement.isJsonArray) jsonElement.asJsonArray else return
                 migrateMapAppearance(jsonArray)
 
                 for (modules in jsonArray) {
@@ -77,10 +85,12 @@ object Config : EventListener {
                     }
                 }
                 loaded = true
+                if (migrateDevice) save()
             }
         } catch (e: Exception) {
             println("Error loading config.\n${e.message}")
             logger.error("Error initializing module config", e)
+            if (source != null) throw e
         }
     }
 
@@ -110,26 +120,35 @@ object Config : EventListener {
         (Terminals.getSettingByName("Leap delay ticks") as? Saving)?.read(JsonPrimitive(ticks))
     }
 
+    private fun snapshotJson(): JsonArray = JsonArray().apply {
+        for (module in ModuleManager.modules + DungeonOptions) {
+            add(JsonObject().apply {
+                add("name", JsonPrimitive(module.name))
+                add("enabled", JsonPrimitive(module.enabled))
+                add("settings", JsonObject().apply {
+                    for (setting in module.settings) {
+                        if (setting is Saving) add(setting.jsonName, setting.write())
+                    }
+                })
+            })
+        }
+    }
+
+    fun snapshot(): String = gson.toJson(snapshotJson())
+
     fun save() {
         if (!loaded) return
         try {
-            // reason doing this is better is that
-            // using like a custom serializer leaves 'null' in settings that don't save
-            // code looks hideous tho, but it fully works
-            val jsonArray = JsonArray().apply {
-                for (module in ModuleManager.modules + DungeonOptions) {
-                    add(JsonObject().apply {
-                        add("name", JsonPrimitive(module.name))
-                        add("enabled", JsonPrimitive(module.enabled))
-                        add("settings", JsonObject().apply {
-                            for (setting in module.settings) {
-                                if (setting is Saving) add(setting.jsonName, setting.write())
-                            }
-                        })
-                    })
-                }
+            val jsonArray = snapshotJson()
+            val remaining = jsonArray.deepCopy()
+            val config = try {
+                DeviceConfig.merge(configFile.toPath().parent.parent, DeviceConfig.takeDungeon(remaining))
+                remaining
+            } catch (e: Exception) {
+                logger.error("Could not save Device settings. Keeping device modules in the dungeon config.", e)
+                jsonArray
             }
-            writeConfigAtomically(configFile) { gson.toJson(jsonArray, it) }
+            writeConfigAtomically(configFile) { gson.toJson(config, it) }
         } catch (e: Exception) {
             println("Error saving config.\n${e.message}")
             logger.error("Error saving config.", e)

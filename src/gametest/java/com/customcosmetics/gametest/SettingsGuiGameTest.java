@@ -554,7 +554,7 @@ final class SettingsGuiGameTest {
             throw new AssertionError("Closing the theme menu failed to persist preferences");
         context.runOnClient(client->ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.THEME)));
         click(context,"Reset Theme",PinkUi.Action.class);
-        context.runOnClient(client->{if(!ConfigManager.uiAnimationsEnabled||ConfigManager.uiBackgroundBlur||!ConfigManager.uiThemeMode.equals("dark")||ConfigManager.uiAccentColor!=0xFFA8CA)throw new AssertionError("Theme reset failed");});
+        context.runOnClient(client->{if(!ConfigManager.uiAnimationsEnabled||ConfigManager.uiBackgroundBlur||!ConfigManager.uiThemeMode.equals("light")||!ConfigManager.uiGlassTheme||ConfigManager.uiAccentColor!=0xFFA8CA)throw new AssertionError("Theme reset failed");});
         click(context,"Overview",PinkUi.Action.class);context.getInput().setCursorPos(1595,995);context.waitTicks(5);context.takeScreenshot("interface-home");
         click(context,"Animations",PinkUi.Action.class);context.getInput().setCursorPos(1595,995);context.waitTicks(5);context.takeScreenshot("interface-settings");
         context.runOnClient(client->ClientUiAccess.setScreen(client,null));context.waitTicks(5);

@@ -442,14 +442,28 @@ public final class GameplayFeatures {
     }
 
     public static void drawHud(GuiGraphicsExtractor graphics, boolean preview) {
-        boolean timer = GameplayModule.F7_TIMER.enabled() && phase >= 0;
-        Component trevor = preview ? HUD_PREVIEWS[1] : TrevorHelper.hud();
-        if (!preview && !timer && trevor == null) return;
+        EnabledModulesHud.draw(graphics, preview);
+        boolean timer = hudEnabled(0) && (preview || phase >= 0);
+        Component trevor = preview ? (hudEnabled(1) ? HUD_PREVIEWS[1] : null) : TrevorHelper.hud();
+        if (!timer && trevor == null) return;
         var client = Minecraft.getInstance();
         if (!preview && (client.player == null || !PresenceWorld.isSkyblock(client))) return;
-        if (!preview && ClientUiAccess.screen(client) instanceof com.customcosmetics.gui.GameplayHudEditor) return;
-        if (preview || timer) draw(graphics, preview ? HUD_PREVIEWS[0] : hudTimer, 0);
+        if (!preview) {
+            var screen = ClientUiAccess.screen(client);
+            if (screen instanceof com.customcosmetics.gui.GameplayHudEditor
+                    || screen instanceof com.customcosmetics.gui.CheatingConfigScreen editor && editor.previewsGameplayHud()) return;
+        }
+        if (timer) draw(graphics, preview ? HUD_PREVIEWS[0] : hudTimer, 0);
         if (trevor != null) draw(graphics, trevor, 1);
+    }
+
+    public static boolean hudEnabled(int id) {
+        return switch (id) {
+            case 0 -> GameplayModule.F7_TIMER.enabled();
+            case 1 -> GameplayModule.TREVOR_HELPER.enabled();
+            case 2 -> EnabledModulesHud.enabled();
+            default -> false;
+        };
     }
 
     private static final Component[] HUD_PREVIEWS = {

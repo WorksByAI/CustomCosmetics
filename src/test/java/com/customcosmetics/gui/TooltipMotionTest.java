@@ -6,8 +6,11 @@ class TooltipMotionTest {
         var motion=new TooltipMotion();var owner=new Object();long time=1;
         motion.update(owner,10,20,true,time);motion.update(owner,12,20,true,time+=16_000_000);
         assertTrue(motion.x(2)>10&&motion.x(2)<12);assertEquals(Math.rint(motion.x(2)*2),motion.x(2)*2);
+        assertTrue(motion.travelX()>0);
+        assertEquals(0,motion.travelY());
         for(int i=0;i<30;i++)motion.update(owner,12,20,true,time+=16_000_000);
         assertEquals(12,motion.x(2));assertEquals(20,motion.y(2));
+        assertEquals(0,motion.travelX());
     }
     @Test void newTargetsGapsAndReducedMotionNeverFlyAcrossTheScreen(){
         var motion=new TooltipMotion();var owner=new Object();motion.update(owner,10,20,true,1);

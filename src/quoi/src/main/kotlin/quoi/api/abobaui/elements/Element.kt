@@ -106,7 +106,7 @@ abstract class Element(
         shadows?.forEach { it.prepareLayout() }
     }
 
-    fun render() {
+    fun render(skipChild: Element? = null) {
 
         if (!renders) return
 
@@ -138,7 +138,7 @@ abstract class Element(
                 UIRenderer.hollowRect(x, y, width, height, 1.0f, col.rgb)
             }
 
-            children?.forEach { it.render() }
+            children?.forEach { if (it !== skipChild) it.render() }
 
             if (scissors) UIRenderer.popScissor()
             UIRenderer.pop()
@@ -155,7 +155,7 @@ abstract class Element(
             if (usingCtx) ctx.pose().pushMatrix()
             try {
                 if (usingCtx) draw()
-                children?.forEach { it.render() }
+                children?.forEach { if (it !== skipChild) it.render() }
             } finally {
                 if (usingCtx) ctx.pose().popMatrix()
                 if (scissors) ctx.disableScissor()

@@ -72,6 +72,7 @@ class TextInput(
     private var censors = false
 
     override fun draw() {
+        if (ui.useInterfaceFont && !ui.customPass) return
         var offset = 0f
         if (ui.eventManager.focused == this) {
 

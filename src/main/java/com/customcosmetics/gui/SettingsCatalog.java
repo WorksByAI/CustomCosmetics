@@ -22,7 +22,7 @@ public final class SettingsCatalog {
                 java.util.Arrays.stream(com.customcosmetics.features.creature.CreatureModels.Choice.values())
                     .map(choice -> choice.label).collect(java.util.stream.Collectors.joining("|")));
         add(entries, "Nick Changer", "NICK", "Nickname name color codes",
-            "Enabled|Custom Nickname|Bold Self Nick|Blocked Nicknames");
+            "Enabled|Custom Nickname|Bold Self Nick|Italic Self Nick|Blocked Nicknames");
         add(entries, "Nick Changer", "COLOR", "Nickname gradient start end color picker HEX",
             "Custom Nick Color|Gradient Style|Shimmer Preset|Editing|Gradient Colors");
         add(entries, "Nick Changer", "COLOR", "Requires Segmented: select the Segmented gradient style first.",

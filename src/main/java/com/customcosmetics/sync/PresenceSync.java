@@ -350,6 +350,7 @@ public final class PresenceSync {
                     local.gradientStart(),
                     local.gradientEnd(),
                     local.boldSelf(),
+                    local.italicSelf(),
                     local.customNickColorEnabled(),
                     local.nickChanger(),
                     nowIsoToEpochMs(nowIso),
@@ -398,6 +399,7 @@ public final class PresenceSync {
         SharedItemAppearances.encode(nickTweaks, state.itemAppearances(), false);
         nickTweaks.addProperty("enabled", state.nickTweaksEnabled());
         nickTweaks.addProperty("boldEnabled", state.boldEnabled());
+        nickTweaks.addProperty("italicEnabled", state.italicEnabled());
         nickTweaks.addProperty("nickChanger", state.nickChanger());
         nickTweaks.add("rank", ranks.getOrDefault(state.uuid(),RankSettings.OFF).json());
 
@@ -780,6 +782,7 @@ public final class PresenceSync {
             gradientStart,
             gradientEnd,
             boldSelf,
+            ConfigManager.nickTweaksItalicSelf,
             customNickColorEnabled,
             nickChanger,
             com.customcosmetics.features.nickname.NicknameGradient.normalizeStyle(ConfigManager.nickTweaksGradientStyle),
@@ -806,6 +809,7 @@ public final class PresenceSync {
         SharedItemAppearances.encode(nickTweaks, state.itemAppearances(), includePreviews);
         nickTweaks.addProperty("enabled", state.nickTweaksEnabled());
         nickTweaks.addProperty("boldEnabled", state.boldSelf());
+        nickTweaks.addProperty("italicEnabled", state.italicSelf());
         nickTweaks.addProperty("nickChanger", state.nickChanger());
         nickTweaks.add("rank",state.rank().json());
         if (state.nickTweaksEnabled()) {
@@ -1021,6 +1025,7 @@ public final class PresenceSync {
 
             boolean chromaEnabled = false;
             boolean boldSelf = false;
+            boolean italicSelf = false;
             boolean customNickColorEnabled = false;
             String nickChanger = "";
             double speed = 0.0;
@@ -1039,6 +1044,7 @@ public final class PresenceSync {
 
             if (nickTweaksEnabled) {
                 boldSelf = getAsBoolean(nickTweaksObj, "boldEnabled", false);
+                italicSelf = getAsBoolean(nickTweaksObj, "italicEnabled", false);
                 nickChanger = getAsString(nickTweaksObj, "nickChanger", "");
                 chromaEnabled = getAsBoolean(nickTweaksObj, "chromaEnabled", false);
                 customNickColorEnabled = getAsBoolean(nickTweaksObj, "customNickColorEnabled", false);
@@ -1094,6 +1100,7 @@ public final class PresenceSync {
                 gradientStart,
                 gradientEnd,
                 boldSelf,
+                italicSelf,
                 customNickColorEnabled,
                 nickChanger,
                 lastSeenEpochMs,
@@ -1112,7 +1119,8 @@ public final class PresenceSync {
                 String nameLower = name.toLowerCase(Locale.ROOT);
                 newChromaByName.put(
                     nameLower,
-                    new ChromaProfile(chromaEnabled, palette, speed, chromaSize, chromaAmount, chromaLightness, gradientStart, gradientEnd, boldSelf, customNickColorEnabled, nickChanger, gradientStyle, shimmerSpeed, shimmerColor, shimmerHighlightColor, shimmerSize, shimmerInterval,segments)
+                    new ChromaProfile(chromaEnabled, palette, speed, chromaSize, chromaAmount, chromaLightness, gradientStart, gradientEnd,
+                        boldSelf, italicSelf, customNickColorEnabled, nickChanger, gradientStyle, shimmerSpeed, shimmerColor, shimmerHighlightColor, shimmerSize, shimmerInterval, segments)
                 );
                 newNicknames.add(new RemoteNickname(uuid, name, newChromaByName.get(nameLower)));
             }
@@ -1210,7 +1218,7 @@ public final class PresenceSync {
             + "|" + r.nickTweaksEnabled() + "|" + r.chromaEnabled() + "|" + r.smolPeopleEnabled()
             + "|" + r.smolLimbSwingSpeed() + "|" + r.chromaSpeed() + "|" + r.chromaSize() + "|" + r.chromaAmount() + "|" + r.chromaLightness()
             + "|" + (r.gradientStart() & 0xFFFFFF) + "|" + (r.gradientEnd() & 0xFFFFFF)
-            + "|" + r.boldEnabled() + "|" + r.customNickColorEnabled() + "|" + (r.nickChanger() == null ? "" : r.nickChanger())
+            + "|" + r.boldEnabled() + "|" + r.italicEnabled() + "|" + r.customNickColorEnabled() + "|" + (r.nickChanger() == null ? "" : r.nickChanger())
             + "|" + r.gradientStyle() + "|" + r.shimmerSpeed() + "|" + r.shimmerColor() + "|" + r.shimmerHighlightColor() + "|" + r.shimmerSize() + "|" + r.shimmerInterval()
             + "|" + r.segments() + "|" + r.playerSize() + "|" + r.accessories() + "|" + r.creatureModel() + "|" + r.skyBlockLevel() + "|" + r.itemAppearances() + "|" + remoteSnapshot.ranks().getOrDefault(r.uuid(),RankSettings.OFF) + "|" + java.util.Arrays.toString(r.chromaPalette() == null ? new int[0] : r.chromaPalette()));
     }
@@ -1351,6 +1359,7 @@ public final class PresenceSync {
             int gradientStart,
             int gradientEnd,
             boolean boldSelf,
+            boolean italicSelf,
             boolean customNickColorEnabled,
             String nickChanger,
             String gradientStyle,
@@ -1362,7 +1371,7 @@ public final class PresenceSync {
             List<NicknameSegments.Segment> segments
     ) {
         public ChromaProfile(boolean chromaEnabled,int[] palette,double speed,double chromaSize,double chromaAmount,double chromaLightness,int gradientStart,int gradientEnd,boolean boldSelf,boolean customNickColorEnabled,String nickChanger,String gradientStyle,double shimmerSpeed,int shimmerColor,int shimmerHighlightColor,double shimmerSize,double shimmerInterval){
-            this(chromaEnabled,palette,speed,chromaSize,chromaAmount,chromaLightness,gradientStart,gradientEnd,boldSelf,customNickColorEnabled,nickChanger,gradientStyle,shimmerSpeed,shimmerColor,shimmerHighlightColor,shimmerSize,shimmerInterval,List.of());
+            this(chromaEnabled,palette,speed,chromaSize,chromaAmount,chromaLightness,gradientStart,gradientEnd,boldSelf,false,customNickColorEnabled,nickChanger,gradientStyle,shimmerSpeed,shimmerColor,shimmerHighlightColor,shimmerSize,shimmerInterval,List.of());
         }
         public ChromaProfile(boolean chromaEnabled, int[] palette, double speed, double chromaSize, double chromaAmount, double chromaLightness, int gradientStart, int gradientEnd, boolean boldSelf, boolean customNickColorEnabled, String nickChanger, String gradientStyle, double shimmerSpeed) {
             this(chromaEnabled, palette, speed, chromaSize, chromaAmount, chromaLightness, gradientStart, gradientEnd, boldSelf, customNickColorEnabled, nickChanger, gradientStyle, shimmerSpeed, 0xFFCF64, 0xFFF0BB, 0.16, 2);
@@ -1400,6 +1409,7 @@ public final class PresenceSync {
             int gradientStart,
             int gradientEnd,
             boolean boldEnabled,
+            boolean italicEnabled,
             boolean customNickColorEnabled,
             String nickChanger,
             long lastSeenEpochMs,
@@ -1435,6 +1445,7 @@ public final class PresenceSync {
             int gradientStart,
             int gradientEnd,
             boolean boldSelf,
+            boolean italicSelf,
             boolean customNickColorEnabled,
             String nickChanger,
             String gradientStyle,
@@ -1455,7 +1466,7 @@ public final class PresenceSync {
         String signature() {
             return uuid + "|" + name + "|" + nickTweaksEnabled + "|" + chromaEnabled + "|" + smolEnabled + "|" + smolLimbSwingSpeed + "|" + chromaSpeed
                     + "|" + chromaSize + "|" + chromaAmount + "|" + chromaLightness
-                    + "|" + gradientStart + "|" + gradientEnd + "|" + boldSelf + "|" + customNickColorEnabled + "|" + nickChanger
+                    + "|" + gradientStart + "|" + gradientEnd + "|" + boldSelf + "|" + italicSelf + "|" + customNickColorEnabled + "|" + nickChanger
                     + "|" + gradientStyle + "|" + shimmerSpeed + "|" + shimmerColor + "|" + shimmerHighlightColor + "|" + shimmerSize + "|" + shimmerInterval
                     + "|" + segments + "|" + playerSize + "|" + accessories + "|" + creatureModel + "|" + rank + "|" + skyBlockLevel + "|" + itemAppearances + "|" + java.util.Arrays.toString(chromaPalette);
         }

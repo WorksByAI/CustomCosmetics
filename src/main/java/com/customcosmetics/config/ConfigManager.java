@@ -9,6 +9,9 @@ package com.customcosmetics.config;
 
 import java.util.Set;
 
+import com.customcosmetics.client.ClientEdition;
+import com.customcosmetics.features.gameplay.dungeonapi.DeviceConfig;
+import com.customcosmetics.features.nickname.SkyBlockLevelColors;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -30,11 +33,12 @@ import java.nio.file.AtomicMoveNotSupportedException;
 public final class ConfigManager {
     private static final Logger LOGGER = LoggerFactory.getLogger("CustomSkyBlock/Config");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final int CONFIG_VERSION = 2;
     private static volatile long pendingSaveAt;
 
     public static boolean smolpeopleMode = false;
     public static volatile int disabledModules=0;
-    public static String uiThemeMode="dark";
+    public static String uiThemeMode = "light";
     public static String uiLanguage="auto";
     public static String uiFontPath = "";
     public static Boolean uiFontBold;
@@ -59,12 +63,15 @@ public final class ConfigManager {
     public static boolean zoomScroll = true, zoomScrollBelowInitial = true, zoomSensitivity = true, zoomAnimate = true;
     public static double zoomFactor = 4, zoomInSeconds = 0.25, zoomOutSeconds = 0.25;
     public static boolean hudLayoutEnabled=false;
+    public static boolean hudLayoutGrid;
     public static java.util.EnumMap<com.customcosmetics.features.hud.HudLayout.Element,com.customcosmetics.features.hud.HudLayout.Options> hudLayout=
         new java.util.EnumMap<>(com.customcosmetics.features.hud.HudLayout.Element.class);
     public static boolean customSkyEnabled=false,customSkyDisc=true,customSkySunMoon=true,customSkyStars=false,customSkyFallback=true,customSkyDebug=false;
     public static int uiAccentColor=0xFFA8CA;
     public static boolean uiAnimationsEnabled=true;
     public static boolean uiBackgroundBlur=false;
+    public static boolean uiGlassTheme = true;
+    public static int uiGlassOpacity = com.customcosmetics.gui.UiTheme.DEFAULT_GLASS_OPACITY;
     public static boolean inventoryBlurEnabled = false;
     public static boolean longSignTextEnabled = false;
     public static int inventoryDimPercent = 80;
@@ -82,6 +89,7 @@ public final class ConfigManager {
     public static int skyBlockLevelValue = 40, skyBlockLevelColor = 0xFFFFFF;
     public static String skyBlockLevelColorMode = "auto";
     public static java.util.List<Integer> skyBlockLevelDigitColors = java.util.List.of();
+    public static java.util.Map<String, SkyBlockLevelColors> skyBlockLevelColorPresets = java.util.Map.of();
     public static String nickHiderPrefix = "Player", nickHiderSelfAlias = "";
     public static String nickHiderSelfSkinMode = "auto";
     public static boolean nickHiderSelfSkinSlim;
@@ -115,6 +123,9 @@ public final class ConfigManager {
     public static boolean nickTweaksChromaEnabled = false;
     public static boolean nickTweaksCustomNickColorEnabled = false;
     public static boolean nickTweaksBoldSelf = false;
+    public static boolean nickTweaksItalicSelf = false;
+    public static boolean nickTweaksLegacyNametagOrder = false;
+    public static boolean nickTweaksNametagAntialiasing = false;
     public static double nickTweaksChromaLightness = 0.8;
     public static double nickTweaksChromaChroma = 0.2;
     public static double nickTweaksChromaSize = 3.1;
@@ -162,7 +173,16 @@ public final class ConfigManager {
     public static boolean lobbyMarkerEnabled, lobbyMarkerCrystalOnly;
     public static int lobbyMarkerMinutes = 5;
     public static boolean missingEnchantsEnabled, missingEnchantsRequireShift = true;
+    public static boolean enabledModulesHud = true, enabledModulesShadow = true, enabledModulesBackground = true;
+    public static float enabledModulesX = .8f, enabledModulesY = .05f, enabledModulesScale = 1f;
+    public static int enabledModulesColor = 0xFFFFA6CF, enabledModulesBackgroundColor = 0x88000000;
+    public static boolean enabledModulesChroma;
+    public static int enabledModulesSort, enabledModulesSpacing = 2;
+    public static boolean enabledModulesRightAlign = true;
+    public static boolean enabledModulesUseClickGuiFont = true;
+    public static Set<String> enabledModulesHidden = Set.of();
     public static Set<String> gameplayModules = Set.of();
+    public static boolean gameplayDeviceEnabled;
     public static java.util.Map<String, com.customcosmetics.features.gameplay.GameplayModule> gameplayKeybinds = java.util.Map.of();
     public static boolean hideAllPlayers, hidePlayersDungeonOnly, hidePlayersBossOnly, hidePlayersAtDevices, hidePlayersClickThrough;
     public static boolean autoClickerBreakBlocks = true, autoClickerBlockDungeonBreaker = true, autoClickerWhitelistOnly;
@@ -399,16 +419,27 @@ public final class ConfigManager {
     public static int getSyncP2pPort() { return syncP2pPort>=0&&syncP2pPort<=65535?syncP2pPort:0; }
 
     public static void loadConfig() {
+        separateDeviceConfig = ClientEdition.hasCheating();
         load(CosmeticsConfigDir.getCosmeticsConfigDir().resolve("config.json"));
         RemoteServerConfig.init(CosmeticsConfigDir.getCosmeticsConfigDir().resolve("customremoteserver.json"));
     }
 
+    private static boolean separateDeviceConfig;
+
     static void load(Path path) {
-        if (!Files.exists(path)) {loadBlockingLists(path);return;}
+        boolean legacyMainExists = Files.exists(path);
+        if (!legacyMainExists && (!separateDeviceConfig
+                || !DeviceConfig.exists(path.getParent()))) {
+            loadBlockingLists(path);
+            return;
+        }
         try {
-            JsonObject root = JsonParser.parseString(Files.readString(path, StandardCharsets.UTF_8)).getAsJsonObject();
-            JsonObject settings = root.getAsJsonObject("settings");
+            JsonObject root = legacyMainExists
+                ? JsonParser.parseString(Files.readString(path, StandardCharsets.UTF_8)).getAsJsonObject()
+                : new JsonObject();
+            JsonObject settings = legacyMainExists ? root.getAsJsonObject("settings") : new JsonObject();
             if (settings == null) return;
+            boolean migrateDevice = separateDeviceConfig && restoreDeviceSettings(path.getParent(), settings);
             uiFontPath = "";
             uiFontBold = null;
             uiFontOversample = com.customcosmetics.gui.UiFonts.MAX_SAMPLING;
@@ -427,7 +458,8 @@ public final class ConfigManager {
             }
             hudLayout.values().removeIf(java.util.Objects::isNull);
             if(accessories==null)accessories=com.customcosmetics.features.accessories.AccessoriesSettings.NONE;
-            uiThemeMode="light".equals(uiThemeMode)?"light":"dark";
+            uiThemeMode = "dark".equals(uiThemeMode) ? "dark" : "light";
+            uiGlassOpacity = Math.clamp(uiGlassOpacity, 0, com.customcosmetics.gui.UiTheme.MAX_GLASS_OPACITY);
             uiLanguage=com.customcosmetics.gui.UiText.normalize(uiLanguage);
             try { if (uiFontPath == null || uiFontPath.length() > 4096 || !uiFontPath.isEmpty()
                     && java.nio.file.Path.of(uiFontPath).getFileName() == null) uiFontPath = ""; }
@@ -611,10 +643,26 @@ public final class ConfigManager {
             swordBlockingListMode = com.customcosmetics.features.blocking.BlockingRules.Mode.parse(swordBlockingListMode).value();
             swordBlockingBlacklist = com.customcosmetics.features.blocking.BlockingRules.sanitize(swordBlockingBlacklist);
             swordBlockingWhitelist = com.customcosmetics.features.blocking.BlockingRules.sanitize(swordBlockingWhitelist);
+            if (legacyMainExists && readNumber(root, "version", 1) < 2) {
+                uiThemeMode = "light";
+                uiGlassTheme = true;
+                requestSave();
+            }
+            if (migrateDevice) requestSave();
         } catch (IOException | RuntimeException e) {
             LOGGER.error("Failed to read config {}", path, e);
         } finally {
             loadBlockingLists(path);
+        }
+    }
+
+    private static boolean restoreDeviceSettings(Path directory, JsonObject settings) {
+        try {
+            var device = DeviceConfig.read(directory);
+            return DeviceConfig.restoreStartup(directory, settings, device);
+        } catch (IOException | RuntimeException error) {
+            LOGGER.error("Could not read Device settings", error);
+            return false;
         }
     }
     private static void loadBlockingLists(Path main){
@@ -675,11 +723,21 @@ public final class ConfigManager {
                 }
             }
             JsonObject root = new JsonObject();
-            root.addProperty("version", 1);root.add("settings", settings);return root;
+            root.addProperty("version", CONFIG_VERSION);root.add("settings", settings);return root;
         } catch(IllegalAccessException error){LOGGER.error("Failed to capture config",error);return null;}
     }
     private static void write(Path path,JsonObject root,SwordBlockingLists.Data lists) {
         try {
+            if (separateDeviceConfig) {
+                var settings = root.getAsJsonObject("settings").deepCopy();
+                var device = DeviceConfig.takeLocal(settings);
+                try {
+                    DeviceConfig.merge(path.getParent(), device);
+                    root.add("settings", settings);
+                } catch (IOException | RuntimeException error) {
+                    LOGGER.error("Could not save Device settings. Keeping Auto I4 settings in the main config.", error);
+                }
+            }
             // Persist the lists first: never discard the only legacy copy after a list-write failure.
             SwordBlockingLists.write(SwordBlockingLists.path(path),lists);
             Files.createDirectories(path.getParent());

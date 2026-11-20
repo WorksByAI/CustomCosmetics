@@ -66,6 +66,8 @@ object SwapManager : EventListener, Shortcuts {
 
     fun swapByLore(lore: String) = findAndSwap(lore) { it.loreString.noControlCodes.contains(lore, true) }
 
+    fun swapByName(name: String) = findAndSwap(name) { it.hoverName.string.contains(name, true) }
+
     fun swapById(vararg skyblockIds: String, warnIfMissing: Boolean = true) = findAndSwap(*skyblockIds, warnIfMissing = warnIfMissing) { stack ->
         val id = stack.skyblockId
         id != null && skyblockIds.any { it.equals(id, true) }

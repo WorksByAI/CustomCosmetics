@@ -6,6 +6,7 @@ import com.customcosmetics.compatibility.ClientUiAccess;
 import com.customcosmetics.config.ConfigManager;
 import com.customcosmetics.features.gameplay.GameplayModule;
 import com.customcosmetics.features.gameplay.QuoiDungeon;
+import com.customcosmetics.features.gameplay.dungeonapi.DeviceConfig.Part;
 import com.customcosmetics.features.gameplay.dungeonapi.DungeonMenu;
 import com.customcosmetics.features.gameplay.GameplayKeybinds;
 import com.customcosmetics.features.gameplay.AutoClick;
@@ -23,7 +24,10 @@ import net.minecraft.network.chat.Component;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.EnumMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.HashSet;
 import java.util.stream.Stream;
@@ -39,12 +43,15 @@ public final class CheatingScreen extends ThemedScreen {
     private final ArrayList<Card> cards = new ArrayList<>();
     private GameplayModule.Category category = GameplayModule.Category.GENERAL;
     private MenuEntry editing;
+    private Part expandedDevice;
     private DungeonMenu dungeonMenu;
     private java.util.List<net.minecraft.util.FormattedCharSequence> dungeonNotice = java.util.List.of();
     private DungeonMenu.Key dungeonKey;
     private boolean dungeonDirty;
     private final HashSet<DungeonMenu.Control> openGroups = new HashSet<>();
     private StudioLayout layout;
+    private final UiMotion entrance = new UiMotion(0, UiMotion.Curve.SPRING);
+    private float entranceScale = 1;
     private String query = "";
     private boolean enabledOnly;
     private PinkUi.Field search;
@@ -56,14 +63,32 @@ public final class CheatingScreen extends ThemedScreen {
     private final ArrayList<DetailLabel> detailLabels = new ArrayList<>();
     private boolean recording;
     private PinkUi.Action keyButton;
+    private GameplayModule recordedModule;
     private net.minecraft.client.KeyMapping recordedMapping;
     private SafariSpecies.Biome safariBiome = SafariSpecies.Biome.FOREST;
     private WorldScannerSettings.Target scannerTarget = WorldScannerSettings.Target.FAIRY_GROTTO;
 
-    private record MenuEntry(GameplayModule local, DungeonMenu.Entry dungeon) {
+    private record MenuEntry(GameplayModule local, DungeonMenu.Entry dungeon, Map<Part, DungeonMenu.Entry> devices) {
+        MenuEntry(GameplayModule local, DungeonMenu.Entry dungeon) { this(local, dungeon, null); }
+        boolean isDevice() { return devices != null; }
         String label() { return local != null ? local.label : dungeon.name(); }
-        GameplayModule.Category category() { return local != null ? local.category : GameplayModule.Category.DUNGEON; }
-        boolean enabled() { return local != null ? local.enabled() : dungeon.enabled() != null && dungeon.enabled().getAsBoolean(); }
+        GameplayModule.Category category() {
+            return local != null ? local.category : GameplayModule.Category.valueOf(dungeon.category().name());
+        }
+        boolean enabled() {
+            return local != null ? local.enabled() : enabled(dungeon);
+        }
+        private static boolean enabled(DungeonMenu.Entry entry) {
+            return entry.enabled() != null && entry.enabled().getAsBoolean();
+        }
+        boolean matches(String filter) {
+            return matches(label(), filter) || isDevice() && Arrays.stream(Part.values())
+                .filter(part -> part == Part.AUTO_I4 || devices.containsKey(part))
+                .anyMatch(part -> matches(part.label, filter) || matches(part.dungeonName, filter));
+        }
+        private static boolean matches(String label, String filter) {
+            return label.toLowerCase(Locale.ROOT).contains(filter) || UiText.zh(label).contains(filter);
+        }
     }
     private record Card(MenuEntry module, PinkUi.Action toggle, PinkUi.Action settings, int y) {}
     private record Detail(net.minecraft.client.gui.components.AbstractWidget widget, int y) {}
@@ -159,7 +184,7 @@ public final class CheatingScreen extends ThemedScreen {
     }
 
     @Override protected void init() {
-        layout = StudioLayout.of(width, height);
+        layout = StudioLayout.of(width, height, ConfigManager.uiGlassTheme);
         cards.clear();
         details.clear();
         detailLabels.clear();
@@ -182,7 +207,8 @@ public final class CheatingScreen extends ThemedScreen {
                 }).leftAligned().selected(() -> !enabledOnly && option == category));
             row += categoryStep;
         }
-        addRenderableWidget(disabledHudButton(layout.x() + 9, layout.y() + layout.height() - 35, layout.sidebarWidth() - 18, 24));
+        addRenderableWidget(new PinkUi.Action(layout.x() + 9, layout.y() + layout.height() - 64, layout.sidebarWidth() - 18, 24, "Config Manager", false, () -> ClientUiAccess.setScreen(minecraft, new CheatingConfigScreen(this))));
+        addRenderableWidget(hudButton(layout.x() + 9, layout.y() + layout.height() - 35, layout.sidebarWidth() - 18, 24));
         int enabledWidth = Math.min(112, layout.contentWidth() / 2);
         search = new PinkUi.Field(font, layout.contentX(), layout.y() + 42, layout.contentWidth() - enabledWidth - 6, "Search modules…", 23);
         search.setMaxLength(64);
@@ -231,14 +257,21 @@ public final class CheatingScreen extends ThemedScreen {
             dungeonNotice = font.split(UiText.component(message), layout.contentWidth() - 10);
             cardsTop += dungeonNotice.size() * 10 + 12;
         }
-        Stream<MenuEntry> entries = Arrays.stream(MODULES).map(module -> new MenuEntry(module, null));
-        if (dungeonMenu != null && (enabledOnly || category == GameplayModule.Category.DUNGEON || !filter.isEmpty())) {
-            entries = Stream.concat(entries, dungeonMenu.modules().stream().map(module -> new MenuEntry(null, module)));
+        var devices = new EnumMap<Part, DungeonMenu.Entry>(Part.class);
+        var dungeonEntries = new ArrayList<MenuEntry>();
+        for (var entry : dungeonMenu == null ? List.<DungeonMenu.Entry>of() : dungeonMenu.modules()) {
+            var part = Part.forDungeonName(entry.name());
+            if (part != null) devices.put(part, entry);
+            else dungeonEntries.add(new MenuEntry(null, entry));
         }
+        dungeonEntries.add(new MenuEntry(GameplayModule.DEVICE, null, Map.copyOf(devices)));
+        Stream<MenuEntry> entries = Stream.concat(Arrays.stream(MODULES)
+            .filter(module -> module != GameplayModule.AUTO_I4 && module != GameplayModule.DEVICE)
+            .map(module -> new MenuEntry(module, null)), dungeonEntries.stream());
         for (var module : entries.sorted(Comparator.comparing(MenuEntry::label, String.CASE_INSENSITIVE_ORDER)).toList()) {
             if (enabledOnly && !module.enabled()) continue;
             if (filter.isEmpty() ? !enabledOnly && module.category() != category
-                : !module.label().toLowerCase(Locale.ROOT).contains(filter) && !UiText.zh(module.label()).contains(filter)) continue;
+                : !module.matches(filter)) continue;
             int x = layout.contentX() + count % 3 * (column + gap);
             int y = cardsTop + count / 3 * 39;
             boolean expanded = module.equals(editing);
@@ -275,6 +308,7 @@ public final class CheatingScreen extends ThemedScreen {
         recordedMapping = null;
         dungeonKey = null;
         openGroups.clear();
+        expandedDevice = null;
         editing = Objects.equals(editing, module) ? null : module;
         if (editing != null) {
             for (var card : cards) if (card.module().equals(module) && card.toggle().getBottom() + 70 > cardsBottom) {
@@ -291,47 +325,25 @@ public final class CheatingScreen extends ThemedScreen {
         MenuEntry module = editing;
         int x = layout.contentX() + 7, y = detailsY, w = detailWidth();
         var reset = new SettingsResetButton(x + w, y, 20, () -> resetModule(module));
+        if (module.isDevice()) {
+            addLocalKeyControls(GameplayModule.DEVICE, x, y, w - SettingsResetButton.WIDTH - 6);
+            addDetail(reset);
+            addDeviceDetails(module);
+            detailsHeight = detailsY - detailsTop + 7;
+            return;
+        }
         if (module.dungeon() != null) {
             addDetail(reset);
             addDungeonControls(module.dungeon().settings().get());
             detailsHeight = detailsY - detailsTop + 7;
             return;
         }
-        int keyWidth = w - SettingsResetButton.WIDTH - 6;
-        int clearWidth = Math.min(68, keyWidth / 3);
-        keyButton = new PinkUi.Action(x, y, keyWidth - clearWidth - 6, 20,
-            keyLabel(), false, () -> {
-                recording = true;
-                recordedMapping = null;
-                keyButton.setMessage(UiText.component("Press a key or mouse button…"));
-            }).leftAligned();
-        addDetail(keyButton);
-        addDetail(new PinkUi.Action(x + keyWidth - clearWidth, y, clearWidth, 20, "Clear", false,
-            () -> finishRecording(InputConstants.UNKNOWN)));
+        addLocalKeyControls(module.local(), x, y, w - SettingsResetButton.WIDTH - 6);
         addDetail(reset);
         switch (editing.local()) {
             case FAST_LEAP -> fastLeapSettings();
             case AUTO_CLICKER -> autoClickSettings();
-            case AUTO_I4 -> {
-                tooltip(option("Precise I4 Aim", () -> ConfigManager.autoI4Precise, v -> ConfigManager.autoI4Precise = v),
-                    "Aim at the lit target's center and compensate for arrow drop. Supports single-arrow shortbows.");
-                tooltip(option("I4 Target Prediction", () -> ConfigManager.autoI4Predict, v -> ConfigManager.autoI4Predict = v),
-                    "Pre-aim at a likely target while waiting for the next lamp to light.");
-                tooltip(slider("I4 Rotation Time (ms)", ConfigManager.autoI4RotationTime, 0, 250, 1,
-                    v -> ConfigManager.autoI4RotationTime = (int) v), "Set to 0 to pause Auto I4 aiming and shooting.");
-                tooltip(option("Auto Rod", () -> ConfigManager.autoI4Rod, v -> ConfigManager.autoI4Rod = v),
-                    "Use a fishing rod from the hotbar and then return to the previous slot.");
-                tooltip(option("Auto Mask", () -> ConfigManager.autoI4Mask, v -> ConfigManager.autoI4Mask = v),
-                    "Equip a Spirit Mask or Bonzo's Mask through Stats & Equipment.");
-                cycle("Swap Order", java.util.List.of("Rod First", "Mask First"), () -> ConfigManager.autoI4SwapOrder,
-                    v -> ConfigManager.autoI4SwapOrder = v);
-                tooltip(option("Auto Leap", () -> ConfigManager.autoI4Leap, v -> ConfigManager.autoI4Leap = v),
-                    "Use a Spirit Leap after completing I4 or when the Goldor timer reaches the escape point.");
-                tooltip(option("Leap To Melody", () -> ConfigManager.autoI4LeapToMelody, v -> ConfigManager.autoI4LeapToMelody = v),
-                    "Prefer the teammate reporting Melody progress in party chat.");
-                cycle("Leap Priority", java.util.List.of("Tank", "Mage", "Healer", "Archer"), () -> ConfigManager.autoI4LeapPriority,
-                    v -> ConfigManager.autoI4LeapPriority = v);
-            }
+            case AUTO_I4 -> autoI4Settings();
             case AUTO_EXPERIMENTS -> {
                 slider("Min Click Delay (ms)", ConfigManager.experimentMinDelay, 100, 1000, 1,
                     v -> ConfigManager.experimentMinDelay = (int) v);
@@ -460,7 +472,16 @@ public final class CheatingScreen extends ThemedScreen {
 
     private void resetModule(MenuEntry module) {
         if (!module.equals(editing)) return;
-        if (module.dungeon() != null) {
+        if (module.isDevice()) {
+            if (GameplayModule.DEVICE.configured()) GameplayModule.DEVICE.toggle();
+            GameplayKeybinds.bind(GameplayModule.DEVICE, InputConstants.UNKNOWN);
+            for (var device : module.devices().values()) device.reset().run();
+            if (dungeonMenu != null) dungeonMenu.save();
+            dungeonDirty = false;
+            ConfigManager.resetSettings("autoI4*");
+            GameplayKeybinds.bind(GameplayModule.AUTO_I4, InputConstants.UNKNOWN);
+            if (ConfigManager.gameplayModules.contains(GameplayModule.AUTO_I4.name())) GameplayModule.AUTO_I4.toggle();
+        } else if (module.dungeon() != null) {
             module.dungeon().reset().run();
             dungeonMenu.save();
             dungeonDirty = false;
@@ -512,6 +533,58 @@ public final class CheatingScreen extends ThemedScreen {
         openGroups.clear();
         if (enabledOnly && !module.enabled()) editing = null;
         rebuildWidgets();
+    }
+
+    private void addDeviceDetails(MenuEntry module) {
+        int x = layout.contentX() + 7;
+        for (Part part : Part.values()) {
+            var dungeon = module.devices().get(part);
+            boolean local = part == Part.AUTO_I4;
+            if (!local && dungeon == null) continue;
+            int y = detailsY;
+            int width = detailWidth();
+            var header = new PinkUi.Action(x, y, width - 40, 20, part.label, false, () -> {
+                expandedDevice = expandedDevice == part ? null : part;
+                recording = false;
+                recordedMapping = null;
+                dungeonKey = null;
+                openGroups.clear();
+                rebuildWidgets();
+            }).leftAligned().selected(() -> expandedDevice == part);
+            addDetail(header);
+            addDetail(new PinkUi.Toggle(x + width - 34, y + 1, part.label,
+                () -> local ? GameplayModule.AUTO_I4.configured() : MenuEntry.enabled(dungeon), () -> {
+                    if (local) GameplayModule.AUTO_I4.toggle();
+                    else {
+                        dungeon.toggle().run();
+                        dungeonDirty = true;
+                    }
+                }));
+            if (expandedDevice == part) {
+                if (local) {
+                    addLocalKeyControls(GameplayModule.AUTO_I4, x, detailsY, detailWidth());
+                    autoI4Settings();
+                } else addDungeonControls(dungeon.settings().get());
+            }
+        }
+    }
+
+    private void addLocalKeyControls(GameplayModule module, int x, int y, int width) {
+        int clearWidth = Math.min(68, width / 3);
+        var button = new PinkUi.Action[1];
+        button[0] = new PinkUi.Action(x, y, width - clearWidth - 6, 20, keyLabel(module), false, () -> {
+            recording = true;
+            recordedMapping = null;
+            recordedModule = module;
+            keyButton = button[0];
+            keyButton.setMessage(UiText.component("Press a key or mouse button…"));
+        }).leftAligned();
+        addDetail(button[0]);
+        addDetail(new PinkUi.Action(x + width - clearWidth, y, clearWidth, 20, "Clear", false, () -> {
+            recordedModule = module;
+            keyButton = button[0];
+            finishRecording(InputConstants.UNKNOWN);
+        }));
     }
 
     private void addDungeonControls(java.util.List<DungeonMenu.Control> controls) {
@@ -668,7 +741,7 @@ public final class CheatingScreen extends ThemedScreen {
         textSetting("Alert Message", ConfigManager.trevorAlertMessage, v -> ConfigManager.trevorAlertMessage = v);
         textSetting("Alert Sound ID", ConfigManager.trevorAlertSound, v -> ConfigManager.trevorAlertSound = v);
         option("Cooldown Timer", () -> ConfigManager.trevorCooldownTimer, v -> ConfigManager.trevorCooldownTimer = v);
-        addDetail(disabledHudButton(layout.contentX() + 7, detailsY, detailWidth(), 23));
+        addDetail(hudButton(layout.contentX() + 7, detailsY, detailWidth(), 23));
         for (var rarity : TrevorHelper.Rarity.values()) color(rarity.label, rarity.color(), value -> {
             var colors = new java.util.HashMap<>(ConfigManager.trevorColors);
             colors.put(rarity.name(), value);
@@ -676,9 +749,9 @@ public final class CheatingScreen extends ThemedScreen {
         });
     }
 
-    private static PinkUi.Action disabledHudButton(int x, int y, int width, int height) {
-        var button = new PinkUi.Action(x, y, width, height, "HUD Editor", false, () -> {});
-        button.active = false;
+    private PinkUi.Action hudButton(int x, int y, int width, int height) {
+        var button = new PinkUi.Action(x, y, width, height, "HUD Editor", false, () -> ClientUiAccess.setScreen(minecraft, new GameplayHudEditor(this)));
+        button.active = true;
         return button;
     }
 
@@ -744,10 +817,33 @@ public final class CheatingScreen extends ThemedScreen {
         addDetail(widget);
     }
 
-    private String keyLabel() {
-        var key = GameplayKeybinds.key(editing.local());
-        return UiText.tr("Keybind") + ": " + (key.equals(InputConstants.UNKNOWN)
+    private String keyLabel(GameplayModule module) {
+        var key = GameplayKeybinds.key(module);
+        String label = module == GameplayModule.DEVICE || module == GameplayModule.AUTO_I4
+            ? UiText.tr(module.label) + " " + UiText.tr("Keybind") : UiText.tr("Keybind");
+        return label + ": " + (key.equals(InputConstants.UNKNOWN)
             ? UiText.tr("Unassigned") : key.getDisplayName().getString());
+    }
+
+    private void autoI4Settings() {
+        tooltip(option("Precise I4 Aim", () -> ConfigManager.autoI4Precise, v -> ConfigManager.autoI4Precise = v),
+            "Aim at the lit target's center and compensate for arrow drop. Supports single-arrow shortbows.");
+        tooltip(option("I4 Target Prediction", () -> ConfigManager.autoI4Predict, v -> ConfigManager.autoI4Predict = v),
+            "Pre-aim at a likely target while waiting for the next lamp to light.");
+        tooltip(slider("I4 Rotation Time (ms)", ConfigManager.autoI4RotationTime, 0, 250, 1,
+            v -> ConfigManager.autoI4RotationTime = (int) v), "Set to 0 to pause Auto I4 aiming and shooting.");
+        tooltip(option("Auto Rod", () -> ConfigManager.autoI4Rod, v -> ConfigManager.autoI4Rod = v),
+            "Use a fishing rod from the hotbar and then return to the previous slot.");
+        tooltip(option("Auto Mask", () -> ConfigManager.autoI4Mask, v -> ConfigManager.autoI4Mask = v),
+            "Equip a Spirit Mask or Bonzo's Mask through Stats & Equipment.");
+        cycle("Swap Order", java.util.List.of("Rod First", "Mask First"), () -> ConfigManager.autoI4SwapOrder,
+            v -> ConfigManager.autoI4SwapOrder = v);
+        tooltip(option("Auto Leap", () -> ConfigManager.autoI4Leap, v -> ConfigManager.autoI4Leap = v),
+            "Use a Spirit Leap after completing I4 or when the Goldor timer reaches the escape point.");
+        tooltip(option("Leap To Melody", () -> ConfigManager.autoI4LeapToMelody, v -> ConfigManager.autoI4LeapToMelody = v),
+            "Prefer the teammate reporting Melody progress in party chat.");
+        cycle("Leap Priority", java.util.List.of("Tank", "Mage", "Healer", "Archer"), () -> ConfigManager.autoI4LeapPriority,
+            v -> ConfigManager.autoI4LeapPriority = v);
     }
 
     private void autoClickSettings() {
@@ -1090,8 +1186,8 @@ public final class CheatingScreen extends ThemedScreen {
             rebuildWidgets();
             return;
         }
-        var conflict = key == null ? null : GameplayKeybinds.bind(editing.local(), key);
-        keyButton.setMessage(Component.literal(conflict == null ? keyLabel()
+        var conflict = key == null ? null : GameplayKeybinds.bind(recordedModule, key);
+        keyButton.setMessage(Component.literal(conflict == null ? keyLabel(recordedModule)
             : UiText.tr("Already assigned to: ") + UiText.tr(conflict.label)));
     }
 
@@ -1129,6 +1225,7 @@ public final class CheatingScreen extends ThemedScreen {
     }
 
     @Override public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        event = entranceEvent(event);
         if (recording) {
             finishRecording(InputConstants.Type.MOUSE.getOrCreate(event.button()));
             return true;
@@ -1152,6 +1249,8 @@ public final class CheatingScreen extends ThemedScreen {
     }
 
     @Override public boolean mouseScrolled(double x, double y, double horizontal, double vertical) {
+        x = entranceX(x);
+        y = entranceY(y);
         if (vertical != 0 && StudioLayout.contains(x, y, layout.contentX(), cardsTop,
                 layout.contentX() + layout.contentWidth() + 3, cardsBottom)) {
             scroll -= (int) Math.round(vertical * 39);
@@ -1161,10 +1260,42 @@ public final class CheatingScreen extends ThemedScreen {
         return super.mouseScrolled(x, y, horizontal, vertical);
     }
 
+    @Override public boolean mouseReleased(MouseButtonEvent event) {
+        return super.mouseReleased(entranceEvent(event));
+    }
+
+    @Override public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
+        return super.mouseDragged(entranceEvent(event), dx / entranceScale, dy / entranceScale);
+    }
+
+    private MouseButtonEvent entranceEvent(MouseButtonEvent event) {
+        return entranceScale == 1 ? event : new MouseButtonEvent(entranceX(event.x()), entranceY(event.y()), event.buttonInfo());
+    }
+
+    private double entranceX(double x) {
+        return UiEntrance.pointer(x, layout.x() + layout.width() / 2d, entranceScale);
+    }
+
+    private double entranceY(double y) {
+        return UiEntrance.pointer(y, layout.y() + layout.height() / 2d, entranceScale);
+    }
+
     @Override public void extractRenderState(GuiGraphicsExtractor graphics, int x, int y, float delta) {
-        outline(graphics, layout.x(), layout.y(), layout.width(), layout.height(), 5, BORDER, PANEL);
-        graphics.fill(layout.x() + layout.sidebarWidth(), layout.y() + 1, layout.x() + layout.sidebarWidth() + 1,
-            layout.y() + layout.height() - 1, BORDER);
+        entranceScale = UiEntrance.scale(entrance.value(1, ConfigManager.uiAnimationsEnabled));
+        if (entranceScale == 1) {
+            drawPanel(graphics, x, y, delta);
+            return;
+        }
+        ClickGuiChrome.pushEntrance(graphics, layout.x(), layout.y(), layout.width(), layout.height(), entranceScale, entrance.travel());
+        try { drawPanel(graphics, (int) Math.round(entranceX(x)), (int) Math.round(entranceY(y)), delta); }
+        finally { graphics.pose().popMatrix(); }
+    }
+
+    private void drawPanel(GuiGraphicsExtractor graphics, int x, int y, float delta) {
+        ClickGuiChrome.draw(graphics, layout.x(), layout.y(), layout.width(), layout.height(), layout.sidebarWidth(), false);
+        if (!ConfigManager.uiGlassTheme)
+            graphics.fill(layout.x() + layout.sidebarWidth(), layout.y() + 1, layout.x() + layout.sidebarWidth() + 1,
+                layout.y() + layout.height() - 1, BORDER);
         UiFonts.drawTitle(graphics, UiText.tr("Cheating"), layout.x() + 12, layout.y() + 19, TEXT, layout.sidebarWidth() - 20);
         UiFonts.drawTitle(graphics, UiText.tr(enabledOnly ? "Enabled Modules" : category.label), layout.contentX(), layout.y() + 19, TEXT, layout.contentWidth() - 24);
         graphics.nextStratum();
@@ -1182,7 +1313,9 @@ public final class CheatingScreen extends ThemedScreen {
         int hoverY = y >= cardsTop && y < cardsBottom ? y : Integer.MIN_VALUE;
         int top = detailsTop - scroll;
         if (detailsHeight > 0 && top < cardsBottom && top + detailsHeight > cardsTop) {
-            outline(graphics, left, top, layout.contentWidth(), detailsHeight - 4, 4, BORDER, PANEL);
+            outline(graphics, left, top, layout.contentWidth(), detailsHeight - 4, 4,
+                ConfigManager.uiGlassTheme ? alpha(BORDER, 110) : BORDER,
+                ConfigManager.uiGlassTheme ? ClickGuiChrome.previewTint() : PANEL);
             graphics.nextStratum();
             for (var label : detailLabels) {
                 int labelY = label.y() - scroll;

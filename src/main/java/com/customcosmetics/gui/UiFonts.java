@@ -86,6 +86,8 @@ public final class UiFonts {
     }
 
     public static void init() {
+        net.fabricmc.loader.api.FabricLoader.getInstance().getObjectShare().put("customcosmetics:interface_font",
+            (Supplier<Font>) () -> get(Minecraft.getInstance().font));
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STARTED.register(UiFonts::restore);
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING.register(client -> clear());
     }
@@ -120,6 +122,15 @@ public final class UiFonts {
             });
         }
         return view;
+    }
+
+    /** Row height that also accommodates a selected font larger than Minecraft's default. */
+    public static int lineHeight(Font font) {
+        var active = loaded;
+        if (active != null && (font == view || ConfigManager.useFontInGame && font == Minecraft.getInstance().font)) {
+            return Math.max(font.lineHeight, (int) Math.ceil(active.style.size()));
+        }
+        return font.lineHeight;
     }
 
     public static GlyphSource gameSource(FontDescription description, GlyphSource vanilla) {

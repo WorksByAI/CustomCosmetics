@@ -21,6 +21,11 @@ object QuoiMod : ClientModInitializer, EventListener {
             .getEntrypoints("csb-dungeon-confirmed", java.util.function.BooleanSupplier::class.java).single()
     }
     val allowed: Boolean get() = confirmation.asBoolean
+    private val deviceGate by lazy {
+        net.fabricmc.loader.api.FabricLoader.getInstance()
+            .getEntrypoints("csb-dungeon-device-enabled", java.util.function.BooleanSupplier::class.java).singleOrNull()
+    }
+    val deviceEnabled: Boolean get() = deviceGate?.asBoolean == true
     val mc: Minecraft get() = Minecraft.getInstance()
     val scope = CoroutineScope(EmptyCoroutineContext)
     val logger: Logger = LogManager.getLogger("quoi")

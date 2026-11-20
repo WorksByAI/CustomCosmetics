@@ -392,8 +392,9 @@ public final class NickRenderUtils {
         var codepoints=parseCustomNick(raw==null?"":raw);
         var paints=com.customcosmetics.features.nickname.NicknameSegments.paints(codepoints.size(),start,end,segments);
         var result=Component.empty();
+        Style base = Style.EMPTY.withBold(ConfigManager.nickTweaksBoldSelf).withItalic(ConfigManager.nickTweaksItalicSelf);
         for(int i=0;i<codepoints.size();i++){
-            var cp=codepoints.get(i);var paint=paints.get(i);Style style=Style.EMPTY.withBold(ConfigManager.nickTweaksBoldSelf);
+            var cp=codepoints.get(i);var paint=paints.get(i);Style style=base;
             if(cp.explicitColor()!=null)style=style.withColor(cp.explicitColor());
             else style=NicknameGlyphEffect.attach(style.withColor(paint.color(0)),new NicknameGlyphEffect(paint.gradient(),paint.from(),paint.to()));
             result.append(Component.literal(new String(Character.toChars(cp.codepoint()))).setStyle(style));
@@ -563,6 +564,8 @@ public final class NickRenderUtils {
                 continue;
             }
             Style base = glyphs.get(i).style();
+            if (target.bold()) base = base.withBold(true);
+            if (target.italic()) base = base.withItalic(true);
             NicknameGradient gradient = target.gradient();
             int len = replacement.size();
             var segmentPaints = gradient != null && gradient.style().equals("segmented")
@@ -570,9 +573,6 @@ public final class NickRenderUtils {
             for (int idx = 0; idx < len; idx++) {
                 ReplacementCodepoint cp = replacement.get(idx);
                 Style style = base;
-                if (target.bold()) {
-                    style = style.withBold(true);
-                }
                 if (cp.explicitColor() != null) {
                     style = style.withColor(cp.explicitColor());
                 } else {
@@ -777,6 +777,7 @@ public final class NickRenderUtils {
             String displayName,
             boolean local,
             boolean bold,
+            boolean italic,
             int[] palette,
             double speed,
             boolean remoteChromaEnabled,
@@ -801,6 +802,7 @@ public final class NickRenderUtils {
                     null,
                     true,
                     ConfigManager.nickTweaksBoldSelf,
+                    ConfigManager.nickTweaksItalicSelf,
                     new int[0],
                     clamp(ConfigManager.nickTweaksChromaSpeed, 0.0, 8.0),
                     false,
@@ -827,6 +829,7 @@ public final class NickRenderUtils {
                     profile.nickChanger(),
                     false,
                     profile.boldSelf(),
+                    profile.italicSelf(),
                     profile.paletteView(),
                     clamp(profile.speed(), 0.0, 8.0),
                     profile.chromaEnabled(),

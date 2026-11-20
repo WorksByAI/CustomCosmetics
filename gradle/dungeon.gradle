@@ -26,7 +26,8 @@ if (edition == 'legit') {
     }
     // Keep config data types to preserve saved settings when players switch editions.
     def sharedGameplay = ['BobbyIntegration', 'NaturalMotionBlurIntegration', 'LobbyMarker', 'MissingEnchants',
-        'SeymourColors', 'TooltipTweaks', 'GameplayModule', 'GameplayKeybinds', 'WorldScannerSettings', 'AutoLeapPreset'] as Set
+        'SeymourColors', 'TooltipTweaks', 'GameplayModule', 'GameplayKeybinds', 'WorldScannerSettings', 'AutoLeapPreset',
+        'DeviceConfig'] as Set
     tasks.named('jar', Jar) {
         exclude { entry ->
             String path = entry.path
@@ -34,7 +35,7 @@ if (edition == 'legit') {
             if (path.startsWith('com/customcosmetics/features/gameplay/')) {
                 return !(path.tokenize('/').last().split(/[.$]/)[0] in sharedGameplay)
             }
-            return ['gui/CheatingScreen', 'gui/GameplayHudEditor', 'mixin/GameplayMixin',
+            return ['gui/CheatingScreen', 'gui/GameplayHudEditor', 'gui/CheatingConfigScreen', 'mixin/GameplayMixin',
                 'mixin/SecretChestMixin', 'mixin/RenderOptimiserMixin'].any { name ->
                 String base = 'com/customcosmetics/' + name
                 path == base + '.class' || path.startsWith(base + '$')

@@ -61,6 +61,21 @@ class NicknameBlocklistTest {
         assertEquals("😀 Changed end",result.getString());
         assertTrue(result.<Boolean>visit((found,value)->value.contains("C")?Optional.of(style.getClickEvent().equals(found.getClickEvent())):Optional.empty(),Style.EMPTY).orElse(false));
     }
+    @Test void remoteItalicCombinesWithBoldAndLeavesOtherTextAlone(){
+        var italic = new PresenceSync.ChromaProfile(false,new int[0],0,1,.2,.8,0,0,true,true,false,
+            "&dChanged","character",1,0,0,.16,2,List.of());
+        var literal = Component.literal("[MVP+] Alice: hello");
+        var target = new PresenceSync.RemoteNickname(ALICE,"Alice",italic);
+        var result = NickRenderUtils.renderFormattedText(literal,NickRenderUtils.buildTargets(SELF,"Self",false,List.of(target)));
+        assertEquals("[MVP+] Changed: hello", result.getString());
+        result.visit((style, value) -> {
+            boolean name = value.equals("Changed");
+            assertEquals(name, style.isItalic());
+            assertEquals(name, style.isBold());
+            if (name) assertEquals(0xFF55FF, style.getColor().getValue());
+            return Optional.empty();
+        }, Style.EMPTY);
+    }
     @Test void normalizationRejectsFormattingInvalidNamesAndDuplicates(){
         var normalized=PlayerBlocklist.normalize(Arrays.asList(null,new PlayerBlocklist.Entry(null," Alice "),new PlayerBlocklist.Entry(null,"ALICE"),new PlayerBlocklist.Entry(null,"&aBad"),new PlayerBlocklist.Entry(null,"a name"),new PlayerBlocklist.Entry(ALICE,"Alice"),new PlayerBlocklist.Entry(ALICE,"Renamed")));
         assertEquals(List.of(new PlayerBlocklist.Entry(null,"Alice"),new PlayerBlocklist.Entry(ALICE,"Alice")),normalized);

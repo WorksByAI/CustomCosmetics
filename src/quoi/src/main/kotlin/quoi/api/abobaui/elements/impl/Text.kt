@@ -43,6 +43,8 @@ open class Text(
     protected var shadow: Boolean = false
 
     protected var previousHeight = 0f
+    @PublishedApi
+    internal val drawsInCustomPass get() = ui.useInterfaceFont || font.name != "Minecraft"
 
     override fun prePosition() {
 
@@ -77,25 +79,29 @@ open class Text(
     }
 
     protected fun drawText(string: String, x: Float = this.x, y: Float = this.y, colour: Int) {
-        if (font.name == "Minecraft" && !ui.customPass) {
+        if (!drawsInCustomPass && !ui.customPass) {
             val fontScale = height / mc.font.lineHeight
             val string = string.replace(FORMATTING_CODE_PATTERN) { "§${it.value[1]}" }
             withScale {
                 ctx.drawText(string, 0, 0, colour, fontScale, shadow)
             }
-        } else if (font.name != "Minecraft" && ui.customPass) {
+        } else if (drawsInCustomPass && ui.customPass) {
+            val renderFont = if (ui.useInterfaceFont) UIRenderer.interfaceFont else font
             if (shadow) {
                 val offset = height / 25f
-                UIRenderer.formattedText(string, x + offset, y + offset, height, colour, font, shadow = true)
+                UIRenderer.formattedText(string, x + offset, y + offset, height, colour, renderFont, shadow = true)
             }
-            UIRenderer.formattedText(string, x, y, height, colour, font)
+            UIRenderer.formattedText(string, x, y, height, colour, renderFont)
         }
     }
 
     open fun getTextWidth(): Float = textWidth(text)
 
-    protected fun textWidth(string: String) =
-        if (font.name == "Minecraft") text.width(height / mc.font.lineHeight) else UIRenderer.textWidth(string.noControlCodes, height, font)
+    protected fun textWidth(string: String) = when {
+        ui.useInterfaceFont -> UIRenderer.textWidth(string.noControlCodes, height, UIRenderer.interfaceFont)
+        font.name == "Minecraft" -> string.width(height / mc.font.lineHeight)
+        else -> UIRenderer.textWidth(string.noControlCodes, height, font)
+    }
 
     companion object {
         var <E : Text> ElementScope<E>.string
@@ -120,7 +126,7 @@ open class Text(
         ): ElementScope<Text> = object : Text(supplier().toString(), font, colour, pos, size) {
             override fun draw() {
                 // only update in the pass that draws this font
-                if (ui.customPass != (font.name == "Minecraft")) text = supplier().toString()
+                if (ui.customPass == drawsInCustomPass) text = supplier().toString()
                 super.draw()
             }
         }.scope { /* no-op */ }

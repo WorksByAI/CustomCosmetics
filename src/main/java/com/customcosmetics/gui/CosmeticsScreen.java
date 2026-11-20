@@ -9,6 +9,8 @@ import com.customcosmetics.features.hud.PurseDisplay;
 import com.customcosmetics.features.nickname.NickHider;
 import com.customcosmetics.features.nickname.SkyBlockLevel;
 import com.customcosmetics.features.nickname.SkyBlockLevelAppearance;
+import com.customcosmetics.features.nickname.SkyBlockLevelColors;
+import com.customcosmetics.features.nickname.NicknamePresetStore;
 import com.customcosmetics.features.pack.HypixelPackDisabler;
 import com.customcosmetics.features.pack.TextColorOverrides;
 import com.customcosmetics.features.text.TextReplacements;
@@ -65,6 +67,7 @@ public final class CosmeticsScreen extends ThemedScreen {
     private final UiMotion[] navTransitions = java.util.Arrays.stream(Section.values()).map(section -> new UiMotion(0)).toArray(UiMotion[]::new);
     private final int[] navChildCounts = new int[Section.values().length];
     private int[] navClipBottom = new int[0];
+    private float[] navTravel = new float[0];
     private Section expanded, navBuilding;
     private boolean navInitialized;
     private final List<Placement> controls = new ArrayList<>();
@@ -95,7 +98,8 @@ public final class CosmeticsScreen extends ThemedScreen {
     private PinkUi.ColorPicker picker;
     private boolean changingColorText;
     private boolean editingShimmerColors;
-    private String presetName = "";
+    private String presetName = "", levelColorPresetName = "";
+    private boolean showLevelColorPresets;
     private String blockedPlayerName = "";
     private String blockedPlayerSearch = "";
     private String textColorFrom = "", textColorTo = "";
@@ -139,7 +143,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         refreshIntervalField = null; syncNowButton = null;
         choiceMenus.clear();blockingMode = null;
         blockingStyle = null;
-        var layout = StudioLayout.of(width, height);
+        var layout = StudioLayout.of(width, height, ConfigManager.uiGlassTheme);
         panelWidth = layout.width(); panelHeight = layout.height();
         panelX = layout.x(); panelY = layout.y(); sideWidth = layout.sidebarWidth();
         contentX = layout.contentX(); contentWidth = layout.contentWidth();
@@ -249,7 +253,8 @@ public final class CosmeticsScreen extends ThemedScreen {
                 com.customcosmetics.features.skins.LocalSkins.otherMode("original");
                 com.customcosmetics.features.nickname.NickHider.changed(minecraft);
             }
-            case SKYBLOCK_LEVEL -> ConfigManager.resetSettings("skyBlockLevel*");
+            case SKYBLOCK_LEVEL -> ConfigManager.resetSettings("skyBlockLevelEnabled", "skyBlockLevelValue",
+                "skyBlockLevelColor", "skyBlockLevelColorMode", "skyBlockLevelDigitColors");
             case PURSE_DISPLAY -> ConfigManager.resetSettings("purseDisplay*");
             case BLOCKED_CAPES -> ConfigManager.resetSettings("capeBlockedPlayers");
             case BLOCKED_ACCESSORIES -> ConfigManager.resetSettings("accessoriesBlockedPlayers");
@@ -275,7 +280,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             }
             case PARTY -> ConfigManager.resetSettings("party*", "sharingChamsEnabled");
             case LOCATION_SHARING, POSITION_RECIPIENTS -> ConfigManager.resetSettings("location*", "positionSharing*");
-            case THEME -> ConfigManager.resetSettings("uiThemeMode", "uiAccentColor", "uiAnimationsEnabled", "uiBackgroundBlur");
+            case THEME -> ConfigManager.resetSettings("uiThemeMode", "uiAccentColor", "uiAnimationsEnabled", "uiBackgroundBlur", "uiGlassTheme", "uiGlassOpacity");
             case SYNC -> {
                 ConfigManager.resetSettings("uiLanguage", "updateCheckEnabled", "syncEnabled", "syncNotifications",
                     "syncRefreshIntervalSeconds", "syncProxy*", "syncP2pPort");
@@ -460,6 +465,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         navItem("Seymour Analyzer", Page.SEYMOUR);
         navItem("Tooltip Tweaks", Page.TOOLTIP_TWEAKS);
         navClipBottom = new int[sidebarControls.size()];
+        navTravel = new float[sidebarControls.size()];
         positionNavigation();
     }
 
@@ -511,16 +517,19 @@ public final class CosmeticsScreen extends ThemedScreen {
 
     private void positionNavigation() {
         int y = navTop, clip = navBottom, endOfSection = y;
+        float groupTravel = 0, nextSectionTravel = 0;
         boolean animate = ConfigManager.uiAnimationsEnabled;
         for (int i = 0; i < sidebarControls.size(); i++) {
             var entry = sidebarControls.get(i);
             var widget = entry.widget();
             if (entry.header() != null) {
+                groupTravel = nextSectionTravel;
                 y = Math.max(navTop, endOfSection);
                 widget.setY(y - navScroll);
                 y += 28;
                 int index = entry.header().ordinal();
                 float progress = navTransitions[index].value(expanded == entry.header() ? 1 : 0, animate);
+                nextSectionTravel = groupTravel + navTransitions[index].travel() * navChildCounts[index] * 23;
                 endOfSection = y + Math.round(progress * navChildCounts[index] * 23);
                 clip = endOfSection - navScroll;
             } else {
@@ -528,6 +537,7 @@ public final class CosmeticsScreen extends ThemedScreen {
                 y += entry.parent() == null ? 26 : 23;
                 if (entry.parent() == null) endOfSection = y;
             }
+            navTravel[i] = entry.header() != null || entry.parent() != null ? groupTravel : 0;
             navClipBottom[i] = entry.parent() == null ? navBottom : clip;
         }
         navContentBottom = endOfSection;
@@ -795,6 +805,7 @@ public final class CosmeticsScreen extends ThemedScreen {
             return;
         }
         toggleRow("HUD Manager","",()->ConfigManager.hudLayoutEnabled,v->ConfigManager.hudLayoutEnabled=v);
+        toggleRow("5 px Grid","Show the grid and snap position changes to it.",()->ConfigManager.hudLayoutGrid,v->ConfigManager.hudLayoutGrid=v);
         var elements=List.of(HudLayout.Element.values());
         for(var element:elements)indexOption(element.label,"",rowY);
         dropdown("HUD Element",elements.stream().map(Enum::name).toList(),elements.stream().map(e->e.label).toList(),
@@ -802,12 +813,18 @@ public final class CosmeticsScreen extends ThemedScreen {
         var element=hudElement;
         toggleRow("Visible","",()->HudLayout.options(element).visible(),v->{var o=HudLayout.options(element);HudLayout.set(element,new HudLayout.Options(v,o.scale(),o.opacity(),o.x(),o.y()));});
         sliderGrid(List.of(
-            new NumericSetting("X Offset",()->HudLayout.options(element).x(),-width,width,1,0,v->{var o=HudLayout.options(element);HudLayout.set(element,new HudLayout.Options(o.visible(),o.scale(),o.opacity(),(float)v,o.y()));}),
-            new NumericSetting("Y Offset",()->HudLayout.options(element).y(),-height,height,1,0,v->{var o=HudLayout.options(element);HudLayout.set(element,new HudLayout.Options(o.visible(),o.scale(),o.opacity(),o.x(),(float)v));}),
+            new NumericSetting("X Offset",()->HudLayout.options(element).x(),-width,width,1,0,v->{var o=HudLayout.options(element);HudLayout.set(element,new HudLayout.Options(o.visible(),o.scale(),o.opacity(),hudOffset(v,width),o.y()));}),
+            new NumericSetting("Y Offset",()->HudLayout.options(element).y(),-height,height,1,0,v->{var o=HudLayout.options(element);HudLayout.set(element,new HudLayout.Options(o.visible(),o.scale(),o.opacity(),o.x(),hudOffset(v,height)));}),
             new NumericSetting("Scale",()->HudLayout.options(element).scale(),.25,3,.05,1,v->{var o=HudLayout.options(element);HudLayout.set(element,new HudLayout.Options(o.visible(),(float)v,o.opacity(),o.x(),o.y()));}),
             new NumericSetting("Opacity",()->HudLayout.options(element).opacity(),0,1,.05,1,v->{var o=HudLayout.options(element);HudLayout.set(element,new HudLayout.Options(o.visible(),o.scale(),(float)v,o.x(),o.y()));})
         ));
         fullButton("Reset HUD Element",()->{HudLayout.set(element,HudLayout.Options.DEFAULT);changed();rebuildWidgets();},false);
+    }
+
+    private static float hudOffset(double value, int dimension) {
+        if (!ConfigManager.hudLayoutGrid) return (float) value;
+        int limit = dimension / HudGrid.SPACING * HudGrid.SPACING;
+        return Math.clamp(HudGrid.snap(value), -limit, limit);
     }
 
     private void customSky(){
@@ -838,6 +855,13 @@ public final class CosmeticsScreen extends ThemedScreen {
         fullButton("Mode: "+("light".equals(ConfigManager.uiThemeMode)?"Light":"Dark"),()->{
             UiTheme.mode("light".equals(ConfigManager.uiThemeMode)?"dark":"light");rebuildWidgets();
         },false);
+        toggleRow("Frosted Glass", "Use translucent panels with a frosted background.", () -> ConfigManager.uiGlassTheme, enabled -> {
+            ConfigManager.uiGlassTheme = enabled;
+            rebuildWidgets();
+        });
+        sliderRow("Glass Opacity (%)", "Adjust how much of the world shows through the panels.",
+            () -> ConfigManager.uiGlassOpacity, 0, UiTheme.MAX_GLASS_OPACITY, 1,
+            UiTheme.DEFAULT_GLASS_OPACITY, opacity -> ConfigManager.uiGlassOpacity = (int) opacity);
         String[] names={"Sage","Ocean","Amber","Rose","Violet","Slate"};
         int[] colors={0x6DB29A,0x729FD4,0xD4A765,0xFFA8CA,0xAA98D1,0xA6B0BA};
         int columns=contentWidth>=350?3:2,gap=7,w=(contentWidth-(columns-1)*gap)/columns;
@@ -860,7 +884,11 @@ public final class CosmeticsScreen extends ThemedScreen {
         section("Motion & background", "");
         toggleRow("Interface Animations","",()->ConfigManager.uiAnimationsEnabled,v->ConfigManager.uiAnimationsEnabled=v).setTooltip(null);
         toggleRow("Background Blur","Optional GPU blur while a menu is open.",()->ConfigManager.uiBackgroundBlur,v->ConfigManager.uiBackgroundBlur=v);
-        fullButton("Reset Theme",()->{ConfigManager.uiAnimationsEnabled=true;ConfigManager.uiBackgroundBlur=false;UiTheme.mode("dark");UiTheme.accent(0xFFA8CA);rebuildWidgets();},false);
+        fullButton("Reset Theme", () -> {
+            ConfigManager.resetSettings("uiThemeMode", "uiAccentColor", "uiAnimationsEnabled", "uiBackgroundBlur", "uiGlassTheme", "uiGlassOpacity");
+            UiTheme.refresh();
+            rebuildWidgets();
+        }, false);
     }
 
     private void section(String title, String description) {
@@ -1187,7 +1215,6 @@ public final class CosmeticsScreen extends ThemedScreen {
         toggleRow("1.8 Held Skull", "Use the 1.8 size, position and rotation for first-person player heads.",
             () -> ConfigManager.legacyHeldSkull, v -> ConfigManager.legacyHeldSkull = v);
         var numbers = new ArrayList<NumericSetting>(List.of(
-            new NumericSetting("Item Scale", () -> ConfigManager.animationItemScale, 0.1, 2.5, 0.05, 1, v -> ConfigManager.animationItemScale = v),
             new NumericSetting("Position X", () -> ConfigManager.animationX, -2, 2, 0.01, 0, v -> ConfigManager.animationX = v),
             new NumericSetting("Position Y", () -> ConfigManager.animationY, -2, 2, 0.01, 0, v -> ConfigManager.animationY = v),
             new NumericSetting("Position Z", () -> ConfigManager.animationZ, -2, 2, 0.01, 0, v -> ConfigManager.animationZ = v),
@@ -1196,7 +1223,8 @@ public final class CosmeticsScreen extends ThemedScreen {
             new NumericSetting("Rotation Z", () -> ConfigManager.animationRotationZ, -50, 50, 1, 0, v -> ConfigManager.animationRotationZ = v),
             new NumericSetting("Swing X", () -> ConfigManager.animationSwingX, 0, 2, 0.01, 1, v -> ConfigManager.animationSwingX = v),
             new NumericSetting("Swing Y", () -> ConfigManager.animationSwingY, 0, 2, 0.01, 1, v -> ConfigManager.animationSwingY = v),
-            new NumericSetting("Swing Z", () -> ConfigManager.animationSwingZ, 0, 2, 0.01, 1, v -> ConfigManager.animationSwingZ = v)));
+            new NumericSetting("Swing Z", () -> ConfigManager.animationSwingZ, 0, 2, 0.01, 1, v -> ConfigManager.animationSwingZ = v),
+            new NumericSetting("Item Scale", () -> ConfigManager.animationItemScale, 0.1, 2.5, 0.05, 1, v -> ConfigManager.animationItemScale = v)));
         if (!ConfigManager.animationDisableSwing || ConfigManager.animationTerminatorOnly)
             numbers.add(new NumericSetting("Swing Speed", () -> ConfigManager.animationSwingSpeed, -2, 1, 0.05, 0, v -> ConfigManager.animationSwingSpeed = v));
         sliderGrid(numbers);
@@ -1265,6 +1293,14 @@ public final class CosmeticsScreen extends ThemedScreen {
             activity(); ConfigManager.nickTweaksNickChanger = limited; changed();
         });
         toggleRow("Bold Self Nick", "", () -> ConfigManager.nickTweaksBoldSelf, v -> ConfigManager.nickTweaksBoldSelf = v);
+        toggleRow("Italic Self Nick", "", () -> ConfigManager.nickTweaksItalicSelf, v -> ConfigManager.nickTweaksItalicSelf = v);
+        if (net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("minecraft").orElseThrow()
+                .getMetadata().getVersion().getFriendlyString().startsWith("26.3")) {
+            toggleRow("Old Render", "Draw the foreground after the see-through nametag layer.",
+                () -> ConfigManager.nickTweaksLegacyNametagOrder, value -> ConfigManager.nickTweaksLegacyNametagOrder = value);
+            toggleRow("Nametag Antialiasing", "Smooth the edges of world nametag text.",
+                () -> ConfigManager.nickTweaksNametagAntialiasing, value -> ConfigManager.nickTweaksNametagAntialiasing = value);
+        }
         fullButton("Blocked Nicknames",()->open(Page.BLOCKED_NICKS),false);
     }
 
@@ -1975,6 +2011,16 @@ public final class CosmeticsScreen extends ThemedScreen {
     }
 
     private void skyBlockLevel() {
+        int width = (contentWidth - 4) / 2;
+        add(new PinkUi.Action(contentX, rowY, width, 25, "Settings", false,
+            () -> openLevelColorTab(false)).selected(() -> !showLevelColorPresets));
+        add(new PinkUi.Action(contentX + width + 4, rowY, contentWidth - width - 4, 25, "Presets", false,
+            () -> openLevelColorTab(true)).selected(() -> showLevelColorPresets));
+        rowY += 34;
+        if (showLevelColorPresets) {
+            levelColorPresets();
+            return;
+        }
         toggleRow("Override SkyBlock Level", "Online mode shares the display with other CustomSkyBlock players.",
             () -> ConfigManager.skyBlockLevelEnabled, value -> ConfigManager.skyBlockLevelEnabled = value);
         var field = fieldRow("Displayed Level", "Displayed Level", Integer.toString(ConfigManager.skyBlockLevelValue),
@@ -2020,6 +2066,65 @@ public final class CosmeticsScreen extends ThemedScreen {
             int color = editingLevelDigit < colors.size() ? colors.get(editingLevelDigit) : -1;
             levelColorPicker(color < 0 ? SkyBlockLevel.tierColor(ConfigManager.skyBlockLevelValue) : color, this::setLevelDigitColor);
             fullButton("Reset Digit to Automatic", () -> { setLevelDigitColor(-1); changed(); rebuildWidgets(); }, false);
+        }
+    }
+
+    private void openLevelColorTab(boolean presets) {
+        if (showLevelColorPresets == presets) return;
+        showLevelColorPresets = presets;
+        scroll = 0;
+        activity();
+        setFocused(null);
+        rebuildWidgets();
+    }
+
+    private void levelColorPresets() {
+        int y = row(33);
+        int saveWidth = Math.min(contentWidth / 2, font.width(UiText.tr("Save / Update")) + 18);
+        var field = add(new PinkUi.Field(font, contentX + 2, y, contentWidth - saveWidth - 8, "Preset Name", 24));
+        field.setMaxLength(NicknamePresetStore.MAX_NAME_LENGTH);
+        field.setHint(UiText.component("Preset Name"));
+        field.setValue(levelColorPresetName);
+        field.setResponder(value -> { levelColorPresetName = value; activity(); });
+        add(new PinkUi.Action(contentX + contentWidth - saveWidth, y, saveWidth, 24, "Save / Update", true, () -> {
+            try {
+                SkyBlockLevelColors.savePreset(levelColorPresetName);
+                changed();
+                toast("Preset saved.");
+                rebuildWidgets();
+            } catch (IllegalArgumentException error) { toast(error.getMessage()); }
+        }));
+
+        var presets = ConfigManager.skyBlockLevelColorPresets;
+        if (presets.isEmpty()) {
+            label("No saved presets", contentX + 12, rowY, MUTED, contentWidth - 24);
+            rowY += 25;
+        }
+        for (var entry : presets.entrySet()) {
+            String name = entry.getKey();
+            var colors = entry.getValue();
+            var preview = SkyBlockLevelAppearance.preview(colors.preview(ConfigManager.skyBlockLevelValue));
+            int top = card(68), width = (contentWidth - 30) / 2;
+            int previewWidth = font.width(preview) + 12;
+            int previewX = contentX + contentWidth - previewWidth - 12;
+            rawLabel(name, contentX + 12, top + 11, TEXT, previewX - contentX - 20);
+            art.add(bounded(top, top + 30, g -> {
+                rounded(g, previewX, top + 5, previewWidth, 20, 5, 0xFF181B22);
+                g.text(font, preview, previewX + 6, top + 11, TEXT, false);
+            }));
+            add(new PinkUi.Action(contentX + 12, top + 33, width, 25, "Apply: " + name, false, () -> {
+                colors.apply();
+                levelColorPresetName = name;
+                changed();
+                toast("Preset applied.");
+                rebuildWidgets();
+            }));
+            add(new PinkUi.Action(contentX + 18 + width, top + 33, width, 25, "Delete: " + name, false, () -> {
+                SkyBlockLevelColors.removePreset(name);
+                changed();
+                toast("Preset deleted.");
+                rebuildWidgets();
+            }));
         }
     }
 
@@ -2454,19 +2559,23 @@ public final class CosmeticsScreen extends ThemedScreen {
         return new MouseButtonEvent(UiEntrance.pointer(event.x(),panelX+panelWidth/2d,entranceScale),UiEntrance.pointer(event.y(),panelY+panelHeight/2d,entranceScale),event.buttonInfo());
     }
     @Override public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
+        if (page == Page.HUD_LAYOUT && HudLayout.available() && ConfigManager.hudLayoutGrid) {
+            HudGrid.draw(g);
+            g.nextStratum();
+        }
         entranceScale=UiEntrance.scale(entrance.value(1,ConfigManager.uiAnimationsEnabled));
         boolean opening=entranceScale!=1;
         if(opening){
             mx=(int)Math.round(UiEntrance.pointer(mx,panelX+panelWidth/2d,entranceScale));
             my=(int)Math.round(UiEntrance.pointer(my,panelY+panelHeight/2d,entranceScale));
-            g.pose().pushMatrix();g.pose().translate(panelX+panelWidth/2f,panelY+panelHeight/2f);g.pose().scale(entranceScale,entranceScale);g.pose().translate(-panelX-panelWidth/2f,-panelY-panelHeight/2f);
+            ClickGuiChrome.pushEntrance(g, panelX, panelY, panelWidth, panelHeight, entranceScale, entrance.travel());
         }
         mouseX = mx; mouseY = my;
         NickRenderUtils.beginClickGuiRenderScope();
         try {
-            outline(g,panelX,panelY,panelWidth,panelHeight,5,BORDER,PANEL);
-            rounded(g,panelX+1,panelY+1,sideWidth,panelHeight-2,4,SIDEBAR);
-            g.fill(panelX + sideWidth, panelY + 1, panelX + sideWidth + 1, panelY + panelHeight - 1, BORDER);
+            ClickGuiChrome.draw(g, panelX, panelY, panelWidth, panelHeight, sideWidth, true);
+            if (!ConfigManager.uiGlassTheme)
+                g.fill(panelX + sideWidth, panelY + 1, panelX + sideWidth + 1, panelY + panelHeight - 1, BORDER);
             g.blit(MOD_LOGO,panelX+10,panelY+16,panelX+38,panelY+44,0f,1f,0f,1f);
             String brand = getTitle().getString();
             g.pose().pushMatrix();g.pose().translate(panelX+44,panelY+18);float brandScale=Math.min(1,(sideWidth-50)/(float)Math.max(1,font.width(brand)));g.pose().scale(brandScale,brandScale);g.text(font,brand,0,0,TEXT,false);g.pose().popMatrix();
@@ -2484,6 +2593,9 @@ public final class CosmeticsScreen extends ThemedScreen {
                 int bottom = navClipBottom[i];
                 g.enableScissor(panelX + 1, navTop, panelX + sideWidth - 6, bottom);
                 g.nextStratum();
+                var widget = entry.widget();
+                UiMotionTrail.edge(g,widget.getX()+2,widget.getY()+1,widget.getWidth()-4,widget.getHeight()-2,4,
+                    TEXT,0,navTravel[i]);
                 entry.widget().extractRenderState(g, mx, my >= navTop && my < bottom ? my : Integer.MIN_VALUE, dt);
                 if (entry.header() != null) {
                     g.text(font, expanded == entry.header() ? "▾" : "›", panelX + sideWidth - 21, entry.widget().getY() + 8, DIM, false);
@@ -2521,7 +2633,10 @@ public final class CosmeticsScreen extends ThemedScreen {
                 rounded(g, contentX + contentWidth + 6, bar.thumbStart((int) Math.round(scroll)), 3, bar.thumbLength(), 1, PINK);
             }
             float reveal=pageFade.value(1,ConfigManager.uiAnimationsEnabled);
-            if(reveal<1)g.fill(contentX-1,panelY+86,contentX+contentWidth+1,viewBottom,Math.round((1-reveal)*255)<<24|(PANEL&0xFFFFFF));
+            if(reveal<1){
+                g.nextStratum();
+                g.fill(contentX-1,panelY+86,contentX+contentWidth+1,viewBottom,alpha(PANEL,Math.round((1-reveal)*72)));
+            }
             if (System.currentTimeMillis() < noticeUntil) {
                 int tw = Math.min(contentWidth, font.width(notice) + 24);
                 int x = contentX + (contentWidth - tw) / 2;

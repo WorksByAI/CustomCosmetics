@@ -14,6 +14,11 @@ object ModuleManager : EventListener {
 
     fun initialise() {
         modules += listOf(
+            quoi.module.impl.general.LoadoutKeybinds,
+            quoi.module.impl.general.PetKeybinds,
+            quoi.module.impl.general.SlotBinds,
+            quoi.module.impl.render.SlayerNametags,
+            quoi.module.impl.misc.CustomTriggers,
             quoi.module.impl.dungeon.AutoBloodRush,
             quoi.module.impl.dungeon.autoclear.impl.AutoRoutes,
             quoi.module.impl.dungeon.autoclear.impl.InteractiveMap,

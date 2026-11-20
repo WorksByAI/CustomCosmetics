@@ -17,6 +17,17 @@ public final class QuoiDungeon {
         return ConfigManager.gameplayPanelConfirmed && ModErrors.active(ModErrors.Key.DUNGEON);
     }
 
+    public static boolean deviceEnabled() {
+        return GameplayModule.DEVICE.enabled();
+    }
+
+    static void deviceGateChanged() {
+        var client = Minecraft.getInstance();
+        if (!deviceEnabled() && client != null) AutoI4.reset(client);
+        var dungeon = menu();
+        if (dungeon != null) ModErrors.run(ModErrors.Key.DUNGEON, dungeon::deviceGateChanged);
+    }
+
     public static boolean hypixel() {
         return PresenceWorld.isHypixel(Minecraft.getInstance());
     }

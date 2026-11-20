@@ -16,6 +16,7 @@ import java.awt.Color;
 import java.util.Locale;
 import java.util.function.BooleanSupplier;
 import java.util.function.DoubleConsumer;
+import java.util.function.DoubleFunction;
 import java.util.function.IntConsumer;
 
 /** Native controls with small shared coverage sprites; no dependency on another mod. */
@@ -108,16 +109,25 @@ public final class PinkUi {
             if(!primary&&picked>0)bg=mix(bg,mix(CARD,PINK,.17),picked);
             int border=primary?PINK:isFocused()?PINK:leftAligned?bg:BORDER;
             if(hot||visual>.01f)border=mix(border,PINK,Math.max(0,warmth)*.65);
+            if (!primary && active && com.customcosmetics.config.ConfigManager.uiGlassTheme) {
+                int opacity = Math.round((leftAligned ? 0 : 116) + warmth * 80 + picked * 96);
+                bg = alpha(bg, opacity);
+                if (!isFocused()) border = alpha(leftAligned && !chosen ? TEXT : border,
+                    leftAligned ? Math.round(warmth * 42 + picked * 72) : hot ? 112 : 32);
+            }
             int x=getX(),y=getY();
             {
                 int inset=Math.clamp(Math.round(2-2*Math.clamp(visual,0,1)+compression),0,3);
                 int bx=x+inset,by=y+1,bw=width-inset*2,bh=height-2;
+                if (animate && active) UiMotionTrail.resize(g,bx,by,bw,bh,4,border,hover.travel()*2-press.travel(),0);
                 smoothOutline(g,bx,by,bw,bh,4,border,active?bg:SIDEBAR);
                 if(animate&&active&&sweep<1){
                     int band=Math.min(48,Math.max(18,bw/4));
                     int center=bx-band+Math.round((bw+band*2)*sweep);
+                    int tail=Math.clamp(Math.round((bw+band*2)*sheen.travel()),0,5);
                     for(int stripe=0;stripe<6;stripe++){
-                        int left=Math.max(bx+3,center-band/2+stripe*band/6),right=Math.min(bx+bw-3,center-band/2+(stripe+1)*band/6);
+                        int left=Math.max(bx+3,center-band/2-tail+stripe*(band+tail)/6);
+                        int right=Math.min(bx+bw-3,center-band/2-tail+(stripe+1)*(band+tail)/6);
                         if(right>left)g.fill(left,by+3,right,by+bh-3,alpha(TEXT,5+(stripe<3?stripe:5-stripe)*5));
                     }
                 }
@@ -192,7 +202,8 @@ public final class PinkUi {
             if(visual>.01f)outline(g,switchX-2,getY()-2,38,height+4,10,alpha(PINK,Math.round(50*visual)),0);
             outline(g,switchX,getY(),34,height,9,mix(BORDER,PINK,over),mix(HOVER,PINK,at));
             int stretch=animate?Math.round(3*4*at*(1-at)+Math.max(0,push)*2):0;
-            rounded(g,switchX+3+Math.round(at*16)-stretch/2,getY()+3+stretch/2,12+stretch,12-stretch,6,at>.65?INK:TEXT);
+            UiMotionTrail.knob(g,switchX+3+at*16-stretch/2f,getY()+3+stretch/2,
+                12+stretch,12-stretch,6,mix(TEXT,INK,Math.clamp((at-.5f)*3,0,1)),position.travel()*16);
         }
     }
 
@@ -201,6 +212,8 @@ public final class PinkUi {
         private final double min, max, step;
         private final DoubleConsumer setter;
         private int labelSpace;
+        private DoubleFunction<String> valueFormatter;
+        private String displayValue;
         private final UiMotion knob;
         private final UiMotion hover=new UiMotion(0,UiMotion.Curve.SPRING);
 
@@ -217,22 +230,37 @@ public final class PinkUi {
 
         public double actual() { return Math.clamp(Math.round((min + value * (max - min)) / step) * step, min, max); }
         public Slider labelSpace(int pixels) { labelSpace = pixels; return this; }
+        public Slider showValue(DoubleFunction<String> formatter) {
+            valueFormatter = formatter;
+            updateMessage();
+            return this;
+        }
         public void setActual(double actual) { setValue(Math.clamp((actual - min) / (max - min), 0, 1)); }
         @Override protected void updateMessage() {
-            setMessage(Component.literal(String.format(Locale.ROOT, "%s: %.2f", label, actual())));
+            displayValue = valueFormatter == null ? null : valueFormatter.apply(actual());
+            setMessage(Component.literal(label + ": " + (displayValue == null
+                ? String.format(Locale.ROOT, "%.2f", actual()) : displayValue)));
         }
         @Override protected void applyValue() { setter.accept(actual()); }
         @Override public void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
             Font font = UiFonts.get(Minecraft.getInstance().font);
-            text(g, font, displayLabel, getX(), getY(), TEXT, width - labelSpace);
+            int labelWidth = width - labelSpace;
+            if (displayValue != null) {
+                int valueWidth = font.width(displayValue);
+                g.text(font, displayValue, getX() + labelWidth - valueWidth, getY(), TEXT, false);
+                labelWidth -= valueWidth + 6;
+            }
+            text(g, font, displayLabel, getX(), getY(), TEXT, labelWidth);
             int trackY = getY() + 21;
             rounded(g, getX(), trackY, width, 3, 1, BORDER);
-            int progress = Math.round(knob.value((float)value,com.customcosmetics.config.ConfigManager.uiAnimationsEnabled)*(width-8));
-            rounded(g, getX(), trackY, progress + 4, 3, 1, PINK);
+            float progress = knob.value((float)value,com.customcosmetics.config.ConfigManager.uiAnimationsEnabled)*(width-8);
+            int progressPixel = Math.round(progress);
+            rounded(g, getX(), trackY, progressPixel + 4, 3, 1, PINK);
             float over=hover.value(isMouseOver(mx,my)&&active?1:0,com.customcosmetics.config.ConfigManager.uiAnimationsEnabled);
             int grow=com.customcosmetics.config.ConfigManager.uiAnimationsEnabled?Math.round(over*2):0;
-            if(grow>0)rounded(g,getX()+progress-4,trackY-7,16,17,8,alpha(PINK,Math.round(28*over)));
-            rounded(g,getX()+progress-grow/2,trackY-3-grow/2,8+grow,9+grow,4,isHoveredOrFocused()?TEXT:PINK);
+            if(grow>0)rounded(g,getX()+progressPixel-4,trackY-7,16,17,8,alpha(PINK,Math.round(28*over)));
+            UiMotionTrail.knob(g,getX()+progress-grow/2f,trackY-3-grow/2,8+grow,9+grow,4,
+                isHoveredOrFocused()?TEXT:PINK,knob.travel()*(width-8));
         }
     }
 
@@ -266,8 +294,11 @@ public final class PinkUi {
 
         @Override public void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
             float focused=focus.value(isFocused()?1:0,com.customcosmetics.config.ConfigManager.uiAnimationsEnabled);
-            outline(g,getX()-paddingX,getY()-paddingY,width+paddingX*2,boxHeight,4,
-                invalid?0xFFDA7771:mix(BORDER,PINK,focused),SIDEBAR);
+            boolean glass = com.customcosmetics.config.ConfigManager.uiGlassTheme;
+            int edge = invalid ? 0xFFDA7771 : mix(BORDER, PINK, focused);
+            if (glass && !invalid) edge = alpha(edge, Math.round(72 + 160 * focused));
+            outline(g,getX()-paddingX,getY()-paddingY,width+paddingX*2,boxHeight,glass ? 7 : 4,
+                edge,glass ? alpha(SIDEBAR,128) : SIDEBAR);
             if(focused>.01f){
                 int boxX=getX()-paddingX,boxY=getY()-paddingY,total=width+paddingX*2;
                 int span=Math.round((total-8)*focused),center=boxX+total/2;

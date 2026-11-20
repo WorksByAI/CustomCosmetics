@@ -6,16 +6,22 @@ public final class TooltipMotion {
     private Object owner;
     private long last;
     private double x,y;
+    private float travelX,travelY;
     private boolean initialized;
     public void update(Object nextOwner,double targetX,double targetY,boolean animate,long now){
+        travelX=travelY=0;
         if(!initialized||owner!=nextOwner||!animate||now-last>100_000_000L||now<last){x=targetX;y=targetY;initialized=true;}
         else if(x!=targetX||y!=targetY){
             double blend=-Math.expm1(-Math.max(0,now-last)/30_000_000.0);
             x+=(targetX-x)*blend;y+=(targetY-y)*blend;
             if(Math.abs(targetX-x)<.001)x=targetX;if(Math.abs(targetY-y)<.001)y=targetY;
+            travelX=(float)((targetX-x)*.41);
+            travelY=(float)((targetY-y)*.41);
         }
         owner=nextOwner;last=now;
     }
     public double x(double pixels){return Math.round(x*pixels)/pixels;}
     public double y(double pixels){return Math.round(y*pixels)/pixels;}
+    float travelX(){return travelX;}
+    float travelY(){return travelY;}
 }

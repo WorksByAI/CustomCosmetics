@@ -9,6 +9,73 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ConfigManagerTest {
+    @Test void skyBlockColorPresetsRoundTripWithIndependentModes() throws Exception {
+        var original = com.customcosmetics.features.nickname.SkyBlockLevelColors.capture();
+        var previousPresets = ConfigManager.skyBlockLevelColorPresets;
+        var file = directory.resolve("level-colors.json");
+        try {
+            var custom = new com.customcosmetics.features.nickname.SkyBlockLevelColors("custom", 0x8040EE, List.of());
+            var digits = new com.customcosmetics.features.nickname.SkyBlockLevelColors("digits", 0, List.of(0xABCDEF, -1));
+            ConfigManager.skyBlockLevelColorPresets = Map.of();
+            custom.apply();
+            com.customcosmetics.features.nickname.SkyBlockLevelColors.savePreset("Single color");
+            digits.apply();
+            com.customcosmetics.features.nickname.SkyBlockLevelColors.savePreset("Digits");
+            var expected = ConfigManager.skyBlockLevelColorPresets;
+            ConfigManager.save(file);
+            ConfigManager.skyBlockLevelColorPresets = Map.of();
+            ConfigManager.load(file);
+            assertEquals(expected, ConfigManager.skyBlockLevelColorPresets);
+            assertEquals(custom, ConfigManager.skyBlockLevelColorPresets.get("single color"));
+            assertEquals(List.of(0xABCDEF, 0xAAAAAA), ConfigManager.skyBlockLevelColorPresets.get("Digits").preview(13).colors());
+        } finally {
+            original.apply();
+            ConfigManager.skyBlockLevelColorPresets = previousPresets;
+        }
+    }
+
+    @Test void oldThemesMigrateOnceAndFutureChoicesPersist() throws Exception {
+        var file = directory.resolve("theme.json");
+        String previousMode = ConfigManager.uiThemeMode;
+        boolean previousGlass = ConfigManager.uiGlassTheme;
+        boolean previousBlur = ConfigManager.uiBackgroundBlur;
+        int previousOpacity = ConfigManager.uiGlassOpacity;
+        try {
+            ConfigManager.resetSettings("uiThemeMode", "uiGlassTheme", "uiGlassOpacity");
+            assertEquals("light", ConfigManager.uiThemeMode);
+            assertTrue(ConfigManager.uiGlassTheme);
+            assertEquals(80, ConfigManager.uiGlassOpacity);
+
+            Files.writeString(file, """
+                {"version":1,"settings":{"uiThemeMode":"dark","uiGlassTheme":false,"uiGlassOpacity":63}}
+                """);
+            ConfigManager.load(file);
+            assertEquals("light", ConfigManager.uiThemeMode);
+            assertTrue(ConfigManager.uiGlassTheme);
+            assertEquals(63, ConfigManager.uiGlassOpacity);
+            ConfigManager.save(file);
+            assertEquals(2, JsonParser.parseString(Files.readString(file)).getAsJsonObject().get("version").getAsInt());
+
+            ConfigManager.uiThemeMode = "dark";
+            ConfigManager.uiGlassTheme = false;
+            ConfigManager.uiBackgroundBlur = false;
+            ConfigManager.uiGlassOpacity = 0;
+            ConfigManager.save(file);
+            ConfigManager.resetSettings("uiThemeMode", "uiGlassTheme", "uiGlassOpacity");
+            ConfigManager.uiBackgroundBlur = true;
+            ConfigManager.load(file);
+            assertFalse(ConfigManager.uiBackgroundBlur);
+            assertEquals("dark", ConfigManager.uiThemeMode);
+            assertFalse(ConfigManager.uiGlassTheme);
+            assertEquals(0, ConfigManager.uiGlassOpacity);
+        } finally {
+            ConfigManager.uiThemeMode = previousMode;
+            ConfigManager.uiGlassTheme = previousGlass;
+            ConfigManager.uiBackgroundBlur = previousBlur;
+            ConfigManager.uiGlassOpacity = previousOpacity;
+        }
+    }
+
     @Test void autoClickMigratesLegacyCpsWithoutReplacingNewSettings() throws Exception {
         var file = directory.resolve("auto-click.json");
         Files.writeString(file, "{\"settings\":{\"autoClickerLeftMin\":8,\"autoClickerLeftMax\":13,"

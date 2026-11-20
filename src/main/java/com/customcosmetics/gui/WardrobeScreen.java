@@ -70,10 +70,13 @@ public final class WardrobeScreen extends ThemedScreen {
         widgets.add(addWidget(new PinkUi.Slider(x,y,w,title,value,min,max,step,setter)));
     }
     @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float dt){
-        outline(g,x,y,w,h,11,BORDER,PANEL);UiFonts.drawTitle(g,UiText.tr("Wardrobe"),x+16,y+16,PINK,contentX-x-32);
-        if(previewH>0){rounded(g,contentX,previewTop,contentW,previewH+5,6,CARD);
+        ClickGuiChrome.drawPanel(g,x,y,w,h,11);
+        g.nextStratum();
+        UiFonts.drawTitle(g,UiText.tr("Wardrobe"),x+16,y+16,PINK,contentX-x-32);
+        int previewTint = ClickGuiChrome.previewTint();
+        if(previewH>0){rounded(g,contentX,previewTop,contentW,previewH+5,6,previewTint);
             int half=contentW/2;CapePreview.drawAccessories(g,contentX,previewTop+1,half,previewH-12,true,camera);CapePreview.drawAccessories(g,contentX+half,previewTop+1,half,previewH-12,false,camera);uiText(g,font,"Drag to rotate · Scroll to zoom",contentX+10,previewTop+previewH-9,MUTED,contentW-20);}
-        else{int side=contentX-x-20;rounded(g,x+10,y+122,side-8,h-161,6,CARD);CapePreview.drawAccessories(g,x+10,y+124,side-8,h-165,true,camera);}
+        else{int side=contentX-x-20;rounded(g,x+10,y+122,side-8,h-161,6,previewTint);CapePreview.drawAccessories(g,x+10,y+124,side-8,h-165,true,camera);}
         text(g,font,UiText.slotLabel(slot,AccessoryCatalog.slot(slot).label())+" · "+(page+1)+" / "+((AccessoryCatalog.styles(slot,collection).size()+perPage-1)/perPage)+" · "+UiText.tr(AccessoryCatalog.count(collection)+" styles"),contentX+40,styleFooterY+5,PINK,contentW-80);
         if(MiniMePet.selected(AccessoryCatalog.style(slot,ConfigManager.accessories.part(slot).style())))uiText(g,font,"Uses the wearer's skin, including outer layers.",contentX,colorsY+9,MUTED,contentW);
         else{uiText(g,font,"Color",contentX,colorsY+9,TEXT,52);uiText(g,font,"Accent",contentX+(contentW-12)/2+12,colorsY+9,TEXT,52);}

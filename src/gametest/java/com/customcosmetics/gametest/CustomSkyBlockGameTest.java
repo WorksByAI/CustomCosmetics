@@ -82,19 +82,19 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
             click(client, "I understand", false);
             check(ConfigManager.gameplayPanelConfirmed, "Confirmation was not saved");
             var a = widget(client, "Auto Book Combine", false);
-            var b = widget(client, "Auto Click", false);
+            var b = widget(client, "Auto Clicker", false);
             var c = widget(client, "Auto Experiments", false);
             check(a.getY() == b.getY() && b.getY() == c.getY() && a.getX() < b.getX() && b.getX() < c.getX(),
                 "Modules were not laid out in three sorted columns");
-            click(client, "Auto Click", false, ClientInput.MOUSE_RIGHT);
+            click(client, "Auto Clicker", false, ClientInput.MOUSE_RIGHT);
             check(widget(client, "Left Click Keybind", false) instanceof PinkUi.Action
                 && widget(client, "Right CPS:", false) instanceof PinkUi.Slider
                 && widget(client, "CPS Jitter:", false) instanceof PinkUi.Slider
                 && widget(client, "Required Key:", false) instanceof PinkUi.Action
                 && widget(client, "Reverse Required Key", false) instanceof PinkUi.Action, "Auto Click controls are missing");
-            check(widget(client, "Search modules", false).visible && widget(client, "Auto Click", false).visible,
+            check(widget(client, "Search modules", false).visible && widget(client, "Auto Clicker", false).visible,
                 "Settings replaced the module list");
-            click(client, "Auto Click", false, ClientInput.MOUSE_RIGHT);
+            click(client, "Auto Clicker", false, ClientInput.MOUSE_RIGHT);
             click(client, "Auto Book Combine", false, ClientInput.MOUSE_RIGHT);
             check(widget(client, "Anvil Result Delay (ticks):", false) instanceof PinkUi.Slider,
                 "Auto Book Combine result delay is missing");
@@ -110,7 +110,9 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
             ConfigManager.experimentAutoClose = ConfigManager.experimentGetMax = false;
             click(client, "Auto Experiments", false, ClientInput.MOUSE_RIGHT);
             click(client, "Dungeon", false);
-            click(client, "Auto I4", false, ClientInput.MOUSE_RIGHT);
+            ((PinkUi.Field) widget(client, "Search modules", false)).setValue("Device");
+            click(client, "Device", false, ClientInput.MOUSE_RIGHT);
+            click(client, "Auto I4", false);
             click(client, "Precise I4 Aim", false);
             check(!ConfigManager.autoI4Precise && !GameplayModule.AUTO_I4.enabled(), "Precision setting also toggled Auto I4");
             click(client, "Precise I4 Aim", false);
@@ -122,7 +124,7 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
             click(client, "Auto Mask", false);
             check(ConfigManager.autoI4Mask && !ConfigManager.autoI4Leap, "Auto Mask also enabled Auto Leap");
             ConfigManager.autoI4Rod = ConfigManager.autoI4Mask = false;
-            click(client, "Auto I4", false, ClientInput.MOUSE_RIGHT);
+            click(client, "Device", false, ClientInput.MOUSE_RIGHT);
             var leap = (PinkUi.Field) widget(client, "Search modules", false);
             leap.setValue("Health and Mana");
             check(ClientUiAccess.screen(client).children().stream().noneMatch(child -> child instanceof PinkUi.Action action
@@ -137,7 +139,7 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
                 .map(AbstractWidget.class::cast).noneMatch(widget -> List.of("Kuudra", "Slayer").contains(widget.getMessage().getString())),
                 "Retired categories are still visible");
             for (var module : GameplayModule.values()) {
-                if (!module.localControl()) continue;
+                if (!module.localControl() || module == GameplayModule.AUTO_I4 || module == GameplayModule.DEVICE) continue;
                 ((PinkUi.Field) widget(client, "Search modules", false)).setValue(module.label);
                 var card = widget(client, module.label, false);
                 int collapsedCount = ClientUiAccess.screen(client).children().size();
@@ -462,10 +464,10 @@ public final class CustomSkyBlockGameTest implements FabricClientGameTest {
 
     private static void verifySettingsReset(ClientGameTestContext context) {
         context.runOnClient(client -> {
-            ((PinkUi.Field) widget(client, "Search modules", false)).setValue("Auto Click");
+            ((PinkUi.Field) widget(client, "Search modules", false)).setValue("Auto Clicker");
             ConfigManager.autoClickerLeftCps = 19;
             ConfigManager.harpClickDelay = 4;
-            click(client, "Auto Click", false, ClientInput.MOUSE_RIGHT);
+            click(client, "Auto Clicker", false, ClientInput.MOUSE_RIGHT);
             click(client, "Reset Settings", false);
             check(ConfigManager.autoClickerLeftCps == 19, "First click reset Auto Clicker");
         });

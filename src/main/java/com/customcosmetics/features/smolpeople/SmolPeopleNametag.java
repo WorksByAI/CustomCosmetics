@@ -7,8 +7,6 @@
  */
 package com.customcosmetics.features.smolpeople;
 
-import com.customcosmetics.gui.module.Module;
-import com.customcosmetics.gui.module.ModuleManager;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 
@@ -17,11 +15,6 @@ public final class SmolPeopleNametag {
     public static final float VERTICAL_OFFSET = -0.4f;
 
     private SmolPeopleNametag() {
-    }
-
-    public static boolean isSmolPeopleActive() {
-        Module module = ModuleManager.getModuleByName("SmolPeople");
-        return module != null && module.isEnabled();
     }
 
     public static boolean usesSmolNametag(int entityId) {

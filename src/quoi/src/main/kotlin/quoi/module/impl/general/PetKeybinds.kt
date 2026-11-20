@@ -1,6 +1,9 @@
 package quoi.module.impl.general
 
+import com.mojang.blaze3d.platform.InputConstants
 import kotlinx.coroutines.launch
+import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper
+import net.minecraft.world.inventory.ChestMenu
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
 import net.minecraft.network.chat.HoverEvent
 import net.minecraft.network.chat.MutableComponent
@@ -12,9 +15,11 @@ import quoi.api.events.core.EventListener
 import quoi.api.events.core.asyncScope
 import quoi.api.events.core.on
 import quoi.api.input.Keybinds
+import quoi.api.skyblock.location.Location
 import quoi.config.Config
 import quoi.module.Module
 import quoi.module.settings.UIComponent.Companion.childOf
+import quoi.module.settings.UIComponent.Companion.visibleIf
 import quoi.module.settings.impl.KeybindComponent
 import quoi.module.settings.impl.MapSetting
 import quoi.utils.ChatUtils.button
@@ -43,10 +48,14 @@ object PetKeybinds : Module(
     private val unequipKeybind by keybind("Unequip", desc = "Unequips the current pet.")
     private val nextPageKeybind by keybind("Next page", desc = "Goes to the next page.")
     private val previousPageKeybind by keybind("Previous page", desc = "Goes to the previous page.")
-    private val noUnequip by switch("Disable unequip", desc = "Prevents using a pets keybind to unequip a pet. Does not prevent unequip keybind or normal clicking.")
+    private val useHotbarKeys by switch("Use hotbar keybinds", true, desc = "Uses Minecraft’s current hotbar keys instead of the custom pet keys.")
+    private val blockOtherClicks by switch("Block other clicks", desc = "Blocks mouse clicks in the Pets menu unless you hold the override key or press a bound pet key.")
+    private val clickOverride by keybind("Click override key", Keybinds.KEY_LEFT_CONTROL, "Hold to permit regular mouse clicks.")
+        .childOf(::blockOtherClicks)
+    private val noUnequip by switch("Disable unequip", true, desc = "Prevents using a pets keybind to unequip a pet. Does not prevent unequip keybind or normal clicking.")
     private val closeIfAlreadyEquipped by switch("Close if already equipped", desc = "If the pet is already equipped, closes the Pets menu instead.")
 
-    private val advanced by text("Keybinds")
+    private val advanced by text("Custom pet keybinds").visibleIf { !useHotbarKeys }
     private val petKeys = listOf(
         Keybinds.KEY_1, Keybinds.KEY_2, Keybinds.KEY_3,
         Keybinds.KEY_4, Keybinds.KEY_5, Keybinds.KEY_6,
@@ -59,6 +68,8 @@ object PetKeybinds : Module(
     private val petsRegex = Regex("""^(?:\((\d+)/(\d+)\) )?Pets(?: \((\d+)/(\d+)\))?$""", RegexOption.IGNORE_CASE)
 
     val petMap by MapSetting("PetKeys map", mutableMapOf<String, String>())
+
+    private val petSlots = listOf(10, 11, 12, 13, 14, 15, 16, 19, 20)
 
     private var petsCache = emptyList<ItemStack>()
 
@@ -90,7 +101,7 @@ object PetKeybinds : Module(
         petCommand.sub("add") {
             val item = if (player.mainHandItem.skyblockId == "PET") player.mainHandItem else null
             val uuid = item?.skyblockUuid ?: return@sub modMessage("§cYou can only add pets to the pet list!")
-            if (petMap.size >= 9) return@sub modMessage("§cYou cannot add more than 9 pets to the list. Remove a pet using §e/petkeys remove §cor clear the list using §e/petkeys clear§c.")
+            if (petMap.size >= 9) return@sub modMessage("§cYou cannot add more than 9 pets to the list. Remove a pet using §e/csbdungeon petkeybinds remove §cor clear the list using §e/csbdungeon petkeybinds clear§c.")
             if (uuid in petMap) return@sub modMessage("§cThis pet is already in the list!")
 
             val name = SkyblockPet.cleanName(item.hoverName.string)
@@ -130,7 +141,8 @@ object PetKeybinds : Module(
         }.description("Removes the pet from the pet list.").suggests { petMap.entries.map { (uuid, name) -> "$uuid $name" } }
 
         on<GuiEvent.Click> {
-            if (state && screen is AbstractContainerScreen<*> && onClick(screen, button - 100)) cancel()
+            if (!state || screen !is AbstractContainerScreen<*> || !isPetsMenu(screen)) return@on
+            if (onClick(screen, button - 100) || blockOtherClicks && !clickOverride.isDown()) cancel()
         }
 
         on<GuiEvent.Key.Press> {
@@ -145,7 +157,7 @@ object PetKeybinds : Module(
             val command = if (uuid !in petMap) "addfromuuidname" else "removefromuuidname"
             val hoverText = if (uuid !in petMap) "Click to add!" else "Click to remove!"
 
-            result.append(button(symbol, "/quoi petkeybinds $command $source $uuid $name", hoverText))
+            result.append(button(symbol, "/csbdungeon petkeybinds $command $source $uuid $name", hoverText))
             result.append(literal(" "))
 
             val heldStr = if (heldItem != null) " &7($heldItem)" else ""
@@ -159,33 +171,44 @@ object PetKeybinds : Module(
         return result
     }
 
+    private fun isPetsMenu(screen: AbstractContainerScreen<*>): Boolean =
+        Location.inSkyblock && (screen.menu as? ChestMenu)?.rowCount == 6 && petsRegex.matches(screen.title.string)
+
     private fun onClick(screen: AbstractContainerScreen<*>, keyCode: Int): Boolean {
+        if (!isPetsMenu(screen) || keyCode == Keybinds.KEY_NONE) return false
         val title = petsRegex.matchEntire(screen.title.string) ?: return false
         val current = (title.groupValues[1].ifEmpty { title.groupValues[3] }).toIntOrNull() ?: 1
         val total = (title.groupValues[2].ifEmpty { title.groupValues[4] }).toIntOrNull() ?: 1
         var slot = when (keyCode) {
-            nextPageKeybind.key ->
+            nextPageKeybind.key.takeIf { nextPageKeybind.isModifierDown() } ->
                 if (current < total) 53
                 else return false.also { modMessage("§cYou are already on the last page.") }
 
-            previousPageKeybind.key ->
+            previousPageKeybind.key.takeIf { previousPageKeybind.isModifierDown() } ->
                 if (current > 1) 45
                 else return false.also { modMessage("§cYou are already on the first page.") }
 
-            unequipKeybind.key ->
+            unequipKeybind.key.takeIf { unequipKeybind.isModifierDown() } ->
                 screen.menu.slots.subList(10, 44)
                     .indexOfFirst { it.item.loreString?.contains("Click to despawn!") == true }
                     .takeIf { it != -1 }?.plus(10) ?: return false.also { modMessage("§cCouldn't find equipped pet") }
 
             else -> {
-                val petIndex = petKeys.indexOfFirst { it.key == keyCode }.takeIf { it != -1 } ?: return false
-                petMap.entries.elementAtOrNull(petIndex)?.let { (uuid, _) ->
-                    screen.menu.slots.subList(10, 44).indexOfFirst { it?.item?.skyblockUuid == uuid }
-                }?.takeIf { it != -1 }?.plus(10) ?: return false
+                val petIndex = if (useHotbarKeys) {
+                    mc.options.keyHotbarSlots.indexOfFirst { mapping ->
+                        val bound = KeyMappingHelper.getBoundKeyOf(mapping)
+                        bound.type == InputConstants.Type.KEYSYM && bound.value == keyCode ||
+                            bound.type == InputConstants.Type.MOUSE && bound.value - 100 == keyCode
+                    }
+                } else petKeys.indexOfFirst { it.key == keyCode && it.isModifierDown() }
+                val uuid = petMap.keys.elementAtOrNull(petIndex)
+                if (uuid == null) petSlots.getOrNull(petIndex)
+                    ?.takeIf { screen.menu.slots[it].item.skyblockId == "PET" } ?: return false
+                else (10..43).firstOrNull { screen.menu.slots[it].item.skyblockUuid == uuid } ?: return false
             }
         }
 
-        if (screen.menu.slots[slot].item.loreString?.contains("Click to despawn!") == true && unequipKeybind.key != keyCode) {
+        if (screen.menu.slots[slot].item.loreString?.contains("Click to despawn!") == true && !(unequipKeybind.key == keyCode && unequipKeybind.isModifierDown())) {
             if (closeIfAlreadyEquipped) slot = 49
             else if (noUnequip) return false
         }

@@ -6,8 +6,14 @@ public record StudioLayout(int x, int y, int width, int height, int sidebarWidth
                            int contentX, int contentWidth, int contentTop, int contentBottom,
                            int navigationTop, int navigationBottom) {
     public static StudioLayout of(int screenWidth, int screenHeight) {
-        int width = Math.min(820, Math.max(1, screenWidth - (screenWidth < 440 ? 16 : 24)));
-        int height = Math.min(510, Math.max(1, screenHeight - 20));
+        return of(screenWidth, screenHeight, false);
+    }
+
+    public static StudioLayout of(int screenWidth, int screenHeight, boolean glass) {
+        int horizontalMargin = screenWidth < 440 ? 16 : glass ? 64 : 24;
+        int verticalMargin = glass && screenHeight >= 400 ? 64 : 20;
+        int width = Math.min(820, Math.max(1, screenWidth - horizontalMargin));
+        int height = Math.min(510, Math.max(1, screenHeight - verticalMargin));
         int x = (screenWidth - width) / 2, y = (screenHeight - height) / 2;
         int sidebar = width < 440 ? 112 : 146;
         int gap = width < 440 ? 12 : 20;

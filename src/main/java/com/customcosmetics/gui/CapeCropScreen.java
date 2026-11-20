@@ -31,7 +31,9 @@ public final class CapeCropScreen extends ThemedScreen {
         addRenderableWidget(new PinkUi.Action(x+34+cell*2,y+h-32,cell,22,"Cancel",false,this::onClose));
     }
     @Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float dt){
-        outline(g,x,y,w,h,10,BORDER,PANEL);uiText(g,font,"Crop Cape",x+14,y+15,PINK,w-28);
+        ClickGuiChrome.drawPanel(g,x,y,w,h,10);
+        g.nextStratum();
+        uiText(g,font,"Crop Cape",x+14,y+15,PINK,w-28);
         if(texture!=null)g.blit(texture,(int)bx,(int)by,(int)(bx+source.getWidth()*scale),(int)(by+source.getHeight()*scale),0,1,0,1);
         int left=(int)(bx+crop.x()*scale),top=(int)(by+crop.y()*scale),right=(int)(bx+(crop.x()+crop.width())*scale),bottom=(int)(by+(crop.y()+crop.height())*scale);
         g.fill((int)bx,(int)by,(int)(bx+source.getWidth()*scale),top,0x90000000);g.fill((int)bx,bottom,(int)(bx+source.getWidth()*scale),(int)(by+source.getHeight()*scale),0x90000000);

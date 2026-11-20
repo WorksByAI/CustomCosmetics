@@ -89,6 +89,8 @@
     "LocalFontSamplingMixin$Gui",
     "LocalFontSampling263Mixin$World",
     "LocalFontSampling263Mixin$Gui",
+    "RoundedGuiSamplingMixin",
+    "RoundedGuiSampling263Mixin",
     "ModerationConnectMixin$ScreenHook",
     "ModerationConnectMixin$Connector",
     "ModerationDisconnectMixin",
@@ -164,14 +166,21 @@
     "SmolPeopleMixin$SmolNameTagMixin",
     "SmolPeopleMixin$SmolPlayerEntityRendererMixin",
     "SmolPeopleMixin$SmolPlayerRendererMixin",
-    "SmolPeopleMixin$SmolCameraMixin",
     "NickTweaksMixin$FontMixin",
     "NickTweaksMixin$Frame",
     "NickTweaksMixin$ScreenGuiTextScopeMixin",
     "ModMenuNickTweaksMixin$ModMenuScreenMixin",
     "NametagMixin$IdentityMixin",
     "NametagMixin$EntityMixin",
-    "NametagMixin$TextMixin"
+    "NametagMixin$TextMixin",
+    "LegacyNametagOrder263Mixin$Collection",
+    "LegacyNametagOrder263Mixin$Frame",
+    "LegacyNametagOrder263Mixin$World",
+    "NametagAntialiasing263Mixin$Submission",
+    "NametagAntialiasing263Mixin$TextRenderer",
+    "NametagAntialiasing263Mixin$GlyphRenderer",
+    "NametagAntialiasing263Mixin$TextShader",
+    "NametagAntialiasing263Mixin$DrawType"
   ],
   "injectors": {
     "defaultRequire": 1
