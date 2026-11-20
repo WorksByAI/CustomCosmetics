@@ -8,16 +8,26 @@
 package com.customcosmetics.mixin;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.customcosmetics.features.smolpeople.SmolPlayers;
 import com.customcosmetics.features.smolpeople.SmolPeopleNametag;
+import net.minecraft.client.Camera;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.player.PlayerModel;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.entity.player.AvatarRenderer;
 import net.minecraft.client.renderer.entity.state.AvatarRenderState;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -26,6 +36,40 @@ public class SmolPeopleMixin {
 
     private static final String AVATAR_SUBMIT_NAME_DISPLAY =
         "submitNameDisplay(Lnet/minecraft/client/renderer/entity/state/AvatarRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V";
+
+    @Mixin(Camera.class)
+    public abstract static class SmolCameraMixin {
+        @Shadow protected abstract void setPosition(Vec3 position);
+
+        @WrapOperation(method = "alignWithEntity", at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/client/Camera;getMaxZoom(F)F"))
+        private float customcosmetics$alignFrontCamera(Camera camera, float distance, Operation<Float> original,
+                                                       float partialTick) {
+            var client = Minecraft.getInstance();
+            var player = client.player;
+            if (client.options.getCameraType() != CameraType.THIRD_PERSON_FRONT
+                || player == null || camera.entity() != player || player.isPassenger()
+                || (player.getPose() != Pose.STANDING && player.getPose() != Pose.CROUCHING)
+                || !SmolPlayers.shouldApplySmolTo(player.getId())) return original.call(camera, distance);
+
+            Vec3 vanillaPivot = camera.position();
+            double eyeHeight = vanillaPivot.y - player.getPosition(partialTick).y;
+            // Match the miniature model's face from the pivot so vanilla tests the adjusted camera path.
+            Vec3 smolPivot = vanillaPivot.add(0, -eyeHeight * 0.4, 0);
+            var hit = player.level().clip(new ClipContext(vanillaPivot, smolPivot,
+                ClipContext.Block.VISUAL, ClipContext.Fluid.NONE, player));
+            if (hit.getType() != HitResult.Type.MISS) return original.call(camera, distance);
+
+            setPosition(smolPivot);
+            float zoom = original.call(camera, distance);
+            Vec3 cameraEnd = smolPivot.subtract(new Vec3(camera.forwardVector()).scale(zoom));
+            // The vanilla corner rays can leave the camera center slightly past a flat block face.
+            var centerHit = player.level().clip(new ClipContext(smolPivot, cameraEnd,
+                ClipContext.Block.VISUAL, ClipContext.Fluid.NONE, player));
+            return centerHit.getType() == HitResult.Type.MISS ? zoom
+                : Math.max(0f, (float) smolPivot.distanceTo(centerHit.getLocation()) - 0.02f);
+        }
+    }
 
     @Mixin(AvatarRenderer.class)
     public static class SmolNameTagMixin {

@@ -163,6 +163,7 @@
     "SwordBlockingMixin$ModernEquipment",
     "SwordBlockingMixin$ThirdPersonItem",
     "SwordBlockingMixin$ThirdPerson",
+    "SmolPeopleMixin$SmolCameraMixin",
     "SmolPeopleMixin$SmolNameTagMixin",
     "SmolPeopleMixin$SmolPlayerEntityRendererMixin",
     "SmolPeopleMixin$SmolPlayerRendererMixin",

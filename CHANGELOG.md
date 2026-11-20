@@ -3,11 +3,7 @@
 ## 3.2.0
 
 - new feat: Default to light frosted glass at 80% opacity and migrate legacy themes once.
-- bug fix: Respect the Background Blur setting independently of the glass theme.
-- bug fix: Apply glass styling to expanded module settings, Wardrobe, Cape, Config Manager, and the HUD Editor.
-- bug fix: Soften glass edges and smooth ClickGUI transitions and switch outlines.
 - new feat: Save and switch named SkyBlock level color presets.
-- bug fix: Respect Hide My Name when replacing dungeon teammates with class names.
 - new feat: Save and switch Cheating configuration profiles.
 - new feat: Display enabled modules on a customizable HUD.
 - new feat: Show HUD names on hover in the HUD Editor.
@@ -17,20 +13,24 @@
 - new feat: Add Chroma, enter and exit animations, shortest-first sorting, and scrollable visibility groups to the Module List HUD.
 - new feat: Edit HUD positions in game with a movable style panel and a scale readout.
 - new feat: Align HUD positions with an optional 5 px snapping grid.
-- bug fix: Make profile-load confirmation easier to see.
-- bug fix: Animate the Cheating screen when opened by command.
 - new feat: Start Auto Croesus from the Croesus menu.
 - new feat: Edit Custom Triggers on a node canvas with item swapping, item use, and module actions.
-- bug fix: Render Custom Triggers menus above the editor and use the selected ClickGUI font at proportional sizes.
 - new feat: Bind inventory slots to the hotbar with Always, Hovered, and Never marker modes.
 - new feat: Equip pets and change pages with configurable keyboard and mouse shortcuts.
 - new feat: Add Loadout Keybinds with page navigation, slot swapping, and optional auto-equip and auto-close.
 - new feat: Adjust Slayer boss nametag position and scale.
-- bug fix: Preserve the Ultrasequencer sequence when the board hides its tiles.
 - new feat: Group Simon Says, Light Device, Arrow Align, and Auto I4 under Device with individual keybinds and migration for existing settings.
 - new feat: Sync italic styling for the player's custom nickname.
 - new feat: Add optional classic nametag rendering order and sharper antialiasing.
-- bug fix: Prevent the Smol People camera from clipping into blocks.
+- bug fix: Respect the Background Blur setting independently of the glass theme.
+- bug fix: Apply glass styling to expanded module settings, Wardrobe, Cape, Config Manager, and the HUD Editor.
+- bug fix: Soften glass edges and smooth ClickGUI transitions and switch outlines.
+- bug fix: Respect Hide My Name when replacing dungeon teammates with class names.
+- bug fix: Make profile-load confirmation easier to see.
+- bug fix: Animate the Cheating screen when opened by command.
+- bug fix: Render Custom Triggers menus above the editor and use the selected ClickGUI font at proportional sizes.
+- bug fix: Preserve the Ultrasequencer sequence when the board hides its tiles.
+- bug fix: Center the SmolPeople front camera on the miniature player while preserving block collision.
 - bug fix: Group Animation sliders by position, rotation, and swing.
 - bug fix: Rename Auto Click to Auto Clicker in the Cheating interface.
 
