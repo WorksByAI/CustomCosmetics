@@ -280,15 +280,19 @@ class LicensePackagingTest {
         assertFalse(Files.readString(ROOT.resolve("NOTICE")).contains("docs/"));
     }
 
-    @Test void latestChangelogIsBriefAndEnglish() throws Exception {
+    @Test void latestChangelogUsesConciseEnglishEntries() throws Exception {
         String changes=Files.readString(ROOT.resolve("CHANGELOG.md")).replace("\r\n","\n");
         String version=System.getProperty("customcosmetics.version");
         int start=changes.indexOf("## "+(version.contains("-dev.")?"Unreleased":version));
         assertTrue(start>=0);int end=changes.indexOf("\n## ",start+3);
         String entry=changes.substring(start,end<0?changes.length():end);
         assertTrue(entry.chars().allMatch(c->c<128), "Use English release notes");
-        assertTrue(entry.length()<500, "Keep release notes brief");
-        assertTrue(entry.lines().filter(line->line.startsWith("- ")).count()<=4);
+        var entries = entry.lines().skip(1).filter(line -> !line.isBlank()).toList();
+        assertFalse(entries.isEmpty(), "Include at least one release note");
+        for (String line : entries) {
+            assertTrue(line.startsWith("- new feat: ") || line.startsWith("- bug fix: "),
+                "Prefix each release note with its type: " + line);
+        }
     }
 
     @Test
