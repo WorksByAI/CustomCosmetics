@@ -31,7 +31,10 @@ class RemoteAccessTest {
         RemoteAccess.offline(false);var raw=new Fake();var connection=RemoteAccess.manage(raw);
         assertEquals(200,connection.getResponseCode());long before=RemoteAccess.generation();
         var channels=new AtomicInteger();RemoteAccess.channel(()->(AutoCloseable)channels::incrementAndGet);
-        RemoteAccess.offline(true);assertTrue(raw.closed);assertEquals(1,channels.get());assertFalse(RemoteAccess.current(before));
+        RemoteAccess.offline(true);assertTrue(raw.closed.await(2,java.util.concurrent.TimeUnit.SECONDS));
+        long until=System.nanoTime()+java.util.concurrent.TimeUnit.SECONDS.toNanos(2);
+        while(channels.get()==0&&System.nanoTime()<until)Thread.sleep(5);
+        assertEquals(1,channels.get());assertFalse(RemoteAccess.current(before));
         assertThrows(IOException.class,connection::getResponseCode);
         assertThrows(IOException.class,()->RemoteAccess.manage(new Fake()));
         assertThrows(IOException.class,()->RemoteAccess.channel(()->{throw new AssertionError("Offline mode created a socket");}));
@@ -45,12 +48,25 @@ class RemoteAccessTest {
         connection.getOutputStream().write("body".getBytes());
         assertEquals("POST",raw.getRequestMethod());assertEquals("application/json",raw.getRequestProperty("Accept"));
         assertEquals(2500,raw.getReadTimeout());assertFalse(raw.getInstanceFollowRedirects());
-        assertEquals("body",raw.body.toString());connection.disconnect();assertTrue(raw.closed);
+        assertEquals("body",raw.body.toString());connection.disconnect();assertEquals(0,raw.closed.getCount());
     }
-    private static final class Fake extends HttpURLConnection {
-        boolean closed;ByteArrayOutputStream body=new ByteArrayOutputStream();
+    @Test void switchingOfflineInvalidatesRequestsWithoutWaitingForABlockedDisconnect()throws Exception{
+        var entered=new java.util.concurrent.CountDownLatch(1);var release=new java.util.concurrent.CountDownLatch(1);
+        var raw=new Fake(){@Override public void disconnect(){entered.countDown();try{release.await();}catch(InterruptedException e){Thread.currentThread().interrupt();}super.disconnect();}};
+        var managed=RemoteAccess.manage(raw);long generation=RemoteAccess.generation();
+        try(var executor=java.util.concurrent.Executors.newSingleThreadExecutor()){
+            try{
+                executor.submit(()->RemoteAccess.offline(true)).get(1,java.util.concurrent.TimeUnit.SECONDS);
+                assertFalse(RemoteAccess.current(generation));assertThrows(IOException.class,managed::getResponseCode);
+                assertTrue(entered.await(2,java.util.concurrent.TimeUnit.SECONDS));assertEquals(1,raw.closed.getCount());
+            }finally{release.countDown();}
+        }
+        assertTrue(raw.closed.await(2,java.util.concurrent.TimeUnit.SECONDS));
+    }
+    private static class Fake extends HttpURLConnection {
+        final java.util.concurrent.CountDownLatch closed=new java.util.concurrent.CountDownLatch(1);ByteArrayOutputStream body=new ByteArrayOutputStream();
         Fake()throws Exception{super(URI.create("http://localhost:8123").toURL());}
-        @Override public void connect(){} @Override public void disconnect(){closed=true;}
+        @Override public void connect(){} @Override public void disconnect(){closed.countDown();}
         @Override public boolean usingProxy(){return false;}
         @Override public int getResponseCode(){return 200;}
         @Override public OutputStream getOutputStream(){return body;}

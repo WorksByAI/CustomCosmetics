@@ -1154,6 +1154,8 @@
   "customcosmetics.ui.3469955346c6": "Update failed. Your installed mod is unchanged.",
   "customcosmetics.ui.23235772413c": "Update could not be installed. Your mod is unchanged.",
   "customcosmetics.ui.f460e0283fa2": "Update ready. Quit and restart using your launcher.",
+  "customcosmetics.ui.update_helper_stopped": "Update helper stopped. Choose Update Now to prepare again.",
+  "customcosmetics.ui.update_cancelled": "Update cancelled. Choose Update Now to try again.",
   "customcosmetics.ui.542a78a85028": "Minecraft will restart after the update is installed.",
   "customcosmetics.ui.64d0b3adcd2d": "Font",
   "customcosmetics.ui.6be36ca49ee8": "Missing",

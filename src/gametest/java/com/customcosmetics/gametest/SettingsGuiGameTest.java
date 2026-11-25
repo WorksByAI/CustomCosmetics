@@ -463,7 +463,22 @@ final class SettingsGuiGameTest {
             context.runOnClient(client->{if(!net.fabricmc.loader.api.FabricLoader.getInstance().isDevelopmentEnvironment())throw new AssertionError("Download test requires an isolated development client");ClientUiAccess.setScreen(client,new UpdateScreen(ClientUiAccess.screen(client),"2.0.0-dev.6","2.0.0",false));});
             popupClick(context,"Update Now");context.waitFor(client->{try{return !(Boolean)read(ClientUiAccess.screen(client),"busy");}catch(Exception error){throw new AssertionError(error);}},200);
             context.runOnClient(client->{if(!read(ClientUiAccess.screen(client),"status").equals("Update failed. Your installed mod is unchanged."))throw new AssertionError("Development update was not rejected safely");ClientUiAccess.screen(client).onClose();});
+            context.runOnClient(client->{
+                var parent=ClientUiAccess.screen(client);var screen=new UpdateScreen(parent,"3.2.0","3.2.1",false);
+                ClientUiAccess.setScreen(client,screen);
+                var download=new java.util.concurrent.CompletableFuture<>();
+                var task=UpdateScreen.class.getDeclaredField("downloadTask");task.setAccessible(true);task.set(screen,download);
+                var busy=UpdateScreen.class.getDeclaredField("busy");busy.setAccessible(true);busy.set(screen,true);
+                screen.onClose();if(!download.isCancelled()||ClientUiAccess.screen(client)!=parent)throw new AssertionError("Closing the update screen did not cancel its download");
+                ClientUiAccess.setScreen(client,screen);if((Boolean)busy.get(screen))throw new AssertionError("Restoring the update screen left it permanently busy");
+                ClientUiAccess.setScreen(client,parent);
+                var second=new UpdateScreen(parent,"3.2.0","3.2.1",false);ClientUiAccess.setScreen(client,second);
+                var preparation=new java.util.concurrent.CompletableFuture<>();
+                var arm=UpdateScreen.class.getDeclaredField("armingTask");arm.setAccessible(true);arm.set(second,preparation);
+                ClientUiAccess.setScreen(client,parent);if(!preparation.isCancelled())throw new AssertionError("Replacing the update screen left its restart preparation running");
+            });
             System.out.println("TITLE_UPDATE_THREE_CHOICES_DEFER_LATER_AND_SAFE_DEVELOPMENT_GUARD_OK");
+            System.out.println("UPDATE_SCREEN_CLOSE_AND_REPLACEMENT_CANCEL_BACKGROUND_WORK_OK");
         }finally{field.set(null,original);context.runOnClient(client->{ConfigManager.updateCheckEnabled=enabled;ConfigManager.offlineMode=offline;ConfigManager.uiLanguage=language;ConfigManager.updateOnNextLaunch=false;UiLocale.refresh();ClientUiAccess.setScreen(client,new net.minecraft.client.gui.screens.TitleScreen());});}
     }
     private static void popupClick(ClientGameTestContext context,String title)throws Exception{

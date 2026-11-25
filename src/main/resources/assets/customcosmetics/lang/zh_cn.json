@@ -1154,6 +1154,8 @@
   "customcosmetics.ui.3469955346c6": "更新失败，已保留当前版本。",
   "customcosmetics.ui.23235772413c": "无法安装更新，已保留当前版本。",
   "customcosmetics.ui.f460e0283fa2": "更新已就绪，请退出并使用启动器重新启动。",
+  "customcosmetics.ui.update_helper_stopped": "更新助手已停止，请点击立即更新重新准备。",
+  "customcosmetics.ui.update_cancelled": "更新已取消，请点击立即更新重试。",
   "customcosmetics.ui.542a78a85028": "更新完成后将自动重启 Minecraft。",
   "customcosmetics.ui.64d0b3adcd2d": "字体",
   "customcosmetics.ui.6be36ca49ee8": "缺失",

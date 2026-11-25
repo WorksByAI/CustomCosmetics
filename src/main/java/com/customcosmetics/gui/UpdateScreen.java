@@ -11,29 +11,53 @@ import static com.customcosmetics.gui.PinkUi.*;
 /** Startup-only offer. Downloads and helper processes require player opt-in. */
 public final class UpdateScreen extends ThemedScreen {
     private final Screen parent;private final String installed,latest;private final boolean automatic;
-    private boolean began,busy,arming,manual;private volatile boolean abandoned;private String status="";private int x,y,w,h;
+    private boolean began,busy,arming,manual,exiting;private volatile boolean abandoned;private String status="";private int x,y,w,h;
+    private CompletableFuture<?> downloadTask,armingTask;
+    private long attempt;
     public UpdateScreen(Screen parent,String installed,String latest,boolean automatic){super(Component.literal("Update Available"));this.parent=parent;this.installed=installed;this.latest=latest;this.automatic=automatic;}
     @Override protected void init(){
+        abandoned=false;
         w=Math.min(470,width-24);h=Math.min(228,height-24);x=(width-w)/2;y=(height-h)/2;
-        var now=addRenderableWidget(new PinkUi.Action(x+12,y+h-92,w-24,24,manual?"Quit Minecraft":"Update Now",true,()->{if(manual)minecraft.stop();else begin();}));now.active=!busy;
+        var now=addRenderableWidget(new PinkUi.Action(x+12,y+h-92,w-24,24,manual?"Quit Minecraft":"Update Now",true,()->{if(manual)quitForUpdate();else begin();}));now.active=!busy;
         var next=addRenderableWidget(new PinkUi.Action(x+12,y+h-62,w-24,24,"Update after next launch",false,()->{ConfigManager.updateOnNextLaunch=true;ConfigManager.saveConfig();ClientUiAccess.setScreen(minecraft,parent);}));next.active=!busy&&!manual;
         var later=addRenderableWidget(new PinkUi.Action(x+12,y+h-32,w-24,24,"Update Later",false,this::onClose));later.active=!arming;
         if(automatic&&!began)begin();
     }
     private void begin(){
-        if(busy)return;began=true;busy=true;status="Downloading verified update...";rebuildWidgets();
-        AutomaticUpdates.download(installed).whenComplete((prepared,error)->minecraft.execute(()->{
-            if(abandoned||ClientUiAccess.screen(minecraft)!=this)return;
+        if(busy)return;long request=++attempt;began=true;busy=true;status="Downloading verified update...";rebuildWidgets();
+        var download=AutomaticUpdates.download(installed);downloadTask=download;
+        download.whenComplete((prepared,error)->minecraft.execute(()->{
+            if(request!=attempt||abandoned||ClientUiAccess.screen(minecraft)!=this)return;
             if(error!=null){busy=false;status="Update failed. Your installed mod is unchanged.";rebuildWidgets();return;}
             arming=true;status="Preparing automatic restart...";rebuildWidgets();
-            CompletableFuture.supplyAsync(()->{try{return AutomaticUpdates.arm(prepared);}catch(Exception failure){throw new CompletionException(failure);}}).whenComplete((restart,failure)->minecraft.execute(()->{
+            var arm=AutomaticUpdates.armAsync(prepared);armingTask=arm;
+            arm.whenComplete((restart,failure)->minecraft.execute(()->{
+                if(request!=attempt||abandoned||ClientUiAccess.screen(minecraft)!=this)return;
                 arming=busy=false;
                 if(failure!=null){status="Update could not be installed. Your mod is unchanged.";rebuildWidgets();return;}
                 ConfigManager.updateOnNextLaunch=false;ConfigManager.saveConfig();
-                if(restart)minecraft.stop();else{manual=true;status="Update ready. Quit and restart using your launcher.";rebuildWidgets();}
+                if(restart)quitForUpdate();else{manual=true;status="Update ready. Quit and restart using your launcher.";rebuildWidgets();}
             }));
         }));
     }
+    @Override public void tick(){
+        super.tick();
+        if(manual&&!AutomaticUpdates.armedReady()){
+            manual=false;status="Update helper stopped. Choose Update Now to prepare again.";rebuildWidgets();
+        }
+    }
+    @Override public void removed(){
+        abandoned=true;attempt++;
+        if(downloadTask!=null)downloadTask.cancel(true);
+        if(armingTask!=null)armingTask.cancel(true);
+        if(!exiting&&(arming||manual))AutomaticUpdates.cancelArmed();
+        if(!exiting){
+            if(busy)status="Update cancelled. Choose Update Now to try again.";
+            busy=arming=manual=false;
+        }
+        super.removed();
+    }
+    private void quitForUpdate(){exiting=true;minecraft.stop();}
     @Override public void extractBackground(GuiGraphicsExtractor g,int mx,int my,float dt){
         if(parent instanceof net.minecraft.client.gui.screens.TitleScreen){parent.extractBackground(g,-1,-1,dt);parent.extractRenderState(g,-1,-1,dt);g.fill(0,0,width,height,0x88000000);}
         else super.extractBackground(g,mx,my,dt);

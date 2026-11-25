@@ -38,4 +38,35 @@ class UpdateInstallerProcessTest {
             try(var files=Files.walk(temporary)){for(var file:files.filter(Files::isRegularFile).toList())assertFalse(new String(Files.readAllBytes(file),StandardCharsets.ISO_8859_1).contains(ephemeral),"Launch argument persisted to disk");}
         }finally{owner.destroyForcibly();helper.destroyForcibly();}
     }
+    @Test void windowsSharingViolationIsRetriedUntilTheOtherJarHandleCloses()throws Exception{
+        org.junit.jupiter.api.Assumptions.assumeTrue(System.getProperty("os.name").startsWith("Windows"));
+        Path current=temporary.resolve("locked.jar"),candidate=temporary.resolve("new.jar"),backup=temporary.resolve("old.jar.backup");
+        jar(current,"old");jar(candidate,"new");String old=UpdateInstaller.digest(current),next=UpdateInstaller.digest(candidate);
+        try(var executor=java.util.concurrent.Executors.newSingleThreadExecutor()){
+            java.util.concurrent.Future<?> replacement;
+            try(var lock=java.nio.channels.FileChannel.open(current,StandardOpenOption.READ,com.sun.nio.file.ExtendedOpenOption.NOSHARE_DELETE)){
+                replacement=executor.submit(()->{try{UpdateInstaller.installWithRetry(candidate,current,backup,old,next,java.time.Duration.ofSeconds(5));}catch(Exception e){throw new java.util.concurrent.CompletionException(e);}});
+                Thread.sleep(400);assertFalse(replacement.isDone(),"A transient sharing violation must be retried");assertEquals(old,UpdateInstaller.digest(current));
+            }
+            replacement.get(5,TimeUnit.SECONDS);
+        }
+        assertEquals(next,UpdateInstaller.digest(current));assertEquals(old,UpdateInstaller.digest(backup));
+    }
+    @Test void anImmediatelyFailingRestartCannotBeReportedAsASuccessfulGameRestart()throws Exception{
+        Path current=temporary.resolve("current.jar"),candidate=temporary.resolve("candidate.jar"),backup=temporary.resolve("backup.jar"),status=temporary.resolve("status");
+        jar(current,"old");jar(candidate,"new");
+        String mainPath=Path.of(UpdateInstaller.class.getProtectionDomain().getCodeSource().getLocation().toURI()).toString();
+        String fixturePath=Path.of(UpdaterProcessFixture.class.getProtectionDomain().getCodeSource().getLocation().toURI()).toString();
+        var helper=new ProcessBuilder(java(),"-cp",mainPath,UpdateInstaller.class.getName()).start();
+        try{
+            try(var out=new DataOutputStream(helper.getOutputStream())){
+                out.writeInt(0x43435550);out.writeLong(Long.MAX_VALUE);out.writeUTF(candidate.toString());out.writeUTF(current.toString());out.writeUTF(backup.toString());out.writeUTF(status.toString());
+                out.writeUTF(UpdateInstaller.digest(current));out.writeUTF(UpdateInstaller.digest(candidate));out.writeUTF(fixturePath);
+                var command=List.of(java(),"-cp",fixturePath,UpdaterProcessFixture.class.getName(),"fail");out.writeInt(command.size());for(String arg:command)out.writeUTF(arg);
+            }
+            assertEquals("READY",new BufferedReader(new InputStreamReader(helper.getInputStream())).readLine());
+            assertTrue(helper.waitFor(10,TimeUnit.SECONDS));assertEquals(UpdateInstaller.digest(candidate),UpdateInstaller.digest(current));
+            assertEquals("installed_restart_exited_23",Files.readString(status));
+        }finally{helper.destroyForcibly();}
+    }
 }

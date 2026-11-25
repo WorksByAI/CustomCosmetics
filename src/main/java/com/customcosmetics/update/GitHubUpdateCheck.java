@@ -9,7 +9,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ForkJoinPool;
+import java.time.Duration;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -40,7 +40,7 @@ public final class GitHubUpdateCheck {
         start(() -> {
             try { return fetch(API, installed, edition); }
             catch (IOException | RuntimeException unavailable) { return Optional.empty(); }
-        }, ForkJoinPool.commonPool());
+        }, UpdateIo.WORKERS);
     }
     void start(Supplier<Optional<String>> fetch, Executor executor) {
         if (!enabled.getAsBoolean() || !started.compareAndSet(false, true)) return;
@@ -55,6 +55,9 @@ public final class GitHubUpdateCheck {
     public String poll(boolean worldReady) { if(!enabled.getAsBoolean()){pending.set(null);return null;}return worldReady ? pending.getAndSet(null) : null; }
 
     static Optional<String> fetch(URI endpoint, String installed, ClientEdition edition) throws IOException {
+        return UpdateIo.await(() -> fetchResponse(endpoint, installed, edition), Duration.ofSeconds(10));
+    }
+    private static Optional<String> fetchResponse(URI endpoint, String installed, ClientEdition edition) throws IOException {
         HttpURLConnection connection = com.customcosmetics.sync.RemoteAccess.manage((HttpURLConnection) endpoint.toURL().openConnection());
         connection.setConnectTimeout(5000); connection.setReadTimeout(5000);
         connection.setInstanceFollowRedirects(false); connection.setUseCaches(false);

@@ -20,6 +20,7 @@ public final class StudioGameTest implements FabricClientGameTest {
         if(Boolean.getBoolean("customcosmetics.fontPreviewOnly")){fontPreview(context);return;}
         if(Boolean.getBoolean("customcosmetics.updateRestartProbe")){try{UpdateRestartGameTest.run(context);}catch(Exception error){throw new AssertionError(error);}return;}
         try{SettingsGuiGameTest.checkUpdateOffer(context);}catch(Exception error){throw new AssertionError(error);}
+        if(Boolean.getBoolean("customcosmetics.updateUiOnly"))return;
         context.runOnClient(client->{ConfigManager.syncEnabled=false;ConfigManager.swordBlockingSyncEnabled=false;ConfigManager.offlineMode=false;FeatureModules.all(true);});
         try(var world=context.worldBuilder().create()){
             world.getServer().runCommand("gamemode creative @a");context.waitTicks(10);
@@ -48,6 +49,7 @@ public final class StudioGameTest implements FabricClientGameTest {
                 RemoteAccess.channel(()->(AutoCloseable)closed::incrementAndGet);
                 ClientUiAccess.setScreen(client,new CosmeticsScreen(null,CosmeticsScreen.Page.SIZE));
             });click(context,"Settings",PinkUi.Action.class);click(context,"Mode: Online",PinkUi.Action.class);
+            context.waitFor(client->closed.get()==1,40);
             context.runOnClient(client->{
                 if(!ConfigManager.offlineMode||closed.get()!=1||PresenceSync.syncOnce()||!PresenceSync.remoteNicknames().isEmpty())
                     throw new AssertionError("Offline button did not cancel connections and suppress remote synchronization");

@@ -79,4 +79,19 @@ class AutomaticUpdatesTest {
         UpdateInstaller.install(next,current,backup,old,hash);assertEquals("new",Files.readString(current));assertEquals("old",Files.readString(backup));
         Files.writeString(current,"manually changed");assertThrows(IOException.class,()->UpdateInstaller.install(next,current,backup,old,hash));assertEquals("manually changed",Files.readString(current));
     }
+    @Test void productionHelperHandshakeWorksAndCancellingItLeavesTheInstalledJarUntouched()throws Exception{
+        Path current=directory.resolve("installed.jar"),next=directory.resolve("verified-update.jar");
+        Files.writeString(current,"old");Files.writeString(next,"new");
+        var prepared=new AutomaticUpdates.Prepared(next,current,directory,UpdateInstaller.digest(current),UpdateInstaller.digest(next));
+        Process helper=null;
+        try{
+            AutomaticUpdates.armAsync(prepared).get(20,java.util.concurrent.TimeUnit.SECONDS);
+            var field=AutomaticUpdates.class.getDeclaredField("armed");field.setAccessible(true);helper=(Process)((java.util.concurrent.atomic.AtomicReference<?>)field.get(null)).get();
+            assertTrue(AutomaticUpdates.armedReady());assertEquals("waiting_for_exit",Files.readString(directory.resolve("update.status")));
+            assertEquals("old",Files.readString(current));
+        }finally{
+            AutomaticUpdates.cancelArmed();if(helper!=null)assertTrue(helper.waitFor(5,java.util.concurrent.TimeUnit.SECONDS));
+        }
+        assertFalse(AutomaticUpdates.armedReady());assertEquals("old",Files.readString(current));
+    }
 }

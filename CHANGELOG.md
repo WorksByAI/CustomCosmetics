@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- bug fix: Keep offline switches responsive and bound update checks and downloads with cancellable deadlines.
+- bug fix: Restart Prism-launched games through their real entry point and detect immediate restart failures.
+- bug fix: Retry transient update file locks and keep prepared updates waiting until Minecraft exits.
+
 ## 3.2.0
 
 - new feat: Default to light frosted glass at 80% opacity and migrate legacy themes once.

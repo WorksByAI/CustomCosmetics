@@ -24,7 +24,11 @@ public final class RemoteAccess {
             ConfigManager.offlineMode = offline; generation++;
             closing = new ArrayList<>(resources); resources.clear();
         }
-        for (var resource : closing) try { resource.close(); } catch (Exception ignored) {}
+        // disconnect()/close() can wait behind a socket read lock. The UI only invalidates
+        // the generation synchronously; physical cleanup must never hold up a client tick.
+        for (var resource : closing) Thread.ofVirtual().name("csb-offline-close").start(() -> {
+            try { resource.close(); } catch (Exception ignored) {}
+        });
     }
     @FunctionalInterface public interface Factory<T> { T create() throws Exception; }
     public static <T extends AutoCloseable> T channel(Factory<T> factory) throws Exception {
@@ -47,6 +51,7 @@ public final class RemoteAccess {
         private final HttpURLConnection delegate;
         private final long version;
         private volatile boolean closed;
+        private final java.util.concurrent.atomic.AtomicBoolean closing=new java.util.concurrent.atomic.AtomicBoolean();
         Managed(HttpURLConnection delegate, long version) { super(delegate.getURL()); this.delegate = delegate; this.version = version; }
         private void check() throws IOException { if (closed || !current(version)) throw new IOException("Remote request cancelled."); }
         @Override public void connect() throws IOException { check(); delegate.connect(); }
@@ -56,7 +61,10 @@ public final class RemoteAccess {
         @Override public String getResponseMessage() throws IOException { check(); return delegate.getResponseMessage(); }
         @Override public InputStream getErrorStream() { return current(version) ? delegate.getErrorStream() : null; }
         @Override public void disconnect() { close(); }
-        @Override public void close() { closed = true; delegate.disconnect(); release(this); }
+        @Override public void close() {
+            if(!closing.compareAndSet(false,true))return;
+            closed=true;try{delegate.disconnect();}finally{release(this);}
+        }
         @Override public boolean usingProxy() { return delegate.usingProxy(); }
         @Override public void setRequestMethod(String method) throws ProtocolException { delegate.setRequestMethod(method); }
         @Override public String getRequestMethod() { return delegate.getRequestMethod(); }
